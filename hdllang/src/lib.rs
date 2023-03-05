@@ -2,6 +2,10 @@ pub fn add(left: usize, right: usize) -> usize {
     left + right
 }
 
+pub fn say_something() -> String {
+    String::from("Hello, i am alive.")
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
