@@ -59,15 +59,54 @@ S ::= <top_defs>
 
 # Numeric constants
 <number> ::= TODO
+<constant> ::= TODO
 
 # Module definition
 <module_def> ::= "module" <id> "{" <module_def_stmts> "}"
 <module_def_stmts> ::= <module_def-stmt> | <module_def_stmts> <module_def_stmt>
-<module_def_stmt> ::= TODO
+<module_def_stmt> ::= <variable_decl> | <variable_block>
 
 # Module implementation
 <module_impl> ::= "impl" <id> "{" <module_impl_stmts> "}"
 <module_impl_stmts> ::= <module_impl_stmt> | <module_impl_stmts> <module_impl_stmt>
-<module_impl_stmt> ::= TODO
+<module_impl_stmt> ::= <variable_decl> | <variable_def>
+
+# Variable declarations
+<variable_decl> ::= <variable_type> <id> | <variable_decl> <array_declarator>
+<array_declarator> ::= "[" <number> "]"
+<variable_type> ::= "auto" | "int" | "wire" | "wire" "<" <number> ">" # TODO - should these be LT and GT?
+<variable_type_specifier> ::= "signed" | "unsigned" | "tristate" | "const" | "comb" | "sync" "(" <clocking_expression> ")" # TODO - comb clock domain
+<variable_type_specifiers> ::= <variable_type_specifier> | <variable_type_specifiers> <variable_type_specifier>
+
+# Variable blocks
+<variable_block> ::= <variable_type_specifiers> "{" <variable_block_stmts> "}"
+<variable_block_stmts> ::= <variable_block_stmt> | <variable_block_stmts> <variable_block_stmt>
+<variable_block_stmt> ::= <variable_decl> | <variable_block>
+
+# Variable definitions (declaration + assignment)
+<variable_def> ::= <variable_decl> "=" <expression>
+
+
+# Clocking expressions
+<clocking_expression> ::= # TODO
+
+# TODO
+# Expressions
+<primary_expression> ::= "auto" | <id> | <constant> | "(" <expression> ")"
+<expression> ::= 
+	<and_expression>
+	| <or_expression>
+	| <xor_expression>
+	| <multiplicative_expression>
+	| <additive_expression>
+	| <shift_expression>
+	| <concat_expression>
+	| <ternary_expression>
+	| <conditional_expression>
+	| <match_expression>
+	| <cast_expression>
+	| <relational_expression>
+	| <compound_expression>
+	| <unary_expression>
 
 ```
