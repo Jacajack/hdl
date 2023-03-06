@@ -1,5 +1,5 @@
 use crate::symtable::SymbolKey;
-use logos::Logos;
+use logos::{Logos, Filter, Skip};
 
 // TODO token or struct?
 pub struct LexerError {
@@ -35,16 +35,30 @@ fn parse_token_keyword(lex: &mut logos::Lexer<TokenKind>) -> Option<KeywordType>
 	}
 }
 
-/**
-	This obviously doesn't make any sense now. This is just a code draft.
-*/
+fn parse_block_comment(lex: &mut logos::Lexer<TokenKind>) -> Filter<()> {
+	match lex.remainder().find("*/") {
+		Some(offset) => {lex.bump(offset + 2); Filter::Skip}
+		None => Filter::Emit(())
+	}
+}
+
+fn parse_line_comment(lex: &mut logos::Lexer<TokenKind>) -> Skip {
+	match lex.remainder().find("\n") {
+		Some(offset) => lex.bump(offset + 1),
+		None => lex.bump(lex.remainder().len()),
+	}
+	Skip
+}
+
 #[derive(Logos, Debug)]
 pub enum TokenKind {
 	#[error]
 	#[regex(r"[ \t\n\f]+", logos::skip)]
+	#[token("/*", parse_block_comment)]
+	#[token("//", parse_line_comment)]
 	Error,
 
-	#[regex("[0-9]+", parse_token_number)]
+	#[regex(r"[0-9]+", parse_token_number)]
 	Number(u64),
 
 	// #[regex("[a-zA-Z_]+")]
