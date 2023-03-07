@@ -10,10 +10,10 @@ MIN_NON_TERMINALS = 0
 MAX_NON_TERMINALS = 15
 
 fuzzer = ProbabilisticGeneratorGrammarCoverageFuzzer(
-    grammar,
-    min_nonterminals = MIN_NON_TERMINALS,
+	grammar,
+	min_nonterminals = MIN_NON_TERMINALS,
 	max_nonterminals = MAX_NON_TERMINALS,
-    log = False
+	log = False
 )
 
 while len(fuzzer.missing_expansion_coverage()) != 0:
