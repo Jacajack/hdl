@@ -18,7 +18,6 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - name: Test
-      working-directory: ./hdlc
       run: cargo test -p hdl -p hdllang --verbose
     
 # TODO add iverilog tests
