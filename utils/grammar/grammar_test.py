@@ -4,12 +4,13 @@ from fuzzingbook.GeneratorGrammarFuzzer import ProbabilisticGeneratorGrammarCove
 from grammar import GRAMMAR
 
 assert is_valid_grammar(GRAMMAR)
+grammar = convert_ebnf_grammar(GRAMMAR)
 
 MIN_NON_TERMINALS = 0
 MAX_NON_TERMINALS = 15
 
 fuzzer = ProbabilisticGeneratorGrammarCoverageFuzzer(
-    GRAMMAR,
+    grammar,
     min_nonterminals = MIN_NON_TERMINALS,
 	max_nonterminals = MAX_NON_TERMINALS,
     log = False
