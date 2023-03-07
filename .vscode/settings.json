@@ -4,5 +4,5 @@
 		"--disable=missing-class-docstring",
 		"--disable=missing-function-docstring"
 	],
-	"python.analysis.typeCheckingMode": "basic"
+	"python.analysis.typeCheckingMode": "off"
 }
