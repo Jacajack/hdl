@@ -10,30 +10,16 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  hdllang:
-    name: Build hdllang
+  cargo-main:
+    name: Cargo build & test
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
-    - name: Build hdllang
-      working-directory: ./hdlc
+    - name: Build
       run: cargo build --verbose
-    - name: Test hdllang
+    - name: Test
       working-directory: ./hdlc
-      run: cargo test --verbose
+      run: cargo test -p hdl -p hdllang --verbose
     
-  hdlc:
-    name: Build hdlc
-    runs-on: ubuntu-latest
-    needs: [hdllang]
-    steps:
-    - uses: actions/checkout@v3
-    - name: Build hdlc
-      working-directory: ./hdlc
-      run: cargo build --verbose
-    - name: Test hdlc
-      working-directory: ./hdlc
-      run: cargo test --verbose
-
 # TODO add iverilog tests
 # TODO add fuzzer tests

@@ -2,6 +2,7 @@ use logos::{Logos, Filter, Skip};
 use std::ops::Range;
 
 // TODO token or struct?
+#[derive(Debug)]
 pub struct LexerError {
 	
 }
