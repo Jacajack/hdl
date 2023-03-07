@@ -1,5 +1,5 @@
-use crate::symtable::SymbolKey;
 use logos::{Logos, Filter, Skip};
+use std::ops::Range;
 
 // TODO token or struct?
 pub struct LexerError {
@@ -12,7 +12,7 @@ pub struct SourceLocation {
 }
 
 #[derive(Debug)]
-pub enum KeywordType {
+pub enum KeywordKind {
 	If,
 	For,
 	Wire,
@@ -25,13 +25,6 @@ fn parse_token_number(lex: &mut logos::Lexer<TokenKind>) -> Option<u64> {
 	match lex.slice().parse() {
 		Ok(s) => Some(s),
 		Err(_) => None
-	}
-}
-
-fn parse_token_keyword(lex: &mut logos::Lexer<TokenKind>) -> Option<KeywordType> {
-	match lex.slice() {
-		"if" => Some(KeywordType::If),
-		_ => None
 	}
 }
 
@@ -61,11 +54,12 @@ pub enum TokenKind {
 	#[regex(r"[0-9]+", parse_token_number)]
 	Number(u64),
 
-	// #[regex("[a-zA-Z_]+")]
-	// Id(SymbolKey),
+	#[regex("[a-zA-Z_]+", |lex| String::from(lex.slice()))]
+	Id(String),
 
-	#[regex("[a-zA-Z_]+", parse_token_keyword)]
-	Keyword(KeywordType),
+	#[token("if",  |_| KeywordKind::If)]
+	#[token("for", |_| KeywordKind::For)]
+	Keyword(KeywordKind),
 
 	#[token("(")]
 	LPar,
@@ -109,7 +103,7 @@ pub enum TokenKind {
 
 pub struct Token {
 	pub kind: TokenKind,
-	pub location: SourceLocation
+	pub range: Range<usize>,
 }
 
 pub trait Lexer {
@@ -127,16 +121,13 @@ impl LogosLexer {
 
 impl Lexer for LogosLexer {
 	fn process(&mut self, source: &str) -> Result<Vec<Token>, LexerError> {
-		let mut lexer = TokenKind::lexer(source);
+		let lexer = TokenKind::lexer(source);
 		let mut tokens = Vec::<Token>::new();
 
-		while let Some(token_kind) = lexer.next() {
+		for (token_kind, range) in lexer.spanned() {
 			tokens.push(Token{
 				kind: token_kind,
-				location: SourceLocation {
-					offset: 0,
-					size: 0
-				}
+				range: range,
 			});
 		}
 
