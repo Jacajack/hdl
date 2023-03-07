@@ -1,0 +1,9 @@
+[package]
+name = "hdl"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+"hdllang" = {path = "hdllang"}
+"miette" = {version = ">=5.5", features = ["fancy"]}
+"thiserror" = "1.0"
