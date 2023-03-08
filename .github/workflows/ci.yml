@@ -18,6 +18,8 @@ jobs:
     - name: Build
       run: cargo build --verbose
     - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: "post-cargo-build"
     
   cargo-test:
     name: Cargo test
@@ -25,6 +27,8 @@ jobs:
     needs: [cargo-build]
     steps:
     - uses: Swatinem/rust-cache@v2
+      with:
+          shared-key: "post-cargo-build"
     - name: Tests
       run: cargo test -p hdl -p hdllang --verbose
     
