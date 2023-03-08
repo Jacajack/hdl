@@ -10,14 +10,21 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  cargo-main:
-    name: Cargo build & test
+  cargo-build:
+    name: Cargo build
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v3
     - name: Build
       run: cargo build --verbose
-    - name: Test
+    - uses: Swatinem/rust-cache@v2
+    
+  cargo-test:
+    name: Cargo test
+    runs-on: ubuntu-latest
+    steps:
+    - uses: Swatinem/rust-cache@v2
+    - name: Tests
       run: cargo test -p hdl -p hdllang --verbose
     
 # TODO add iverilog tests
