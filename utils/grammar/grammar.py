@@ -35,11 +35,17 @@ GRAMMAR = {
 	
 	# Variable declarations
 	"<variable_decl>": ["<variable_declarator>;"],
-	"<variable_declarator>": ["<type_name> <id><array_declarator>?"],
-	"<type_name>": ["<variable_type_specifiers>? <variable_type><vector_declarator>?"],
-	"<array_declarator>": ["[<expression>]"],
+	"<variable_declarator>": ["<type_name> <id><array_declarator>*"],
+	"<type_name>": ["<variable_type_specifiers>? <variable_type><vector_declarator>?"], # TODO what about wire<4>[16]
+	"<array_declarator>": ["<index_expression>"],
 	"<vector_declarator>": ["<<expression>>"],
-	"<variable_type>": ["auto", "int", "wire", "bus"],
+	"<variable_type>":[
+    	"auto",
+        "int",
+        "wire",
+        "bus",
+        "node",
+    ],
 	"<variable_type_specifier>": [
 		"signed",
 		"unsigned",
@@ -65,15 +71,22 @@ GRAMMAR = {
 	"<assignment_stmt>": ["<id> = <expression>;"],
 	
 	# For statement
-	"<for_stmt>": ["for (<expression>) { <module_impl_stmt>* }"], # TODO
+	"<for_stmt>": ["for (<id> = <range_expression>) { <module_impl_stmt>* }"],
 
 	# If statement
 	"<if_stmt>": ["if (<expression>) { <module_impl_stmt>* }"],
 
 	# Module instantiation
 	# TODO fix commas
-	"<instantiation>": ["<id> <id> { <instantiation_stmts> };"],
-	"<instantiation_stmts>": [
+	"<instantiation>": [
+    	"<id> <id> { <instantiation_stmt_list> };",
+    	"<id> <id> { <instantiation_stmt_list>, };",
+    ],
+	"<instantiation_stmt_list>": [
+		"<instantiation_stmt>",
+        "<instantiation_stmt_list>, <instantiation_stmt>",
+	],
+	"<instantiation_stmt>": [
 		"<id>: <expression>",
 		"<id>: <variable_declarator>",
 		"<id>: auto",
@@ -92,10 +105,26 @@ GRAMMAR = {
 	"<expression>": [
 		"<ternary_expression>"
 	],
+    
+	"<range_expression>": [
+		"<index_expression>",
+        "[<expression> : <expression>]",
+        "[<expression> :+ <expression>]",
+	],
+    
+	"<index_expression>": [
+		"[<expression>]",
+	],
 	
 	# Match expressions
-	# TODO fix commas
-	"<match_expression>": ["match(<expression>) {<match_expression_stmt>+}"],
+	"<match_expression>": [
+    	"match(<expression>) {<match_expression_stmt_list>+}"
+    	"match(<expression>) {<match_expression_stmt_list>+,}"
+    ],
+    "<match_expression_stmt_list>":[
+		"<match_expression_stmt>",
+		"<match_expression_stmt_list>, <match_expression_stmt>",
+	],
 	"<match_expression_stmt>": [
 		"<expression>: <expression>",
 		"default: <expression>",
@@ -110,14 +139,22 @@ GRAMMAR = {
 	],
 	
 	# Compound expressions
-	"<compound_expression>": ["{<compound_expression_part>}"],
-	"<compound_expression_part>": ["<expression>", "<compound_expression_part>, <expression>"],
+	"<compound_expression>": [
+		"{<expression_list>}",
+		"{<expression_list>,}",
+	],
+    
+	# Comma separated expressions
+	"<expression_list>": [
+		"<expression>",
+        "<expression_list>, <expression>",
+	],
 
 	# Precedence: 0
 	# TODO add function call (for future)
 	"<postfix_expression>": [
 		"<primary_expression>",
-		"<primary_expression>[<expression>]"
+		"<primary_expression><range_expression>"
 	],
 	
 	# Precedence: 1
@@ -217,5 +254,7 @@ GRAMMAR = {
 		"<concat_expression>",
 		"<concat_expression> ? <expression> : <ternary_expression>",
 	],
+    
+	
 }
 
