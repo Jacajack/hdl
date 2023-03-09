@@ -25,7 +25,7 @@ GRAMMAR = {
 	"<module_impl>": ["impl <id> { <module_impl_stmt>* }"],
 	"<module_impl_stmt>": [
 		"<variable_decl>",
-		"<variable_block>", # TODO blocks with initializers should be allowed here
+		"<variable_block>",
 		"<variable_def>",
 		"<assignment_stmt>",
 		"<if_stmt>",
@@ -59,16 +59,19 @@ GRAMMAR = {
 	"<variable_type_specifiers>": ["<variable_type_specifier>", "<variable_type_specifiers> <variable_type_specifier>"],
 	
 	# Variable blocks
-	# TODO maybe allow definitions in blocks here and exclude them on semantic level in port lists
-	"<variable_block>": ["<variable_type_specifiers> { <variable_block_stmts> };"],
-	"<variable_block_stmts>": ["<variable_block_stmt>", "<variable_block_stmts> <variable_block_stmt>"],
-	"<variable_block_stmt>": ["<variable_decl>", "<variable_block>"],
+	"<variable_block>": ["<variable_type_specifiers> { <variable_block_stmt>* };"],
+	"<variable_block_stmt>": [
+    	"<variable_decl>",
+    	"<variable_def>",
+        "<variable_block>"
+    ],
 	
 	# Variable definitions
 	"<variable_def>": ["<variable_declarator> = <expression>;"],
 	
 	# Standalone assignment
-	"<assignment_stmt>": ["<id> = <expression>;"],
+	"<assignment_op>": ["=", "+=", "&=", "^=", "|="],
+	"<assignment_stmt>": ["<expression> <assignment_op> <expression>;"],
 	
 	# For statement
 	"<for_stmt>": ["for (<id> = <range_expression>) { <module_impl_stmt>* }"],
@@ -77,7 +80,6 @@ GRAMMAR = {
 	"<if_stmt>": ["if (<expression>) { <module_impl_stmt>* }"],
 
 	# Module instantiation
-	# TODO fix commas
 	"<instantiation>": [
     	"<id> <id> { <instantiation_stmt_list> };",
     	"<id> <id> { <instantiation_stmt_list>, };",
@@ -152,9 +154,11 @@ GRAMMAR = {
 
 	# Precedence: 0
 	# TODO add function call (for future)
+	# TODO add .
+	# TODO add ::??????
 	"<postfix_expression>": [
 		"<primary_expression>",
-		"<primary_expression><range_expression>"
+		"<primary_expression><range_expression>",
 	],
 	
 	# Precedence: 1
@@ -165,8 +169,6 @@ GRAMMAR = {
 	],
 	
 	# Precedence: 2
-	# TODO do we really want this style of casts?
-	# TODO maybe cast<T>()
 	"<cast_expression>": ["<unary_expression>", "(<type_name>) <unary_expression>"],
 	
 	# Precedence: 3
@@ -231,28 +233,19 @@ GRAMMAR = {
 	# Precedence: 11
 	"<and_expression>": [
 		"<bitwise_or_expression>",
-		"<and_expression> & <bitwise_or_expression>",
+		"<and_expression> && <bitwise_or_expression>",
 	],
 	
 	# Precedence: 12
 	"<or_expression>": [
 		"<and_expression>",
-		"<or_expression> & <and_expression>",
+		"<or_expression> || <and_expression>",
 	],
 	
 	# Precedence: 13
-	# TODO - not sure about this one (Perl-like). ".." might be useful for ranges
-	# TODO - maybe cat{<exprs>} is better?
-	# TODO - maybe <expr> @ <expr> ?
-	"<concat_expression>": [
-		"<or_expression>",
-		"<concat_expression> .. <or_expression>",
-	],
-
-	# Precedence: 14
 	"<ternary_expression>": [
-		"<concat_expression>",
-		"<concat_expression> ? <expression> : <ternary_expression>",
+		"<or_expression>",
+		"<or_expression> ? <expression> : <ternary_expression>",
 	],
     
 	
