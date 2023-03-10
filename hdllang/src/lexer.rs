@@ -10,11 +10,30 @@ pub type TokenKind = logos_lexer::TokenKind;
 /// All language keywords
 #[derive(Debug, Clone, Copy)]
 pub enum KeywordKind {
+	Module,
 	If,
 	For,
+	Register,
+	Input,
+	Output,
 	Wire,
+	Bus,
+	Sync,
+	Clock,
+	Conditional,
+	Match,
+	Comb,
+	Tristate,
+	Int,
 	Signed,
 	Unsigned,
+	Auto,
+	Unused,
+	Const,
+	FfSync,
+	ClockGate,
+	TristateBuffer,
+	Enum
 }
 
 /// All language punctuators
