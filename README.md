@@ -9,7 +9,7 @@ An _actual_ hardware description language.
 ```
 module, if, for, register, input, output, wire, sync, clock,
 conditional, match, comb, tristate, int, signed, unsigned, auto
-unused, const, ff_sync, clock_gate, tristate_buffer, enum
+unused, const, ff_sync, clock_gate, tristate_buffer, enum, bus
 ```
 ## Type system
 TODO
