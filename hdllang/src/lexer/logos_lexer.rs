@@ -3,12 +3,6 @@ use super::{Lexer, SourceRange, Token, KeywordKind, PunctuatorKind};
 
 /// Parses numeric constant strings
 /// TODO proper implementation
-/// ```
-/// assert_eq!(parse_number_str("64"), 64);
-/// assert_eq!(parse_number_str("112_u37", 112));
-/// assert_eq!(parse_number_str("0xf_s11", 15));
-/// assert_eq!(parse_number_str("0B11_01", 13));
-/// ```
 fn parse_number_str(s: &str) -> Option<u64>{
 	match s.parse() {
 		Ok(n) => Some(n),
@@ -48,28 +42,7 @@ pub enum TokenKind {
 	// TODO symbol table
 	// #[regex("[a-zA-Z_]+", |lex| String::from(lex.slice()))]
 	// Id(String),
-	#[token("module",  |_| KeywordKind::Module)]
-	#[token("register",  |_| KeywordKind::Register)]
-	#[token("input",  |_| KeywordKind::Input)]
-	#[token("output",  |_| KeywordKind::Output)]
-	#[token("wire",  |_| KeywordKind::Wire)]
-	#[token("sync",  |_| KeywordKind::Sync)]
-	#[token("clock",  |_| KeywordKind::Clock)]
-	#[token("conditional",  |_| KeywordKind::Conditional)]
-	#[token("match",  |_| KeywordKind::Match)]
-	#[token("bus",  |_| KeywordKind::Bus)]
-	#[token("comb",  |_| KeywordKind::Comb)]
-	#[token("tristate",  |_| KeywordKind::Tristate)]
-	#[token("int",  |_| KeywordKind::Int)]
-	#[token("signed",  |_| KeywordKind::Signed)]
-	#[token("unsigned",  |_| KeywordKind::Unsigned)]
-	#[token("auto",  |_| KeywordKind::Auto)]
-	#[token("unused",  |_| KeywordKind::Unused)]
-	#[token("const",  |_| KeywordKind::Const)]
-	#[token("ff_sync",  |_| KeywordKind::FfSync)]
-	#[token("clock_gate",  |_| KeywordKind::ClockGate)]
-	#[token("tristate_buffer",  |_| KeywordKind::TristateBuffer)]
-	#[token("enum",  |_| KeywordKind::Enum)]
+
 	#[token("if",  |_| KeywordKind::If)]
 	#[token("for", |_| KeywordKind::For)]
 	Keyword(KeywordKind),
@@ -124,4 +97,11 @@ impl Lexer for LogosLexer {
 
 #[cfg(tests)]
 mod tests {
+	#[test]
+	fn test_parse_number_token() {
+		assert_eq!(parse_number_str("64"), 64);
+		assert_eq!(parse_number_str("112_u37"), 112);
+		assert_eq!(parse_number_str("0xf_s11"), 15);
+		assert_eq!(parse_number_str("0B11_01"), 13);
+	}
 }
