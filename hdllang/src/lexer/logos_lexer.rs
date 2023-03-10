@@ -95,13 +95,17 @@ impl Lexer for LogosLexer {
 	}
 }
 
-#[cfg(tests)]
+#[cfg(test)]
 mod tests {
+	use super::*;
+
 	#[test]
 	fn test_parse_number_token() {
-		assert_eq!(parse_number_str("64"), 64);
-		assert_eq!(parse_number_str("112_u37"), 112);
-		assert_eq!(parse_number_str("0xf_s11"), 15);
-		assert_eq!(parse_number_str("0B11_01"), 13);
+		assert_eq!(parse_number_str("64"), Some(64));
+		assert_eq!(parse_number_str("112_u37"), Some(112));
+		assert_eq!(parse_number_str("0xf_s11"), Some(15));
+		assert_eq!(parse_number_str("0B11_01"), Some(13));
+		assert_eq!(parse_number_str("_17"), None);
+		assert_eq!(parse_number_str("xffa"), None);
 	}
 }
