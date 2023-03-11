@@ -29,9 +29,9 @@ impl LexerErrorMessage {
 }
 
 fn lexer_example() -> miette::Result<()> {
-	let mut lexer = LogosLexer::new();
-	let source = String::from("31 for 27  if ; 44 /**/ */ /*12 asd 34*/ 56 4457 11 24 /* */ if ; // 44 \n 11 ");
-	match lexer.process(&source) {
+	let source = String::from("31 fun fun fun for aa bb aa 27  if ; 44 /**/ */ /*12 asd 34*/ 56 4457 11 24 /* */ if ; // 44 \n 11 ");
+	let mut lexer = LogosLexer::new(&source);
+	match lexer.process() {
 		Ok(tokens) => {
 			println!("okayy we have {} tokens", tokens.len());
 			for t in &tokens {

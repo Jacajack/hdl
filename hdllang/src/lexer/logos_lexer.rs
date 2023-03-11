@@ -1,5 +1,8 @@
 use logos::{Logos, Filter, Skip};
+use super::id_table::{IdTable, IdTableKey};
 use super::{Lexer, SourceRange, Token, KeywordKind, PunctuatorKind};
+
+// TODO maybe we should be moving out parse_xxx functions out of here?
 
 /// Parses numeric constant strings
 /// TODO proper implementation
@@ -27,8 +30,14 @@ fn consume_line_comment(lex: &mut logos::Lexer<TokenKind>) -> Skip {
 	Skip
 }
 
+/// Registers token in the lexer's ID table
+fn register_id_token(lex: &mut logos::Lexer<TokenKind>) -> IdTableKey {
+	lex.extras.id_table.insert_or_get(lex.slice())
+}
+
 #[derive(Logos, Debug, Clone, Copy)]
-pub enum TokenKind {
+#[logos(extras = LogosLexerContext)]
+pub enum TokenKind{
 	#[error]
 	#[regex(r"[ \t\n\f]+", logos::skip)]
 	#[token("/*", consume_block_comment)]
@@ -39,9 +48,8 @@ pub enum TokenKind {
 	#[regex(r"((0[xX][\da-fA-F_]+)|(0[bB][10_]+)|(\d[\d_]*))([us]\d+)?", |lex| parse_number_str(lex.slice()))]
 	Number(u64),
 
-	// TODO symbol table
-	// #[regex("[a-zA-Z_]+", |lex| String::from(lex.slice()))]
-	// Id(String),
+	#[regex("[a-zA-Z_]+", register_id_token)]
+	Id(IdTableKey),
 
 	#[token("module",          |_| KeywordKind::Module)]
 	#[token("register",        |_| KeywordKind::Register)]
@@ -84,26 +92,43 @@ pub enum TokenKind {
 	Punctuator(PunctuatorKind),
 }
 
+/// Additional data structures accessed by the lexers
+/// 
+/// This struct is not contained in LogosLexer, but is
+/// passed as an extra to logos::Lexer and hence owned
+/// by it.
+pub struct LogosLexerContext {
+	/// Identifier table (names only)
+	id_table: IdTable,
+}
+
 /// Logos-based lexer implementation
-pub struct LogosLexer {
+pub struct LogosLexer<'source> {
+	lexer: logos::Lexer<'source, TokenKind>,
 }
 
-impl LogosLexer {
-	pub fn new() -> LogosLexer {
-		LogosLexer{}
+/// Lexer implementation based on logos <3
+impl<'source> Lexer<'source> for LogosLexer<'source> {
+	/// Creates a new lexer given a source code string
+	fn new(source: &'source str) -> Self {
+		LogosLexer{
+			lexer: TokenKind::lexer_with_extras(
+				source,
+				LogosLexerContext{
+					id_table: IdTable::new()
+				}
+			)
+		}
 	}
-}
-
-impl Lexer for LogosLexer {
-	fn process(&mut self, source: &str) -> Result<Vec<Token>, Token> {
+	
+	/// Processes the string and produces a vector of tokens
+	fn process(&mut self) -> Result<Vec<Token>, Token> {
 		// TODO determine average token length and pre-allocate vector space based on that
-		let mut tokens = Vec::<Token>::with_capacity(source.len() / 10);
-		let lexer = TokenKind::lexer(source);
-
-		for (token_kind, range) in lexer.spanned() {
+		let mut tokens = Vec::<Token>::with_capacity(1000);
+		while let Some(token_kind) = self.lexer.next() {
 			let token = Token{
 				kind: token_kind,
-				range: SourceRange::new(&range),
+				range: SourceRange::new(&self.lexer.span()),
 			};
 			
 			if matches!(token.kind, TokenKind::Error) {
@@ -114,6 +139,11 @@ impl Lexer for LogosLexer {
 		}
 
 		Ok(tokens)
+	}
+
+	/// Provides access to the ID table
+	fn id_table(&self) -> &IdTable {
+		&self.lexer.extras.id_table
 	}
 }
 
