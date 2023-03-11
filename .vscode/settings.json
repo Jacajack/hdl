@@ -4,5 +4,6 @@
 		"--disable=missing-class-docstring",
 		"--disable=missing-function-docstring"
 	],
-	"python.analysis.typeCheckingMode": "off"
+	"python.analysis.typeCheckingMode": "off",
+	"rust-analyzer.diagnostics.warningsAsHint": ["dead_code", "unused_variables"],
 }

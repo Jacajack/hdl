@@ -1,6 +1,9 @@
 mod logos_lexer;
+mod id_table;
 pub use logos_lexer::LogosLexer;
 use std::ops::Range;
+
+use self::id_table::IdTable;
 
 /// Lexer token type
 /// In this case, it's defined by the Logos-based lexer implementation.
@@ -82,7 +85,13 @@ pub struct Token {
 }
 
 /// Abstract lexer
-pub trait Lexer {
-	/// Process source code and produce a stream of tokens
-	fn process(&mut self, source: &str) -> Result<Vec<Token>, Token>;
+pub trait Lexer<'source> {
+	/// Creates a lexer for provided source code
+	fn new(source: &'source str) -> Self;
+
+	/// Processes the text and returns a vector of tokens
+	fn process(&mut self) -> Result<Vec<Token>, Token>;
+
+	/// Access the ID table
+	fn id_table(&self) -> &IdTable;
 }
