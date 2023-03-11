@@ -1,14 +1,13 @@
 extern crate hdllang;
 
-use anyhow::Ok;
 use hdllang::lexer::{LogosLexer, Lexer, Token};
 use miette::NamedSource;
 use thiserror::Error;
 use miette::{Diagnostic, SourceSpan};
-use clap::{command,Arg};
-
+use clap::{command,Arg,arg};
+use std::io;
 use std::fs;
-
+use std::io::Write;
 #[derive(Error, Diagnostic, Debug)]
 pub enum PrettyIoError {
     #[error(transparent)]
@@ -58,7 +57,7 @@ fn lexer_example() -> miette::Result<()> {
 	Ok(())
 }
 
-fn simple_cmd(filename: String) -> miette::Result<()>{
+fn simple_cmd(filename: String, mut output:Box<dyn Write>) -> miette::Result<()>{
 	let content;
 	match fs::read_to_string(&filename){
 		Ok(file) =>{
@@ -68,12 +67,12 @@ fn simple_cmd(filename: String) -> miette::Result<()>{
 			return Err(PrettyIoError::IoError(err).into())
 		}
 	}
-	let mut lexer = LogosLexer::new();
-	match lexer.process(&content) {
+	let mut lexer = LogosLexer::new(&content);
+	match lexer.process() {
 		Ok(tokens) => {
 			println!("okayy we have {} tokens", tokens.len());
 			for t in &tokens {
-				println!("Token {:?} - '{}'", t.kind, &content[t.range.start .. t.range.end]);
+				write!(output,"Token {:?} - '{}'\n", t.kind, &content[t.range.start .. t.range.end]);
 			}
 		},
 		Err(token) => {
@@ -90,43 +89,52 @@ fn main() ->  miette::Result<()> {
 	.arg(
 		arg!(<MODE>)
 			.help("Specify which action should be performed")
-			.value_parser(["--tokenize","--parse","--analyse","--compile"])
-			.required(true)
+			.value_parser(["tokenize","parse","analyse","compile"])
+			.required(false)
 	)
 	.get_matches();
 
 	let mode = match matches
 		.get_one::<String>("MODE"){
-			None=> "--compile",
+			None=> "compile",
 			Some(x) => x,
 		};
+	let output: Box<dyn Write> = match matches
+		.get_one::<String>("output"){
+			None=>Box::new(io::stdout()),
+			Some(path)=> match fs::File::create(path){
+				Ok(file) =>{
+					Box::new(file)
+				}
+				Err(err) =>{
+					return Err(PrettyIoError::IoError(err).into());
+				}
+			}
+		};
 	match mode{
-		"--tokenize"=>{},
-		"--parse"=>{},
-		"--analyse"=>{},
-		"--compile"=>{},
+		"tokenize"=>{
+			let name = match matches.get_one::<String>("source"){
+				Some(x)=>x,
+				None=>"",
+			};
+			simple_cmd(name.to_owned(),output)?;
+		},
+		"parse"=>{
+			println!("Not implemented!");
+			lexer_example()?;
+		},
+		"analyse"=>{
+			println!("Not implemented!");
+			lexer_example()?;
+		},
+		"compile"=>{
+			println!("Not implemented!");
+			lexer_example()?;
+		},
+		_=>{
+			println!("We wont be here");
+			lexer_example()?;
+		}
 	};
-	// let args: Vec<String> = std::env::args().collect();
-	// match args.len(){
-	// 	// no args passed
-	// 	1=>{
-	// 		lexer_example()?;
-	// 	},
-	// 	// two arguments passed
-	// 	3=>{
-	// 		match args[1].as_str(){
-	// 			"--tokenize"=>{
-	// 				simple_cmd(args[2].to_string())?;
-	// 			},
-	// 			"--help"=>{
-	// 				println!("Use '--tokenize <filename>' to tokenize the input");
-	// 			}
-	// 			_=>{
-	// 				println!("Use --help to get help")
-	// 			}
-	// 		}
-	// 	},
-	// 	_=>{}
-	// }
-	// Ok(())
+	Ok(())
 }
