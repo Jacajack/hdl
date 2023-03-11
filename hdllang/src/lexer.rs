@@ -1,9 +1,8 @@
 mod logos_lexer;
 mod id_table;
-pub use logos_lexer::LogosLexer;
 use std::ops::Range;
-
-use self::id_table::IdTable;
+pub use id_table::IdTable;
+pub use logos_lexer::LogosLexer;
 
 /// Lexer token type
 /// In this case, it's defined by the Logos-based lexer implementation.

@@ -2,6 +2,8 @@ use logos::{Logos, Filter, Skip};
 use super::id_table::{IdTable, IdTableKey};
 use super::{Lexer, SourceRange, Token, KeywordKind, PunctuatorKind};
 
+// TODO maybe we should be moving out parse_xxx functions out of here?
+
 /// Parses numeric constant strings
 /// TODO proper implementation
 fn parse_number_str(s: &str) -> Option<u64>{
@@ -90,7 +92,13 @@ pub enum TokenKind{
 	Punctuator(PunctuatorKind),
 }
 
+/// Additional data structures accessed by the lexers
+/// 
+/// This struct is not contained in LogosLexer, but is
+/// passed as an extra to logos::Lexer and hence owned
+/// by it.
 pub struct LogosLexerContext {
+	/// Identifier table (names only)
 	id_table: IdTable,
 }
 
@@ -99,7 +107,9 @@ pub struct LogosLexer<'source> {
 	lexer: logos::Lexer<'source, TokenKind>,
 }
 
+/// Lexer implementation based on logos <3
 impl<'source> Lexer<'source> for LogosLexer<'source> {
+	/// Creates a new lexer given a source code string
 	fn new(source: &'source str) -> Self {
 		LogosLexer{
 			lexer: TokenKind::lexer_with_extras(
@@ -111,6 +121,7 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 		}
 	}
 	
+	/// Processes the string and produces a vector of tokens
 	fn process(&mut self) -> Result<Vec<Token>, Token> {
 		// TODO determine average token length and pre-allocate vector space based on that
 		let mut tokens = Vec::<Token>::with_capacity(1000);
@@ -130,6 +141,7 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 		Ok(tokens)
 	}
 
+	/// Provides access to the ID table
 	fn id_table(&self) -> &IdTable {
 		&self.lexer.extras.id_table
 	}

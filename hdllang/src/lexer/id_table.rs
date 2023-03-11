@@ -1,37 +1,45 @@
 use bimap::BiHashMap;
 
+/// Opaque key type for the lexer ID table
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct IdTableKey {
 	key: usize,
 }
 
+/// Lexer's ID table - used to avoid storing tokens in strings
 pub struct IdTable {
 	ids : BiHashMap<IdTableKey, String>,
 }
 
 impl IdTable {
+	/// Creates a new ID table
 	pub fn new() -> IdTable {
 		IdTable {
 			ids: BiHashMap::<IdTableKey, String>::new(),
 		}
 	}
 
+	/// Checks if given name is known
 	pub fn contains_name(&self, name: &str) -> bool {
 		self.get_by_name(name).is_some()
 	}
 
-	pub fn contains_id(&self, id: &IdTableKey) -> bool {
-		self.get_by_id(id).is_some()
+	/// Checks if key is known
+	pub fn contains_key(&self, key: &IdTableKey) -> bool {
+		self.get_by_key(key).is_some()
 	}
 
-	pub fn get_by_id(&self, id: &IdTableKey) -> Option<&String> {
-		self.ids.get_by_left(&id)
+	/// Gets ID string by key (or None)
+	pub fn get_by_key(&self, key: &IdTableKey) -> Option<&String> {
+		self.ids.get_by_left(&key)
 	}
 
+	/// Gets key by identifier name (or None)
 	pub fn get_by_name(&self, name: &str) -> Option<IdTableKey> {
 		self.ids.get_by_right(name).copied()
 	}
 
+	/// Inserts a new string or returns the key for it
 	pub fn insert_or_get(&mut self, name: &str) -> IdTableKey {
 		match self.get_by_name(name) {
 			Some(id) => id,
