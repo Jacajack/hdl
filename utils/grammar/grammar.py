@@ -34,12 +34,15 @@ GRAMMAR = {
 	],
 	
 	# Variable declarations
+	# TODO cleanup this declaration stuff
+	# TODO tuples
+	# TODO enums
 	"<variable_decl>": ["<variable_declarator>;"],
 	"<variable_declarator>": ["<type_name> <id><array_declarator>*"],
 	"<type_name>": ["<variable_type_specifiers>? <variable_type><vector_declarator>?"], # TODO what about wire<4>[16]
 	"<array_declarator>": ["<index_expression>"],
 	"<vector_declarator>": ["<<expression>>"],
-	"<variable_type>":[
+	"<variable_type>": [
     	"auto",
         "int",
         "wire",
@@ -77,7 +80,10 @@ GRAMMAR = {
 	"<for_stmt>": ["for (<id> = <range_expression>) { <module_impl_stmt>* }"],
 
 	# If statement
-	"<if_stmt>": ["if (<expression>) { <module_impl_stmt>* }"],
+	"<if_stmt>": [
+    	"if (<expression>) { <module_impl_stmt>* }",
+    	"if (<expression>) { <module_impl_stmt>* } else { <module_impl_stmt>* }",
+    ],
 
 	# Module instantiation
 	"<instantiation>": [
