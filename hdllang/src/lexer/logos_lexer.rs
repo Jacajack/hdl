@@ -88,7 +88,7 @@ pub enum TokenKind{
 	#[token("-", |_| PunctuatorKind::Minus)]
 	#[token("/", |_| PunctuatorKind::Slash)]
 	#[token("*", |_| PunctuatorKind::Asterisk)]
-	#[token("%", |_| PunctuatorKind::Percent)]
+	#[token("%", |_| PunctuatorKind::Modulo)]
 	Punctuator(PunctuatorKind),
 }
 

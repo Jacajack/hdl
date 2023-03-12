@@ -12,49 +12,75 @@ pub type TokenKind = logos_lexer::TokenKind;
 /// All language keywords
 #[derive(Debug, Clone, Copy)]
 pub enum KeywordKind {
-	Module,
-	If,
-	For,
-	Register,
-	Input,
-	Output,
-	Wire,
-	Bus,
-	Sync,
-	Clock,
-	Conditional,
-	Match,
-	Comb,
-	Tristate,
-	Int,
-	Signed,
-	Unsigned,
 	Auto,
-	Unused,
-	Const,
-	FfSync,
+	Bus,
+	Clock,
 	ClockGate,
+	Comb,
+	Conditional,
+	Const,
+	Default,
+	Else,
+	Enum,
+	FfSync,
+	For,
+	If,
+	Impl,
+	Input,
+	Int,
+	Match,
+	Module,
+	Node,
+	Output,
+	Register,
+	Signed,
+	Sync,
+	Tristate,
 	TristateBuffer,
-	Enum
+	Unsigned,
+	Unused,
+	Wire,
 }
 
 /// All language punctuators
 #[derive(Debug, Clone, Copy)]
 pub enum PunctuatorKind {
-	Plus,
-	Minus,
-	Comma,
-	Colon,
-	Semicolon,
-	Asterisk,
-	Slash,
-	LBrace,
-	RBrace,
-	LBracket,
-	RBracket,
-	LPar,
-	RPar,
-	Percent,
+	Assignment,      // =
+	AssignmentAnd,   // &=
+	AssignmentPlus,  // +=
+	AssignmentXor,   // ^=
+	Asterisk,        // *
+	BitwiseAnd,      // &
+	BitwiseNot,      // ~
+	BitwiseOr,       // |
+	BitwiseXor,      // ^
+	Colon,           // :
+	Comma,           // ,
+	Dot,             // .
+	Equals,          // ==
+	Greater,         // >
+	GreaterEqual,    // >=
+	Implies,         // =>
+	LBrace,          // {
+	LBracket,        // [
+	Less,            // <
+	LessEqual,       // <=
+	LogicalAnd,      // &&
+	LogicalNot,      // !
+	LogiclalOr,      // ||
+	LPar,            // (
+	LShift,          // <<
+	Minus,           // -
+	Modulo,          // %
+	NotEquals,       // !=
+	Plus,            // +
+	QuestionMark,    // ?
+	RBrace,          // }
+	RBracket,        // ]
+	RPar,            // )
+	RShift,          // >>	
+	Semicolon,       // ;
+	Slash,           // /
 }
 
 /// Source code range (copyable)
