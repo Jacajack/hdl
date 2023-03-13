@@ -1,6 +1,8 @@
 mod logos_lexer;
 mod id_table;
 use std::ops::Range;
+use std::fmt;
+use thiserror::Error;
 pub use id_table::IdTable;
 pub use logos_lexer::LogosLexer;
 
@@ -8,6 +10,35 @@ pub use logos_lexer::LogosLexer;
 /// In this case, it's defined by the Logos-based lexer implementation.
 /// Not super pretty, but it's the simplest solution currently.
 pub type TokenKind = logos_lexer::TokenKind;
+
+/// Types of lexer errors
+#[derive(Copy, Clone, Error, Debug)]
+pub enum LexerErrorKind {
+	/// Lexer couldn't match token to any regex
+	#[error("Invalid token")]
+	InvalidToken,
+
+	/// Numeric constant could not be parsed correctly
+	#[error("Invalid number token")]
+	InvalidNumber,
+
+	/// Unterminated block comment 
+	#[error("Unterminated block comment")]
+	UnterminatedBlockComment,
+}
+
+/// Lexer error
+#[derive(Copy, Clone, Error, Debug)]
+pub struct LexerError {
+	pub range: SourceRange,
+	pub kind: LexerErrorKind,
+}
+
+impl fmt::Display for LexerError {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", self.kind)
+	}
+}
 
 /// All language keywords
 #[derive(Debug, Clone, Copy)]
@@ -115,7 +146,7 @@ pub trait Lexer<'source> {
 	fn new(source: &'source str) -> Self;
 
 	/// Processes the text and returns a vector of tokens
-	fn process(&mut self) -> Result<Vec<Token>, Token>;
+	fn process(&mut self) -> Result<Vec<Token>, LexerError>;
 
 	/// Access the ID table
 	fn id_table(&self) -> &IdTable;

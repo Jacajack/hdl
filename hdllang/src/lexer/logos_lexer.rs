@@ -1,23 +1,64 @@
 use logos::{Logos, Filter, Skip};
 use super::id_table::{IdTable, IdTableKey};
-use super::{Lexer, SourceRange, Token, KeywordKind, PunctuatorKind};
+use super::{Lexer, SourceRange, Token, KeywordKind, PunctuatorKind, LexerError, LexerErrorKind};
 
-// TODO maybe we should be moving out parse_xxx functions out of here?
-
-/// Parses numeric constant strings
-/// TODO proper implementation
-fn parse_number_str(s: &str) -> Option<u64>{
-	match s.parse() {
-		Ok(n) => Some(n),
-		_ => None
+/// Parses numeric constant tokens
+fn parse_number_token(lex: &mut logos::Lexer<TokenKind>) -> Option<u64> {
+	match parse_number_str(lex.slice()) {
+		Some(n) => Some(n),
+		None => {
+			lex.extras.last_err = Some(LexerError{
+				range: SourceRange::new(&lex.span()),
+				kind: LexerErrorKind::InvalidNumber,
+			});
+			None
+		}
 	}
+}
+/// Parses numeric constant strings
+fn parse_number_str(s: &str) -> Option<u64> {
+	let str = String::from(s);
+	str.replace("_", "");
+
+	enum Base {
+		Decimal,
+		Hex,
+		Binary,
+	}
+
+	let mut base = Base::Decimal;
+
+	if str.chars().nth(0) == Some('0') {
+		match str.chars().nth(1)  {
+			Some('x') => base = Base::Hex,
+			Some('X') => base = Base::Hex,
+			Some('b') => base = Base::Binary,
+			Some('B') => base = Base::Binary,
+			_ => ()
+		}
+	};
+
+	
+
+	None
 }
 
 /// Causes lexer to consume and ignore multi-line comments (/* */)
 fn consume_block_comment(lex: &mut logos::Lexer<TokenKind>) -> Filter<()> {
 	match lex.remainder().find("*/") {
 		Some(offset) => {lex.bump(offset + 2); Filter::Skip}
-		None => Filter::Emit(())
+		None => {
+			lex.extras.last_err = Some(LexerError{
+				range: SourceRange::new(
+					&std::ops::Range{
+						start: lex.span().start,
+						end: lex.span().start + lex.remainder().len()
+					}
+				),
+				kind: LexerErrorKind::UnterminatedBlockComment,
+			});
+			Filter::Emit(())
+		}
 	}
 }
 
@@ -45,10 +86,10 @@ pub enum TokenKind{
 	Error,
 
 	// TODO constant table
-	#[regex(r"((0[xX][\da-fA-F_]+)|(0[bB][10_]+)|(\d[\d_]*))([us]\d+)?", |lex| parse_number_str(lex.slice()))]
+	#[regex(r"((0[xX][\da-fA-F_]+)|(0[bB][10_]+)|(\d[\d_]*))([us]\d+)?", parse_number_token)]
 	Number(u64),
 
-	#[regex("[a-zA-Z_]+", register_id_token)]
+	#[regex("[a-zA-Z_][a-zA-Z0-9_]*", register_id_token)]
 	Id(IdTableKey),
 
 	#[token("module",          |_| KeywordKind::Module)]
@@ -100,6 +141,7 @@ pub enum TokenKind{
 pub struct LogosLexerContext {
 	/// Identifier table (names only)
 	id_table: IdTable,
+	last_err: Option<LexerError>,
 }
 
 /// Logos-based lexer implementation
@@ -115,14 +157,15 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 			lexer: TokenKind::lexer_with_extras(
 				source,
 				LogosLexerContext{
-					id_table: IdTable::new()
+					id_table: IdTable::new(),
+					last_err: None,
 				}
 			)
 		}
 	}
 	
 	/// Processes the string and produces a vector of tokens
-	fn process(&mut self) -> Result<Vec<Token>, Token> {
+	fn process(&mut self) -> Result<Vec<Token>, LexerError> {
 		// TODO determine average token length and pre-allocate vector space based on that
 		let mut tokens = Vec::<Token>::with_capacity(1000);
 		while let Some(token_kind) = self.lexer.next() {
@@ -131,13 +174,20 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 				range: SourceRange::new(&self.lexer.span()),
 			};
 			
+			// Early return with the error reported by parsing functions
+			// or a generic one
 			if matches!(token.kind, TokenKind::Error) {
-				return Err(token);
+				return Err(self.lexer.extras.last_err.unwrap_or(LexerError{
+					range: token.range,
+					kind: LexerErrorKind::InvalidToken,
+				}));
 			}
 
 			tokens.push(token);
 		}
 
+		// Successful exit
+		assert!(matches!(self.lexer.extras.last_err, None));
 		Ok(tokens)
 	}
 

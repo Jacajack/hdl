@@ -1,35 +1,86 @@
 extern crate hdllang;
-use hdllang::lexer::{LogosLexer, Lexer, Token};
+use hdllang::lexer::{LogosLexer, Lexer, LexerError, LexerErrorKind};
 use miette::NamedSource;
 use thiserror::Error;
 use miette::{Diagnostic, SourceSpan};
 
+// TODO move all these pretty error things into a separate module
+// perhaps even inside hdllang
 #[derive(Error, Debug, Diagnostic)]
-#[error("Lexer error!")]
-#[diagnostic(
-	code(hdllang::lexer),
-	url("patrzuwa.ga"),
-	help("git gud")
-)]
-struct LexerErrorMessage {
-	#[source_code]
-	src: NamedSource,
+#[error("Invalid token found!")]
+enum LexerErrorMessage {
 
-	#[label("What is this anyway?")]
-	token_range: SourceSpan
+	#[error("Invalid token found")]
+	#[diagnostic(
+		code(hdllang::lexer),
+		help("This is neither a keyword, an identifier nor a valid numeric constant")
+	)]
+	InvalidToken{
+		#[source_code]
+		src: NamedSource,
+
+		#[label("This is the invalid token")]
+		token_range: SourceSpan
+	},
+
+	#[error("Invalid numeric constant")]
+	#[diagnostic(
+		code(hdllang::lexer),
+		help("This is not a valid numeric constant.")
+	)]
+	InvalidNumber{
+		#[source_code]
+		src: NamedSource,
+
+		#[label("This thing here is not a valid number")]
+		token_range: SourceSpan
+	},
+
+	#[error("Unterminated block comment")]
+	#[diagnostic(
+		code(hdllang::lexer),
+		help("Did you forget to use '*/'?")
+	)]
+	UnterminatedBlockComment{
+		#[source_code]
+		src: NamedSource,
+
+		#[label("Look! It never ends!")]
+		token_range: SourceSpan
+	}
+	
 }
 
 impl LexerErrorMessage {
-	pub fn new(source: &str, token: &Token) -> LexerErrorMessage {
-		LexerErrorMessage {
-			src: NamedSource::new("idk.lol", String::from(source)),
-			token_range: (token.range.start, token.range.end - token.range.start + 1).into()
+	pub fn new(source_name: &str, source: &str, err: &LexerError) -> LexerErrorMessage {
+		let span : SourceSpan = (err.range.start, err.range.end - err.range.start).into();
+		let named_source = NamedSource::new(
+			String::from(source_name),
+			String::from(source)
+		);
+
+
+		match err.kind {
+			LexerErrorKind::InvalidNumber => LexerErrorMessage::InvalidNumber {
+				src: named_source,
+				token_range: span,
+			},
+
+			LexerErrorKind::UnterminatedBlockComment => LexerErrorMessage::UnterminatedBlockComment {
+				src: named_source,
+				token_range: span,
+			},
+
+			_ => LexerErrorMessage::InvalidToken {
+				src: named_source,
+				token_range: span,
+			},
 		}
 	}
 }
 
 fn lexer_example() -> miette::Result<()> {
-	let source = String::from("31 fun fun fun for aa bb aa 27  if ; 44 /**/ */ /*12 asd 34*/ 56 4457 11 24 /* */ if ; // 44 \n 11 ");
+	let source = String::from(" fun fun super_8  kdasd fun /* for */ aa bb aa 27  if ; 44 /**/  /*12 asd 34 56 4457 11 24 /*  if ; // 44  11 ");
 	let mut lexer = LogosLexer::new(&source);
 	match lexer.process() {
 		Ok(tokens) => {
@@ -38,8 +89,8 @@ fn lexer_example() -> miette::Result<()> {
 				println!("Token {:?} - '{}'", t.kind, &source[t.range.start .. t.range.end]);
 			}
 		},
-		Err(token) => {
-			return Err(LexerErrorMessage::new(&source, &token))?
+		Err(err) => {
+			return Err(LexerErrorMessage::new("example.hdl", &source, &err))?
 		}
 	};
 
