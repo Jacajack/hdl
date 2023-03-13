@@ -1,10 +1,12 @@
 mod logos_lexer;
+mod number_parser;
 mod id_table;
 use std::ops::Range;
 use std::fmt;
 use thiserror::Error;
 pub use id_table::IdTable;
 pub use logos_lexer::LogosLexer;
+pub use number_parser::NumberParseError;
 
 /// Lexer token type
 /// In this case, it's defined by the Logos-based lexer implementation.
@@ -20,7 +22,7 @@ pub enum LexerErrorKind {
 
 	/// Numeric constant could not be parsed correctly
 	#[error("Invalid number token")]
-	InvalidNumber,
+	InvalidNumber(NumberParseError),
 
 	/// Unterminated block comment 
 	#[error("Unterminated block comment")]

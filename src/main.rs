@@ -1,5 +1,5 @@
 extern crate hdllang;
-use hdllang::lexer::{LogosLexer, Lexer, LexerError, LexerErrorKind};
+use hdllang::lexer::{LogosLexer, Lexer, LexerError, LexerErrorKind, NumberParseError};
 use miette::NamedSource;
 use thiserror::Error;
 use miette::{Diagnostic, SourceSpan};
@@ -33,7 +33,7 @@ enum LexerErrorMessage {
 		src: NamedSource,
 
 		#[label("This thing here is not a valid number")]
-		token_range: SourceSpan
+		token_range: SourceSpan,
 	},
 
 	#[error("Unterminated block comment")]
@@ -61,7 +61,7 @@ impl LexerErrorMessage {
 
 
 		match err.kind {
-			LexerErrorKind::InvalidNumber => LexerErrorMessage::InvalidNumber {
+			LexerErrorKind::InvalidNumber(err) => LexerErrorMessage::InvalidNumber {
 				src: named_source,
 				token_range: span,
 			},
@@ -80,7 +80,7 @@ impl LexerErrorMessage {
 }
 
 fn lexer_example() -> miette::Result<()> {
-	let source = String::from(" fun fun super_8  kdasd fun /* for */ aa bb aa 27  if ; 44 /**/  /*12 asd 34 56 4457 11 24 /*  if ; // 44  11 ");
+	let source = String::from(" 112_u37 0xf1_s15 fun fun super_8  kdasd fun /* for */ aa bb aa 27  if ; 44 /**/  /*12 asd 34 56 4457 11 24 /**/  if ; // 44  11 ");
 	let mut lexer = LogosLexer::new(&source);
 	match lexer.process() {
 		Ok(tokens) => {
