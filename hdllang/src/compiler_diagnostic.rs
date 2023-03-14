@@ -1,8 +1,14 @@
 use std::fmt;
 use std::fmt::Display;
+use std::fmt::Debug;
+use std::error::Error;
 use miette::{Diagnostic, Severity, LabeledSpan};
+use crate::SourceSpan;
 
-#[derive(Clone, Debug)]
+/// A generic compiler diagnostic message
+/// 
+/// TODO From<T> if payload can be converted
+#[derive(Clone)]
 pub struct CompilerDiagnostic<ErrorType = ()> {
 	severity: Severity,
 	error_text: String,
@@ -12,17 +18,31 @@ pub struct CompilerDiagnostic<ErrorType = ()> {
 	underlying: Option<ErrorType>,
 }
 
-impl fmt::Display for CompilerDiagnostic {
+impl<ErrorType: Debug> Debug for CompilerDiagnostic<ErrorType>  {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		f.debug_struct("CompilerDiagnostic")
+			.field("severity", &self.severity)
+			.field("error_text", &self.error_text)
+			.field("help_text", &self.help_text)
+			.field("error_code", &self.error_code)
+			.field("underlying", &self.underlying)
+			.finish()
+	}
+}
+
+impl<ErrorType: Debug> Display for CompilerDiagnostic<ErrorType>  {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.error_text)
 	}
 }
 
-impl std::error::Error for CompilerDiagnostic {
-	fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {None}
+impl<ErrorType: Debug> Error for CompilerDiagnostic<ErrorType>  {
+	fn source(&self) -> Option<&(dyn Error + 'static)> {
+		None
+	}
 }
 
-impl Diagnostic for CompilerDiagnostic {
+impl<ErrorType: Debug> Diagnostic for CompilerDiagnostic<ErrorType> {
 	fn code<'a>(&'a self) -> Option<Box<(dyn std::fmt::Display + 'a)>> {
 		match &self.error_code {
 			Some(msg) => Some(Box::new(miette::Report::msg(msg.clone()))),
@@ -62,48 +82,66 @@ impl Diagnostic for CompilerDiagnostic {
 	}
 }
 
-impl<ErrorType: std::error::Error + Clone> CompilerDiagnostic<ErrorType> {
-	pub fn new(severity: miette::Severity) -> Self {
+impl<ErrorType: Error + Debug + Clone> CompilerDiagnostic<ErrorType> {
+	/// Creates a new diagnostic message
+	pub fn new(severity: miette::Severity, msg: &str) -> Self {
 		Self {
 			severity,
 			help_text: None,
-			error_text: "none".into(),
+			error_text: msg.into(),
 			error_code: None,
 			labels: Vec::new(),
 			underlying: None,
 		}
 	}
 
+	/// Creates an error diagnostic from an error type
 	pub fn from_error(err: &ErrorType) -> Self {
-		let mut diag = Self::new_error();
-		diag.error_text = err.to_string();
+		let mut diag = Self::new_error(&err.to_string());
 		diag.underlying = Some(err.clone());
 		diag
 	}
 
-	pub fn new_error() -> Self {
-		Self::new(miette::Severity::Error)
+	/// Creates a new error diagnostic
+	pub fn new_error(msg: &str) -> Self {
+		Self::new(miette::Severity::Error, msg)
 	}
 
-	pub fn new_warning() -> Self {
-		Self::new(miette::Severity::Warning)
+	/// Creates a new warning diagnostic
+	pub fn new_warning(msg: &str) -> Self {
+		Self::new(miette::Severity::Warning, msg)
 	}
 
-	pub fn new_info() -> Self {
-		Self::new(miette::Severity::Advice)
+	/// Creates a new info diagnostic
+	pub fn new_info(msg: &str) -> Self {
+		Self::new(miette::Severity::Advice, msg)
 	}
 
-	pub fn label(&mut self, label: miette::LabeledSpan) -> &Self {
-		self.labels.push(label);
+	/// Attaches source code label
+	pub fn label(mut self, span: SourceSpan, msg: &str) -> Self {
+		self.labels.push(
+			miette::LabeledSpan::new_with_span(
+				Some(String::from(msg)),
+				<SourceSpan as Into<miette::SourceSpan>>::into(span)
+			)
+		);
 		self
 	}
 
-	pub fn help(&mut self, help: &str) -> &Self {
+	/// Attaches a help message
+	pub fn help(mut self, help: &str) -> Self {
 		self.help_text = Some(help.into());
 		self
 	}
 
-	pub fn get_underlying(&self) -> &Option<ErrorType> {
+	/// Attaches an error code
+	pub fn error_code(mut self, code: &str) -> Self {
+		self.error_code = Some(code.into());
+		self
+	}
+
+	/// Gives access to the underlying error type
+	pub fn get_error(&self) -> &Option<ErrorType> {
 		&self.underlying
 	}
 }

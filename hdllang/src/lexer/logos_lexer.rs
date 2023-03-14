@@ -1,13 +1,13 @@
 use logos::{Logos, Filter, Skip};
 use super::id_table::{IdTable, IdTableKey};
 use super::number_parser::parse_number_str;
-use super::{Lexer, SourceRange, Token, KeywordKind, PunctuatorKind, LexerError, LexerErrorKind};
+use super::{Lexer, SourceSpan, Token, KeywordKind, PunctuatorKind, LexerError, LexerErrorKind};
 
 /// Parses numeric constant tokens
 fn parse_number_token(lex: &mut logos::Lexer<TokenKind>) -> Option<u64> {
 	parse_number_str(lex.slice()).map_err(|err| {
 		lex.extras.last_err = Some(LexerError{
-			range: SourceRange::new(&lex.span()), // TODO fix this span
+			range: SourceSpan::new_from_range(&lex.span()), // TODO fix this span
 			kind: LexerErrorKind::InvalidNumber(err),
 		});
 		return ();
@@ -19,12 +19,11 @@ fn consume_block_comment(lex: &mut logos::Lexer<TokenKind>) -> Filter<()> {
 	match lex.remainder().find("*/") {
 		Some(offset) => {lex.bump(offset + 2); Filter::Skip}
 		None => {
+			let span = lex.span();
 			lex.extras.last_err = Some(LexerError{
-				range: SourceRange::new(
-					&std::ops::Range{
-						start: lex.span().start,
-						end: lex.span().start + lex.remainder().len() // TODO +2?
-					}
+				range: SourceSpan::new(
+					span.start,
+					lex.remainder().len() + span.end - span.start
 				),
 				kind: LexerErrorKind::UnterminatedBlockComment,
 			});
@@ -142,7 +141,7 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 		while let Some(token_kind) = self.lexer.next() {
 			let token = Token{
 				kind: token_kind,
-				range: SourceRange::new(&self.lexer.span()),
+				range: SourceSpan::new_from_range(&self.lexer.span()),
 			};
 			
 			// Early return with the error reported by parsing functions

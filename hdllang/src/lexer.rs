@@ -3,9 +3,9 @@ mod number_parser;
 mod id_table;
 mod diagnostic;
 
-use std::ops::Range;
 use std::fmt;
 use thiserror::Error;
+use crate::SourceSpan;
 pub use id_table::IdTable;
 pub use logos_lexer::LogosLexer;
 pub use number_parser::NumberParseError;
@@ -34,7 +34,7 @@ pub enum LexerErrorKind {
 /// Lexer error
 #[derive(Copy, Clone, Error, Debug)]
 pub struct LexerError {
-	pub range: SourceRange,
+	pub range: SourceSpan,
 	pub kind: LexerErrorKind,
 }
 
@@ -118,22 +118,6 @@ pub enum PunctuatorKind {
 	Slash,           // /
 }
 
-/// Source code range (copyable)
-#[derive(Debug, Copy, Clone)]
-pub struct SourceRange {
-	pub start: usize,
-	pub end: usize,
-}
-
-impl SourceRange {
-	fn new(r: &Range<usize>) -> SourceRange {
-		SourceRange {
-			start: r.start,
-			end: r.end,
-		}
-	}
-}
-
 /// Token as produced by the lexer (token kind + source location)
 #[derive(Debug, Copy, Clone)]
 pub struct Token {
@@ -141,7 +125,7 @@ pub struct Token {
 	pub kind: TokenKind,    
 
 	/// Source code location
-	pub range: SourceRange, 
+	pub range: SourceSpan, 
 }
 
 /// Abstract lexer
