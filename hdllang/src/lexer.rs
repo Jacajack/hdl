@@ -1,6 +1,8 @@
 mod logos_lexer;
 mod number_parser;
 mod id_table;
+mod diagnostic;
+
 use std::ops::Range;
 use std::fmt;
 use thiserror::Error;
