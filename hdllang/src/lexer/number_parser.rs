@@ -100,6 +100,8 @@ pub fn parse_number_str(s: &str) -> Result<u64, NumberParseError> {
 		})
 	}
 
+	// TODO corner case - should oldest bit in binary representation affect sign?
+
 	// Parse according to base
 	let value = if s.starts_with("0x") {
 		parse_pure_hex(&s[2..digits_end])?

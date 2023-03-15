@@ -16,10 +16,10 @@ impl From<LexerError> for CompilerDiagnostic<LexerError> {
 						help = "1 and 0 are the only valid binary digits",
 
 					NumberParseErrorKind::BadDecimalDigit => 
-						help = "0-9 are the only valid binary digits",
+						help = "0-9 are the only valid decimal digits",
 
 					NumberParseErrorKind::BadHexDigit => 
-						help = "0-9, a-f and A-F are the only valid binary digits",
+						help = "0-9, a-f and A-F are the only valid hexadecimal digits",
 
 					NumberParseErrorKind::InsufficientWidth => 
 						help = "Width of this constant is insufficient to represent this number",
