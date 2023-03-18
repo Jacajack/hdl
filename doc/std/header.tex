@@ -1,0 +1,81 @@
+% Polish language
+\usepackage{inputenc}[utf8]
+%\usepackage{polski}
+%\usepackage[polish]{babel}
+%\usepackage[nosingleletter]{impnattypo}
+%\usepackage{indentfirst}
+
+% More fonts, extra itemize commands
+\usepackage{bold-extra}
+\usepackage{enumitem}
+
+\usepackage{multicol}
+\usepackage{indentfirst}
+\usepackage{fvextra}
+\usepackage{siunitx}
+\DefineVerbatimEnvironment{Highlighting}{Verbatim}{breaklines,commandchars=\\\{\}}
+\usepackage{xcolor}
+\usepackage{float}
+\usepackage{subcaption}
+\usepackage{titlesec}
+
+\usepackage{titling}
+
+\usepackage{linguex}
+% Counter format 
+\renewcommand{\ExLBr}{\small\scshape}
+\renewcommand{\ExRBr}{}
+% http://tex.stackexchange.com/a/57279/11604
+% Reset \ex. at each section 
+\usepackage{chngcntr}
+\counterwithin{ExNo}{subsubsection}
+% add section counter
+\renewcommand{\Exarabic}{\arabic} 
+%\setlength{\Exlabelsep}{5em}
+
+\newcommand{\np}{\ex.}
+
+% \usepackage{parano}
+
+% ----------------------------------------------------- %
+
+\let\origfigure\figure
+\let\endorigfigure\endfigure
+\renewenvironment{figure}[1][2] {
+    \expandafter\origfigure\expandafter[H]
+} {
+    \endorigfigure
+}
+
+
+
+
+% Section styling
+\titleformat{\section}{\Large\scshape}{\thesection}{1em}{} [{\titlerule[0.4pt]}]
+\titleformat{\subsection}{\large\scshape}{\thesubsection}{1em}{}
+\titleformat{\subsubsection}{\scshape}{\thesubsubsection}{1em}{}
+
+% Bibliography - reduced spacing
+\let\oldthebibliography\thebibliography
+\let\endoldthebibliography\endthebibliography
+\renewenvironment{thebibliography}[1]{
+  \begin{oldthebibliography}{#1}
+    \setlength{\itemsep}{0.4em}
+    \setlength{\parskip}{0em}
+}
+{
+  \end{oldthebibliography}
+}
+
+% Reduced itemize spacing
+\setitemize{itemsep=0em}
+
+% ----------------------------------------------------- %
+
+% Derivative at point symbol
+% \evalat[rozmiar]{f}{punkt}
+\NewDocumentCommand{\evalat}{sO{\big}mm}{%
+  \IfBooleanTF{#1}
+   {\mleft. #3 \mright|_{#4}}
+   {#3#2|_{#4}}%
+}
