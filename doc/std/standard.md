@@ -19,25 +19,29 @@ numbersections: true
 
 \np `wire` represents a synthesizable 1-bit logical signal.
 
-\np `bus<n>` represents a synthesizable $n$-bit data bus. $n$ must be a positive integer and can be an expression evaluated at compile time. $n$ is referred to as signal width.
+\np `bus<n>` represents a synthesizable $n$-bit data bus. $n$ must be a positive integer and can be an expression evaluated at compile time. $n$ is referred to as _signal width_.
 
-\np `node<n>` represents a synthesizable $n$-bit aggregation node. $n$ must be a positive integer and can be an expression evaluated at compile time. $n$ is referred to as _signal width_.
+
 
 \np `auto` is not a real type, but can be used in definitions in place of type name. The underyling type will then be deduced based on the right hand side of the expression.
 
-\np Since `wire`, `bus` and `node` are types that represent actual hardware logic, they will be referred to as _synthesizable types_. There is no guarantee that expressions containing these types can be evaluated at compile time.
+\np Since `wire`, `bus`  are types that represent actual hardware logic, they will be referred to as _synthesizable types_. There is no guarantee that expressions containing these types can be evaluated at compile time.
 
 ## Type qualifiers
 
 Type qualifiers are keywords that can be added in declarations and definitions along with the base type name.
 
+
+
 ### Signedness
 
-\np Signedness of a bus and node nets can be specified by using signed or unsigned qualifiers. If not specified, signals are assumed to be unsigned. Note that signedness of `wire` and `int` cannot be specified.
+\np Signedness of a `bus` signals can be specified by using `signed` or `unsigned` qualifiers. Note that signedness of `wire` and `int` cannot be specified.
 
 \np Unsigned $n$-bit signals can represent integers in range $[0; 2^n − 1]$.
 
 \np Signed $n$-bit signals use two’s complement and can represent integers in range $[−2^{n−1}; 2^{n−1} − 1]$.
+
+\np If signedness is not specified in a declaration, `unsigned` is preferred over `signed` by default.
 
 ### Signal sensitivity
 
@@ -93,7 +97,46 @@ clocked by any expression.
 \np There can be no implicit conversions altering singal signedness.
 
 ### Trisatate conversions
-\np Builtin functions `z_to_0()` and `z_to_1()` can be used to cast away the `tristate` qualifier. 
+\np Builtin functions `pulldown()` and `pullup()` can be used to cast away the `tristate` qualifier. 
+
+## Type deduction
+
+\np _Fully constrained_ signal must be fully qualified in terms of: base type (including width), signedness and sensitivity to clock events.
+
+\np If any of the above is not explicitly qualified, the signal is _partially constraied_.
+
+
+
+\np Type deduction takes place in assignments (standalone or as a part of definitions) and in function calls.
+
+\np In assignment statements, type of the l-value in the assignment is referred to as _expected type_. Type of the r-value in the assignment is known as _assigned type_.
+
+\np In function calls, type of the parameter accepted by the function is the _expected type_. Type of the argument passed at the call site is known as _assigned type_.
+
+\np Type deduction takes place whenever _expected type_ or _assigned type_ are not fully constrained. The compiler must then find a suitable _deduced type_ `T` such that _assigned type_ can be safely converted into `T` and that `T` is not in conflict with the _expected type_.
+
+
+### Type deduction algorithm
+
+\np If the _expected type_ is `auto` and the _assigned type_ is fully constrained, _deduced type_ is equal to _assigned type_. 
+
+\np If the _expected type_ is `auto` and the _assigned type_ is not fully constrained, _deduced type_ is equal to _assigned type_ with additional default constraints (`unsigned`, `comb`).
+
+
+
+### Expected type propagation
+
+\np In assignment statements (standalone, in definitions and module instantiation) the _expected type_ propagates from the left side of the assignment to the right.
+
+\np In ternary operator conditional expressions such as `A ? B : C`, the _expected type_ is propagated to the expressions serving as branches of the conditional expreesion (here `B` and `C`).
+
+\np In `conditional` block operator expressions, the _expected type_ is propagated to the right side of each branch.
+
+\np In `match` block operator expressions, the _expected type_ is propagated to the right side of each branch.
+
+\np In builtin function calls, propagation of the _expected type_ is implementation defined.
+
+\np _Expected type_ does not propagate through expressions other than mentioned in this section. Instead, `auto` is assumed to be the expected type.
 
 # Lexical elements
 
@@ -117,11 +160,12 @@ Module definition consists of two blocks — module interface definition and _mo
 ### Module interface definition
 
 \np Module interface is defined using the syntax shown below:
-```
+
+~~~{.v}
 module <id> {
-// module port-list declarations
+	// module port-list declarations
 }
-```
+~~~
 
 \np Module interface does not need to have a corresponding implementation block in the same translation unit.
 
@@ -130,8 +174,12 @@ module <id> {
 \np Module implementation is defined using the syntax shown below:
 ```
 impl <id> {
-// module implementation statements
+	// module implementation statements
 }
 ```
 
-\np The implementation block identifier must correspond to a module interface block in the same translation unit.
+\np The implementation block identifier must correspond to a module interface block within the same translation unit.
+
+# Builtin functions
+
+`pullup()`, `pulldown()`, `fold_sum()`, `fold_or()`, `fold_xor()`, `fold_and()`.
