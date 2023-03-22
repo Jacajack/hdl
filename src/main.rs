@@ -1,45 +1,19 @@
 extern crate hdllang;
-use hdllang::lexer::{LogosLexer, Lexer, Token};
-use miette::NamedSource;
-use thiserror::Error;
-use miette::{Diagnostic, SourceSpan};
-
-#[derive(Error, Debug, Diagnostic)]
-#[error("Lexer error!")]
-#[diagnostic(
-	code(hdllang::lexer),
-	url("patrzuwa.ga"),
-	help("git gud")
-)]
-struct LexerErrorMessage {
-	#[source_code]
-	src: NamedSource,
-
-	#[label("What is this anyway?")]
-	token_range: SourceSpan
-}
-
-impl LexerErrorMessage {
-	pub fn new(source: &str, token: &Token) -> LexerErrorMessage {
-		LexerErrorMessage {
-			src: NamedSource::new("idk.lol", String::from(source)),
-			token_range: (token.range.start, token.range.end - token.range.start + 1).into()
-		}
-	}
-}
+use hdllang::{lexer::{LogosLexer, Lexer}, CompilerDiagnostic};
 
 fn lexer_example() -> miette::Result<()> {
-	let source = String::from("31 fun fun fun for aa bb aa 27  if ; 44 /**/ */ /*12 asd 34*/ 56 4457 11 24 /* */ if ; // 44 \n 11 ");
+	let source = String::from(" 15_s4 0b11017 112y_u37 0xf1_s15 fun fun super_8  kdasd fun /* for */ aa bb aa 27  if ; 44 /**/  /*12 asd 34 56 4457 11 24 /**/  if ; // 44  11 ");
 	let mut lexer = LogosLexer::new(&source);
 	match lexer.process() {
 		Ok(tokens) => {
 			println!("okayy we have {} tokens", tokens.len());
 			for t in &tokens {
-				println!("Token {:?} - '{}'", t.kind, &source[t.range.start .. t.range.end]);
+				println!("Token {:?} - '{}'", t.kind, &source[t.range.start() .. t.range.end()]);
 			}
 		},
-		Err(token) => {
-			return Err(LexerErrorMessage::new(&source, &token))?
+		Err(err) => {
+			let diag = CompilerDiagnostic::from(err);
+			Err(miette::Report::new(diag).with_source_code(source))?
 		}
 	};
 
