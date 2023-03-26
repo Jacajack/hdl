@@ -20,14 +20,11 @@ Requirement key words such as ,,must'' or ,,should'' in this document should be 
 
 ## Basic types
 
-
-\np `int` represents a signed 64-bit integer. int is a non-synthesizable type and can only be used in expressions evaluated at compile time.
+\np `int` represents a signed 64-bit integer. int is a non-synthesizable type and can only be used in expressions evaluated at compile time.  It must be converted to a synthesizable type in order to be used in a synthesizable expression.
 
 \np `wire` represents a synthesizable 1-bit logical signal.
 
 \np `bus<n>` represents a synthesizable $n$-bit data bus. $n$ must be a positive integer and can be an expression evaluated at compile time. $n$ is referred to as _signal width_.
-
-
 
 \np `auto` is not a real type, but can be used in definitions in place of type name. The underyling type will then be deduced based on the right hand side of the expression.
 
@@ -37,8 +34,6 @@ Requirement key words such as ,,must'' or ,,should'' in this document should be 
 
 Type qualifiers are keywords that can be added in declarations and definitions along with the base type name.
 
-
-
 ### Signedness
 
 \np Signedness of a `bus` signals can be specified by using `signed` or `unsigned` qualifiers. Note that signedness of `wire` and `int` cannot be specified.
@@ -47,7 +42,7 @@ Type qualifiers are keywords that can be added in declarations and definitions a
 
 \np Signed $n$-bit signals use two’s complement and can represent integers in range $[−2^{n−1}; 2^{n−1} − 1]$.
 
-\np If signedness is not specified in a declaration, `unsigned` is preferred over `signed` by default.
+\np If signedness is not specified in a declaration, `unsigned` is preferred over `signed` in type deduction.
 
 ### Sensitivity lists
 
@@ -57,11 +52,11 @@ Type qualifiers are keywords that can be added in declarations and definitions a
 
 \np Each identifier in the list can be optionally followed by the _logical NOT operator_ ,,`!`'', indicating that the signal is sensitive to falling edges of certain clock signal.
 
-\np 
+\np If a sensitivity list is a subset of another sensitivity list, it is assumed to be _less sensitive_.
 
 ### Signal sensitivity
 
-\np `int` is a compile-time-only type. It must be converted to a synthesizable type in order to be used in a synthesizable expression.
+Signal sensitivity  describes how likely the signal is to change. This section describes all signal sensitivity classes from least sensitive to most sensitive.
 
 \np `const` is a qualifier applicable to synthesizable types indicating that the signal’s value doesn’t change over time.
 
@@ -71,8 +66,7 @@ Type qualifiers are keywords that can be added in declarations and definitions a
 
 \np `comb(E)` indicates that the signal is an output of combinational logic driven by signals sensitive to clocks indicated in the _sensitivity list_ `E`.
 
-<!-- TODO maybe this should be called async? -->
-\np `comb` indicates that the signal is a combinational signal not associated with any clock domain.
+\np `async` indicates that the signal is a combinational signal not associated with any clock domain. It can be asserted and de-asserted at any time.
 
 
 ### Signal direction
@@ -112,7 +106,7 @@ There are two types of conversions — implicit conversions and explicit convers
 
 \np Implicit conversions can affect signal sensitivity, but only if the resulting signal type is _more sensitive_. 
 
-\np Implicit conversions of signal sensitivity are allowed if the 
+\np Type `int` can be implicitly converted to `signed bus` or `unsigned bus` if the constant can be represented by the _expected type_ within the context. 
 
 ### Explicit conversions
 
@@ -120,19 +114,29 @@ There are two types of conversions — implicit conversions and explicit convers
 
 \np Builtin functions `pulldown()` and `pullup()` can be used to cast away the `tristate` qualifier. 
 
+\np Explicit conversions **must not** affect signal width. Width conversions are to be performed using index operator, `ext()` function family and the concatenation operator.
 
-### Signal purity
+\np Explicit conversions can be used to override signal's sensitivity, but with restriction that a non-`const` signal cannot be converted into a `const` signal.
 
+\np Explicit conversions can be used to change singal signedness. Bit-level representation of the signal remains the same.
 
+## Arrays 
 
+\np Array is an indexable collection of signals.
+
+\np Array can be defined by appending `[N]` after identifier declaration. The expression `N` must evaluate to `int` at compile time. For example, `signed wire<16> arr[32]` declares an array of 32 signals, each one with _underling type_ of `signed wire<16>`.
+
+\np Array of size $n$ has fields from 0 to $n-1$.
+
+## Tuples
+
+\np Tuple is a collection of signals
 
 ## Type deduction
 
 \np _Fully constrained_ signal must be fully qualified in terms of: base type (including width), signedness and sensitivity to clock events.
 
 \np If any of the above is not explicitly qualified, the signal is _partially constraied_.
-
-
 
 \np Type deduction takes place in assignments (standalone or as a part of definitions) and in function calls.
 
@@ -142,31 +146,29 @@ There are two types of conversions — implicit conversions and explicit convers
 
 \np Type deduction takes place whenever _expected type_ or _assigned type_ are not fully constrained. The compiler must then find a suitable _deduced type_ `T` such that _assigned type_ can be implcitly converted into `T` and that `T` is not in conflict with the _expected type_ in terms of the constraints.
 
-
-
 ### Type deduction algorithm
-
-```
-auto x = y ? 4 : 5u7 // error - different types in branches
-auto x = y ? 4 : 5 // error - cannot init int with non-compile-time value
-auto x = y ? 4' : 5' // error - cannot deduce width
-bus<4> x = 4' // ok - deduced const unsigned bus<4>
-signed bus<4> x = 5' // ok - deduced const signed bus<4>
-auto x = 45s11; // ok - deduced const signed bus<11>
-comb(clk) signed wire = 1u1; // unsigned wire<1> should be implicitly convertible to wire
-
-```
-
 
 \np `auto` is considered to be fully unconstrained type.
 
 \np The _assigned type_ must not be `auto`.
 
-\np If the _expected type_ is `auto` and the _assigned type_ is fully constrained, _deduced type_ is equal to _assigned type_. 
+\np If the _assigned type_ and _expected type_ do not impose conflicting constraints, the _deduced type_ is the combination of the two types.
 
-\np If the _expected type_ is `auto` and the _assigned type_ is not fully constrained, _deduced type_ is equal to _assigned type_ with additional default constraints (`unsigned`, `comb`).
+\np If the _assigned type_ and _expected type_ do have any conflicting constraints and the confict can be avoided by an implicit conversion of the _assigned type_, the conversion is performed. The _deduced type_ is then combination of the converted type and _expected type_.
 
+\np If the constrain conflict cannot be resolved in any way, type deduction fails and compiler error is reported.
 
+The following code presents some examples of type deduction:
+```
+auto x = y ? 4 : 5u7 // error - different types in branches
+auto x = y ? 4 : 5   // error - cannot init int with non-compile-time value
+auto x = y ? 4' : 5' // error - cannot deduce width
+bus<4> x = 4'        // ok - deduced const unsigned bus<4>
+bus x = 4u6          // ok - deduced unsigned bus<6>
+signed bus<4> x = 5' // ok - deduced const signed bus<4>
+auto x = 45s11;      // ok - deduced const signed bus<11>
+comb(clk) wire = 1u1; // ok - unsigned wire<1> is implicitly convertible to wire
+```
 
 ### Expected type propagation
 
@@ -220,9 +222,49 @@ comb(clk) signed wire = 1u1; // unsigned wire<1> should be implicitly convertibl
 
 ## Identifiers
 
+\np Identifiers may consist of lowercase and upercase ASCII letters, digits 0--9 and the character ,,`_`''. 
+
+\np Identifier must not start with a digit.
+
 ## Expressions
 
+TODO: operator precedence table
+
+### Match expression
+
+### Conditional expression
+
+
+
 ## Statements
+
+### Signal assignment
+
+\np _l-value_ expression is an expression which can be used on the left or right side of an assignment operator. _r-value_ expressions can only be used on the right side of an assignment.
+
+\np Two signals can be connected with each other using _assignment operator_ ,,`=`''. 
+
+\np There are no restrictions regarding which side of the assignment should be represent the driver net. A compiler diagnostic may be optionally generated.
+
+### Aggregating signal assignment
+
+\np Additional _aggregating assignment operators_ ,,`|=`'', ,,`^=`'', ,,`&=` and ,,`+=`'' are provided. 
+
+### Unused signals
+
+\np `unused <expression>` indicates to the compiler that the following signal is intentionally left unused and hence shouldn't cause a compiler diagnostic to appear.
+
+
+### Flow control
+
+\np `if` statement allows conditional hardware implementation. The condition must be an expression possible to evaluate at compile time. The _expected type_ of the expression is `const wire`.
+
+\np `if` statement can be optionally folowed by an `else` block active only if the condition was not met.
+
+\np `for`
+
+
+
 
 ## Signal declarations
 
@@ -255,6 +297,12 @@ impl <id> {
 
 # Builtin functions
 
-`pullup()`, `pulldown()`, `fold_sum()`, `fold_or()`, `fold_xor()`, `fold_and()`, `zext()`, `sext()`, `ext()`
+`pullup()`, `pulldown()`, `fold_or()`, `fold_xor()`, `fold_and()`, `zext()`, `sext()`, `ext()`, `reverse()`
 
 # Builtin modules
+
+# Code generation
+
+## Identifier persistence
+
+## Intermediate signals
