@@ -34,12 +34,15 @@ GRAMMAR = {
 	],
 	
 	# Variable declarations
+	# TODO cleanup this declaration stuff
+	# TODO tuples
+	# TODO enums
 	"<variable_decl>": ["<variable_declarator>;"],
 	"<variable_declarator>": ["<type_name> <id><array_declarator>*"],
 	"<type_name>": ["<variable_type_specifiers>? <variable_type><vector_declarator>?"], # TODO what about wire<4>[16]
 	"<array_declarator>": ["<index_expression>"],
 	"<vector_declarator>": ["<<expression>>"],
-	"<variable_type>":[
+	"<variable_type>": [
     	"auto",
         "int",
         "wire",
@@ -77,7 +80,10 @@ GRAMMAR = {
 	"<for_stmt>": ["for (<id> = <range_expression>) { <module_impl_stmt>* }"],
 
 	# If statement
-	"<if_stmt>": ["if (<expression>) { <module_impl_stmt>* }"],
+	"<if_stmt>": [
+    	"if (<expression>) { <module_impl_stmt>* }",
+    	"if (<expression>) { <module_impl_stmt>* } else { <module_impl_stmt>* }",
+    ],
 
 	# Module instantiation
 	"<instantiation>": [
@@ -103,6 +109,8 @@ GRAMMAR = {
 		"<match_expression>",
 		"<conditional_expression>",
 		"<compound_expression>",
+        "true",
+        "false",
 	],
 	"<expression>": [
 		"<ternary_expression>"
@@ -128,17 +136,17 @@ GRAMMAR = {
 		"<match_expression_stmt_list>, <match_expression_stmt>",
 	],
 	"<match_expression_stmt>": [
-		"<expression>: <expression>",
-		"default: <expression>",
+		"<match_expression_antecendent>: <expression>",
 	],
-	
+    "<match_expression_antecendent>": [
+		"<expression>", "default"
+	],
+    
 	# Conditional expressions
-	# TODO fix commas
-	"<conditional_expression>": ["conditional(<expression>) {<conditional_expression_stmt>+}"],
-	"<conditional_expression_stmt>": [
-		"<expression>: <expression>",
-		"default: <expression>",
-	],
+	"<conditional_expression>": [
+    	"conditional(<expression>) {<match_expression_stmt_list>+}"
+    	"conditional(<expression>) {<match_expression_stmt_list>+,}"
+    ],
 	
 	# Compound expressions
 	"<compound_expression>": [
@@ -152,26 +160,29 @@ GRAMMAR = {
         "<expression_list>, <expression>",
 	],
 
-	# Precedence: 0
-	# TODO add function call (for future)
-	# TODO add .
-	# TODO add ::??????
+	# Precedence: 0 - postfix ops
 	"<postfix_expression>": [
 		"<primary_expression>",
-		"<primary_expression><range_expression>",
+		"<postfix_expression><range_expression>",
+        "<postfix_expression>(<argument_list>?)",
+        "<postfix_expression>.<id>",
+	],
+	"<argument_list>": [
+		"<expression>",
+        "<argument_list>, <expression>",
 	],
 	
-	# Precedence: 1
+	# Precedence: 1 - prefix ops
 	"<unary_operator>": ["~", "!", "-", "+"],
 	"<unary_expression>": [
 		"<postfix_expression>",
-		"<unary_operator><postfix_expression>",
+		"<unary_operator><unary_expression>",
 	],
 	
-	# Precedence: 2
-	"<cast_expression>": ["<unary_expression>", "(<type_name>) <unary_expression>"],
+	# Precedence: 2 - C-style casts
+	"<cast_expression>": ["<unary_expression>", "(<type_name>) <cast_expression>"],
 	
-	# Precedence: 3
+	# Precedence: 3 - multiplication/division
 	"<multiplicative_expression>": [
 		"<cast_expression>",
 		"<multiplicative_expression> * <cast_expression>",
@@ -179,70 +190,67 @@ GRAMMAR = {
 		"<multiplicative_expression> % <cast_expression>",
 	],
 
-	# Precedence: 4
+	# Precedence: 4 - addition/subtraction
 	"<additive_expression>": [
 		"<multiplicative_expression>",
 		"<additive_expression> + <multiplicative_expression>",
 		"<additive_expression> - <multiplicative_expression>",
 	],
 	
-	# Precedence: 5
+	# Precedence: 5 - bit shifts
 	"<shift_expression>": [
 		"<additive_expression>",
 		"<shift_expression> << <additive_expression>",
 		"<shift_expression> >> <additive_expression>",
 	],
-	
-	# Precedence: 6
-	"<relational_expression>": [
+
+	# Precedence: 6 - bitwise AND
+	"<bitwise_and_expression>": [
 		"<shift_expression>",
-		"<relational_expression> < <shift_expression>",
-		"<relational_expression> > <shift_expression>",
-		"<relational_expression> <= <shift_expression>",
-		"<relational_expression> >= <shift_expression>",
+		"<bitwise_and_expression> & <shift_expression>",
+	],
+
+	# Precedence: 7 - bitwise XOR
+	"<bitwise_xor_expression>": [
+		"<bitwise_and_expression>",
+		"<bitwise_xor_expression> & <bitwise_and_expression>",
+	],
+
+	# Precedence: 8 - bitwise OR
+	"<bitwise_or_expression>": [
+		"<bitwise_xor_expression>",
+		"<bitwise_or_expression> ^ <bitwise_xor_expression>",
 	],
 	
-	# Precedence: 7
+	# Precedence: 9 - comparison operators
+	"<relational_expression>": [
+		"<bitwise_or_expression>",
+		"<relational_expression> < <bitwise_or_expression>",
+		"<relational_expression> > <bitwise_or_expression>",
+		"<relational_expression> <= <bitwise_or_expression>",
+		"<relational_expression> >= <bitwise_or_expression>",
+	],
+	
+	# Precedence: 10 - equality operators
 	"<equality_expression>": [
 		"<relational_expression>",
 		"<equality_expression> == <relational_expression>",
 		"<equality_expression> != <relational_expression>",
 	],
 	
-	# Precedence: 8
-	# TODO increase precedence
-	"<bitwise_and_expression>": [
-		"<equality_expression>",
-		"<bitwise_and_expression> & <equality_expression>",
-	],
-	
-	# Precedence: 9
-	# TODO increase precedence (fix C's mistake)
-	"<bitwise_xor_expression>": [
-		"<bitwise_and_expression>",
-		"<bitwise_xor_expression> & <bitwise_and_expression>",
-	],
-
-	# Precedence: 10
-	# TODO increase precedence (fix C's mistake)
-	"<bitwise_or_expression>": [
-		"<bitwise_xor_expression>",
-		"<bitwise_or_expression> & <bitwise_xor_expression>",
-	],
-	
-	# Precedence: 11
+	# Precedence: 11 - logical AND
 	"<and_expression>": [
-		"<bitwise_or_expression>",
-		"<and_expression> && <bitwise_or_expression>",
+		"<equality_expression>",
+		"<and_expression> && <equality_expression>",
 	],
 	
-	# Precedence: 12
+	# Precedence: 12 - logical OR
 	"<or_expression>": [
 		"<and_expression>",
 		"<or_expression> || <and_expression>",
 	],
 	
-	# Precedence: 13
+	# Precedence: 13 - ternary conditional operator
 	"<ternary_expression>": [
 		"<or_expression>",
 		"<or_expression> ? <expression> : <ternary_expression>",

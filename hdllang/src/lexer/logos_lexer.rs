@@ -1,23 +1,34 @@
 use logos::{Logos, Filter, Skip};
 use super::id_table::{IdTable, IdTableKey};
-use super::{Lexer, SourceRange, Token, KeywordKind, PunctuatorKind};
+use super::number_parser::parse_number_str;
+use super::{Lexer, SourceSpan, Token, KeywordKind, PunctuatorKind, LexerError, LexerErrorKind};
 
-// TODO maybe we should be moving out parse_xxx functions out of here?
-
-/// Parses numeric constant strings
-/// TODO proper implementation
-fn parse_number_str(s: &str) -> Option<u64>{
-	match s.parse() {
-		Ok(n) => Some(n),
-		_ => None
-	}
+/// Parses numeric constant tokens
+fn parse_number_token(lex: &mut logos::Lexer<TokenKind>) -> Option<u64> {
+	parse_number_str(lex.slice()).map_err(|err| {
+		lex.extras.last_err = Some(LexerError{
+			range: SourceSpan::new_from_range(&lex.span()), // TODO fix this span
+			kind: LexerErrorKind::InvalidNumber(err),
+		});
+		return ();
+	}).ok()
 }
 
 /// Causes lexer to consume and ignore multi-line comments (/* */)
 fn consume_block_comment(lex: &mut logos::Lexer<TokenKind>) -> Filter<()> {
 	match lex.remainder().find("*/") {
 		Some(offset) => {lex.bump(offset + 2); Filter::Skip}
-		None => Filter::Emit(())
+		None => {
+			let span = lex.span();
+			lex.extras.last_err = Some(LexerError{
+				range: SourceSpan::new(
+					span.start,
+					lex.remainder().len() + span.end - span.start
+				),
+				kind: LexerErrorKind::UnterminatedBlockComment,
+			});
+			Filter::Emit(())
+		}
 	}
 }
 
@@ -45,10 +56,10 @@ pub enum TokenKind{
 	Error,
 
 	// TODO constant table
-	#[regex(r"((0[xX][\da-fA-F_]+)|(0[bB][10_]+)|(\d[\d_]*))([us]\d+)?", |lex| parse_number_str(lex.slice()))]
+	#[regex(r"[0-9][a-zA-Z0-9_]*", parse_number_token)]
 	Number(u64),
 
-	#[regex("[a-zA-Z_]+", register_id_token)]
+	#[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", register_id_token)]
 	Id(IdTableKey),
 
 	#[token("module",          |_| KeywordKind::Module)]
@@ -88,7 +99,7 @@ pub enum TokenKind{
 	#[token("-", |_| PunctuatorKind::Minus)]
 	#[token("/", |_| PunctuatorKind::Slash)]
 	#[token("*", |_| PunctuatorKind::Asterisk)]
-	#[token("%", |_| PunctuatorKind::Percent)]
+	#[token("%", |_| PunctuatorKind::Modulo)]
 	Punctuator(PunctuatorKind),
 }
 
@@ -100,6 +111,7 @@ pub enum TokenKind{
 pub struct LogosLexerContext {
 	/// Identifier table (names only)
 	id_table: IdTable,
+	last_err: Option<LexerError>,
 }
 
 /// Logos-based lexer implementation
@@ -115,49 +127,42 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 			lexer: TokenKind::lexer_with_extras(
 				source,
 				LogosLexerContext{
-					id_table: IdTable::new()
+					id_table: IdTable::new(),
+					last_err: None,
 				}
 			)
 		}
 	}
 	
 	/// Processes the string and produces a vector of tokens
-	fn process(&mut self) -> Result<Vec<Token>, Token> {
+	fn process(&mut self) -> Result<Vec<Token>, LexerError> {
 		// TODO determine average token length and pre-allocate vector space based on that
 		let mut tokens = Vec::<Token>::with_capacity(1000);
 		while let Some(token_kind) = self.lexer.next() {
 			let token = Token{
 				kind: token_kind,
-				range: SourceRange::new(&self.lexer.span()),
+				range: SourceSpan::new_from_range(&self.lexer.span()),
 			};
 			
+			// Early return with the error reported by parsing functions
+			// or a generic one
 			if matches!(token.kind, TokenKind::Error) {
-				return Err(token);
+				return Err(self.lexer.extras.last_err.unwrap_or(LexerError{
+					range: token.range,
+					kind: LexerErrorKind::InvalidToken,
+				}));
 			}
 
 			tokens.push(token);
 		}
 
+		// Successful exit
+		assert!(matches!(self.lexer.extras.last_err, None));
 		Ok(tokens)
 	}
 
 	/// Provides access to the ID table
 	fn id_table(&self) -> &IdTable {
 		&self.lexer.extras.id_table
-	}
-}
-
-#[cfg(test)]
-mod tests {
-	use super::*;
-
-	#[test]
-	fn test_parse_number_token() {
-		assert_eq!(parse_number_str("64"), Some(64));
-		assert_eq!(parse_number_str("112_u37"), Some(112));
-		assert_eq!(parse_number_str("0xf_s11"), Some(15));
-		assert_eq!(parse_number_str("0B11_01"), Some(13));
-		assert_eq!(parse_number_str("_17"), None);
-		assert_eq!(parse_number_str("xffa"), None);
 	}
 }
