@@ -1,5 +1,5 @@
 extern crate hdllang;
-
+use hdllang::CompilerDiagnostic;
 use hdllang::lexer::{LogosLexer, Lexer, Token};
 use miette::NamedSource;
 use thiserror::Error;
@@ -34,7 +34,7 @@ impl LexerErrorMessage {
 	pub fn new(source_name: &str, source: &str, token: &Token) -> LexerErrorMessage {
 		LexerErrorMessage {
 			src: NamedSource::new(String::from(source_name), String::from(source)),
-			token_range: (token.range.start, token.range.end - token.range.start + 1).into()
+			token_range: (token.range.start(), token.range.end() - token.range.start() + 1).into()
 		}
 	}
 }
@@ -73,11 +73,12 @@ fn simple_cmd(filename: String, mut output:Box<dyn Write>) -> miette::Result<()>
 		Ok(tokens) => {
 			println!("okayy we have {} tokens", tokens.len());
 			for t in &tokens {
-				write!(output,"Token {:?} - '{}'\n", t.kind, &content[t.range.start .. t.range.end]);
+				write!(output,"Token {:?} - '{}'\n", t.kind, &content[t.range.start() .. t.range.end()]);
 			}
 		},
 		Err(token) => {
-			return Err(LexerErrorMessage::new(&filename,&content, &token))?
+			let diag = CompilerDiagnostic::from(token);
+			Err(miette::Report::new(diag).with_source_code(content))?
 		}
 	};
 	Ok(())
@@ -85,13 +86,15 @@ fn simple_cmd(filename: String, mut output:Box<dyn Write>) -> miette::Result<()>
 
 fn main() ->  miette::Result<()> {
 	let matches = command!() 
-	.arg(Arg::new("source").short('s').long("source").required(true))
+	.arg(Arg::new("source").required(true))
 	.arg(Arg::new("output").short('o').long("output"))
 	.arg(
 		arg!(<MODE>)
 			.help("Specify which action should be performed")
 			.value_parser(["tokenize","parse","analyse","compile"])
 			.required(false)
+			.short('m')
+			.long("mode")
 	)
 	.get_matches();
 
