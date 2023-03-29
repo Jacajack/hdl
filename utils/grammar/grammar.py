@@ -4,42 +4,41 @@ from fuzzingbook.Grammars import opts
 LETTERS = string.ascii_uppercase + string.ascii_lowercase
 DIGITS = string.digits
 
-KEYWORDS = [
-	"module", "if", "for", "register", "input", "output", "wire", "sync", "clock",
-	"conditional", "match", "comb", "tristate", "int", "signed", "unsigned", "auto"
-	"unused", "const", "ff_sync", "clock_gate", "tristate_buffer", "enum"
-]
-
 GRAMMAR = {
 	"<start>": ["<top_defs>"],
 	
 	"<id>": ["FOO", "BAR"],
 	"<number>": ["123", "77"],
+    
+	"<metadata_comment>": [
+        "<metadata_comment>+",
+    	"/// METADATA\n",
+    ],
 	
 	"<top_defs>": ["<top_def>", "<top_defs><top_def>"], 
 	"<top_def>": ["<module_def>", "<module_impl>"],
 
-	"<module_def>": ["module <id> { <module_def_stmt>* }"],
-	"<module_def_stmt>": ["<variable_decl>", "<variable_block>"],
+	"<module_def>": ["<metadata_comment>? module <id> { <module_def_stmt>* }"],
+	"<module_def_stmt>": ["<variable_decl_stmt>", "<variable_block>"],
 	
-	"<module_impl>": ["impl <id> { <module_impl_stmt>* }"],
+	"<module_impl>": ["<metadata_comment>? impl <id> { <module_impl_stmt>* }"],
 	"<module_impl_stmt>": [
-		"<variable_decl>",
+		"<variable_decl_stmt>",
 		"<variable_block>",
-		"<variable_def>",
+		"<variable_def_stmt>",
 		"<assignment_stmt>",
 		"<if_stmt>",
 		"<for_stmt>",
-		"<instantiation>",
+		"<instantiation_stmt>",
 	],
-	
+
+	# TODO enum definition
+
 	# Variable declarations
-	# TODO cleanup this declaration stuff
-	# TODO tuples
-	# TODO enums
-	"<variable_decl>": ["<variable_declarator>;"],
-	"<variable_declarator>": ["<type_name> <id><array_declarator>*"],
-	"<type_name>": ["<variable_type_specifiers>? <variable_type><vector_declarator>?"], # TODO what about wire<4>[16]
+	"<variable_decl_stmt>": ["<variable_decl>;"],
+	"<variable_decl>": ["<metadata_comment>? <type_declarator> <id><array_declarator>*"],
+	"<type_name>": ["<type_declarator><array_declarator>*"],
+	"<type_declarator>": ["<variable_type_specifiers>? <variable_type><vector_declarator>?"],
 	"<array_declarator>": ["<index_expression>"],
 	"<vector_declarator>": ["<<expression>>"],
 	"<variable_type>": [
@@ -47,30 +46,34 @@ GRAMMAR = {
         "int",
         "wire",
         "bus",
-        "node",
     ],
 	"<variable_type_specifier>": [
 		"signed",
 		"unsigned",
 		"tristate",
 		"const",
-		"comb",
 		"comb(<expression>)",
-		"sync(<expression>)"
+		"sync(<expression>)",
+        "input",
+        "output",
+        "async",
 	],
-
-	"<variable_type_specifiers>": ["<variable_type_specifier>", "<variable_type_specifiers> <variable_type_specifier>"],
+	"<variable_type_specifiers>": [
+		"<variable_type_specifier>",
+        "<variable_type_specifier> <variable_type_specifiers>",
+	],
 	
 	# Variable blocks
-	"<variable_block>": ["<variable_type_specifiers> { <variable_block_stmt>* };"],
+	"<variable_block>": ["<metadata_comment>? <variable_type_specifiers> { <variable_block_stmt>* };"],
 	"<variable_block_stmt>": [
-    	"<variable_decl>",
-    	"<variable_def>",
-        "<variable_block>"
+    	"<variable_decl_stmt>",
+    	"<variable_def_stmt>",
+        "<variable_block>",
     ],
 	
 	# Variable definitions
-	"<variable_def>": ["<variable_declarator> = <expression>;"],
+	"<variable_def>": ["<variable_decl> = <expression>"],
+    "<variable_def_stmt>": ["<variable_def>;"],
 	
 	# Standalone assignment
 	"<assignment_op>": ["=", "+=", "&=", "^=", "|="],
@@ -85,19 +88,18 @@ GRAMMAR = {
     	"if (<expression>) { <module_impl_stmt>* } else { <module_impl_stmt>* }",
     ],
 
-	# Module instantiation
-	"<instantiation>": [
-    	"<id> <id> { <instantiation_stmt_list> };",
-    	"<id> <id> { <instantiation_stmt_list>, };",
-    ],
-	"<instantiation_stmt_list>": [
-		"<instantiation_stmt>",
-        "<instantiation_stmt_list>, <instantiation_stmt>",
-	],
+	# Module instantiation statement
 	"<instantiation_stmt>": [
+    	"<metadata_comment>? <id> <id> { <port_bind_stmt_list> };",
+    	"<metadata_comment>? <id> <id> { <port_bind_stmt_list>, };",
+    ],
+	"<port_bind_stmt_list>": [
+		"<port_bind_stmt>",
+        "<port_bind_stmt_list>, <port_bind_stmt>",
+	],
+	"<port_bind_stmt>": [
 		"<id>: <expression>",
-		"<id>: <variable_declarator>",
-		"<id>: auto",
+		"<id>: <variable_decl>",
 		"<id>",
 	],
 
@@ -108,12 +110,29 @@ GRAMMAR = {
 		"(<expression>)",
 		"<match_expression>",
 		"<conditional_expression>",
-		"<compound_expression>",
+		"<tuple>",
         "true",
         "false",
 	],
 	"<expression>": [
-		"<ternary_expression>"
+		"<primary_expression>",
+		"<ternary_expression>",
+        "<tuple>",
+        "<postfix_expression>",
+        "<range_expression>",
+        "<unary_expression>",
+        "<postfix_expression>",
+        "<multiplicative_expression>",
+		"<additive_expression>",
+		"<shift_expression>",
+		"<bitwise_and_expression>",
+		"<bitwise_xor_expression>",
+		"<bitwise_or_expression>",
+		"<relational_expression>",
+		"<equality_expression>",
+		"<and_expression>",
+		"<or_expression>",
+		"<ternary_expression>",
 	],
     
 	"<range_expression>": [
@@ -128,15 +147,15 @@ GRAMMAR = {
 	
 	# Match expressions
 	"<match_expression>": [
-    	"match(<expression>) {<match_expression_stmt_list>+}"
-    	"match(<expression>) {<match_expression_stmt_list>+,}"
+    	"match(<expression>) {<match_expression_stmt_list>}",
+    	"match(<expression>) {<match_expression_stmt_list>,}",
     ],
-    "<match_expression_stmt_list>":[
+    "<match_expression_stmt_list>": [
 		"<match_expression_stmt>",
-		"<match_expression_stmt_list>, <match_expression_stmt>",
+		"<match_expression_stmt>, <match_expression_stmt_list>",
 	],
 	"<match_expression_stmt>": [
-		"<match_expression_antecendent>: <expression>",
+		"<match_expression_antecendent> => <expression>",
 	],
     "<match_expression_antecendent>": [
 		"<expression>", "default"
@@ -144,17 +163,15 @@ GRAMMAR = {
     
 	# Conditional expressions
 	"<conditional_expression>": [
-    	"conditional(<expression>) {<match_expression_stmt_list>+}"
-    	"conditional(<expression>) {<match_expression_stmt_list>+,}"
+    	"conditional(<expression>) {<match_expression_stmt_list>}",
+    	"conditional(<expression>) {<match_expression_stmt_list>,}",
     ],
 	
-	# Compound expressions
-	"<compound_expression>": [
+	# Tuples
+	"<tuple>": [
 		"{<expression_list>}",
 		"{<expression_list>,}",
 	],
-    
-	# Comma separated expressions
 	"<expression_list>": [
 		"<expression>",
         "<expression_list>, <expression>",
@@ -162,100 +179,82 @@ GRAMMAR = {
 
 	# Precedence: 0 - postfix ops
 	"<postfix_expression>": [
-		"<primary_expression>",
-		"<postfix_expression><range_expression>",
-        "<postfix_expression>(<argument_list>?)",
-        "<postfix_expression>.<id>",
+		"<expression><range_expression>",
+        "<expression>(<argument_list>?)",
+        "<expression>.<id>",
 	],
 	"<argument_list>": [
-		"<expression>",
         "<argument_list>, <expression>",
 	],
 	
-	# Precedence: 1 - prefix ops
+	# Precedence: 1 - prefix ops + C-style cast
 	"<unary_operator>": ["~", "!", "-", "+"],
 	"<unary_expression>": [
-		"<postfix_expression>",
-		"<unary_operator><unary_expression>",
+		"<unary_operator><expression>",
+        "(<type_name>) <expression>",
 	],
 	
-	# Precedence: 2 - C-style casts
-	"<cast_expression>": ["<unary_expression>", "(<type_name>) <cast_expression>"],
-	
-	# Precedence: 3 - multiplication/division
+	# Precedence: 2 - multiplication/division
 	"<multiplicative_expression>": [
-		"<cast_expression>",
-		"<multiplicative_expression> * <cast_expression>",
-		"<multiplicative_expression> / <cast_expression>",
-		"<multiplicative_expression> % <cast_expression>",
+		"<expression> * <expression>",
+		"<expression> / <expression>",
+		"<expression> % <expression>",
 	],
 
-	# Precedence: 4 - addition/subtraction
+	# Precedence: 3 - addition/subtraction
 	"<additive_expression>": [
-		"<multiplicative_expression>",
-		"<additive_expression> + <multiplicative_expression>",
-		"<additive_expression> - <multiplicative_expression>",
+		"<expression> + <expression>",
+		"<expression> - <expression>",
 	],
 	
-	# Precedence: 5 - bit shifts
+	# Precedence: 4 - bit shifts
 	"<shift_expression>": [
-		"<additive_expression>",
-		"<shift_expression> << <additive_expression>",
-		"<shift_expression> >> <additive_expression>",
+		"<expression> << <expression>",
+		"<expression> >> <expression>",
 	],
 
-	# Precedence: 6 - bitwise AND
+	# Precedence: 5 - bitwise AND
 	"<bitwise_and_expression>": [
-		"<shift_expression>",
-		"<bitwise_and_expression> & <shift_expression>",
+		"<expression> & <expression>",
 	],
 
-	# Precedence: 7 - bitwise XOR
+	# Precedence: 6 - bitwise XOR
 	"<bitwise_xor_expression>": [
-		"<bitwise_and_expression>",
-		"<bitwise_xor_expression> & <bitwise_and_expression>",
+		"<expression> ^ <expression>",
 	],
 
-	# Precedence: 8 - bitwise OR
+	# Precedence: 7 - bitwise OR
 	"<bitwise_or_expression>": [
-		"<bitwise_xor_expression>",
-		"<bitwise_or_expression> ^ <bitwise_xor_expression>",
+		"<expression> | <expression>",
 	],
 	
-	# Precedence: 9 - comparison operators
+	# Precedence: 8 - comparison operators
 	"<relational_expression>": [
-		"<bitwise_or_expression>",
-		"<relational_expression> < <bitwise_or_expression>",
-		"<relational_expression> > <bitwise_or_expression>",
-		"<relational_expression> <= <bitwise_or_expression>",
-		"<relational_expression> >= <bitwise_or_expression>",
+		"<expression> < <expression>",
+		"<expression> > <expression>",
+		"<expression> <= <expression>",
+		"<expression> >= <expression>",
 	],
 	
-	# Precedence: 10 - equality operators
+	# Precedence: 9 - equality operators
 	"<equality_expression>": [
-		"<relational_expression>",
-		"<equality_expression> == <relational_expression>",
-		"<equality_expression> != <relational_expression>",
+		"<expression> == <expression>",
+		"<expression> != <expression>",
 	],
 	
-	# Precedence: 11 - logical AND
+	# Precedence: 10 - logical AND
 	"<and_expression>": [
-		"<equality_expression>",
-		"<and_expression> && <equality_expression>",
+		"<expression> && <expression>",
 	],
 	
-	# Precedence: 12 - logical OR
+	# Precedence: 11 - logical OR
 	"<or_expression>": [
-		"<and_expression>",
-		"<or_expression> || <and_expression>",
+		"<expression> || <expression>",
 	],
 	
-	# Precedence: 13 - ternary conditional operator
+	# Precedence: 12 - ternary conditional operator
 	"<ternary_expression>": [
-		"<or_expression>",
-		"<or_expression> ? <expression> : <ternary_expression>",
-	],
-    
-	
+		"<expression> ? <expression> : <expression>",
+	],	
 }
 
