@@ -50,7 +50,7 @@ fn register_id_token(lex: &mut logos::Lexer<TokenKind>) -> IdTableKey {
 #[logos(extras = LogosLexerContext)]
 pub enum TokenKind{
 	#[error]
-	#[regex(r"[ \t\n\f]+", logos::skip)]
+	#[regex(r"[ \t\r\n\f]+", logos::skip)]
 	#[token("/*", consume_block_comment)]
 	#[token("//", consume_line_comment)]
 	Error,
