@@ -1,6 +1,5 @@
 ---
-title: "HDL language definition"
-# subtitle: "Projekt programistyczny"
+title: "HDL language reference"
 author: [Jacek Wieczorek, Wojciech Ptaś]
 geometry: a4paper, margin=2.5cm
 date: 15.03.2023r.
@@ -14,7 +13,7 @@ numbersections: true
 
 This document describes syntax and semantics of the proposed hardware description language. 
 
-Requirement key words such as ,,must'' or ,,should'' in this document should be interpreted with accordance to RFC 2119.
+Requirement key words such as ''must'' or ''should'' in this document should be interpreted with accordance to RFC 2119.
 
 # Type system
 
@@ -50,7 +49,7 @@ Type qualifiers are keywords that can be added in declarations and definitions a
 
 \np A _sensitivity list_ is a comma-separated list of `clock` signal identifiers. Occurence of an identifier indicates that the signal is subject to change on rising edges of certain clock signal.
 
-\np Each identifier in the list can be optionally followed by the _logical NOT operator_ ,,`!`'', indicating that the signal is sensitive to falling edges of certain clock signal.
+\np Each identifier in the list can be optionally followed by the _logical NOT operator_ ''`!`'', indicating that the signal is sensitive to falling edges of certain clock signal.
 
 \np If a sensitivity list is a subset of another sensitivity list, it is assumed to be _less sensitive_.
 
@@ -108,6 +107,8 @@ There are two types of conversions — implicit conversions and explicit convers
 
 \np Type `int` can be implicitly converted to `signed bus` or `unsigned bus` if the constant can be represented by the _expected type_ within the context. 
 
+\np Tuple consisting only of signals _implicitly convertible_ to `T` may be implicitly converted into an array of `T`.
+
 ### Explicit conversions
 
 \np The _cast expression_ can be used to forcibly coerce signal types. 
@@ -130,7 +131,10 @@ There are two types of conversions — implicit conversions and explicit convers
 
 ## Tuples
 
-\np Tuple is a collection of signals
+\np Tuple is a collection of signals which do not necessarily share the same type.
+
+
+<!-- Under certain conditions tuples must be implicitly convertible to arrays -->
 
 ## Type deduction
 
@@ -188,9 +192,11 @@ comb(clk) wire = 1u1; // ok - unsigned wire<1> is implicitly convertible to wire
 
 ## Comments and whitespace
 
-\np Comments and redundant whitespace are ignored by the lexer
+\np Comments and redundant whitespace are ignored by the lexer.
 
-\np _Single line comment_ starts with `//` and lasts until the end of the line 
+\np _Single line comment_ starts with `//` and lasts until the end of the line.
+
+\np _Metadata comment_ starts with `///` and lasts until the end of the line.
 
 \np _Block comment_ starts with `/*` and lasts until the first occurence of `*/`. 
 
@@ -210,10 +216,6 @@ comb(clk) wire = 1u1; // ok - unsigned wire<1> is implicitly convertible to wire
 
 \np If a numeric constant is not fully constrained, its type can be deduced from the context using _type deduction algorithm_. Naturally, if type deduction algorihtm fails, an error must be reported by the compiler.
 
-<!--
-\np In expressions, numeric constants have type `const signed wire<N>` or `const unsigned wire<N>` where `N` is the number of bits defined within the constant itself.
--->
-
 ## Logical constants
 
 \np Logical constant `true` represents a constant logical truth value. Its type in expressions is `const wire`.
@@ -222,13 +224,27 @@ comb(clk) wire = 1u1; // ok - unsigned wire<1> is implicitly convertible to wire
 
 ## Identifiers
 
-\np Identifiers may consist of lowercase and upercase ASCII letters, digits 0--9 and the character ,,`_`''. 
+\np Identifiers may consist of lowercase and upercase ASCII letters, digits 0--9 and the character ''`_`''. 
 
 \np Identifier must not start with a digit.
 
 ## Expressions
 
-TODO: operator precedence table
+|Precedence|Operator|Description|
+|----|-----|---|
+|1|`[]`, `()` (postfix --- function call), `.` (postfix)|Suffix operators|
+|2|`~`, `!`, `+` (prefix), `-` (prefix), `()` (prefix --- cast)|Prefix operators|
+|3|`*`, `/`, `%`|Multiplication, division and remainder|
+|4|`+`, `-`|Addition and subtraction|
+|5|`<<`, `>>`|Bitwise shift operators|
+|6|`&`|Bitwise AND|
+|7|`^`|Bitwise XOR|
+|8| `|` |Bitwise OR|
+|9|`<`, `>`, `>=`, `<=`|Relational operators|
+|10|`==`, `!=`|Relational --- equal, not equal|
+|11|`&&`|Logical AND|
+|12| `||` |Logical OR|
+|13|`?:`|Ternary conditional operator|
 
 ### Match expression
 
@@ -242,29 +258,45 @@ TODO: operator precedence table
 
 \np _l-value_ expression is an expression which can be used on the left or right side of an assignment operator. _r-value_ expressions can only be used on the right side of an assignment.
 
-\np Two signals can be connected with each other using _assignment operator_ ,,`=`''. 
+\np Two signals can be connected with each other using _assignment operator_ ''`=`''. 
 
 \np There are no restrictions regarding which side of the assignment should be represent the driver net. A compiler diagnostic may be optionally generated.
 
 ### Aggregating signal assignment
 
-\np Additional _aggregating assignment operators_ ,,`|=`'', ,,`^=`'', ,,`&=` and ,,`+=`'' are provided. 
+\np Additional _aggregating assignment operators_ ''`|=`'', ''`^=`'', ''`&=` and ''`+=`'' are provided. 
+
+\np Signal must not be assigned to using more than one kind of assignment operator.
 
 ### Unused signals
 
 \np `unused <expression>` indicates to the compiler that the following signal is intentionally left unused and hence shouldn't cause a compiler diagnostic to appear.
 
+### Module insantiation statement
+
+\np Modules can be insantiated using following syntax:
+~~~
+/// Optional metadata comment
+module_type module_name {
+	// Port bind statements
+}
+~~~
+
+\np Port bind statement is a kind of assignment statement in form: `<id>: <expression>,`. The comma **may** be left out after the last statement in an instantiation block.
+
+\np Port bind statement can also have form: `<id>: <signal definition>,`. Such syntax defines a new signal in the parent scope and binds it to the interface signal.
+
+\np When a module is instantiated, all signals present in the interface of the instantiated module must be assigned.
+
+\np Each interface signal may only be assigned once in an insantiation statement.
 
 ### Flow control
 
 \np `if` statement allows conditional hardware implementation. The condition must be an expression possible to evaluate at compile time. The _expected type_ of the expression is `const wire`.
 
-\np `if` statement can be optionally folowed by an `else` block active only if the condition was not met.
+\np `if` statement can be optionally folowed by an `else` block active only if the condition was not met. The else block applies to the last `if` statement without an `else` block.
 
-\np `for`
-
-
-
+\np `for`  <!-- TODO how do we define for range? -->
 
 ## Signal declarations
 
@@ -277,6 +309,7 @@ Module definition consists of two blocks — module interface definition and _mo
 \np Module interface is defined using the syntax shown below:
 
 ~~~{.v}
+/// Optional metadata comment
 module <id> {
 	// module port-list declarations
 }
@@ -288,6 +321,7 @@ module <id> {
 
 \np Module implementation is defined using the syntax shown below:
 ```
+/// Optional metadata comment
 impl <id> {
 	// module implementation statements
 }
@@ -297,9 +331,34 @@ impl <id> {
 
 # Builtin functions
 
-`pullup()`, `pulldown()`, `fold_or()`, `fold_xor()`, `fold_and()`, `zext()`, `sext()`, `ext()`, `reverse()`
+### Tristate conversions
+
+\np `pullup(x)` can be used to remove `tristate` specifier from a signal. `x` must be a tri-state signal. High-impedance bits are converted to logical ones.
+
+\np `puddown(x)` can be used to remove `tristate` specifier from a signal. `x` must be a tri-state signal. High-impedance bits are converted to logical zeros.
+
+### Bus folding
+
+\np `fold_or(x)`, `fold_xor(x)` and `fold_and(x)` allow folding of a bus signal into a single wire by applying OR, XOR and AND operators to all bits accordingly.
+
+### Bus extension
+
+\np `zext(x)` (zero-extend) performs zero-extension of an unsigned singal to the expected width.
+
+\np `sext(x)` (sign-extend) performs sign-extension of a signed signal to the expected width.
+
+\np `ext(x)` (extend) performs zero-extension or sign-extension to the expected width based on `x` signal signedness.
+
+### Bit manipulation
+
+\np `reverse(x)` reverses order of bits in the bus signal `x`
+
 
 # Builtin modules
+
+## Registers
+
+## Tri-state buffers
 
 # Code generation
 
