@@ -1,5 +1,6 @@
 extern crate hdllang;
 use hdllang::CompilerDiagnostic;
+use hdllang::parser;
 use hdllang::lexer::{LogosLexer, Lexer, Token};
 use miette::NamedSource;
 use thiserror::Error;
@@ -83,8 +84,12 @@ fn simple_cmd(filename: String, mut output:Box<dyn Write>) -> miette::Result<()>
 	};
 	Ok(())
 }
-
 fn main() ->  miette::Result<()> {
+	let expr = parser::ExprParser::new()
+	.parse("22 * 44 + 66")
+	.unwrap();
+	println!("{:?}", expr);
+	/*
 	let matches = command!() 
 	.arg(Arg::new("source").required(true))
 	.arg(Arg::new("output").short('o').long("output"))
@@ -139,6 +144,6 @@ fn main() ->  miette::Result<()> {
 			println!("We wont be here");
 			lexer_example()?;
 		}
-	};
+	};*/
 	Ok(())
 }
