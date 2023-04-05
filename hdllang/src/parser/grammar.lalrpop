@@ -1,11 +1,12 @@
 use std::str::FromStr;
 use crate::parser::ast::{Expr, Opcode};
-
+use crate::lexer::*;
+// use crate::lexer::{TokenKind, LexerErrorKind, PunctuatorKind, KeywordKind, LexerError, IdTableKey};
+// use crate::lexer::id_table::*;
 grammar;
 
 pub Expr: Box<Expr> = { // (1)
     Expr ExprOp Factor => Box::new(Expr::Op(<>)), // (2)
-    Factor,
 };
 
 ExprOp: Opcode = { // (3)
@@ -24,10 +25,56 @@ FactorOp: Opcode = {
 };
 
 Term: Box<Expr> = {
-    Num => Box::new(Expr::Number(<>)),
+    Num => Box::new(Expr::Number(<>)), // (4)
     "(" <Expr> ")"
 };
 
-Num: i32 = {
-    r"[0-9]+" => i32::from_str(<>).unwrap()
+Num:i32 = {
+    "Number" => <> as i32
 };
+
+extern {
+    type Location = usize;
+    type Error = LexerError;
+  
+    enum TokenKind {
+		"Number"          => TokenKind::Number(<u64>),
+		"Id"              => TokenKind::Id(<IdTableKey>),
+		"module"          => TokenKind::Keyword(KeywordKind::Module),
+		"register"        => TokenKind::Keyword(KeywordKind::Register),
+		"input"           => TokenKind::Keyword(KeywordKind::Input),
+		"output"          => TokenKind::Keyword(KeywordKind::Output),
+		"wire"            => TokenKind::Keyword(KeywordKind::Wire),
+		"sync"            => TokenKind::Keyword(KeywordKind::Sync),
+		"clock"           => TokenKind::Keyword(KeywordKind::Clock),
+		"conditional"     => TokenKind::Keyword(KeywordKind::Conditional),
+		"match"           => TokenKind::Keyword(KeywordKind::Match),
+		"bus"             => TokenKind::Keyword(KeywordKind::Bus),
+		"comb"            => TokenKind::Keyword(KeywordKind::Comb),
+		"tristate"        => TokenKind::Keyword(KeywordKind::Tristate),
+		"int"             => TokenKind::Keyword(KeywordKind::Int),
+		"signed"          => TokenKind::Keyword(KeywordKind::Signed),
+		"unsigned"        => TokenKind::Keyword(KeywordKind::Unsigned),
+		"auto"            => TokenKind::Keyword(KeywordKind::Auto),
+		"unused"          => TokenKind::Keyword(KeywordKind::Unused),
+		"const"           => TokenKind::Keyword(KeywordKind::Const),
+		"ff_sync"         => TokenKind::Keyword(KeywordKind::FfSync),
+		"clock_gate"      => TokenKind::Keyword(KeywordKind::ClockGate),
+		"tristate_buffer" => TokenKind::Keyword(KeywordKind::TristateBuffer),
+		"enum"            => TokenKind::Keyword(KeywordKind::Enum),
+		"if"              => TokenKind::Keyword(KeywordKind::If),
+		"for"             => TokenKind::Keyword(KeywordKind::For),
+		"("               => TokenKind::Punctuator(PunctuatorKind::LPar),
+		")"               => TokenKind::Punctuator(PunctuatorKind::RPar),
+		"{"               => TokenKind::Punctuator(PunctuatorKind::LBrace),
+		"}"               => TokenKind::Punctuator(PunctuatorKind::RBrace),
+		"["               => TokenKind::Punctuator(PunctuatorKind::LBracket),
+		"]"               => TokenKind::Punctuator(PunctuatorKind::RBracket),
+		";"               => TokenKind::Punctuator(PunctuatorKind::Semicolon),
+		"+"               => TokenKind::Punctuator(PunctuatorKind::Plus),
+		"-"               => TokenKind::Punctuator(PunctuatorKind::Minus),
+		"/"               => TokenKind::Punctuator(PunctuatorKind::Slash),
+		"*"               => TokenKind::Punctuator(PunctuatorKind::Asterisk),
+		"%"               => TokenKind::Punctuator(PunctuatorKind::Modulo),
+    }
+  }

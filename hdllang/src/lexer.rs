@@ -7,6 +7,7 @@ use std::fmt;
 use thiserror::Error;
 use crate::SourceSpan;
 pub use id_table::IdTable;
+pub use id_table::IdTableKey;
 pub use logos_lexer::LogosLexer;
 pub use number_parser::NumberParseError;
 

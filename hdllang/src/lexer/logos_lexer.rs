@@ -1,4 +1,4 @@
-use logos::{Logos, Filter, Skip};
+use logos::{Logos, Filter, Skip,SpannedIter};
 use super::id_table::{IdTable, IdTableKey};
 use super::number_parser::parse_number_str;
 use super::{Lexer, SourceSpan, Token, KeywordKind, PunctuatorKind, LexerError, LexerErrorKind};
@@ -152,7 +152,6 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 					kind: LexerErrorKind::InvalidToken,
 				}));
 			}
-
 			tokens.push(token);
 		}
 
@@ -166,3 +165,15 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 		&self.lexer.extras.id_table
 	}
 }
+pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
+impl<'input> Iterator for LogosLexer<'input> {
+	type Item = Spanned<TokenKind, usize, LexerErrorKind>;
+  	fn next(&mut self) -> Option<Self::Item> {
+	  self.lexer.next().map(|token|{
+		match token {
+		TokenKind::Error => Err(LexerErrorKind::InvalidToken),
+		_ => Ok((self.lexer.span().start, token, self.lexer.span().end))
+		}
+	  })
+	}
+  }

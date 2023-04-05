@@ -85,8 +85,9 @@ fn simple_cmd(filename: String, mut output:Box<dyn Write>) -> miette::Result<()>
 	Ok(())
 }
 fn main() ->  miette::Result<()> {
+	let mut lex =LogosLexer::new("2*3+1");
 	let expr = parser::ExprParser::new()
-	.parse("22 * 44 + 66")
+	.parse(lex)
 	.unwrap();
 	println!("{:?}", expr);
 	/*
