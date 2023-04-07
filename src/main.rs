@@ -1,6 +1,7 @@
 extern crate hdllang;
 use hdllang::CompilerDiagnostic;
 use hdllang::parser;
+use hdllang::CompilerError;
 use hdllang::lexer::{LogosLexer, Lexer, Token};
 use miette::NamedSource;
 use thiserror::Error;
@@ -74,7 +75,8 @@ fn simple_cmd(filename: String, mut output:Box<dyn Write>) -> miette::Result<()>
 		Ok(tokens) => {
 			println!("okayy we have {} tokens", tokens.len());
 			for t in &tokens {
-				write!(output,"Token {:?} - '{}'\n", t.kind, &content[t.range.start() .. t.range.end()]);
+				write!(output, "Token {:?} - '{}'\n", t.kind, &content[t.range.start() .. t.range.end()])
+					.map_err(|e| CompilerError::IoError(e))?
 			}
 		},
 		Err(token) => {
