@@ -1,1 +1,1 @@
-lalrpop_mod!(pub grammar, "/parser/grammar.rs"); 
+lalrpop_mod!(pub grammar, "/parser/grammar.rs");

@@ -103,7 +103,7 @@ pub enum PunctuatorKind {
 	LessEqual,       // <=
 	LogicalAnd,      // &&
 	LogicalNot,      // !
-	LogiclalOr,      // ||
+	LogicalOr,      // ||
 	LPar,            // (
 	LShift,          // <<
 	Minus,           // -
@@ -117,6 +117,7 @@ pub enum PunctuatorKind {
 	RShift,          // >>	
 	Semicolon,       // ;
 	Slash,           // /
+	PlusColon,		 // +:
 }
 
 /// Token as produced by the lexer (token kind + source location)

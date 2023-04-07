@@ -1,38 +1,136 @@
-use std::str::FromStr;
-use crate::parser::ast::{Expr, Opcode};
-use crate::lexer::*;
-// use crate::lexer::{TokenKind, LexerErrorKind, PunctuatorKind, KeywordKind, LexerError, IdTableKey};
-// use crate::lexer::id_table::*;
+use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode};
+use crate::lexer::*; 
+use crate::SourceSpan;
 grammar;
 
-pub Expr: Box<Expr> = { // (1)
-    Expr ExprOp Factor => Box::new(Expr::Op(<>)), // (2)
-};
+Expression: Box<Expression> = {
+	<start:@L> <value:"Number"> <end:@R> => 
+		Box::new(
+			Expression::Number{
+				value,
+				location:SourceSpan::new_between(start,end)
+			}
+		),
+	<start:@L> <id:"Id"> <end:@R> => 
+		Box::new(
+			Expression::Identifier{
+				id,
+				location:SourceSpan::new_between(start,end),
+			}
+		),
+	<start:@L>"(" <expression:Expression> ")" <end:@R> => 
+		Box::new(
+			Expression::ParenthesizedExpression{
+				expression,
+				location:SourceSpan::new_between(start,end)
+			}
+		),
+}
+pub RangeExpr :  Box<Expression> = {
+	<start:@L> <lhs:TernaryExpression> <code:RangeOp> <rhs:TernaryExpression> <end:@R> =>
+		Box::new(Expression::RangeExpression{
+			lhs,
+			rhs,
+			code,
+			location:SourceSpan::new_between(start,end)
+		}
+	),
+}
+UnaryExpr: Box<Expression> ={
+	<start:@L> <code:UnaryExprOP> <expression:Expression>  <end:@R> => 
+	Box::new(
+		Expression::UnaryOperatorExpression{
+			expression,
+			code,
+			location:SourceSpan::new_between(start,end),
+		}
+	),
+	Expression,
+}
+Factor = Tier<FactorOp, UnaryExpr>;
+Sum = Tier<AddOp, Factor>;
+Shift = Tier<ShiftOp,Sum>;
+BitwiseAnd = Tier<BitwiseAndOp,Shift>;
+BitwiseXor = Tier<BitwiseXorOp,BitwiseAnd>;
+BitwiseOr= Tier<BitwiseOrOp,BitwiseXor>;
+Comparison = Tier<RelationalOp,BitwiseOr>;
+Equality = Tier<EqualityOp,Comparison>;
+LogicalAnd = Tier<LAandOP,Equality>;
+LogicalOr = Tier<LOrOp,LogicalAnd>;// a || b
+TernaryExpression : Box<Expression> = {
+	<start:@L> <condition:LogicalOr> "?" <true_branch:TernaryExpression>  ":" <false_branch:TernaryExpression> <end:@R> => 
+		Box::new(
+			Expression::TernaryExpression{
+				condition,
+				true_branch,
+				false_branch,
+				location:SourceSpan::new_between(start,end),
+			}
+		),
+	LogicalOr
+}
 
-ExprOp: Opcode = { // (3)
-    "+" => Opcode::Add,
-    "-" => Opcode::Sub,
+pub Expr=TernaryExpression;
+Tier<Op,NextTier>: Box<Expression> = {
+    <start:@L> <lhs:Tier<Op,NextTier>> <code:Op> <rhs:NextTier> <end:@R> => 
+	Box::new(
+		Expression::BinaryExpression{
+			lhs,
+			rhs,
+			code,
+			location:SourceSpan::new_between(start,end),
+		}
+	),
+    NextTier
 };
-
-Factor: Box<Expr> = {
-    Factor FactorOp Term => Box::new(Expr::Op(<>)),
-    Term,
+RangeOp: RangeOpcode={
+	":"  => RangeOpcode::Colon,
+	"+:" => RangeOpcode::PlusColon,
+}
+ShiftOp: BinaryOpcode={
+	">>" => BinaryOpcode::RShift,
+	"<<" => BinaryOpcode::LShift,
+}
+BitwiseAndOp: BinaryOpcode={
+	"&" => BinaryOpcode::BitwiseAnd
+}
+BitwiseXorOp: BinaryOpcode={
+	"^" => BinaryOpcode::BitwiseXor
+}
+BitwiseOrOp:BinaryOpcode={
+	"|" => BinaryOpcode::BitwiseOr
+}
+RelationalOp: BinaryOpcode={
+	">" => BinaryOpcode::Less,
+	"<" => BinaryOpcode::Greater,
+	"<=" => BinaryOpcode::LessEqual,
+	">=" => BinaryOpcode::GreaterEqual
+}
+EqualityOp: BinaryOpcode = {
+	"==" => BinaryOpcode::Equal,
+	"!=" => BinaryOpcode::NotEqual,
+}
+LAandOP: BinaryOpcode= {
+	"&&" => BinaryOpcode::LogicalAnd
+}
+LOrOp: BinaryOpcode ={
+	"||" => BinaryOpcode::LogicalOr
+}
+AddOp: BinaryOpcode = { // (3)
+    "+" => BinaryOpcode::Addition,
+    "-" => BinaryOpcode::Substraction,
 };
-
-FactorOp: Opcode = {
-    "*" => Opcode::Mul,
-    "/" => Opcode::Div,
+FactorOp: BinaryOpcode = {
+    "*" => BinaryOpcode::Multiplication,
+	"%" => BinaryOpcode::Modulo,
+    "/" => BinaryOpcode::Division,
 };
-
-Term: Box<Expr> = {
-    Num => Box::new(Expr::Number(<>)), // (4)
-    "(" <Expr> ")"
-};
-
-Num:i32 = {
-    "Number" => <> as i32
-};
-
+UnaryExprOP :UnaryOpcode={
+	"~" => UnaryOpcode::BitwiseNot,
+	"!" => UnaryOpcode::LogicalNot,
+	"+" => UnaryOpcode::Plus,
+	"-" => UnaryOpcode::Minus,
+}
 extern {
     type Location = usize;
     type Error = LexerError;
@@ -73,8 +171,31 @@ extern {
 		";"               => TokenKind::Punctuator(PunctuatorKind::Semicolon),
 		"+"               => TokenKind::Punctuator(PunctuatorKind::Plus),
 		"-"               => TokenKind::Punctuator(PunctuatorKind::Minus),
+		"!"               => TokenKind::Punctuator(PunctuatorKind::LogicalNot),
+		"~"               => TokenKind::Punctuator(PunctuatorKind::BitwiseNot),
 		"/"               => TokenKind::Punctuator(PunctuatorKind::Slash),
 		"*"               => TokenKind::Punctuator(PunctuatorKind::Asterisk),
 		"%"               => TokenKind::Punctuator(PunctuatorKind::Modulo),
+		","				  => TokenKind::Punctuator(PunctuatorKind::Comma),
+		"|"				  => TokenKind::Punctuator(PunctuatorKind::BitwiseOr),
+		"^"				  => TokenKind::Punctuator(PunctuatorKind::BitwiseXor),
+		"&"				  => TokenKind::Punctuator(PunctuatorKind::BitwiseAnd),
+		">"				  => TokenKind::Punctuator(PunctuatorKind::Greater),
+		"<"				  => TokenKind::Punctuator(PunctuatorKind::Less),
+		"?"				  => TokenKind::Punctuator(PunctuatorKind::QuestionMark),
+		":"				  => TokenKind::Punctuator(PunctuatorKind::Colon),
+		">>"			  => TokenKind::Punctuator(PunctuatorKind::RShift),
+		"<<"			  => TokenKind::Punctuator(PunctuatorKind::LShift),
+		"<="			  => TokenKind::Punctuator(PunctuatorKind::LessEqual),
+		">="			  => TokenKind::Punctuator(PunctuatorKind::GreaterEqual),
+		"=="			  => TokenKind::Punctuator(PunctuatorKind::Equals),
+		"!="			  => TokenKind::Punctuator(PunctuatorKind::NotEquals),
+		"&&"			  => TokenKind::Punctuator(PunctuatorKind::LogicalAnd),
+		"||"			  => TokenKind::Punctuator(PunctuatorKind::LogicalOr),
+		"+:"			  => TokenKind::Punctuator(PunctuatorKind::PlusColon),
+
+
+
+
     }
   }
