@@ -1,11 +1,16 @@
+use miette::Diagnostic;
 use thiserror::Error;
 use crate::lexer::LexerError;
 
 /// General compiler error
 /// 
 /// Should ultimately include errors from all parts of the compiler
-#[derive(Copy, Clone, Debug, Error)]
+#[derive(Debug, Error, Diagnostic)]
 pub enum CompilerError {
 	#[error(transparent)]
 	LexerError(#[from] LexerError),
+
+	#[error(transparent)]
+	#[diagnostic(code(hdllang::io_error))]
+	IoError(#[from] std::io::Error)
 }
