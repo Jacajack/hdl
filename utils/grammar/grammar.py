@@ -5,7 +5,7 @@ LETTERS = string.ascii_uppercase + string.ascii_lowercase
 DIGITS = string.digits
 
 GRAMMAR = {
-	"<start>": ["<top_defs>"],
+	"<start>": ["<top_def>+"],
 	
 	"<id>": ["FOO", "BAR"],
 	"<number>": ["123", "77"],
@@ -15,11 +15,10 @@ GRAMMAR = {
     	"/// METADATA\n",
     ],
 	
-	"<top_defs>": ["<top_def>", "<top_defs><top_def>"], 
-	"<top_def>": ["<module_def>", "<module_impl>"],
+	"<top_def>": ["<module_decl>", "<module_impl>"],
 
-	"<module_def>": ["<metadata_comment>? module <id> { <module_def_stmt>* }"],
-	"<module_def_stmt>": ["<variable_decl_stmt>", "<variable_block>"],
+	"<module_decl>": ["<metadata_comment>? module <id> { <module_decl_stmt>* }"],
+	"<module_decl_stmt>": ["<variable_decl_stmt>", "<variable_block>"],
 	
 	"<module_impl>": ["<metadata_comment>? impl <id> { <module_impl_stmt>* }"],
 	"<module_impl_stmt>": [
@@ -30,24 +29,33 @@ GRAMMAR = {
 		"<if_stmt>",
 		"<for_stmt>",
 		"<instantiation_stmt>",
+        "<module_impl_block_stmt>",
 	],
+	"<module_impl_block_stmt>": ["{<module_impl_stmt>*}"],
 
-	# TODO enum definition
+	# TODO enum declaration
 
 	# Variable declarations
 	"<variable_decl_stmt>": ["<variable_decl>;"],
-	"<variable_decl>": ["<metadata_comment>? <type_declarator> <id><array_declarator>*"],
+	"<variable_decl>": [
+    	"<metadata_comment>? <type_declarator> <direct_declarator_list>"
+    ],
+    "<direct_declarator_list>": [
+		"<direct_declarator>",
+        "<direct_declarator_list>, <direct_declarator>",
+	],
+    "<direct_declarator>": ["<id><array_declarator>*"],
 	"<type_name>": ["<type_declarator><array_declarator>*"],
-	"<type_declarator>": ["<variable_type_specifiers>? <variable_type><vector_declarator>?"],
+	"<type_declarator>": ["<type_qualifier>* <type_specifier>"],
 	"<array_declarator>": ["<index_expression>"],
-	"<vector_declarator>": ["<<expression>>"],
-	"<variable_type>": [
+	"<type_specifier>": [
     	"auto",
         "int",
         "wire",
-        "bus",
+        "bus<<expression>>",
     ],
-	"<variable_type_specifier>": [
+
+	"<type_qualifier>": [
 		"signed",
 		"unsigned",
 		"tristate",
@@ -58,34 +66,42 @@ GRAMMAR = {
         "output",
         "async",
 	],
-	"<variable_type_specifiers>": [
-		"<variable_type_specifier>",
-        "<variable_type_specifier> <variable_type_specifiers>",
-	],
 	
 	# Variable blocks
-	"<variable_block>": ["<metadata_comment>? <variable_type_specifiers> { <variable_block_stmt>* };"],
+	"<variable_block>": ["<metadata_comment>? <type_qualifier>+ { <variable_block_stmt>* }"],
 	"<variable_block_stmt>": [
     	"<variable_decl_stmt>",
-    	"<variable_def_stmt>",
+    	# "<variable_def_stmt>", # TODO For review!!!
         "<variable_block>",
     ],
 	
 	# Variable definitions
-	"<variable_def>": ["<variable_decl> = <expression>"],
     "<variable_def_stmt>": ["<variable_def>;"],
+	"<variable_def>": [
+		"<metadata_comment>? <type_declarator> <direct_initializer_list>",
+    ],
+    "<direct_initializer>": [
+        "<direct_declarator>",
+		"<direct_declarator> = <expression>",
+	],
+    "<direct_initializer_list>": [
+		"<direct_initializer>",
+        "<direct_initializer_list>, <direct_initializer>",
+	],
 	
 	# Standalone assignment
 	"<assignment_op>": ["=", "+=", "&=", "^=", "|="],
 	"<assignment_stmt>": ["<expression> <assignment_op> <expression>;"],
 	
 	# For statement
-	"<for_stmt>": ["for (<id> = <range_expression>) { <module_impl_stmt>* }"],
+	"<for_stmt>": [
+    	"for (<id> in <range_expression>) <module_impl_stmt>"
+    ],
 
 	# If statement
 	"<if_stmt>": [
-    	"if (<expression>) { <module_impl_stmt>* }",
-    	"if (<expression>) { <module_impl_stmt>* } else { <module_impl_stmt>* }",
+    	"if (<expression>) <module_impl_stmt>",
+    	"if (<expression>) <module_impl_stmt> else <module_impl_stmt>",
     ],
 
 	# Module instantiation statement
@@ -108,18 +124,18 @@ GRAMMAR = {
 		"<number>",
 		"<id>",
 		"(<expression>)",
-		"<match_expression>",
-		"<conditional_expression>",
 		"<tuple>",
-        "true",
-        "false",
+        "<boolean>",
 	],
+    "<boolean>": [
+		"true",
+        "false",
+    ],
 	"<expression>": [
 		"<primary_expression>",
 		"<ternary_expression>",
         "<tuple>",
         "<postfix_expression>",
-        "<range_expression>",
         "<unary_expression>",
         "<postfix_expression>",
         "<multiplicative_expression>",
@@ -133,12 +149,15 @@ GRAMMAR = {
 		"<and_expression>",
 		"<or_expression>",
 		"<ternary_expression>",
+        "<match_expression>",
+		"<conditional_expression>",
+        # TODO FSM expression
 	],
     
+	# This is not really an expression
 	"<range_expression>": [
-		"<index_expression>",
         "[<expression> : <expression>]",
-        "[<expression> :+ <expression>]",
+        "[<expression> +: <expression>]",
 	],
     
 	"<index_expression>": [
@@ -158,13 +177,14 @@ GRAMMAR = {
 		"<match_expression_antecendent> => <expression>",
 	],
     "<match_expression_antecendent>": [
-		"<expression>", "default"
+		"<expression>",
+        "default"
 	],
     
 	# Conditional expressions
 	"<conditional_expression>": [
-    	"conditional(<expression>) {<match_expression_stmt_list>}",
-    	"conditional(<expression>) {<match_expression_stmt_list>,}",
+    	"conditional {<match_expression_stmt_list>}",
+    	"conditional {<match_expression_stmt_list>,}",
     ],
 	
 	# Tuples
@@ -179,6 +199,7 @@ GRAMMAR = {
 
 	# Precedence: 0 - postfix ops
 	"<postfix_expression>": [
+		"<expression><index_expression>",
 		"<expression><range_expression>",
         "<expression>(<argument_list>?)",
         "<expression>.<id>",
