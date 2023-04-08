@@ -1,4 +1,4 @@
-use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode};
+use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode, TypeSpecifier, TypeQualifier};
 use crate::lexer::*; 
 use crate::SourceSpan;
 grammar;
@@ -27,17 +27,61 @@ Expression: Box<Expression> = {
 		),
 }
 pub RangeExpr :  Box<Expression> = {
-	<start:@L> <lhs:TernaryExpression> <code:RangeOp> <rhs:TernaryExpression> <end:@R> =>
-		Box::new(Expression::RangeExpression{
-			lhs,
-			rhs,
-			code,
-			location:SourceSpan::new_between(start,end)
+	<start:@L> "[" <lhs:Expr> <code:RangeOp> <rhs:Expr> "]" <end:@R> =>
+		Box::new(
+			Expression::RangeExpression{
+				lhs,
+				rhs,
+				code,
+				location:SourceSpan::new_between(start,end)
 		}
 	),
 }
+PostfixExpr: Box<Expression>={
+	<start:@L> <expression:PostfixExpr> "." <id:"Id"> <end:@R> =>
+		Box::new(
+			Expression::PostfixWithId{
+				expression,
+				id,
+				location:SourceSpan::new_between(start,end),
+		}
+	),
+	<start:@L> <expression:PostfixExpr> "[" <index:PostfixExpr> "]" <end:@R> =>
+		Box::new(
+			Expression::PostfixWithIndex{
+				expression,
+				index,
+				location:SourceSpan::new_between(start,end),
+			}
+		),
+	<start:@L> <expression:PostfixExpr> <range:RangeExpr> <end:@R> =>
+		Box::new(
+			Expression::PostfixWithRange{
+				expression,
+				range,
+				location:SourceSpan::new_between(start,end),
+			}
+		),
+	<start:@L> <expression:PostfixExpr> "(" <args:ArgumentList ?> ")" <end:@R> =>
+		match args{
+			None => Box::new(
+				Expression::PostfixEmptyCall{
+					expression,
+					location:SourceSpan::new_between(start,end),
+				}
+			),
+			Some(argument_list) =>Box::new(
+				Expression::PostfixWithArgs{
+					expression,
+					argument_list,
+					location:SourceSpan::new_between(start,end),
+				}
+			),
+		},		
+	Expression,
+}
 UnaryExpr: Box<Expression> ={
-	<start:@L> <code:UnaryExprOP> <expression:Expression>  <end:@R> => 
+	<start:@L> <code:UnaryExprOP> <expression:PostfixExpr>  <end:@R> => 
 	Box::new(
 		Expression::UnaryOperatorExpression{
 			expression,
@@ -45,7 +89,7 @@ UnaryExpr: Box<Expression> ={
 			location:SourceSpan::new_between(start,end),
 		}
 	),
-	Expression,
+	PostfixExpr,
 }
 Factor = Tier<FactorOp, UnaryExpr>;
 Sum = Tier<AddOp, Factor>;
@@ -82,6 +126,16 @@ Tier<Op,NextTier>: Box<Expression> = {
 		}
 	),
     NextTier
+};
+ArgumentList=Comma<Expr>;
+Comma<T>: Vec<T> = { // (1)
+    <mut v:(<T> ",")*> <e:T> => match v.len() { // (2)
+        0 => v,
+        _ => {
+            v.push(e);
+            v
+        }
+    }
 };
 RangeOp: RangeOpcode={
 	":"  => RangeOpcode::Colon,
@@ -131,6 +185,27 @@ UnaryExprOP :UnaryOpcode={
 	"+" => UnaryOpcode::Plus,
 	"-" => UnaryOpcode::Minus,
 }
+TypeName: TypeSpecifier = {
+	<start:@L> "auto" <end:@R> => TypeSpecifier::Auto{
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "int" <end:@R> => TypeSpecifier::Int{
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "wire" <end:@R> => TypeSpecifier::Wire{
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "bool" <end:@R> => TypeSpecifier::Bool{
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "bus" "<" <width:Expr> ">" <end:@R> => TypeSpecifier::Bus{
+		width,
+		location:SourceSpan::new_between(start,end),
+	},
+}
+TypeQualifier: TypeQualifier = {
+
+}
 extern {
     type Location = usize;
     type Error = LexerError;
@@ -162,6 +237,7 @@ extern {
 		"enum"            => TokenKind::Keyword(KeywordKind::Enum),
 		"if"              => TokenKind::Keyword(KeywordKind::If),
 		"for"             => TokenKind::Keyword(KeywordKind::For),
+		"bool"             => TokenKind::Keyword(KeywordKind::Bool),
 		"("               => TokenKind::Punctuator(PunctuatorKind::LPar),
 		")"               => TokenKind::Punctuator(PunctuatorKind::RPar),
 		"{"               => TokenKind::Punctuator(PunctuatorKind::LBrace),
@@ -177,6 +253,7 @@ extern {
 		"*"               => TokenKind::Punctuator(PunctuatorKind::Asterisk),
 		"%"               => TokenKind::Punctuator(PunctuatorKind::Modulo),
 		","				  => TokenKind::Punctuator(PunctuatorKind::Comma),
+		"."				  => TokenKind::Punctuator(PunctuatorKind::Dot),
 		"|"				  => TokenKind::Punctuator(PunctuatorKind::BitwiseOr),
 		"^"				  => TokenKind::Punctuator(PunctuatorKind::BitwiseXor),
 		"&"				  => TokenKind::Punctuator(PunctuatorKind::BitwiseAnd),

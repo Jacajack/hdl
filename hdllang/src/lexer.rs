@@ -50,6 +50,7 @@ impl fmt::Display for LexerError {
 pub enum KeywordKind {
 	Auto,
 	Bus,
+	Bool,
 	Clock,
 	ClockGate,
 	Comb,

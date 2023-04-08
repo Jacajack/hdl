@@ -23,7 +23,30 @@ pub enum Expression {
         false_branch: Box<Expression>,
         location: SourceSpan,
     },
-    PostfixExpression(Box<PostfixExpression>),
+    PostfixWithIndex {
+        expression: Box<Expression>,
+        index: Box<Expression>,
+        location: SourceSpan,
+    },
+    PostfixWithRange {
+        expression: Box<Expression>,
+        range: Box<Expression>,
+        location: SourceSpan,
+    },
+    PostfixWithArgs {
+        expression: Box<Expression>,
+        argument_list: Vec<Box<Expression>>,
+        location: SourceSpan,
+    },
+    PostfixEmptyCall {
+        expression: Box<Expression>,
+        location: SourceSpan,
+    },
+    PostfixWithId {
+        expression: Box<Expression>,
+        id: IdTableKey,
+        location: SourceSpan,
+    },
     TypeNameCastExpression,
     UnaryOperatorExpression {
         expression: Box<Expression>,
@@ -44,12 +67,54 @@ pub enum Expression {
     },
     Error,
 }
-
-pub enum PostfixExpression {
-    PostfixWithIndex,
-    PostfixWithRange,
-    PostfixWithArgs,
-    PostfixWithId(Box<Expression>, usize, usize, IdTableKey),
+pub enum TypeSpecifier {
+    Auto {
+        location: SourceSpan,
+    },
+    Int {
+        location: SourceSpan,
+    },
+    Wire {
+        location: SourceSpan,
+    },
+    Bool {
+        location: SourceSpan,
+    },
+    Bus {
+        width: Box<Expression>,
+        location: SourceSpan,
+    },
+}
+pub enum TypeQualifier{
+    Signed{
+        location: SourceSpan,
+    },
+    Unsigned{
+        location: SourceSpan,
+    },
+    Tristate{
+        location: SourceSpan,
+    },
+    Const{
+        location: SourceSpan,
+    },
+    Comb{
+        expression: Box<Expression>,
+        location: SourceSpan,
+    },
+    Sync{
+        expression: Box<Expression>,
+        location: SourceSpan,
+    },
+    Input{
+        location: SourceSpan,
+    },
+    Output{
+        location: SourceSpan,
+    },
+    Async{
+        location: SourceSpan,
+    },
 }
 #[derive(Copy, Clone)]
 pub enum RangeOpcode {
@@ -121,15 +186,39 @@ impl Debug for Expression {
                 location: _,
                 code,
             } => {
-                write!(fmt, "({:?} {:?} {:?})", lhs, code, rhs)
+                write!(fmt, "([{:?}{:?}{:?}])", lhs, code, rhs)
             }
             UnaryOperatorExpression {
                 expression,
                 code,
                 location: _,
             } => write!(fmt, "{:?}{:?}", code, expression),
+            PostfixWithId {
+                expression,
+                id,
+                location: _,
+            } => write!(fmt, "({:?}.{:?})", expression, id),
+            PostfixWithIndex {
+                expression,
+                index,
+                location: _,
+            } => write!(fmt, "({:?}[{:?}])", expression, index),
+            PostfixWithRange {
+                expression,
+                range,
+                location: _,
+            } => write!(fmt, "({:?}{:?})", expression, range),
+            PostfixWithArgs {
+                expression,
+                argument_list,
+                location: _,
+            } => write!(fmt, "({:?}({:?}))", expression, argument_list),
+            PostfixEmptyCall {
+                expression,
+                location: _,
+            } => write!(fmt, "({:?}())", expression),
             Error => write!(fmt, "error"),
-            _ => write!(fmt, "dupa"),
+            _ => unreachable!(),
         }
     }
 }
@@ -138,24 +227,52 @@ impl Debug for BinaryOpcode {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         use self::BinaryOpcode::*;
         match *self {
-            Multiplication  => write!(fmt, "*"),
-            Division        => write!(fmt, "/"),
-            Addition        => write!(fmt, "+"),
-            Substraction    => write!(fmt, "-"),
-            Modulo          => write!(fmt, "%"),
-            Equal           => write!(fmt, "=="),
-            NotEqual        => write!(fmt, "!="),
-            LShift          => write!(fmt, "<<"),
-            RShift          => write!(fmt, ">>"),
-            BitwiseAnd      => write!(fmt, "&"),
-            BitwiseOr       => write!(fmt, "|"),
-            BitwiseXor      => write!(fmt, "^"),
-            Less            => write!(fmt, "<"),
-            Greater         => write!(fmt, ">"),
-            LessEqual       => write!(fmt, "<="),
-            GreaterEqual    => write!(fmt, ">="),
-            LogicalAnd      => write!(fmt, "&&"),
-            LogicalOr       => write!(fmt, "||"),
+            Multiplication => write!(fmt, "*"),
+            Division => write!(fmt, "/"),
+            Addition => write!(fmt, "+"),
+            Substraction => write!(fmt, "-"),
+            Modulo => write!(fmt, "%"),
+            Equal => write!(fmt, "=="),
+            NotEqual => write!(fmt, "!="),
+            LShift => write!(fmt, "<<"),
+            RShift => write!(fmt, ">>"),
+            BitwiseAnd => write!(fmt, "&"),
+            BitwiseOr => write!(fmt, "|"),
+            BitwiseXor => write!(fmt, "^"),
+            Less => write!(fmt, "<"),
+            Greater => write!(fmt, ">"),
+            LessEqual => write!(fmt, "<="),
+            GreaterEqual => write!(fmt, ">="),
+            LogicalAnd => write!(fmt, "&&"),
+            LogicalOr => write!(fmt, "||"),
+        }
+    }
+}
+impl Debug for TypeSpecifier {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
+        use self::TypeSpecifier::*;
+        match &self {
+            Auto { location: _ } => write!(fmt, "auto"),
+            Int { location: _ } => write!(fmt, "int"),
+            Bool { location: _ } => write!(fmt, "bool"),
+            Wire { location: _ } => write!(fmt, "wire"),
+            Bus { width, location: _ } => write!(fmt, "bus<{:?}>", width),
+        }
+    }
+}
+impl Debug for TypeQualifier {
+    fn fmt(&self, fmt: &mut Formatter) -> Result<(),Error>{
+        use self::TypeQualifier::*;
+        match &self{
+            Signed { location:_ } => write!(fmt, "signed"),
+            Unsigned { location:_ } => write!(fmt, "unsigned"),
+            Tristate { location:_ } => write!(fmt, "tristate"),
+            Const { location:_ } => todo!(),
+            Comb { expression, location:_ } => write!(fmt, "comb({:?})",expression),
+            Sync { expression, location:_ } => write!(fmt, "sync({:?})",expression),
+            Input { location:_ } => write!(fmt, "input"),
+            Output { location:_ } => write!(fmt, "output"),
+            Async { location:_ } => write!(fmt, "async"),
         }
     }
 }
@@ -163,7 +280,7 @@ impl Debug for RangeOpcode {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         use self::RangeOpcode::*;
         match *self {
-            Colon     => write!(fmt, ":"),
+            Colon => write!(fmt, ":"),
             PlusColon => write!(fmt, "+:"),
         }
     }
@@ -174,8 +291,8 @@ impl Debug for UnaryOpcode {
         match *self {
             BitwiseNot => write!(fmt, "~"),
             LogicalNot => write!(fmt, "!"),
-            Plus       => write!(fmt, "+"),
-            Minus      => write!(fmt, "-"),
+            Plus => write!(fmt, "+"),
+            Minus => write!(fmt, "-"),
         }
     }
 }

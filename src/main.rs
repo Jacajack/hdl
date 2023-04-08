@@ -1,4 +1,5 @@
 extern crate hdllang;
+//use anyhow::Ok;
 use clap::{arg, command, Arg};
 use hdllang::lexer::{Lexer, LogosLexer, Token};
 use hdllang::parser;
@@ -63,16 +64,16 @@ fn lexer_example() -> miette::Result<()> {
 
     Ok(())
 }
-
-fn simple_cmd(filename: String, mut output: Box<dyn Write>) -> miette::Result<()> {
-    let content;
-    match fs::read_to_string(&filename) {
+fn read_input_from_file(filename: String) ->miette::Result<String>{
+    return match fs::read_to_string(&filename) {
         Ok(file) => {
-            content = file;
+            Ok(file)
         }
         Err(err) => return Err(PrettyIoError::IoError(err).into()),
     }
-    let mut lexer = LogosLexer::new(&content);
+}
+fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
+    let mut lexer = LogosLexer::new(&code);
     match lexer.process() {
         Ok(tokens) => {
             println!("okayy we have {} tokens", tokens.len());
@@ -81,16 +82,23 @@ fn simple_cmd(filename: String, mut output: Box<dyn Write>) -> miette::Result<()
                     output,
                     "Token {:?} - '{}'\n",
                     t.kind,
-                    &content[t.range.start()..t.range.end()]
+                    &code[t.range.start()..t.range.end()]
                 )
                 .map_err(|e| CompilerError::IoError(e))?
             }
         }
         Err(token) => {
             let diag = CompilerDiagnostic::from(token);
-            Err(miette::Report::new(diag).with_source_code(content))?
+            Err(miette::Report::new(diag).with_source_code(code))?
         }
     };
+    Ok(())
+}
+fn parse(code:String,mut output: Box<dyn Write>)-> miette::Result<()>{
+    let lexer = LogosLexer::new(&code);
+    let expr = parser::ExprParser::new().parse(lexer);
+    write!(&mut output,"{:?}",expr)
+    .map_err(|e| CompilerError::IoError(e))?;
     Ok(())
 }
 fn main() -> miette::Result<()> {
@@ -120,18 +128,17 @@ fn main() -> miette::Result<()> {
             }
         },
     };
+    let name = match matches.get_one::<String>("source") {
+        Some(x) => x,
+        None => "",
+    };
+    let code = read_input_from_file(String::from(name))?;
     match mode {
-        "tokenize" => {
-            let name = match matches.get_one::<String>("source") {
-                Some(x) => x,
-                None => "",
-            };
-            simple_cmd(name.to_owned(), output)?;
+        "tokenize" => {            
+            tokenize(code, output)?;
         }
         "parse" => {
-            let lexer = LogosLexer::new("2*+1/4-2");
-            let expr = parser::ExprParser::new().parse(lexer);
-            println!("{:?}", expr);
+            parse(code,output)?;
         }
         "analyse" => {
             println!("Not implemented!");
