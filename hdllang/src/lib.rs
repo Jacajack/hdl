@@ -1,7 +1,9 @@
-pub mod lexer;
-pub mod compiler_diagnostic;
-pub mod compiler_error;
-pub mod source_span;
+extern crate derive_more;
 
-pub use compiler_diagnostic::CompilerDiagnostic;
+pub mod lexer;
+pub mod source_span;
+pub mod core;
+
+pub use crate::core::CompilerDiagnostic;
+pub use crate::core::CompilerError;
 pub use source_span::SourceSpan;

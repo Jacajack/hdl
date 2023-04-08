@@ -2,6 +2,7 @@ mod logos_lexer;
 mod number_parser;
 mod id_table;
 mod diagnostic;
+mod numeric_constant;
 
 use std::fmt;
 use thiserror::Error;
@@ -9,6 +10,7 @@ use crate::SourceSpan;
 pub use id_table::IdTable;
 pub use logos_lexer::LogosLexer;
 pub use number_parser::NumberParseError;
+pub use numeric_constant::NumericConstant;
 
 /// Lexer token type
 /// In this case, it's defined by the Logos-based lexer implementation.
