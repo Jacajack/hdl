@@ -1,11 +1,11 @@
 use logos::{Logos, Filter, Skip};
 use super::id_table::{IdTable, IdTableKey};
-use super::number_parser::parse_number_str;
-use super::{Lexer, SourceSpan, Token, KeywordKind, PunctuatorKind, LexerError, LexerErrorKind};
+use super::numeric_constant_parser::parse_numeric_constant_str;
+use super::{Lexer, SourceSpan, Token, KeywordKind, PunctuatorKind, LexerError, LexerErrorKind, NumericConstant};
 
 /// Parses numeric constant tokens
-fn parse_number_token(lex: &mut logos::Lexer<TokenKind>) -> Option<u64> {
-	parse_number_str(lex.slice()).map_err(|err| {
+fn parse_number_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstant> {
+	parse_numeric_constant_str(lex.slice()).map_err(|err| {
 		lex.extras.last_err = Some(LexerError{
 			range: SourceSpan::new_from_range(&lex.span()), // TODO fix this span
 			kind: LexerErrorKind::InvalidNumber(err),
@@ -55,9 +55,8 @@ pub enum TokenKind{
 	#[token("//", consume_line_comment)]
 	Error,
 
-	// TODO constant table
 	#[regex(r"[0-9][a-zA-Z0-9_]*", parse_number_token)]
-	Number(u64),
+	Number(NumericConstant),
 
 	#[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", register_id_token)]
 	Id(IdTableKey),
