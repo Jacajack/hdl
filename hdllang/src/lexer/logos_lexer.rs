@@ -90,8 +90,10 @@ pub enum TokenKind {
     #[token("enum",            |_| KeywordKind::Enum)]
     #[token("if",              |_| KeywordKind::If)]
     #[token("for",             |_| KeywordKind::For)]
-    Keyword(KeywordKind),
+    #[token("bool",            |_| KeywordKind::Bool)]
 
+    Keyword(KeywordKind),
+    #[token(".",  |_| PunctuatorKind::Dot)]
     #[token(",",  |_| PunctuatorKind::Comma)]
     #[token("~",  |_| PunctuatorKind::BitwiseNot)]
     #[token("!",  |_| PunctuatorKind::LogicalNot)]
