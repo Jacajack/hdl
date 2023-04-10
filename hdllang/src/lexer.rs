@@ -62,6 +62,7 @@ pub enum KeywordKind {
 	FfSync,
 	For,
 	If,
+	In,
 	Impl,
 	Input,
 	Int,
@@ -72,6 +73,7 @@ pub enum KeywordKind {
 	Register,
 	Signed,
 	Sync,
+	Async,
 	Tristate,
 	TristateBuffer,
 	Unsigned,
@@ -86,6 +88,7 @@ pub enum PunctuatorKind {
 	AssignmentAnd,   // &=
 	AssignmentPlus,  // +=
 	AssignmentXor,   // ^=
+	AssignmentOr,    // |=
 	Asterisk,        // *
 	BitwiseAnd,      // &
 	BitwiseNot,      // ~

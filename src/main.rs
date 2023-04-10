@@ -96,7 +96,7 @@ fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 }
 fn parse(code:String,mut output: Box<dyn Write>)-> miette::Result<()>{
     let lexer = LogosLexer::new(&code);
-    let expr = parser::ExprParser::new().parse(lexer);
+    let expr = parser::IzuluParser::new().parse(lexer);
     write!(&mut output,"{:?}",expr)
     .map_err(|e| CompilerError::IoError(e))?;
     Ok(())

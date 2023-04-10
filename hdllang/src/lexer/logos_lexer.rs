@@ -70,8 +70,11 @@ pub enum TokenKind {
     #[token("register",        |_| KeywordKind::Register)]
     #[token("input",           |_| KeywordKind::Input)]
     #[token("output",          |_| KeywordKind::Output)]
+    #[token("default",         |_| KeywordKind::Default)]
     #[token("wire",            |_| KeywordKind::Wire)]
     #[token("sync",            |_| KeywordKind::Sync)]
+    #[token("async",           |_| KeywordKind::Async)]
+    #[token("impl",            |_| KeywordKind::Impl)]
     #[token("clock",           |_| KeywordKind::Clock)]
     #[token("conditional",     |_| KeywordKind::Conditional)]
     #[token("match",           |_| KeywordKind::Match)]
@@ -90,9 +93,16 @@ pub enum TokenKind {
     #[token("enum",            |_| KeywordKind::Enum)]
     #[token("if",              |_| KeywordKind::If)]
     #[token("for",             |_| KeywordKind::For)]
+    #[token("in",              |_| KeywordKind::In)]
     #[token("bool",            |_| KeywordKind::Bool)]
 
     Keyword(KeywordKind),
+    #[token("=",  |_| PunctuatorKind::Assignment)]
+    #[token("+=", |_| PunctuatorKind::AssignmentPlus)]
+    #[token("&=", |_| PunctuatorKind::AssignmentAnd)]
+    #[token("^=", |_| PunctuatorKind::AssignmentXor)]
+    #[token("|=", |_| PunctuatorKind::AssignmentOr)]
+
     #[token(".",  |_| PunctuatorKind::Dot)]
     #[token(",",  |_| PunctuatorKind::Comma)]
     #[token("~",  |_| PunctuatorKind::BitwiseNot)]
@@ -100,8 +110,8 @@ pub enum TokenKind {
     #[token("|",  |_| PunctuatorKind::BitwiseOr)]
     #[token("&",  |_| PunctuatorKind::BitwiseAnd)]
     #[token("^",  |_| PunctuatorKind::BitwiseXor)]
-    #[token(">",  |_| PunctuatorKind::Less)]
-    #[token("<",  |_| PunctuatorKind::Greater)]
+    #[token(">",  |_| PunctuatorKind::Greater)]
+    #[token("<",  |_| PunctuatorKind::Less)]
     #[token("?",  |_| PunctuatorKind::QuestionMark)]
     #[token(":",  |_| PunctuatorKind::Colon)]
     #[token("(",  |_| PunctuatorKind::LPar)]
@@ -124,6 +134,7 @@ pub enum TokenKind {
     #[token("!=", |_| PunctuatorKind::NotEquals)]
     #[token("&&", |_| PunctuatorKind::LogicalAnd)]
     #[token("||", |_| PunctuatorKind::LogicalOr)]
+    #[token("=>", |_| PunctuatorKind::Implies)]
     #[token("+:", |_| PunctuatorKind::PlusColon)]
     Punctuator(PunctuatorKind),
 }

@@ -5,5 +5,11 @@
 		"--disable=missing-function-docstring"
 	],
 	"python.analysis.typeCheckingMode": "off",
-	"rust-analyzer.diagnostics.warningsAsHint": ["dead_code", "unused_variables"],
+	"rust-analyzer.diagnostics.warningsAsHint": [
+		"dead_code",
+		"unused_variables"
+	],
+	"rust-analyzer.linkedProjects": [
+		".\\hdllang\\Cargo.toml"
+	],
 }

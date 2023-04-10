@@ -1,8 +1,223 @@
-use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode, TypeSpecifier, TypeQualifier};
+use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
+	 TypeSpecifier, TypeQualifier, TypeDeclarator, TypeName, MatchExpressionStatement,
+	 MatchExpressionAntecendent,TopDefinition,ModuleDeclarationStatement,VariableBlock,
+	 VariableBlockStatement, VariableDeclaration, DirectDeclarator,ModuleImplementationStatement,
+	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root};
 use crate::lexer::*; 
 use crate::SourceSpan;
 grammar;
+pub Izulu: Root={
+	<start: @L> <definitions:NonEmptySpace<TopDef>> <end: @R> =>
+		Root{
+			definitions,
+			location:SourceSpan::new_between(start,end),
+		}
+}
+TopDef: TopDefinition={
+	<start: @L> "module" <id:"Id"> "{" <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
+		TopDefinition::ModuleDeclaration{
+			id,
+			statements,
+			location:SourceSpan::new_between(start,end),
+		},
+	<start: @L> "impl" <id:"Id"> "{" <statements:Space<ModuleImplStmt>> "}" <end: @R> =>
+		TopDefinition::ModuleImplementation{
+			id,
+			statements,
+			location:SourceSpan::new_between(start,end),
+		},
+	}
+ModuleImplStmt: Box<ModuleImplementationStatement> = {
+	<start: @L>  <declaration:VarDecl> ";" <end: @R> =>
+		Box::new(
+			ModuleImplementationStatement::VariableDeclarationStatement{
+				declaration,
+				location:SourceSpan::new_between(start,end),
+			}
+		),
+	<start: @L>  <block:VarBlock> <end: @R> =>
+		Box::new(
+			ModuleImplementationStatement::VariableBlock{
+		   		block,
+		   		location:SourceSpan::new_between(start,end),
+	    	}
+		),
+	//<start: @L>  <definition:VarDef> ";" <end: @R> =>
+	//    Box::new(
+	//	    ModuleImplementationStatement::VariableDefinitionStatement{
+	//			definition,
+	//			location:SourceSpan::new_between(start,end),
+	//    	}
+	//	),
+	<start: @L>  <lhs:Expr> <assignment_opcode:AssignmentOP> <rhs:Expr> ";" <end: @R> =>
+		Box::new(
+			ModuleImplementationStatement::AssignmentStatement{
+				lhs,
+				assignment_opcode,
+				rhs,
+				location:SourceSpan::new_between(start,end),
+	    	}
+	  	),
+	<start: @L> "if" "(" <condition:Expr> ")" "{" <if_statement:ModuleImplStmt> "}"<end: @R> =>
+		Box::new(
+			ModuleImplementationStatement::IfStatement{
+				condition,
+				if_statement,
+				location:SourceSpan::new_between(start,end),
+	    	}
+		),
+	<start: @L> "if"  "(" <condition:Expr> ")" "{" <if_statement:ModuleImplStmt> "}" "else" "{" <else_statement:ModuleImplStmt>"}" <end: @R> =>
+		Box::new(
+			ModuleImplementationStatement::IfElseStatement{
+				condition,
+				if_statement,
+				else_statement,
+				location:SourceSpan::new_between(start,end),
+	    	}
+		),
+	<start: @L> "for" "(" <id:"Id"> "in" <range:RangeExpr> ")" "{"<statement:ModuleImplStmt> "}"<end: @R> =>
+		Box::new(
+			ModuleImplementationStatement::IterationStatement{
+				id,
+				range,
+				statement,
+				location:SourceSpan::new_between(start,end),
+			}
+		),
+	<start: @L> <id1:"Id"> <id2:"Id"> "{" <port_bind:NonEmptyOptComma<PortBindStmt>> "}" ";" <end: @R> =>
+		Box::new(
+			ModuleImplementationStatement::InstantiationStatement{
+				id1,
+				id2,
+				port_bind,
+				location:SourceSpan::new_between(start,end),
+			}
+		),
+	//<start: @L>  "{" <statements:Space<ModuleImplStmt>> "}" <end: @R> =>
+	//	Box::new(
+	//		ModuleImplementationStatement::ModuleImplementationBlockStatement{
+	//			statements,
+	//			location:SourceSpan::new_between(start,end),
+	//		}
+	//	)				
+}
+pub PortBindStmt: PortBindStatement={
+	<start:@L> <id:"Id"> <end:@R> =>
+		PortBindStatement::OnlyId{
+			id,
+			location:SourceSpan::new_between(start,end),
+		},
+	<start:@L> <id:"Id"> ":" <expression:Expr> <end:@R> =>
+		PortBindStatement::IdWithExpression{
+			id,
+			expression,
+			location:SourceSpan::new_between(start,end),
+		},
+	<start:@L> <id:"Id"> ":" <declaration:SingleVarDecl> <end:@R> =>
+		PortBindStatement::IdWithDeclaration{
+			id,
+			declaration,
+			location:SourceSpan::new_between(start,end),
+		},
+}
+VarDef: VariableDefinition={
+	<start: @L>  <type_declarator:TypeDeclarator> <initializer_list:Comma<DirectInitializer>> <end: @R> =>
+	VariableDefinition{
+		type_declarator,
+		initializer_list,
+		location:SourceSpan::new_between(start,end),
+	}
+}
+DirectInitializer: DirectInitializer = {
+	<start: @L>  <declarator:DirectDecl> <end: @R> =>
+	DirectInitializer::DirectDeclarator{
+		declarator,
+		location:SourceSpan::new_between(start,end),
+	},
+	<start: @L>  <declarator:DirectDecl> "=" <expression:Expr> <end: @R> =>
+	DirectInitializer::DirectDeclaratorWithInitializer{
+		declarator,
+		expression,
+		location:SourceSpan::new_between(start,end),
+	},
+}
+ModuleDeclStmt: ModuleDeclarationStatement={
+	<start: @L>  <declaration:VarDecl> ";" <end: @R> =>
+ 		ModuleDeclarationStatement::VariableDeclarationStatement{
+			declaration,
+			location:SourceSpan::new_between(start,end),
+		},
+	<start: @L>  <block:VarBlock> <end: @R> =>
+ 		ModuleDeclarationStatement::VariableBlock{
+			block,
+			location:SourceSpan::new_between(start,end),
+		},
+	
+}
+VarBlock: Box<VariableBlock>={
+	<start: @L>  <types:NonEmptySpace<TypeQualifier>> "{" <statements:Space<VarBlockStmt>> "}" ";"<end: @R> =>
+		Box::new(VariableBlock{
+			types,
+			statements,
+			location:SourceSpan::new_between(start,end),
+		}),
+}
+VarBlockStmt: VariableBlockStatement={
+	<start: @L>  <block:VarBlock> <end: @R> =>
+		VariableBlockStatement::VariableBlock{
+	   		block,
+	   		location:SourceSpan::new_between(start,end),
+		},
+	<start: @L>  <declaration:VarDecl> ";" <end: @R> =>
+		VariableBlockStatement::VariableDeclarationStatement{
+			declaration,
+	   		location:SourceSpan::new_between(start,end),
+		},
+}
 
+VarDecl: VariableDeclaration = {
+	<start: @L>  <type_declarator:TypeDeclarator> <direct_declarators:Comma<DirectDecl>> <end: @R>=>
+		VariableDeclaration{
+			type_declarator,
+			direct_declarators,
+			location:SourceSpan::new_between(start,end),
+		},
+}
+SingleVarDecl: VariableDeclaration = {
+	<start: @L>  <type_declarator:TypeDeclarator> <direct_declarator:DirectDecl> <end: @R>=>
+		VariableDeclaration{
+			type_declarator,
+			direct_declarators: vec![direct_declarator],
+			location:SourceSpan::new_between(start,end),
+		},
+}
+DirectDecl: Box<DirectDeclarator> = {
+	<start: @L>  <name:"Id"> <array_declarators:Space<RangeExpr>> <end: @R>=>
+		Box::new(
+			DirectDeclarator{
+				name,
+				array_declarators,
+				location:SourceSpan::new_between(start,end),
+		})
+}
+
+MatchExpressionStatement: MatchExpressionStatement = {
+	<start: @L> <antecedent:MatchExpressionAntecendent> "=>" <expression:Expr> <end: @R> =>
+		MatchExpressionStatement{
+			antecedent,
+			expression,
+			location:SourceSpan::new_between(start,end),
+		}
+}
+MatchExpressionAntecendent: MatchExpressionAntecendent = {
+	<start: @L> <expression:Expr> <end: @R> => MatchExpressionAntecendent::Expression{
+		expression,
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "default" <end:@R> =>MatchExpressionAntecendent::Default{
+		location:SourceSpan::new_between(start,end),
+	},
+}
 Expression: Box<Expression> = {
 	<start:@L> <value:"Number"> <end:@R> => 
 		Box::new(
@@ -18,11 +233,33 @@ Expression: Box<Expression> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start:@L>"(" <expression:Expression> ")" <end:@R> => 
+	<start:@L> "(" <expression:Expr> ")" <end:@R> => 
 		Box::new(
 			Expression::ParenthesizedExpression{
 				expression,
 				location:SourceSpan::new_between(start,end)
+			}
+		),
+	<start:@L> "{" <expressions:OptComma<Expr>> "}" <end:@R> =>
+		Box::new(
+			Expression::Tuple{
+				expressions,
+				location:SourceSpan::new_between(start,end)
+			}
+		),
+	<start:@L> "match" "(" <value:Expr> ")" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
+		Box::new(
+			Expression::MatchExpression{
+				value,
+				statements,
+				location:SourceSpan::new_between(start,end),
+			}
+		),
+	<start:@L> "conditional" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
+		Box::new(
+			Expression::ConditionalExpression{
+				statements,
+				location:SourceSpan::new_between(start,end),
 			}
 		),
 }
@@ -37,6 +274,9 @@ pub RangeExpr :  Box<Expression> = {
 		}
 	),
 }
+IndexExpr : Box<Expression> ={
+	"[" <PostfixExpr> "]"
+}
 PostfixExpr: Box<Expression>={
 	<start:@L> <expression:PostfixExpr> "." <id:"Id"> <end:@R> =>
 		Box::new(
@@ -46,7 +286,7 @@ PostfixExpr: Box<Expression>={
 				location:SourceSpan::new_between(start,end),
 		}
 	),
-	<start:@L> <expression:PostfixExpr> "[" <index:PostfixExpr> "]" <end:@R> =>
+	<start:@L> <expression:PostfixExpr> <index:IndexExpr> <end:@R> =>
 		Box::new(
 			Expression::PostfixWithIndex{
 				expression,
@@ -86,6 +326,14 @@ UnaryExpr: Box<Expression> ={
 		Expression::UnaryOperatorExpression{
 			expression,
 			code,
+			location:SourceSpan::new_between(start,end),
+		}
+	),
+	<start:@L> "(" <type_name:TypeName> ")" <expression:PostfixExpr>  <end:@R> => 
+	Box::new(
+		Expression::UnaryCastExpression{
+			type_name,
+			expression,
 			location:SourceSpan::new_between(start,end),
 		}
 	),
@@ -130,12 +378,39 @@ Tier<Op,NextTier>: Box<Expression> = {
 ArgumentList=Comma<Expr>;
 Comma<T>: Vec<T> = { // (1)
     <mut v:(<T> ",")*> <e:T> => match v.len() { // (2)
-        0 => v,
+        0 => vec![e],
         _ => {
             v.push(e);
             v
         }
     }
+};
+OptComma<T>: Vec<T> = { // (1)
+    <mut v:(<T> ",")*> <e:T?> => match e { // (2)
+        None => v,
+        Some(e) => {
+            v.push(e);
+            v
+        }
+    }
+};
+NonEmptyOptComma<T>: Vec<T> = { // (1)
+    <b:T> <mut v:("," <T>)*> ","? => match v.len() { // (2)
+        0 => {
+			v.push(b);
+			v
+		}
+        _  => {
+            v.splice(0..0, [b]);
+            v
+        }
+    }
+};
+Space<T>: Vec<T> = { // (1)
+    <v:(<T>)*> => v
+};
+NonEmptySpace<T>: Vec<T> = { // (1)
+    <v:(<T>)+> => v
 };
 RangeOp: RangeOpcode={
 	":"  => RangeOpcode::Colon,
@@ -155,8 +430,8 @@ BitwiseOrOp:BinaryOpcode={
 	"|" => BinaryOpcode::BitwiseOr
 }
 RelationalOp: BinaryOpcode={
-	">" => BinaryOpcode::Less,
-	"<" => BinaryOpcode::Greater,
+	">" => BinaryOpcode::Greater,
+	"<" => BinaryOpcode::Less,
 	"<=" => BinaryOpcode::LessEqual,
 	">=" => BinaryOpcode::GreaterEqual
 }
@@ -185,7 +460,14 @@ UnaryExprOP :UnaryOpcode={
 	"+" => UnaryOpcode::Plus,
 	"-" => UnaryOpcode::Minus,
 }
-TypeName: TypeSpecifier = {
+AssignmentOP: AssignmentOpcode={
+	"="  => AssignmentOpcode::Equal,
+	"+=" => AssignmentOpcode::PlusEqual,
+	"&=" => AssignmentOpcode::AndEqual,
+	"^=" => AssignmentOpcode::XorEqual,
+	"|=" => AssignmentOpcode::OrEqual,
+}
+TypeSpecifier: TypeSpecifier = {
 	<start:@L> "auto" <end:@R> => TypeSpecifier::Auto{
 		location:SourceSpan::new_between(start,end),
 	},
@@ -198,13 +480,59 @@ TypeName: TypeSpecifier = {
 	<start:@L> "bool" <end:@R> => TypeSpecifier::Bool{
 		location:SourceSpan::new_between(start,end),
 	},
-	<start:@L> "bus" "<" <width:Expr> ">" <end:@R> => TypeSpecifier::Bus{
+	<start:@L> "bus" "<" <width:Expression> ">" <end:@R> => TypeSpecifier::Bus{
 		width,
 		location:SourceSpan::new_between(start,end),
 	},
 }
 TypeQualifier: TypeQualifier = {
-
+	<start:@L> "signed" <end:@R> => TypeQualifier::Signed{
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "unsigned" <end:@R> => TypeQualifier::Unsigned{
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "tristate" <end:@R> => TypeQualifier::Tristate{
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "const" <end:@R> => TypeQualifier::Const{
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "input" <end:@R> => TypeQualifier::Input{
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "output" <end:@R> => TypeQualifier::Output{
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "async" <end:@R> => TypeQualifier::Async{
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "comb" "(" <expression:Expr> ")" <end:@R> => TypeQualifier::Comb{
+		expression,
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "sync" "(" <expression:Expr> ")" <end:@R> => TypeQualifier::Sync{
+		expression,
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "clock" <end:@R> => TypeQualifier::Clock{
+		location:SourceSpan::new_between(start,end),
+	},
+	
+}
+TypeDeclarator: TypeDeclarator ={
+	<start:@L> <qualifiers:Space<TypeQualifier>> <specifier:TypeSpecifier> <end:@R> => TypeDeclarator{
+		specifier,
+		qualifiers,
+		location:SourceSpan::new_between(start,end),
+	}
+}
+TypeName: TypeName ={
+	<start:@L> <declarator:TypeDeclarator> <array_declarators:Space<IndexExpr>> <end:@R> => TypeName{
+		declarator,
+		array_declarators,
+		location:SourceSpan::new_between(start,end),
+	}
 }
 extern {
     type Location = usize;
@@ -219,7 +547,9 @@ extern {
 		"output"          => TokenKind::Keyword(KeywordKind::Output),
 		"wire"            => TokenKind::Keyword(KeywordKind::Wire),
 		"sync"            => TokenKind::Keyword(KeywordKind::Sync),
+		"async"           => TokenKind::Keyword(KeywordKind::Async),
 		"clock"           => TokenKind::Keyword(KeywordKind::Clock),
+		"impl"            => TokenKind::Keyword(KeywordKind::Impl),
 		"conditional"     => TokenKind::Keyword(KeywordKind::Conditional),
 		"match"           => TokenKind::Keyword(KeywordKind::Match),
 		"bus"             => TokenKind::Keyword(KeywordKind::Bus),
@@ -228,6 +558,7 @@ extern {
 		"int"             => TokenKind::Keyword(KeywordKind::Int),
 		"signed"          => TokenKind::Keyword(KeywordKind::Signed),
 		"unsigned"        => TokenKind::Keyword(KeywordKind::Unsigned),
+		"default"         => TokenKind::Keyword(KeywordKind::Default),
 		"auto"            => TokenKind::Keyword(KeywordKind::Auto),
 		"unused"          => TokenKind::Keyword(KeywordKind::Unused),
 		"const"           => TokenKind::Keyword(KeywordKind::Const),
@@ -236,8 +567,10 @@ extern {
 		"tristate_buffer" => TokenKind::Keyword(KeywordKind::TristateBuffer),
 		"enum"            => TokenKind::Keyword(KeywordKind::Enum),
 		"if"              => TokenKind::Keyword(KeywordKind::If),
+		"else"            => TokenKind::Keyword(KeywordKind::Else),
+		"in"              => TokenKind::Keyword(KeywordKind::In),
 		"for"             => TokenKind::Keyword(KeywordKind::For),
-		"bool"             => TokenKind::Keyword(KeywordKind::Bool),
+		"bool"            => TokenKind::Keyword(KeywordKind::Bool),
 		"("               => TokenKind::Punctuator(PunctuatorKind::LPar),
 		")"               => TokenKind::Punctuator(PunctuatorKind::RPar),
 		"{"               => TokenKind::Punctuator(PunctuatorKind::LBrace),
@@ -251,6 +584,11 @@ extern {
 		"~"               => TokenKind::Punctuator(PunctuatorKind::BitwiseNot),
 		"/"               => TokenKind::Punctuator(PunctuatorKind::Slash),
 		"*"               => TokenKind::Punctuator(PunctuatorKind::Asterisk),
+		"="               => TokenKind::Punctuator(PunctuatorKind::Assignment),
+		"+="              => TokenKind::Punctuator(PunctuatorKind::AssignmentPlus),
+		"&="              => TokenKind::Punctuator(PunctuatorKind::AssignmentAnd),
+		"^="              => TokenKind::Punctuator(PunctuatorKind::AssignmentXor),
+		"|="              => TokenKind::Punctuator(PunctuatorKind::AssignmentOr),
 		"%"               => TokenKind::Punctuator(PunctuatorKind::Modulo),
 		","				  => TokenKind::Punctuator(PunctuatorKind::Comma),
 		"."				  => TokenKind::Punctuator(PunctuatorKind::Dot),
@@ -270,6 +608,7 @@ extern {
 		"&&"			  => TokenKind::Punctuator(PunctuatorKind::LogicalAnd),
 		"||"			  => TokenKind::Punctuator(PunctuatorKind::LogicalOr),
 		"+:"			  => TokenKind::Punctuator(PunctuatorKind::PlusColon),
+		"=>"			  => TokenKind::Punctuator(PunctuatorKind::Implies),
 
 
 
