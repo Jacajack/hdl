@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"path": "."
+		}
+	],
+	"settings": {
+		"rust-analyzer.diagnostics.warningsAsHint": [
+			"dead_code",
+			"unused_variables"
+		]
+	}
+}

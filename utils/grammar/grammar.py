@@ -20,7 +20,7 @@ GRAMMAR = {
 	"<module_decl>": ["<metadata_comment>? module <id> { <module_decl_stmt>* }"],
 	"<module_decl_stmt>": ["<variable_decl_stmt>", "<variable_block>"],
 	
-	"<module_impl>": ["<metadata_comment>? impl <id> { <module_impl_stmt>* }"],
+	"<module_impl>": ["<metadata_comment>? impl <id> <module_impl_block_stmt>"],
 	"<module_impl_stmt>": [
 		"<variable_decl_stmt>",
 		"<variable_block>",
@@ -52,7 +52,7 @@ GRAMMAR = {
     	"auto",
         "int",
         "wire",
-        "bus<<expression>>",
+        "bus<<primary_expression>>", # TODO maybe there's a better solution
     ],
 
 	"<type_qualifier>": [
@@ -95,19 +95,22 @@ GRAMMAR = {
 	
 	# For statement
 	"<for_stmt>": [
-    	"for (<id> in <range_expression>) <module_impl_stmt>"
+    	"for (<id> in <range_expression>) <module_impl_block_stmt>"
     ],
 
 	# If statement
 	"<if_stmt>": [
-    	"if (<expression>) <module_impl_stmt>",
-    	"if (<expression>) <module_impl_stmt> else <module_impl_stmt>",
+    	"if (<expression>) <module_impl_block_stmt>",
+    	"if (<expression>) <module_impl_block_stmt> else <module_impl_block_stmt>",
+    	"if (<expression>) <module_impl_block_stmt> else <if_stmt>",
     ],
 
 	# Module instantiation statement
 	"<instantiation_stmt>": [
     	"<metadata_comment>? <id> <id> { <port_bind_stmt_list> };",
     	"<metadata_comment>? <id> <id> { <port_bind_stmt_list>, };",
+        "<metadata_comment>? <id> <id> { <port_bind_stmt_list> }",
+    	"<metadata_comment>? <id> <id> { <port_bind_stmt_list>, }",
     ],
 	"<port_bind_stmt_list>": [
 		"<port_bind_stmt>",
@@ -115,7 +118,7 @@ GRAMMAR = {
 	],
 	"<port_bind_stmt>": [
 		"<id>: <expression>",
-		"<id>: <variable_decl>",
+		"<id>: <type_declarator> <direct_declarator>",
 		"<id>",
 	],
 
@@ -126,6 +129,9 @@ GRAMMAR = {
 		"(<expression>)",
 		"<tuple>",
         "<boolean>",
+        "<match_expression>",
+		"<conditional_expression>",
+        # TODO FSM expression
 	],
     "<boolean>": [
 		"true",
@@ -134,7 +140,6 @@ GRAMMAR = {
 	"<expression>": [
 		"<primary_expression>",
 		"<ternary_expression>",
-        "<tuple>",
         "<postfix_expression>",
         "<unary_expression>",
         "<postfix_expression>",
@@ -149,9 +154,6 @@ GRAMMAR = {
 		"<and_expression>",
 		"<or_expression>",
 		"<ternary_expression>",
-        "<match_expression>",
-		"<conditional_expression>",
-        # TODO FSM expression
 	],
     
 	# This is not really an expression
