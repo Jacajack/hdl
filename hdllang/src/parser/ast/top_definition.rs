@@ -9,7 +9,7 @@ pub enum TopDefinition {
     },
     ModuleImplementation {
         id: IdTableKey,
-        statements: Vec<Box<ModuleImplementationStatement>>,
+        statement: Box<ModuleImplementationStatement>,
         location: SourceSpan,
     },
 }
@@ -30,14 +30,10 @@ impl Debug for TopDefinition {
             }
             ModuleImplementation {
                 id: _,
-                statements,
+                statement,
                 location: _,
             } => {
-                write!(fmt, "impl foo {{")?;
-                for statement in statements.into_iter() {
-                    write!(fmt, "\n{:?}", statement)?;
-                }
-                write!(fmt, "\n}}")
+                write!(fmt, "impl foo {:?}",statement)
             }
         }
     }

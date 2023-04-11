@@ -20,21 +20,21 @@ TopDef: TopDefinition={
 			statements,
 			location:SourceSpan::new_between(start,end),
 		},
-	<start: @L> "impl" <id:"Id"> "{" <statements:Space<ModuleImplStmt>> "}" <end: @R> =>
+	<start: @L> "impl" <id:"Id">  <statement:ModuleImplBlockStmt>  <end: @R> =>
 		TopDefinition::ModuleImplementation{
 			id,
-			statements,
+			statement,
 			location:SourceSpan::new_between(start,end),
 		},
 	}
 ModuleImplStmt: Box<ModuleImplementationStatement> = {
-	<start: @L>  <declaration:VarDecl> ";" <end: @R> =>
-		Box::new(
-			ModuleImplementationStatement::VariableDeclarationStatement{
-				declaration,
-				location:SourceSpan::new_between(start,end),
-			}
-		),
+	//<start: @L>  <declaration:VarDecl> ";" <end: @R> =>
+	//	Box::new(
+	//		ModuleImplementationStatement::VariableDeclarationStatement{
+	//			declaration,
+	//			location:SourceSpan::new_between(start,end),
+	//		}
+	//	),
 	<start: @L>  <block:VarBlock> <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::VariableBlock{
@@ -42,39 +42,23 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 		   		location:SourceSpan::new_between(start,end),
 	    	}
 		),
-	//<start: @L>  <definition:VarDef> ";" <end: @R> =>
-	//    Box::new(
-	//	    ModuleImplementationStatement::VariableDefinitionStatement{
-	//			definition,
-	//			location:SourceSpan::new_between(start,end),
-	//    	}
-	//	),
-	//<start: @L>  <lhs:Expr> <assignment_opcode:AssignmentOP> <rhs:Expr> ";" <end: @R> =>
-	//	Box::new(
-	//		ModuleImplementationStatement::AssignmentStatement{
-	//			lhs,
-	//			assignment_opcode,
-	//			rhs,
-	//			location:SourceSpan::new_between(start,end),
-	//    	}
-	//  	),
-	<start: @L> "if" "(" <condition:Expr> ")"  <if_statement:ModuleImplBlockStmt> <end: @R> =>
-		Box::new(
-			ModuleImplementationStatement::IfStatement{
-				condition,
-				if_statement,
+	<start: @L>  <definition:VarDef> ";" <end: @R> =>
+	    Box::new(
+		    ModuleImplementationStatement::VariableDefinitionStatement{
+				definition,
 				location:SourceSpan::new_between(start,end),
 	    	}
 		),
-	<start: @L> "if"  "(" <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:ModuleImplBlockStmt> <end: @R> =>
+	<start: @L>  <lhs:Expr> <assignment_opcode:AssignmentOP> <rhs:Expr> ";" <end: @R> =>
 		Box::new(
-			ModuleImplementationStatement::IfElseStatement{
-				condition,
-				if_statement,
-				else_statement,
+			ModuleImplementationStatement::AssignmentStatement{
+				lhs,
+				assignment_opcode,
+				rhs,
 				location:SourceSpan::new_between(start,end),
 	    	}
-		),
+	  	),
+	
 	<start: @L> "for" "(" <id:"Id"> "in" <range:RangeExpr> ")" <statement:ModuleImplBlockStmt> <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::IterationStatement{
@@ -84,7 +68,7 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start: @L> <id1:"Id"> <id2:"Id"> "{" <port_bind:Comma<PortBindStmt>> "}" ";"? <end: @R> =>
+	<start: @L> <id1:"Id"> <id2:"Id"> "{" <port_bind:Semicolon<PortBindStmt>> "}" ";"? <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::InstantiationStatement{
 				id1,
@@ -93,7 +77,8 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-		ModuleImplBlockStmt				
+		ModuleImplBlockStmt,	
+		IfStmt,			
 }
 ModuleImplBlockStmt: Box<ModuleImplementationStatement> ={
 	<start: @L>  "{" <statements:Space<ModuleImplStmt>> "}" <end: @R> =>
@@ -103,6 +88,35 @@ ModuleImplBlockStmt: Box<ModuleImplementationStatement> ={
 				location:SourceSpan::new_between(start,end),
 			}
 		)	
+}
+IfStmt: Box<ModuleImplementationStatement> ={
+	
+	<start: @L> "if"  "(" <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:ModuleImplBlockStmt> <end: @R> =>
+		Box::new(
+			ModuleImplementationStatement::IfElseStatement{
+				condition,
+				if_statement,
+				else_statement,
+				location:SourceSpan::new_between(start,end),
+	    	}
+		),
+	<start: @L> "if"  "(" <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:IfStmt> <end: @R> =>
+		Box::new(
+			ModuleImplementationStatement::IfElseStatement{
+				condition,
+				if_statement,
+				else_statement,
+				location:SourceSpan::new_between(start,end),
+	    	}
+		),
+	<start: @L> "if" "(" <condition:Expr> ")"  <if_statement:ModuleImplBlockStmt> <end: @R> =>
+		Box::new(
+			ModuleImplementationStatement::IfStatement{
+				condition,
+				if_statement,
+				location:SourceSpan::new_between(start,end),
+	    	}
+		),
 }
 pub PortBindStmt: PortBindStatement={
 	<start:@L> <id:"Id"> <end:@R> =>
@@ -381,6 +395,15 @@ Tier<Op,NextTier>: Box<Expression> = {
 ArgumentList=Comma<Expr>;
 Comma<T>: Vec<T> = { // (1)
     <mut v:(<T> ",")*> <e:T> => match v.len() { // (2)
+        0 => vec![e],
+        _ => {
+            v.push(e);
+            v
+        }
+    }
+};
+Semicolon<T>: Vec<T> = { // (1)
+    <mut v:(<T> ";")*> <e:T> => match v.len() { // (2)
         0 => vec![e],
         _ => {
             v.push(e);

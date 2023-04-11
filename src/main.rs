@@ -148,10 +148,7 @@ fn main() -> miette::Result<()> {
             println!("Not implemented!");
             lexer_example()?;
         }
-        _ => {
-            println!("We wont be here");
-            lexer_example()?;
-        }
+        _ => unreachable!()
     };
     Ok(())
 }
