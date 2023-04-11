@@ -7,6 +7,7 @@ use std::fmt;
 use thiserror::Error;
 use crate::SourceSpan;
 pub use id_table::IdTable;
+pub use id_table::IdTableKey;
 pub use logos_lexer::LogosLexer;
 pub use number_parser::NumberParseError;
 
@@ -49,6 +50,7 @@ impl fmt::Display for LexerError {
 pub enum KeywordKind {
 	Auto,
 	Bus,
+	Bool,
 	Clock,
 	ClockGate,
 	Comb,
@@ -60,6 +62,7 @@ pub enum KeywordKind {
 	FfSync,
 	For,
 	If,
+	In,
 	Impl,
 	Input,
 	Int,
@@ -70,6 +73,7 @@ pub enum KeywordKind {
 	Register,
 	Signed,
 	Sync,
+	Async,
 	Tristate,
 	TristateBuffer,
 	Unsigned,
@@ -84,6 +88,7 @@ pub enum PunctuatorKind {
 	AssignmentAnd,   // &=
 	AssignmentPlus,  // +=
 	AssignmentXor,   // ^=
+	AssignmentOr,    // |=
 	Asterisk,        // *
 	BitwiseAnd,      // &
 	BitwiseNot,      // ~
@@ -102,7 +107,7 @@ pub enum PunctuatorKind {
 	LessEqual,       // <=
 	LogicalAnd,      // &&
 	LogicalNot,      // !
-	LogiclalOr,      // ||
+	LogicalOr,      // ||
 	LPar,            // (
 	LShift,          // <<
 	Minus,           // -
@@ -116,6 +121,7 @@ pub enum PunctuatorKind {
 	RShift,          // >>	
 	Semicolon,       // ;
 	Slash,           // /
+	PlusColon,		 // +:
 }
 
 /// Token as produced by the lexer (token kind + source location)

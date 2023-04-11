@@ -7,5 +7,4 @@ edition = "2021"
 "hdllang" = {path = "hdllang"}
 "miette" = {version = ">=5.5", features = ["fancy"]}
 "thiserror" = "1.0"
-"anyhow" = "1.0"
 "clap" = {version = "4.1.8", features=["cargo"]}
