@@ -10,7 +10,7 @@ impl Debug for DirectDeclarator {
     fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
         match self.array_declarators.len() {
             0 => write!(fmt, "foo"),
-            _ => write!(fmt, "{:?}{:?}", self.name, self.array_declarators),
+            _ => write!(fmt, "foo{:?}",  self.array_declarators),
         }
     }
 }
