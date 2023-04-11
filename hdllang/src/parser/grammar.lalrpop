@@ -49,7 +49,7 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 				location:SourceSpan::new_between(start,end),
 	    	}
 		),
-	<start: @L>  <lhs:Expr> <assignment_opcode:AssignmentOP> <rhs:Expr> ";" <end: @R> =>
+	<start: @L>  <lhs:Expr> <assignment_opcode:AssignmentOP> <rhs:ExprWithTuple> ";" <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::AssignmentStatement{
 				lhs,
@@ -151,7 +151,7 @@ DirectInitializer: DirectInitializer = {
 		declarator,
 		location:SourceSpan::new_between(start,end),
 	},
-	<start: @L>  <declarator:DirectDecl> "=" <expression:Expr> <end: @R> =>
+	<start: @L>  <declarator:DirectDecl> "=" <expression:ExprWithTuple> <end: @R> =>
 	DirectInitializer::DirectDeclaratorWithInitializer{
 		declarator,
 		expression,
@@ -257,13 +257,7 @@ Expression: Box<Expression> = {
 				location:SourceSpan::new_between(start,end)
 			}
 		),
-	<start:@L> "{" <expressions:OptComma<Expr>> "}" <end:@R> =>
-		Box::new(
-			Expression::Tuple{
-				expressions,
-				location:SourceSpan::new_between(start,end)
-			}
-		),
+	
 	<start:@L> "match" "(" <value:Expr> ")" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
 		Box::new(
 			Expression::MatchExpression{
@@ -277,6 +271,19 @@ Expression: Box<Expression> = {
 			Expression::ConditionalExpression{
 				statements,
 				location:SourceSpan::new_between(start,end),
+			}
+		),
+}
+ExprWithTuple:Box<Expression>={
+	TupleExpr,
+	Expr,
+}
+TupleExpr: Box<Expression> ={
+	<start:@L> "{" <expressions:OptComma<Expr>> "}" <end:@R> =>
+		Box::new(
+			Expression::Tuple{
+				expressions,
+				location:SourceSpan::new_between(start,end)
 			}
 		),
 }
