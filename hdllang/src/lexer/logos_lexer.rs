@@ -1,4 +1,5 @@
 use super::id_table::{IdTable, IdTableKey};
+use super::comment_table::{CommentTable, CommentTableKey};
 use super::number_parser::parse_number_str;
 use super::{KeywordKind, Lexer, LexerError, LexerErrorKind, PunctuatorKind, SourceSpan, Token};
 use logos::{Filter, Logos, Skip};
@@ -43,6 +44,17 @@ fn consume_line_comment(lex: &mut logos::Lexer<TokenKind>) -> Skip {
     Skip
 }
 
+/// Consumes a metadata comment and stores the string in the metadata table
+fn consume_metadata_comment(lex: &mut logos::Lexer<TokenKind>) -> CommentTableKey {
+    let length = match lex.remainder().find("\n") {
+        Some(offset) => offset,
+        None => lex.remainder().len(),
+    };
+    
+    let comment = lex.remainder().chars().take(length).collect();
+    lex.extras.comment_table.insert(comment)
+}
+
 /// Registers token in the lexer's ID table
 fn register_id_token(lex: &mut logos::Lexer<TokenKind>) -> IdTableKey {
     lex.extras.id_table.insert_or_get(lex.slice())
@@ -56,6 +68,9 @@ pub enum TokenKind {
     #[token("/*", consume_block_comment)]
     #[token("//", consume_line_comment)]
     Error,
+
+    #[token("///", consume_metadata_comment)]
+    MetadataComment(CommentTableKey),
 
     // TODO constant table
     #[regex(r"[0-9][a-zA-Z0-9_]*", parse_number_token)]
@@ -95,14 +110,13 @@ pub enum TokenKind {
     #[token("for",             |_| KeywordKind::For)]
     #[token("in",              |_| KeywordKind::In)]
     #[token("bool",            |_| KeywordKind::Bool)]
-
     Keyword(KeywordKind),
+
     #[token("=",  |_| PunctuatorKind::Assignment)]
     #[token("+=", |_| PunctuatorKind::AssignmentPlus)]
     #[token("&=", |_| PunctuatorKind::AssignmentAnd)]
     #[token("^=", |_| PunctuatorKind::AssignmentXor)]
     #[token("|=", |_| PunctuatorKind::AssignmentOr)]
-
     #[token(".",  |_| PunctuatorKind::Dot)]
     #[token(",",  |_| PunctuatorKind::Comma)]
     #[token("~",  |_| PunctuatorKind::BitwiseNot)]
@@ -146,7 +160,12 @@ pub enum TokenKind {
 /// by it.
 pub struct LogosLexerContext {
     /// Identifier table (names only)
-    id_table: IdTable,
+    id_table: IdTable, // TODO store reference instead
+
+    /// Metadata comments table
+    comment_table: CommentTable, // TODO store reference instead
+
+    /// Last lexing error (written by custom token parsing funcitons)
     last_err: Option<LexerError>,
 }
 
@@ -164,6 +183,7 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
                 source,
                 LogosLexerContext {
                     id_table: IdTable::new(),
+                    comment_table: CommentTable::new(),
                     last_err: None,
                 },
             ),
