@@ -2,12 +2,13 @@ mod logos_lexer;
 mod number_parser;
 mod id_table;
 mod diagnostic;
+mod comment_table;
 
 use std::fmt;
 use thiserror::Error;
 use crate::SourceSpan;
-pub use id_table::IdTable;
-pub use id_table::IdTableKey;
+pub use id_table::{IdTable, IdTableKey};
+pub use comment_table::{CommentTable, CommentTableKey};
 pub use logos_lexer::LogosLexer;
 pub use number_parser::NumberParseError;
 
