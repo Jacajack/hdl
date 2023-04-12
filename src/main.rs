@@ -2,7 +2,7 @@ extern crate hdllang;
 //use anyhow::Ok;
 use clap::{arg, command, Arg};
 use hdllang::lexer::{Lexer, LogosLexer, Token};
-use hdllang::parser;
+use hdllang::{parser, analyzer};
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
 use miette::NamedSource;
@@ -95,12 +95,28 @@ fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
     Ok(())
 }
 fn parse(code:String,mut output: Box<dyn Write>)-> miette::Result<()>{
-    let lexer = LogosLexer::new(&code);
-    let expr = parser::IzuluParser::new().parse(lexer);
+    let mut lexer = LogosLexer::new(&code);
+    let expr = parser::IzuluParser::new().parse(&mut lexer);
     write!(&mut output,"{:?}",expr)
     .map_err(|e| CompilerError::IoError(e))?;
     Ok(())
 }
+
+fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
+    let mut lexer = LogosLexer::new(&code);
+    let ast = parser::IzuluParser::new().parse(&mut lexer);
+    println!("Ids: {:?}", lexer.id_table());
+    println!("Comments: {:?}", lexer.comment_table());
+    let id_table = lexer.id_table().clone();
+    let comment_table = lexer.comment_table().clone();
+    
+    let mut analyzer = analyzer::SemanticAnalyzer::new(&id_table, &comment_table);
+    
+    writeln!(&mut output,"{:?}", ast).map_err(|e| CompilerError::IoError(e))?;
+    analyzer.process(ast.as_ref().unwrap()); // TODO implement parser error in compiler error!
+    Ok(())
+}
+
 fn main() -> miette::Result<()> {
     let matches = command!()
         .arg(Arg::new("source").required(true))
@@ -108,7 +124,7 @@ fn main() -> miette::Result<()> {
         .arg(
             arg!(<MODE>)
                 .help("Specify which action should be performed")
-                .value_parser(["tokenize", "parse", "analyse", "compile"])
+                .value_parser(["tokenize", "parse", "analyse", "analyze", "compile"])
                 .required(false)
                 .short('m')
                 .long("mode"),
@@ -140,9 +156,8 @@ fn main() -> miette::Result<()> {
         "parse" => {
             parse(code,output)?;
         }
-        "analyse" => {
-            println!("Not implemented!");
-            lexer_example()?;
+        "analyse" | "analyze" => {
+            analyze(code, output)?;
         }
         "compile" => {
             println!("Not implemented!");

@@ -8,8 +8,8 @@ mod tests {
 	use crate::lexer::{LogosLexer, Lexer};
 
 	fn parse_expr(s: &str) -> Box<ast::Expression> {
-		let lexer = LogosLexer::new(s);
-		ExprParser::new().parse(lexer).expect("parsing failed")
+		let mut lexer = LogosLexer::new(s);
+		ExprParser::new().parse(&mut lexer).expect("parsing failed")
 	}
 
 	/// Returns the same expression but with parentheses
