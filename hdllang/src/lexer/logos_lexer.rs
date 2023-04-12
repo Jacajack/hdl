@@ -1,5 +1,5 @@
-use super::id_table::{IdTable, IdTableKey};
-use super::comment_table::{CommentTable, CommentTableKey};
+use crate::core::id_table::{IdTable, IdTableKey};
+use crate::core::comment_table::{CommentTable, CommentTableKey};
 use super::number_parser::parse_number_str;
 use super::{KeywordKind, Lexer, LexerError, LexerErrorKind, PunctuatorKind, SourceSpan, Token};
 use logos::{Filter, Logos, Skip};
