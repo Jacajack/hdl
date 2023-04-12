@@ -62,20 +62,19 @@ fn register_id_token(lex: &mut logos::Lexer<TokenKind>) -> IdTableKey {
 
 #[derive(Logos, Debug, Clone, Copy)]
 #[logos(extras = LogosLexerContext)]
+#[logos(skip r"[ \t\r\n\f]+")]
 pub enum TokenKind {
-    #[error]
-    #[regex(r"[ \t\r\n\f]+", logos::skip)]
     #[token("/*", consume_block_comment)]
     #[token("//", consume_line_comment)]
-    Error,
+    Ignored,
 
     #[token("///", consume_metadata_comment)]
     MetadataComment(CommentTableKey),
 
     // TODO constant table
     #[regex(r"[0-9][a-zA-Z0-9_]*", parse_number_token)]
-    #[token("true",          |_| 1)]
-    #[token("false",          |_| 0)]
+    #[token("true",  |_| 1)]
+    #[token("false", |_| 0)]
     Number(u64),
 
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", register_id_token)]
@@ -194,21 +193,25 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
     fn process(&mut self) -> Result<Vec<Token>, LexerError> {
         // TODO determine average token length and pre-allocate vector space based on that
         let mut tokens = Vec::<Token>::with_capacity(1000);
-        while let Some(token_kind) = self.lexer.next() {
-            let token = Token {
-                kind: token_kind,
-                range: SourceSpan::new_from_range(&self.lexer.span()),
-            };
 
-            // Early return with the error reported by parsing functions
-            // or a generic one
-            if matches!(token.kind, TokenKind::Error) {
-                return Err(self.lexer.extras.last_err.unwrap_or(LexerError {
-                    range: token.range,
-                    kind: LexerErrorKind::InvalidToken,
-                }));
+        while let Some(token_result) = self.lexer.next() {
+            match token_result {
+                Ok(token_kind) => tokens.push(
+                    Token {
+                        kind: token_kind,
+                        range: SourceSpan::new_from_range(&self.lexer.span()),
+                    }
+                ),
+                Err(_) => return Err(
+                    self.lexer.extras.last_err.unwrap_or(
+                        LexerError {
+                            kind: LexerErrorKind::InvalidToken,
+                            range: SourceSpan::new_from_range(&self.lexer.span()),
+                        }
+                    )
+                )
             }
-            tokens.push(token);
+
         }
 
         // Successful exit
@@ -225,13 +228,14 @@ pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
 
 impl<'input> Iterator for LogosLexer<'input> {
     type Item = Spanned<TokenKind, usize, LexerError>;
+
     fn next(&mut self) -> Option<Self::Item> {
-        self.lexer.next().map(|token| match token {
-            TokenKind::Error => Err(self.lexer.extras.last_err.unwrap_or(LexerError {
+        self.lexer.next().map(|token_result| match token_result {
+            Err(_) => Err(self.lexer.extras.last_err.unwrap_or(LexerError {
                 range: SourceSpan::new_from_range(&self.lexer.span()),
                 kind: LexerErrorKind::InvalidToken,
             })),
-            _ => Ok((self.lexer.span().start, token, self.lexer.span().end)),
+            Ok(token_kind) => Ok((self.lexer.span().start, token_kind, self.lexer.span().end)),
         })
     }
 }
