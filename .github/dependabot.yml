@@ -9,3 +9,11 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    labels:
+      - "dependencies"
+  - package-ecosystem: "cargo"
+    directory: "/hdllang/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
