@@ -143,4 +143,7 @@ pub trait Lexer<'source> {
 
 	/// Access the ID table
 	fn id_table(&self) -> &IdTable;
+
+	/// Access the comment table
+	fn comment_table(&self) -> &CommentTable;
 }
