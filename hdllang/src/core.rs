@@ -2,6 +2,7 @@ pub mod compiler_diagnostic;
 pub mod compiler_error;
 pub mod id_table;
 pub mod comment_table;
+pub mod source_span;
 mod wide_int;
 mod hdl_type;
 
@@ -12,3 +13,4 @@ pub use hdl_type::Sensitivity;
 
 pub use compiler_diagnostic::CompilerDiagnostic;
 pub use compiler_error::CompilerError;
+pub use source_span::SourceSpan;
