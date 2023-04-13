@@ -6,8 +6,7 @@ mod comment_table;
 use std::fmt;
 use thiserror::Error;
 use crate::SourceSpan;
-use crate::CompilerDiagnostic;
-use crate::ProvidesCompilerDiagnostic;
+use crate::compiler_diagnostic::*;
 pub use id_table::{IdTable, IdTableKey};
 pub use comment_table::{CommentTable, CommentTableKey};
 pub use logos_lexer::LogosLexer;
@@ -52,18 +51,21 @@ impl ProvidesCompilerDiagnostic for LexerError {
 		match self.kind {
 			LexerErrorKind::InvalidNumber(parse_err) => 
 				parse_err
-					.to_diagnostic()
-					.shift_labels(self.range.offset()),
+				.to_diagnostic_builder()
+				.shift_labels(self.range.offset())
+				.build(),
 
 			LexerErrorKind::UnterminatedBlockComment =>
-				CompilerDiagnostic::from_error(&self)
+				CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "This comment never ends")
-				.help("Did you forget to use '*/"),
+				.help("Did you forget to use '*/")
+				.build(),
 
 			LexerErrorKind::InvalidToken =>
-				CompilerDiagnostic::from_error(&self)
+				CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "This token doesn't make sense")
-				.help("This is neither a keyword, an identifier nor a valid numeric constant"),
+				.help("This is neither a keyword, an identifier nor a valid numeric constant")
+				.build(),
 		}
 	}
 }

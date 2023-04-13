@@ -1,5 +1,4 @@
-use crate::CompilerDiagnostic;
-use crate::ProvidesCompilerDiagnostic;
+use crate::compiler_diagnostic::*;
 use thiserror::Error;
 use std::fmt;
 
@@ -41,7 +40,7 @@ impl fmt::Display for NumberParseError {
 impl ProvidesCompilerDiagnostic for NumberParseError {
 	fn to_diagnostic(&self) -> CompilerDiagnostic {
 		use NumberParseErrorKind::*;
-		CompilerDiagnostic::from_error(&self)
+		CompilerDiagnosticBuilder::from_error(&self)
 			.label(self.range.into(), "This is not a valid number")
 			.help(
 				match self.kind {
@@ -53,6 +52,7 @@ impl ProvidesCompilerDiagnostic for NumberParseError {
 					WidthRequired     => "Please add width specifier - this constant exceeds plain integer range",
 				}
 			)
+			.build()
 	}
 }
 

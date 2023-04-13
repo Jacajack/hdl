@@ -1,5 +1,4 @@
-use crate::CompilerDiagnostic;
-use crate::ProvidesCompilerDiagnostic;
+use crate::compiler_diagnostic::*;
 use thiserror::Error;
 use crate::lexer::LexerError;
 
@@ -22,8 +21,9 @@ impl ProvidesCompilerDiagnostic for CompilerError {
 				lexer_error.into(),
 
 			CompilerError::IoError(ref io_error) =>
-				CompilerDiagnostic::from_error(&self)
-				.help(&io_error.to_string()),
+				CompilerDiagnosticBuilder::from_error(&self)
+				.help(&io_error.to_string())
+				.build(),
 		}
 	}
 }
