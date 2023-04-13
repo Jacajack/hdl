@@ -1,4 +1,4 @@
-use hdllang::lexer::{Lexer, LogosLexer, TokenKind, KeywordKind};
+use hdllang::lexer::{KeywordKind, Lexer, LogosLexer, TokenKind};
 
 #[test]
 fn super_basic_lexer_test() {

@@ -1,9 +1,9 @@
-use std::fmt;
-use std::fmt::Display;
-use std::fmt::Debug;
-use std::error::Error;
-use miette::{Diagnostic, Severity, LabeledSpan};
 use crate::SourceSpan;
+use miette::{Diagnostic, LabeledSpan, Severity};
+use std::error::Error;
+use std::fmt;
+use std::fmt::Debug;
+use std::fmt::Display;
 
 /// A generic compiler diagnostic message
 #[derive(Clone, Debug)]
@@ -23,16 +23,15 @@ pub struct CompilerDiagnosticBuilder {
 
 impl From<CompilerDiagnostic> for CompilerDiagnosticBuilder {
 	fn from(diag: CompilerDiagnostic) -> Self {
-		Self {
-			diag: Some(diag)
-		}
+		Self { diag: Some(diag) }
 	}
 }
 
 impl CompilerDiagnosticBuilder {
 	/// Creates an error diagnostic from an error type
 	pub fn from_error<ErrorType>(err: &ErrorType) -> Self
-		where ErrorType: Error 
+	where
+		ErrorType: Error,
 	{
 		Self::new_error(&err.to_string())
 	}
@@ -90,7 +89,7 @@ impl Display for CompilerDiagnostic {
 	}
 }
 
-impl Error for CompilerDiagnostic  {
+impl Error for CompilerDiagnostic {
 	fn source(&self) -> Option<&(dyn Error + 'static)> {
 		None
 	}
@@ -165,23 +164,21 @@ impl CompilerDiagnostic {
 
 	/// Attaches source code label
 	pub fn add_label(&mut self, span: SourceSpan, msg: &str) {
-		self.labels.push(
-			miette::LabeledSpan::new_with_span(
-				Some(String::from(msg)),
-				<SourceSpan as Into<miette::SourceSpan>>::into(span)
-			)
-		);
+		self.labels.push(miette::LabeledSpan::new_with_span(
+			Some(String::from(msg)),
+			<SourceSpan as Into<miette::SourceSpan>>::into(span),
+		));
 	}
 
 	/// Moves all labels by the specified offset
 	pub fn shift_labels(&mut self, offset: usize) {
 		for label in &mut self.labels {
 			let start = label.inner().offset().wrapping_add_signed(offset as isize);
-			let new_span = start .. start + label.inner().len();
+			let new_span = start..start + label.inner().len();
 
 			*label = miette::LabeledSpan::new_with_span(
 				label.label().map(|s| s.to_string()),
-				miette::SourceSpan::from(new_span)
+				miette::SourceSpan::from(new_span),
 			);
 		}
 	}
@@ -218,7 +215,7 @@ pub trait ProvidesCompilerDiagnostic: Into<CompilerDiagnostic> {
 /// for convenience
 impl<T> ProvidesCompilerDiagnostic for &T
 where
-	T: ProvidesCompilerDiagnostic
+	T: ProvidesCompilerDiagnostic,
 {
 	fn to_diagnostic(&self) -> CompilerDiagnostic {
 		(*self).to_diagnostic()
@@ -228,7 +225,7 @@ where
 /// Implements conversions between CompilerDiagnostic and error types
 impl<T> From<T> for CompilerDiagnostic
 where
-	T: ProvidesCompilerDiagnostic
+	T: ProvidesCompilerDiagnostic,
 {
 	fn from(err: T) -> Self {
 		err.to_diagnostic()
