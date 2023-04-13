@@ -125,20 +125,35 @@ impl CompilerDiagnostic {
 	}
 }
 
+/// Indicates that type can provide a CompilerDiagnostic message.
+/// All compiler error types must implement this trait.
 pub trait ProvidesCompilerDiagnostic: Into<CompilerDiagnostic> {
-	fn to_diagnostic(self) -> CompilerDiagnostic;
-	fn to_report(self) -> miette::Report;
+	/// Must be implemented by the error type
+	fn to_diagnostic(&self) -> CompilerDiagnostic;
+
+	/// Returns a Miette report
+	fn to_miette_report(&self) -> miette::Report {
+		miette::Report::new(self.to_diagnostic())
+	}
 }
 
-impl<T> ProvidesCompilerDiagnostic for T
+/// Implements ProvidesCompilerDiagnostic for reference types
+/// for convenience
+impl<T> ProvidesCompilerDiagnostic for &T
 where
-	CompilerDiagnostic: From<T> + Diagnostic
+	T: ProvidesCompilerDiagnostic
 {
-	fn to_diagnostic(self) -> CompilerDiagnostic {
-		CompilerDiagnostic::from(self)
-	}	
+	fn to_diagnostic(&self) -> CompilerDiagnostic {
+		(*self).to_diagnostic()
+	}
+}
 
-	fn to_report(self) -> miette::Report {
-		miette::Report::new(self.to_diagnostic())
+/// Implements conversions between CompilerDiagnostic and error types
+impl<T> From<T> for CompilerDiagnostic
+where
+	T: ProvidesCompilerDiagnostic
+{
+	fn from(err: T) -> Self {
+		err.to_diagnostic()
 	}
 }

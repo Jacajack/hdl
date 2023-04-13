@@ -87,12 +87,11 @@ fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
                     t.kind,
                     &code[t.range.start()..t.range.end()]
                 )
-                .map_err(|e| CompilerError::IoError(e).to_report())?
+                .map_err(|e| CompilerError::IoError(e).to_miette_report())?
             }
         }
-        Err(token) => {
-            let diag = CompilerDiagnostic::from(token);
-            Err(miette::Report::new(diag).with_source_code(code))?
+        Err(err) => {
+            Err(err.to_miette_report().with_source_code(code))?
         }
     };
     Ok(())
@@ -101,7 +100,7 @@ fn parse(code:String,mut output: Box<dyn Write>)-> miette::Result<()>{
     let lexer = LogosLexer::new(&code);
     let expr = parser::IzuluParser::new().parse(lexer);
     write!(&mut output,"{:?}",expr)
-    .map_err(|e| CompilerError::IoError(e).to_report())?;
+    .map_err(|e| CompilerError::IoError(e).to_miette_report())?;
     Ok(())
 }
 

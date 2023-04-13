@@ -1,4 +1,5 @@
 use crate::CompilerDiagnostic;
+use crate::ProvidesCompilerDiagnostic;
 use thiserror::Error;
 use crate::lexer::LexerError;
 
@@ -14,14 +15,14 @@ pub enum CompilerError {
 	IoError(#[from] std::io::Error)
 }
 
-impl From<CompilerError> for CompilerDiagnostic {
-	fn from(err: CompilerError) -> Self {
-		match err {
+impl ProvidesCompilerDiagnostic for CompilerError {
+	fn to_diagnostic(&self) -> CompilerDiagnostic {
+		match self {
 			CompilerError::LexerError(lexer_error) =>
 				lexer_error.into(),
 
 			CompilerError::IoError(ref io_error) =>
-				CompilerDiagnostic::from_error(&err)
+				CompilerDiagnostic::from_error(&self)
 				.help(&io_error.to_string()),
 		}
 	}

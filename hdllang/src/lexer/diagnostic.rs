@@ -1,15 +1,16 @@
 use crate::CompilerDiagnostic;
+use crate::ProvidesCompilerDiagnostic;
 use super::LexerError;
 use super::LexerErrorKind;
 use super::NumberParseError;
 use super::number_parser::NumberParseErrorKind;
 
-impl From<NumberParseError> for CompilerDiagnostic {
-	fn from(err: NumberParseError) -> Self {
-		let diag = CompilerDiagnostic::from_error(&err);
+impl ProvidesCompilerDiagnostic for NumberParseError {
+	fn to_diagnostic(&self) -> CompilerDiagnostic {
+		let diag = CompilerDiagnostic::from_error(&self);
 		let help;
 		let label = "This is not a valid number";
-		match err.kind {
+		match self.kind {
 			NumberParseErrorKind::BadBinaryDigit => 
 				help = "1 and 0 are the only valid binary digits",
 
@@ -29,25 +30,25 @@ impl From<NumberParseError> for CompilerDiagnostic {
 				help = "Please add width specifier - this constant exceeds plain integer range",
 		};
 			
-		diag.label(err.range.into(), label).help(help)
+		diag.label(self.range.into(), label).help(help)
 	}
 
 }
 
-impl From<LexerError> for CompilerDiagnostic {
-	fn from(err: LexerError) -> Self {
-		match err.kind {
+impl ProvidesCompilerDiagnostic for LexerError {
+	fn to_diagnostic(&self) -> CompilerDiagnostic {
+		match self.kind {
 			LexerErrorKind::InvalidNumber(parse_err) => 
 				parse_err.into(),
 
 			LexerErrorKind::UnterminatedBlockComment =>
-				CompilerDiagnostic::from_error(&err)
-				.label(err.range, "This comment never ends")
+				CompilerDiagnostic::from_error(&self)
+				.label(self.range, "This comment never ends")
 				.help("Did you forget to use '*/"),
 
 			LexerErrorKind::InvalidToken =>
-				CompilerDiagnostic::from_error(&err)
-				.label(err.range, "This token doesn't make sense")
+				CompilerDiagnostic::from_error(&self)
+				.label(self.range, "This token doesn't make sense")
 				.help("This is neither a keyword, an identifier nor a valid numeric constant"),
 		}
 	}
