@@ -144,3 +144,5 @@ fn main() -> miette::Result<()> {
     };
     Ok(())
 }
+
+// Hello :)
