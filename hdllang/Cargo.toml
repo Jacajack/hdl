@@ -3,7 +3,7 @@ name = "hdllang"
 version = "0.1.0"
 edition = "2021"
 
-[build-dependencies] # <-- We added this and everything after!
+[build-dependencies]
 lalrpop = "0.19.9"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
@@ -15,3 +15,4 @@ lalrpop = "0.19.9"
 "bimap" = "0.6.2"
 lalrpop-util = {version = "0.19.7",  features = ["lexer"]}
 "regex" = "1"
+log = "0.4.17"

@@ -5,11 +5,13 @@ use hdllang::lexer::{Lexer, LogosLexer, Token};
 use hdllang::parser;
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
+use log::info;
 use miette::NamedSource;
 use miette::{Diagnostic, SourceSpan};
 use std::fs;
 use std::io;
 use std::io::Write;
+use std::env;
 use thiserror::Error;
 #[derive(Error, Diagnostic, Debug)]
 pub enum PrettyIoError {
@@ -101,7 +103,31 @@ fn parse(code:String,mut output: Box<dyn Write>)-> miette::Result<()>{
     .map_err(|e| CompilerError::IoError(e))?;
     Ok(())
 }
+
+fn init_logging() {
+    if let Some(logfile) = std::env::var("RUST_LOG_FILE").ok() {
+		// See: https://github.com/rust-cli/env_logger/issues/125
+        env_logger::Builder::from_default_env()
+            .target(
+				env_logger::Target::Pipe(
+					Box::new(
+						std::fs::File::create(&logfile).expect("Could not create LOG_FILE")
+					)
+				)
+			)
+            .init();
+
+		info!("Logging to file '{}'", logfile);
+    }
+    else {
+        env_logger::init();
+		info!("Hello! Logging to stderr...");
+    }
+}
+
 fn main() -> miette::Result<()> {
+    init_logging();
+
     let matches = command!()
         .arg(Arg::new("source").required(true))
         .arg(Arg::new("output").short('o').long("output"))
