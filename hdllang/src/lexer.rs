@@ -48,20 +48,21 @@ impl fmt::Display for LexerError {
 
 impl ProvidesCompilerDiagnostic for LexerError {
 	fn to_diagnostic(&self) -> CompilerDiagnostic {
+		use LexerErrorKind::*;
 		match self.kind {
-			LexerErrorKind::InvalidNumber(parse_err) => 
+			InvalidNumber(parse_err) => 
 				parse_err
 				.to_diagnostic_builder()
 				.shift_labels(self.range.offset())
 				.build(),
 
-			LexerErrorKind::UnterminatedBlockComment =>
+			UnterminatedBlockComment =>
 				CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "This comment never ends")
 				.help("Did you forget to use '*/")
 				.build(),
 
-			LexerErrorKind::InvalidToken =>
+			InvalidToken =>
 				CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "This token doesn't make sense")
 				.help("This is neither a keyword, an identifier nor a valid numeric constant")

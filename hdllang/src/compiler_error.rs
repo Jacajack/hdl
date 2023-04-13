@@ -16,11 +16,12 @@ pub enum CompilerError {
 
 impl ProvidesCompilerDiagnostic for CompilerError {
 	fn to_diagnostic(&self) -> CompilerDiagnostic {
+		use CompilerError::*;
 		match self {
-			CompilerError::LexerError(lexer_error) =>
+			LexerError(lexer_error) =>
 				lexer_error.into(),
 
-			CompilerError::IoError(ref io_error) =>
+			IoError(ref io_error) =>
 				CompilerDiagnosticBuilder::from_error(&self)
 				.help(&io_error.to_string())
 				.build(),
