@@ -1,0 +1,27 @@
+name: Rust format
+on: pull_request
+
+jobs:
+  format:
+    name: "Format rust code"
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+    
+    - uses: actions/checkout@v3
+      with:
+        ref: ${{ github.head_ref }}
+      
+    - name: Run cargo fmt
+      run: cargo fmt --all
+      
+    - name: Check for modified files
+      id: git-check
+      run: echo "modified=$(if git diff-index --quiet HEAD --; then echo "false"; else echo "true"; fi)" >> $GITHUB_OUTPUT
+    
+    - name: Commit & push changes
+      if: steps.git-check.outputs.modified == 'true'
+      uses: EndBug/add-and-commit@v9
+      with:
+        default_author: github_actions
+        message: '[actions] rustfmt'
