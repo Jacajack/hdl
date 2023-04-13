@@ -8,3 +8,6 @@ edition = "2021"
 "miette" = {version = ">=5.5", features = ["fancy"]}
 "thiserror" = "1.0"
 "clap" = {version = "4.1.8", features=["cargo"]}
+env_logger = "0.10.0"
+log = "0.4.17"
+chrono = "0.4.24"

@@ -1,10 +1,10 @@
 mod logos_lexer;
 mod number_parser;
-mod diagnostic;
 
 use std::fmt;
 use thiserror::Error;
 use crate::SourceSpan;
+use crate::compiler_diagnostic::*;
 pub use crate::core::id_table::{IdTable, IdTableKey};
 pub use crate::core::comment_table::{CommentTable, CommentTableKey};
 pub use logos_lexer::LogosLexer;
@@ -41,6 +41,31 @@ pub struct LexerError {
 impl fmt::Display for LexerError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.kind)
+	}
+}
+
+impl ProvidesCompilerDiagnostic for LexerError {
+	fn to_diagnostic(&self) -> CompilerDiagnostic {
+		use LexerErrorKind::*;
+		match self.kind {
+			InvalidNumber(parse_err) => 
+				parse_err
+				.to_diagnostic_builder()
+				.shift_labels(self.range.offset())
+				.build(),
+
+			UnterminatedBlockComment =>
+				CompilerDiagnosticBuilder::from_error(&self)
+				.label(self.range, "This comment never ends")
+				.help("Did you forget to use '*/")
+				.build(),
+
+			InvalidToken =>
+				CompilerDiagnosticBuilder::from_error(&self)
+				.label(self.range, "This token doesn't make sense")
+				.help("This is neither a keyword, an identifier nor a valid numeric constant")
+				.build(),
+		}
 	}
 }
 

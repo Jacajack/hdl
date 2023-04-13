@@ -12,16 +12,20 @@
 				"args": [
 					"build",
 					"--bin=hdl",
-					"--package=hdl"
+					"--package=hdl",
+					"--package=hdllang",
 				],
 				"filter": {
 					"name": "hdl",
 					"kind": "bin"
 				}
 			},
-			"args": [],
+			"args": ["-m", "parse", "${file}"], // Needs to be updated for new stages
 			"cwd": "${workspaceFolder}"
 		},
+		// The below doesn't seem to work, so commenting it out
+		// to avoid trouble later
+		/*
 		{
 			"type": "lldb",
 			"request": "launch",
@@ -29,17 +33,15 @@
 			"cargo": {
 				"args": [
 					"test",
-					"--no-run",
-					"--bin=hdl",
-					"--package=hdl"
+					"--package=hdl",
+					"--package=hdllang",
 				],
 				"filter": {
-					"name": "hdl",
-					"kind": "bin"
 				}
 			},
 			"args": [],
 			"cwd": "${workspaceFolder}"
 		}
+		*/
 	]
 }

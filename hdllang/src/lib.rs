@@ -9,5 +9,6 @@ pub mod core;
 pub mod analyzer;
 
 pub use compiler_diagnostic::CompilerDiagnostic;
+pub use compiler_diagnostic::ProvidesCompilerDiagnostic;
 pub use compiler_error::CompilerError;
 pub use source_span::SourceSpan;

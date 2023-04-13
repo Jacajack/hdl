@@ -1,46 +1,15 @@
 extern crate hdllang;
-//use anyhow::Ok;
 use clap::{arg, command, Arg};
 use hdllang::lexer::{Lexer, LogosLexer, Token};
 use hdllang::{parser, analyzer};
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
-use miette::NamedSource;
-use miette::{Diagnostic, SourceSpan};
+use log::info;
 use std::fs;
 use std::io;
 use std::io::Write;
-use thiserror::Error;
-#[derive(Error, Diagnostic, Debug)]
-pub enum PrettyIoError {
-    #[error(transparent)]
-    #[diagnostic(code(my_lib::io_error))]
-    IoError(#[from] std::io::Error),
-}
-
-#[derive(Error, Debug, Diagnostic)]
-#[error("Lexer error!")]
-#[diagnostic(code(hdllang::lexer), url("patrzuwa.ga"), help("just use google bro"))]
-struct LexerErrorMessage {
-    #[source_code]
-    src: NamedSource,
-
-    #[label("oopsie")]
-    token_range: SourceSpan,
-}
-
-impl LexerErrorMessage {
-    pub fn _new(source_name: &str, source: &str, token: &Token) -> LexerErrorMessage {
-        LexerErrorMessage {
-            src: NamedSource::new(String::from(source_name), String::from(source)),
-            token_range: (
-                token.range.start(),
-                token.range.end() - token.range.start() + 1,
-            )
-                .into(),
-        }
-    }
-}
+use std::env;
+use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
 
 fn lexer_example() -> miette::Result<()> {
     let source = String::from(" 15_s4 0b11017 112y_u37 0xf1_s15 fun fun super_8  kdasd fun /* for */ aa bb aa 27  if ; 44 /**/  /*12 asd 34 56 4457 11 24 /**/  if ; // 44  11 ");
@@ -69,7 +38,7 @@ fn read_input_from_file(filename: String) ->miette::Result<String>{
         Ok(file) => {
             Ok(file)
         }
-        Err(err) => return Err(PrettyIoError::IoError(err).into()),
+        Err(err) => return Err(CompilerError::IoError(err).to_miette_report()),
     }
 }
 fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
@@ -84,12 +53,11 @@ fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
                     t.kind,
                     &code[t.range.start()..t.range.end()]
                 )
-                .map_err(|e| CompilerError::IoError(e))?
+                .map_err(|e| CompilerError::IoError(e).to_miette_report())?
             }
         }
-        Err(token) => {
-            let diag = CompilerDiagnostic::from(token);
-            Err(miette::Report::new(diag).with_source_code(code))?
+        Err(err) => {
+            Err(err.to_miette_report().with_source_code(code))?
         }
     };
     Ok(())
@@ -98,7 +66,7 @@ fn parse(code:String,mut output: Box<dyn Write>)-> miette::Result<()>{
     let mut lexer = LogosLexer::new(&code);
     let expr = parser::IzuluParser::new().parse(&mut lexer);
     write!(&mut output,"{:?}",expr)
-    .map_err(|e| CompilerError::IoError(e))?;
+    .map_err(|e| CompilerError::IoError(e).to_miette_report())?;
     Ok(())
 }
 
@@ -117,7 +85,30 @@ fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
     Ok(())
 }
 
+fn init_logging() {
+    if let Some(logfile) = std::env::var("RUST_LOG_FILE").ok() {
+		// See: https://github.com/rust-cli/env_logger/issues/125
+        env_logger::Builder::from_default_env()
+            .target(
+				env_logger::Target::Pipe(
+					Box::new(
+						std::fs::File::create(&logfile).expect("Could not create LOG_FILE")
+					)
+				)
+			)
+            .init();
+
+		info!("Logging to file '{}'", logfile);
+    }
+    else {
+        env_logger::init();
+		info!("Hello! Logging to stderr...");
+    }
+}
+
 fn main() -> miette::Result<()> {
+    init_logging();
+
     let matches = command!()
         .arg(Arg::new("source").required(true))
         .arg(Arg::new("output").short('o').long("output"))
@@ -140,7 +131,7 @@ fn main() -> miette::Result<()> {
         Some(path) => match fs::File::create(path) {
             Ok(file) => Box::new(file),
             Err(err) => {
-                return Err(PrettyIoError::IoError(err).into());
+                return Err(CompilerError::IoError(err).to_miette_report())?;
             }
         },
     };
