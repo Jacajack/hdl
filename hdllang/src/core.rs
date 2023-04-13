@@ -1,5 +1,7 @@
 pub mod compiler_diagnostic;
 pub mod compiler_error;
+pub mod id_table;
+pub mod comment_table;
 mod wide_int;
 mod hdl_type;
 

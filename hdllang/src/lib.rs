@@ -6,6 +6,7 @@ pub mod lexer;
 pub mod parser;
 pub mod source_span;
 
+pub use crate::core::compiler_diagnostic;
 pub use crate::core::CompilerDiagnostic;
 pub use crate::core::CompilerError;
 pub use source_span::SourceSpan;

@@ -1,14 +1,13 @@
 mod logos_lexer;
 mod numeric_constant_parser;
-mod id_table;
 mod numeric_constant;
 
 use std::fmt;
 use thiserror::Error;
 use crate::SourceSpan;
-use crate::compiler_diagnostic::*;
-pub use id_table::{IdTable, IdTableKey};
-pub use comment_table::{CommentTable, CommentTableKey};
+use crate::core::compiler_diagnostic::*;
+pub use crate::core::id_table::{IdTable, IdTableKey};
+pub use crate::core::comment_table::{CommentTable, CommentTableKey};
 pub use logos_lexer::LogosLexer;
 pub use numeric_constant_parser::NumberParseError;
 pub use numeric_constant::NumericConstant;

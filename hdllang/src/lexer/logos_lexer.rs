@@ -1,6 +1,5 @@
-use super::id_table::{IdTable, IdTableKey};
-use super::comment_table::{CommentTable, CommentTableKey};
-use super::number_parser::parse_number_str;
+use crate::core::id_table::{IdTable, IdTableKey};
+use crate::core::comment_table::{CommentTable, CommentTableKey};
 use super::numeric_constant_parser::parse_numeric_constant_str;
 use super::{Lexer, SourceSpan, Token, KeywordKind, PunctuatorKind, LexerError, LexerErrorKind, NumericConstant};
 use logos::{Filter, Logos, Skip};
@@ -73,9 +72,13 @@ pub enum TokenKind {
 
     // TODO constant table
     #[regex(r"[0-9][a-zA-Z0-9_]*", parse_number_token)]
+    NumericConstant(NumericConstant),
+
+    // FIXME legacy
+    #[token("0", |_| 0)]
     #[token("true",  |_| 1)]
     #[token("false", |_| 0)]
-    Number(NumericConstant),
+    Number(u64),
 
     #[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", register_id_token)]
     Id(IdTableKey),
