@@ -10,7 +10,7 @@ lalrpop = "0.19.9"
 
 [dependencies]
 "miette" = ">=5.5"
-"logos" = "0.12.1"
+"logos" = "0.13.0"
 "thiserror" = "1.0"
 "bimap" = "0.6.2"
 lalrpop-util = {version = "0.19.7",  features = ["lexer"]}
