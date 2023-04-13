@@ -1,13 +1,14 @@
 mod logos_lexer;
 mod numeric_constant_parser;
 mod id_table;
-mod diagnostic;
 mod numeric_constant;
 
 use std::fmt;
 use thiserror::Error;
 use crate::SourceSpan;
-pub use id_table::IdTable;
+use crate::compiler_diagnostic::*;
+pub use id_table::{IdTable, IdTableKey};
+pub use comment_table::{CommentTable, CommentTableKey};
 pub use logos_lexer::LogosLexer;
 pub use numeric_constant_parser::NumberParseError;
 pub use numeric_constant::NumericConstant;
@@ -46,11 +47,37 @@ impl fmt::Display for LexerError {
 	}
 }
 
+impl ProvidesCompilerDiagnostic for LexerError {
+	fn to_diagnostic(&self) -> CompilerDiagnostic {
+		use LexerErrorKind::*;
+		match self.kind {
+			InvalidNumber(parse_err) => 
+				parse_err
+				.to_diagnostic_builder()
+				.shift_labels(self.range.offset())
+				.build(),
+
+			UnterminatedBlockComment =>
+				CompilerDiagnosticBuilder::from_error(&self)
+				.label(self.range, "This comment never ends")
+				.help("Did you forget to use '*/")
+				.build(),
+
+			InvalidToken =>
+				CompilerDiagnosticBuilder::from_error(&self)
+				.label(self.range, "This token doesn't make sense")
+				.help("This is neither a keyword, an identifier nor a valid numeric constant")
+				.build(),
+		}
+	}
+}
+
 /// All language keywords
 #[derive(Debug, Clone, Copy)]
 pub enum KeywordKind {
 	Auto,
 	Bus,
+	Bool,
 	Clock,
 	ClockGate,
 	Comb,
@@ -62,6 +89,7 @@ pub enum KeywordKind {
 	FfSync,
 	For,
 	If,
+	In,
 	Impl,
 	Input,
 	Int,
@@ -72,6 +100,7 @@ pub enum KeywordKind {
 	Register,
 	Signed,
 	Sync,
+	Async,
 	Tristate,
 	TristateBuffer,
 	Unsigned,
@@ -86,6 +115,7 @@ pub enum PunctuatorKind {
 	AssignmentAnd,   // &=
 	AssignmentPlus,  // +=
 	AssignmentXor,   // ^=
+	AssignmentOr,    // |=
 	Asterisk,        // *
 	BitwiseAnd,      // &
 	BitwiseNot,      // ~
@@ -104,7 +134,7 @@ pub enum PunctuatorKind {
 	LessEqual,       // <=
 	LogicalAnd,      // &&
 	LogicalNot,      // !
-	LogiclalOr,      // ||
+	LogicalOr,      // ||
 	LPar,            // (
 	LShift,          // <<
 	Minus,           // -
@@ -118,6 +148,7 @@ pub enum PunctuatorKind {
 	RShift,          // >>	
 	Semicolon,       // ;
 	Slash,           // /
+	PlusColon,		 // +:
 }
 
 /// Token as produced by the lexer (token kind + source location)
