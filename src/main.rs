@@ -80,7 +80,7 @@ fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
     
     let mut analyzer = analyzer::SemanticAnalyzer::new(&id_table, &comment_table);
     
-    writeln!(&mut output,"{:?}", ast).map_err(|e| CompilerError::IoError(e))?;
+    writeln!(&mut output,"{:?}", ast).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
     analyzer.process(ast.as_ref().unwrap()); // TODO implement parser error in compiler error!
     Ok(())
 }
