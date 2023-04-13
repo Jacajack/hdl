@@ -1,4 +1,4 @@
-use crate::parser::ast::{Expression};
+use crate::parser::ast::{Expression, SourceLocation};
 use crate::{lexer::IdTableKey, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
 pub struct DirectDeclarator {
@@ -12,5 +12,10 @@ impl Debug for DirectDeclarator {
             0 => write!(fmt, "foo"),
             _ => write!(fmt, "foo{:?}",  self.array_declarators),
         }
+    }
+}
+impl SourceLocation for DirectDeclarator {
+	fn get_location(&self) -> SourceSpan {
+        self.location
     }
 }

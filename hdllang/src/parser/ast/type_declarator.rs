@@ -1,4 +1,4 @@
-use crate::parser::ast::{TypeQualifier,TypeSpecifier};
+use crate::parser::ast::{TypeQualifier,TypeSpecifier,SourceLocation};
 use crate:: SourceSpan;
 use std::fmt::{Debug, Error, Formatter};
 pub struct TypeDeclarator {
@@ -17,5 +17,10 @@ impl Debug for TypeDeclarator {
                 write!(fmt, "{:?}",  self.specifier)
             }
         }
+    }
+}
+impl SourceLocation for TypeDeclarator{
+    fn get_location(&self)->SourceSpan {
+        self.location
     }
 }

@@ -1,4 +1,4 @@
-use crate::parser::ast::{DirectDeclarator, TypeDeclarator};
+use crate::parser::ast::{DirectDeclarator, TypeDeclarator,SourceLocation};
 use crate::SourceSpan;
 use std::fmt::{Debug, Error, Formatter};
 pub struct VariableDeclaration {
@@ -18,5 +18,10 @@ impl Debug for VariableDeclaration {
                 write!(fmt, "")
             }
         }
+    }
+}
+impl SourceLocation for VariableDeclaration{
+    fn get_location(&self)->SourceSpan {
+        self.location
     }
 }
