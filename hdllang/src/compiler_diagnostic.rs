@@ -6,43 +6,28 @@ use miette::{Diagnostic, Severity, LabeledSpan};
 use crate::SourceSpan;
 
 /// A generic compiler diagnostic message
-/// 
-/// TODO From<T> if payload can be converted
-#[derive(Clone)]
-pub struct CompilerDiagnostic<ErrorType = ()> {
+#[derive(Clone, Debug)]
+pub struct CompilerDiagnostic {
 	severity: Severity,
 	error_text: String,
 	help_text: Option<String>,
 	error_code: Option<String>,
 	labels: Vec<LabeledSpan>,
-	underlying: Option<ErrorType>,
 }
 
-impl<ErrorType: Debug> Debug for CompilerDiagnostic<ErrorType>  {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		f.debug_struct("CompilerDiagnostic")
-			.field("severity", &self.severity)
-			.field("error_text", &self.error_text)
-			.field("help_text", &self.help_text)
-			.field("error_code", &self.error_code)
-			.field("underlying", &self.underlying)
-			.finish()
-	}
-}
-
-impl<ErrorType: Debug> Display for CompilerDiagnostic<ErrorType>  {
+impl Display for CompilerDiagnostic {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.error_text)
 	}
 }
 
-impl<ErrorType: Debug> Error for CompilerDiagnostic<ErrorType>  {
+impl Error for CompilerDiagnostic  {
 	fn source(&self) -> Option<&(dyn Error + 'static)> {
 		None
 	}
 }
 
-impl<ErrorType: Debug> Diagnostic for CompilerDiagnostic<ErrorType> {
+impl Diagnostic for CompilerDiagnostic {
 	fn code<'a>(&'a self) -> Option<Box<(dyn std::fmt::Display + 'a)>> {
 		match &self.error_code {
 			Some(msg) => Some(Box::new(miette::Report::msg(msg.clone()))),
@@ -82,7 +67,7 @@ impl<ErrorType: Debug> Diagnostic for CompilerDiagnostic<ErrorType> {
 	}
 }
 
-impl<ErrorType: Error + Debug + Clone> CompilerDiagnostic<ErrorType> {
+impl CompilerDiagnostic {
 	/// Creates a new diagnostic message
 	pub fn new(severity: miette::Severity, msg: &str) -> Self {
 		Self {
@@ -91,15 +76,14 @@ impl<ErrorType: Error + Debug + Clone> CompilerDiagnostic<ErrorType> {
 			error_text: msg.into(),
 			error_code: None,
 			labels: Vec::new(),
-			underlying: None,
 		}
 	}
 
 	/// Creates an error diagnostic from an error type
-	pub fn from_error(err: &ErrorType) -> Self {
-		let mut diag = Self::new_error(&err.to_string());
-		diag.underlying = Some(err.clone());
-		diag
+	pub fn from_error<ErrorType>(err: &ErrorType) -> Self
+		where ErrorType: Error 
+	{
+		Self::new_error(&err.to_string())
 	}
 
 	/// Creates a new error diagnostic
@@ -139,9 +123,22 @@ impl<ErrorType: Error + Debug + Clone> CompilerDiagnostic<ErrorType> {
 		self.error_code = Some(code.into());
 		self
 	}
+}
 
-	/// Gives access to the underlying error type
-	pub fn get_error(&self) -> &Option<ErrorType> {
-		&self.underlying
+pub trait ProvidesCompilerDiagnostic: Into<CompilerDiagnostic> {
+	fn to_diagnostic(self) -> CompilerDiagnostic;
+	fn to_report(self) -> miette::Report;
+}
+
+impl<T> ProvidesCompilerDiagnostic for T
+where
+	CompilerDiagnostic: From<T> + Diagnostic
+{
+	fn to_diagnostic(self) -> CompilerDiagnostic {
+		CompilerDiagnostic::from(self)
+	}	
+
+	fn to_report(self) -> miette::Report {
+		miette::Report::new(self.to_diagnostic())
 	}
 }

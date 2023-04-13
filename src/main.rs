@@ -13,6 +13,7 @@ use std::io;
 use std::io::Write;
 use std::env;
 use thiserror::Error;
+use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
 #[derive(Error, Diagnostic, Debug)]
 pub enum PrettyIoError {
     #[error(transparent)]
@@ -86,7 +87,7 @@ fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
                     t.kind,
                     &code[t.range.start()..t.range.end()]
                 )
-                .map_err(|e| CompilerError::IoError(e))?
+                .map_err(|e| CompilerError::IoError(e).to_report())?
             }
         }
         Err(token) => {
@@ -100,7 +101,7 @@ fn parse(code:String,mut output: Box<dyn Write>)-> miette::Result<()>{
     let lexer = LogosLexer::new(&code);
     let expr = parser::IzuluParser::new().parse(lexer);
     write!(&mut output,"{:?}",expr)
-    .map_err(|e| CompilerError::IoError(e))?;
+    .map_err(|e| CompilerError::IoError(e).to_report())?;
     Ok(())
 }
 

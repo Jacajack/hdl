@@ -1,44 +1,52 @@
 use crate::CompilerDiagnostic;
 use super::LexerError;
 use super::LexerErrorKind;
+use super::NumberParseError;
 use super::number_parser::NumberParseErrorKind;
 
-impl From<LexerError> for CompilerDiagnostic<LexerError> {
-	fn from(err: LexerError) -> Self {
+impl From<NumberParseError> for CompilerDiagnostic {
+	fn from(err: NumberParseError) -> Self {
 		let diag = CompilerDiagnostic::from_error(&err);
+		let help;
+		let label = "This is not a valid number";
 		match err.kind {
+			NumberParseErrorKind::BadBinaryDigit => 
+				help = "1 and 0 are the only valid binary digits",
 
-			LexerErrorKind::InvalidNumber(parse_error) => {
-				let help;
-				let label = "This is not a valid number";
-				match parse_error.kind{
-					NumberParseErrorKind::BadBinaryDigit => 
-						help = "1 and 0 are the only valid binary digits",
+			NumberParseErrorKind::BadDecimalDigit => 
+				help = "0-9 are the only valid decimal digits",
 
-					NumberParseErrorKind::BadDecimalDigit => 
-						help = "0-9 are the only valid decimal digits",
+			NumberParseErrorKind::BadHexDigit => 
+				help = "0-9, a-f and A-F are the only valid hexadecimal digits",
 
-					NumberParseErrorKind::BadHexDigit => 
-						help = "0-9, a-f and A-F are the only valid hexadecimal digits",
+			NumberParseErrorKind::InsufficientWidth => 
+				help = "Width of this constant is insufficient to represent this number",
 
-					NumberParseErrorKind::InsufficientWidth => 
-						help = "Width of this constant is insufficient to represent this number",
+			NumberParseErrorKind::TooManyBits => 
+				help = "This numeric constant is too wide (too many bits)",
 
-					NumberParseErrorKind::TooManyBits => 
-						help = "This numeric constant is too wide (too many bits)",
+			NumberParseErrorKind::WidthRequired => 
+				help = "Please add width specifier - this constant exceeds plain integer range",
+		};
+			
+		diag.label(err.range.into(), label).help(help)
+	}
 
-					NumberParseErrorKind::WidthRequired => 
-						help = "Please add width specifier - this constant exceeds plain integer range",
-				};
-				
-				diag.label(err.range, label).help(help)
-			}
+}
 
-			LexerErrorKind::UnterminatedBlockComment => diag
+impl From<LexerError> for CompilerDiagnostic {
+	fn from(err: LexerError) -> Self {
+		match err.kind {
+			LexerErrorKind::InvalidNumber(parse_err) => 
+				parse_err.into(),
+
+			LexerErrorKind::UnterminatedBlockComment =>
+				CompilerDiagnostic::from_error(&err)
 				.label(err.range, "This comment never ends")
 				.help("Did you forget to use '*/"),
 
-			LexerErrorKind::InvalidToken => diag
+			LexerErrorKind::InvalidToken =>
+				CompilerDiagnostic::from_error(&err)
 				.label(err.range, "This token doesn't make sense")
 				.help("This is neither a keyword, an identifier nor a valid numeric constant"),
 		}
