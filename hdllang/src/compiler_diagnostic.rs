@@ -112,6 +112,20 @@ impl CompilerDiagnostic {
 		self
 	}
 
+	/// Moves all labels by the specified offset
+	pub fn shift_labels(mut self, offset: usize) -> Self {
+		for label in &mut self.labels {
+			let start = label.inner().offset().wrapping_add_signed(offset as isize);
+			let new_span = start .. start + label.inner().len();
+
+			*label = miette::LabeledSpan::new_with_span(
+				label.label().map(|s| s.to_string()),
+				miette::SourceSpan::from(new_span)
+			);
+		}
+		self
+	}
+
 	/// Attaches a help message
 	pub fn help(mut self, help: &str) -> Self {
 		self.help_text = Some(help.into());

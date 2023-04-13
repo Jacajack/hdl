@@ -1,3 +1,5 @@
+use crate::CompilerDiagnostic;
+use crate::ProvidesCompilerDiagnostic;
 use thiserror::Error;
 use std::fmt;
 
@@ -33,6 +35,24 @@ pub struct NumberParseError {
 impl fmt::Display for NumberParseError {
 	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
 		write!(f, "{}", self.kind)
+	}
+}
+
+impl ProvidesCompilerDiagnostic for NumberParseError {
+	fn to_diagnostic(&self) -> CompilerDiagnostic {
+		use NumberParseErrorKind::*;
+		CompilerDiagnostic::from_error(&self)
+			.label(self.range.into(), "This is not a valid number")
+			.help(
+				match self.kind {
+					BadBinaryDigit    => "1 and 0 are the only valid binary digits",
+					BadDecimalDigit   => "0-9 are the only valid decimal digits",
+					BadHexDigit       => "0-9, a-f and A-F are the only valid hexadecimal digits",
+					InsufficientWidth => "Width of this constant is insufficient to represent this number",
+					TooManyBits       => "This numeric constant is too wide (too many bits)",
+					WidthRequired     => "Please add width specifier - this constant exceeds plain integer range",
+				}
+			)
 	}
 }
 
