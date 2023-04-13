@@ -1,49 +1,15 @@
 extern crate hdllang;
-//use anyhow::Ok;
 use clap::{arg, command, Arg};
-use hdllang::lexer::{Lexer, LogosLexer, Token};
+use hdllang::lexer::{Lexer, LogosLexer};
 use hdllang::parser;
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
 use log::info;
-use miette::NamedSource;
-use miette::{Diagnostic, SourceSpan};
 use std::fs;
 use std::io;
 use std::io::Write;
 use std::env;
-use thiserror::Error;
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
-#[derive(Error, Diagnostic, Debug)]
-pub enum PrettyIoError {
-    #[error(transparent)]
-    #[diagnostic(code(my_lib::io_error))]
-    IoError(#[from] std::io::Error),
-}
-
-#[derive(Error, Debug, Diagnostic)]
-#[error("Lexer error!")]
-#[diagnostic(code(hdllang::lexer), url("patrzuwa.ga"), help("just use google bro"))]
-struct LexerErrorMessage {
-    #[source_code]
-    src: NamedSource,
-
-    #[label("oopsie")]
-    token_range: SourceSpan,
-}
-
-impl LexerErrorMessage {
-    pub fn _new(source_name: &str, source: &str, token: &Token) -> LexerErrorMessage {
-        LexerErrorMessage {
-            src: NamedSource::new(String::from(source_name), String::from(source)),
-            token_range: (
-                token.range.start(),
-                token.range.end() - token.range.start() + 1,
-            )
-                .into(),
-        }
-    }
-}
 
 fn lexer_example() -> miette::Result<()> {
     let source = String::from(" 15_s4 0b11017 112y_u37 0xf1_s15 fun fun super_8  kdasd fun /* for */ aa bb aa 27  if ; 44 /**/  /*12 asd 34 56 4457 11 24 /**/  if ; // 44  11 ");
@@ -72,7 +38,7 @@ fn read_input_from_file(filename: String) ->miette::Result<String>{
         Ok(file) => {
             Ok(file)
         }
-        Err(err) => return Err(PrettyIoError::IoError(err).into()),
+        Err(err) => return Err(CompilerError::IoError(err).to_miette_report()),
     }
 }
 fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
@@ -150,7 +116,7 @@ fn main() -> miette::Result<()> {
         Some(path) => match fs::File::create(path) {
             Ok(file) => Box::new(file),
             Err(err) => {
-                return Err(PrettyIoError::IoError(err).into());
+                return Err(CompilerError::IoError(err).to_miette_report())?;
             }
         },
     };
