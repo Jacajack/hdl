@@ -121,7 +121,7 @@ impl SourceLocation for ModuleImplementationStatement {
 		use self::ModuleImplementationStatement::*;
 		match &self {
 			VariableDeclarationStatement { location, .. } => *location,
-			VariableBlock { block: _, location } => *location,
+			VariableBlock { location, .. } => *location,
 			VariableDefinitionStatement { location, .. } => *location,
 			AssignmentStatement { location, .. } => *location,
 			IfStatement { location, .. } => *location,
