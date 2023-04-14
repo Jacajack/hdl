@@ -1,5 +1,5 @@
 use crate:: SourceSpan;
-use crate::parser::ast::{TypeDeclarator,Expression};
+use crate::parser::ast::{TypeDeclarator,Expression, SourceLocation};
 use std::fmt::{Debug, Error, Formatter};
 pub struct TypeName {
     pub declarator: TypeDeclarator,
@@ -12,5 +12,10 @@ impl Debug for TypeName {
             0 => write!(fmt, "{:?}", self.declarator),
             _ => write!(fmt, "{:?}{:?}", self.declarator, self.array_declarators),
         }
+    }
+}
+impl SourceLocation for TypeName{
+    fn get_location(&self)->SourceSpan {
+        self.location
     }
 }

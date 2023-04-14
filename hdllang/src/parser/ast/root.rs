@@ -1,4 +1,4 @@
-use crate::parser::ast::{TopDefinition};
+use crate::parser::ast::{TopDefinition, SourceLocation};
 use crate::{SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
 
@@ -12,5 +12,10 @@ impl Debug for Root{
             write!(fmt,"{:?}\n", self.definitions[i])?;
         }
         write!(fmt,"\n")
+    }
+}
+impl SourceLocation for Root{
+    fn get_location(&self)->SourceSpan {
+        self.location
     }
 }

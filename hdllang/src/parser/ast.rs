@@ -32,3 +32,8 @@ pub use match_expression::*;
 pub use module_declaration_statement::*;
 pub use expression::*;
 pub use opcodes::*;
+use crate::SourceSpan;
+
+pub trait SourceLocation{
+    fn get_location(&self)->SourceSpan;
+}
