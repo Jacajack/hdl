@@ -20,19 +20,13 @@ impl IdTable {
 	}
 
 	/// Checks if given name is known
-	pub fn contains_name(&self, name: &str) -> bool {
-		self.get_by_name(name).is_some()
-	}
+	pub fn contains_name(&self, name: &str) -> bool { self.get_by_name(name).is_some() }
 
 	/// Checks if key is known
-	pub fn contains_key(&self, key: &IdTableKey) -> bool {
-		self.get_by_key(key).is_some()
-	}
+	pub fn contains_key(&self, key: &IdTableKey) -> bool { self.get_by_key(key).is_some() }
 
 	/// Gets ID string by key (or None)
-	pub fn get_by_key(&self, key: &IdTableKey) -> Option<&String> {
-		self.ids.get_by_left(&key)
-	}
+	pub fn get_by_key(&self, key: &IdTableKey) -> Option<&String> { self.ids.get_by_left(&key) }
 
 	/// Gets key by identifier name (or None)
 	pub fn get_by_name(&self, name: &str) -> Option<IdTableKey> {
@@ -59,7 +53,5 @@ impl IdTable {
 impl IntoIterator for IdTable {
 	type Item = <BiHashMap<IdTableKey, String> as IntoIterator>::Item;
 	type IntoIter = <BiHashMap<IdTableKey, String> as IntoIterator>::IntoIter;
-	fn into_iter(self) -> Self::IntoIter {
-		self.ids.into_iter()
-	}
+	fn into_iter(self) -> Self::IntoIter { self.ids.into_iter() }
 }

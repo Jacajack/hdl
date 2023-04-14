@@ -41,9 +41,7 @@ pub struct LexerError {
 }
 
 impl fmt::Display for LexerError {
-	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-		write!(f, "{}", self.kind)
-	}
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result { write!(f, "{}", self.kind) }
 }
 
 impl ProvidesCompilerDiagnostic for LexerError {

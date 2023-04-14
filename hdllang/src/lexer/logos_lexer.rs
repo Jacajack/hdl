@@ -215,9 +215,7 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 	}
 
 	/// Provides access to the ID table
-	fn id_table(&self) -> &IdTable {
-		&self.lexer.extras.id_table
-	}
+	fn id_table(&self) -> &IdTable { &self.lexer.extras.id_table }
 }
 pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
 

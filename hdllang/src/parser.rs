@@ -15,9 +15,7 @@ mod tests {
 	/// Returns the same expression but with parentheses
 	/// This isn't particularly safe or clever but should be
 	/// good enough for now.
-	fn expr_to_str(s: &str) -> String {
-		format!("{:?}", parse_expr(s))
-	}
+	fn expr_to_str(s: &str) -> String { format!("{:?}", parse_expr(s)) }
 
 	/// Checks whether the two given opertor have expected precedence
 	/// and if both are left-to-right associative
@@ -126,9 +124,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_logical_and_vs_logical_or() {
-		check_precedence("&&", "||");
-	}
+	fn test_logical_and_vs_logical_or() { check_precedence("&&", "||"); }
 
 	#[test]
 	fn test_ternary_chaining() {
