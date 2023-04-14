@@ -45,10 +45,7 @@ impl SourceLocation for MatchExpressionAntecendent {
 	fn get_location(&self) -> SourceSpan {
 		use self::MatchExpressionAntecendent::*;
 		match &self {
-			Expression {
-				location,
-                ..
-			} => *location,
+			Expression { location, .. } => *location,
 			Default { location } => *location,
 		}
 	}
