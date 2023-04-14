@@ -43,9 +43,9 @@ impl Debug for TopDefinition {
 impl SourceLocation for TopDefinition {
 	fn get_location(&self) -> SourceSpan {
 		use self::TopDefinition::*;
-		match &self {
-			ModuleImplementation { location, .. } => *location,
-			ModuleDeclaration { location, .. } => *location,
+		match *self {
+			ModuleImplementation { location, .. } => location,
+			ModuleDeclaration { location, .. } => location,
 		}
 	}
 }

@@ -38,10 +38,10 @@ impl Debug for PortBindStatement {
 impl SourceLocation for PortBindStatement {
 	fn get_location(&self) -> SourceSpan {
 		use self::PortBindStatement::*;
-		match &self {
-			OnlyId { location, .. } => *location,
-			IdWithExpression { location, .. } => *location,
-			IdWithDeclaration { location, .. } => *location,
+		match *self {
+			OnlyId { location, .. } => location,
+			IdWithExpression { location, .. } => location,
+			IdWithDeclaration { location, .. } => location,
 		}
 	}
 }

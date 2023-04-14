@@ -36,12 +36,12 @@ impl Debug for TypeSpecifier {
 impl SourceLocation for TypeSpecifier{
     fn get_location(&self)->SourceSpan {
         use self::TypeSpecifier::*;
-        match &self {
-            Auto { location } => *location,
-            Int { location } => *location,
-            Wire { location } => *location,
-            Bool { location } => *location,
-            Bus { location,.. } => *location,
+        match *self {
+            Auto { location } => location,
+            Int { location } => location,
+            Wire { location } => location,
+            Bool { location } => location,
+            Bus { location,.. } => location,
         }
     }
 }

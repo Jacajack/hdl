@@ -61,17 +61,17 @@ impl Debug for TypeQualifier {
 impl SourceLocation for TypeQualifier {
 	fn get_location(&self) -> SourceSpan {
 		use TypeQualifier::*;
-		match &self {
-			Signed { location } => *location,
-			Unsigned { location } => *location,
-			Tristate { location } => *location,
-			Const { location } => *location,
-			Clock { location } => *location,
-			Comb { location, .. } => *location,
-			Sync { location, .. } => *location,
-			Input { location } => *location,
-			Output { location } => *location,
-			Async { location } => *location,
+		match *self {
+			Signed { location } => location,
+			Unsigned { location } => location,
+			Tristate { location } => location,
+			Const { location } => location,
+			Clock { location } => location,
+			Comb { location, .. } => location,
+			Sync { location, .. } => location,
+			Input { location } => location,
+			Output { location } => location,
+			Async { location } => location,
 		}
 	}
 }

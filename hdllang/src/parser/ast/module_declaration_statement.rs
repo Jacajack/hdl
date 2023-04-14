@@ -27,9 +27,9 @@ impl Debug for ModuleDeclarationStatement {
 impl SourceLocation for ModuleDeclarationStatement {
 	fn get_location(&self) -> SourceSpan {
 		use self::ModuleDeclarationStatement::*;
-		match &self {
-			VariableDeclarationStatement { location, .. } => *location,
-			VariableBlock { location, .. } => *location,
+		match *self {
+			VariableDeclarationStatement { location, .. } => location,
+			VariableBlock { location, .. } => location,
 		}
 	}
 }

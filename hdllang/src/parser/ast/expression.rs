@@ -199,23 +199,23 @@ impl Debug for Expression {
 impl SourceLocation for Expression {
 	fn get_location(&self) -> SourceSpan {
 		use self::Expression::*;
-		match &self {
-			Number { location, .. } => *location,
-			Identifier { location, .. } => *location,
-			ParenthesizedExpression { location, .. } => *location,
-			MatchExpression { location, .. } => *location,
-			ConditionalExpression { location, .. } => *location,
-			Tuple { location, .. } => *location,
-			TernaryExpression { location, .. } => *location,
-			PostfixWithIndex { location, .. } => *location,
-			PostfixWithRange { location, .. } => *location,
-			PostfixWithArgs { location, .. } => *location,
-			PostfixEmptyCall { location, .. } => *location,
-			PostfixWithId { location, .. } => *location,
-			UnaryOperatorExpression { location, .. } => *location,
-			UnaryCastExpression { location,.. } => *location,
-			RangeExpression { location,.. } => *location,
-			BinaryExpression { location,.. } => *location,
+		match *self {
+			Number { location, .. } => location,
+			Identifier { location, .. } => location,
+			ParenthesizedExpression { location, .. } => location,
+			MatchExpression { location, .. } => location,
+			ConditionalExpression { location, .. } => location,
+			Tuple { location, .. } => location,
+			TernaryExpression { location, .. } => location,
+			PostfixWithIndex { location, .. } => location,
+			PostfixWithRange { location, .. } => location,
+			PostfixWithArgs { location, .. } => location,
+			PostfixEmptyCall { location, .. } => location,
+			PostfixWithId { location, .. } => location,
+			UnaryOperatorExpression { location, .. } => location,
+			UnaryCastExpression { location,.. } => location,
+			RangeExpression { location,.. } => location,
+			BinaryExpression { location,.. } => location,
 			Error => todo!(),
 		}
 	}

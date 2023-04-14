@@ -119,16 +119,16 @@ impl Debug for ModuleImplementationStatement {
 impl SourceLocation for ModuleImplementationStatement {
 	fn get_location(&self) -> SourceSpan {
 		use self::ModuleImplementationStatement::*;
-		match &self {
-			VariableDeclarationStatement { location, .. } => *location,
-			VariableBlock { location, .. } => *location,
-			VariableDefinitionStatement { location, .. } => *location,
-			AssignmentStatement { location, .. } => *location,
-			IfStatement { location, .. } => *location,
-			IfElseStatement { location, .. } => *location,
-			IterationStatement { location, .. } => *location,
-			InstantiationStatement { location, .. } => *location,
-			ModuleImplementationBlockStatement { location, .. } => *location,
+		match *self {
+			VariableDeclarationStatement { location, .. } => location,
+			VariableBlock { location, .. } => location,
+			VariableDefinitionStatement { location, .. } => location,
+			AssignmentStatement { location, .. } => location,
+			IfStatement { location, .. } => location,
+			IfElseStatement { location, .. } => location,
+			IterationStatement { location, .. } => location,
+			InstantiationStatement { location, .. } => location,
+			ModuleImplementationBlockStatement { location, .. } => location,
 		}
 	}
 }

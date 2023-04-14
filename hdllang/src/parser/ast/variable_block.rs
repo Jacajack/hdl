@@ -44,9 +44,9 @@ impl Debug for VariableBlockStatement {
 impl SourceLocation for VariableBlockStatement {
 	fn get_location(&self) -> SourceSpan {
 		use self::VariableBlockStatement::*;
-		match &self {
-			VariableDeclarationStatement { location, .. } => *location,
-			VariableBlock { location, .. } => *location,
+		match *self {
+			VariableDeclarationStatement { location, .. } => location,
+			VariableBlock { location, .. } => location,
 		}
 	}
 }
