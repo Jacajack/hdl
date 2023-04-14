@@ -48,6 +48,7 @@ jobs:
     
   cargo-test:
     name: Cargo test
+    if: ${{ always() && needs.cargo-build.result == 'success' }}
     needs: [cargo-build]
     runs-on: ubuntu-latest
     steps:
