@@ -1,2 +1,10 @@
+unstable_features = true
 hard_tabs = true
-fn_single_line = true
+fn_single_line = false
+combine_control_expr = false
+condense_wildcard_suffixes = true
+match_block_trailing_comma = true
+max_width = 120
+use_field_init_shorthand = true
+use_try_shorthand = true
+control_brace_style = "ClosingNextLine"
