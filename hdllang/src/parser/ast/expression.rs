@@ -100,19 +100,15 @@ impl Debug for Expression {
 				location: _,
 			} => {
 				write!(fmt, "({:?} {:?} {:?})", lhs, code, rhs)
-			}
+			},
 			TernaryExpression {
 				condition,
 				true_branch,
 				false_branch,
 				location: _,
 			} => {
-				write!(
-					fmt,
-					"({:?} ? {:?} : {:?})",
-					condition, true_branch, false_branch
-				)
-			}
+				write!(fmt, "({:?} ? {:?} : {:?})", condition, true_branch, false_branch)
+			},
 			RangeExpression {
 				lhs,
 				rhs,
@@ -120,7 +116,7 @@ impl Debug for Expression {
 				code,
 			} => {
 				write!(fmt, "([{:?}{:?}{:?}])", lhs, code, rhs)
-			}
+			},
 			UnaryOperatorExpression {
 				expression,
 				code,
@@ -151,7 +147,7 @@ impl Debug for Expression {
 					write!(fmt, "{:?}, ", arg)?;
 				}
 				write!(fmt, "))")
-			}
+			},
 			PostfixEmptyCall {
 				expression,
 				location: _,
@@ -170,7 +166,7 @@ impl Debug for Expression {
 					write!(fmt, "{:?},", expr)?;
 				}
 				write!(fmt, "}}")
-			}
+			},
 			MatchExpression {
 				value,
 				statements,
@@ -181,7 +177,7 @@ impl Debug for Expression {
 					write!(fmt, "{:?},\n", s)?;
 				}
 				write!(fmt, "}}")
-			}
+			},
 			ConditionalExpression {
 				statements,
 				location: _,
@@ -191,7 +187,7 @@ impl Debug for Expression {
 					write!(fmt, "{:?},\n", s)?;
 				}
 				write!(fmt, "}}")
-			}
+			},
 			Error => write!(fmt, "error"),
 		}
 	}
@@ -213,9 +209,9 @@ impl SourceLocation for Expression {
 			PostfixEmptyCall { location, .. } => location,
 			PostfixWithId { location, .. } => location,
 			UnaryOperatorExpression { location, .. } => location,
-			UnaryCastExpression { location,.. } => location,
-			RangeExpression { location,.. } => location,
-			BinaryExpression { location,.. } => location,
+			UnaryCastExpression { location, .. } => location,
+			RangeExpression { location, .. } => location,
+			BinaryExpression { location, .. } => location,
 			Error => todo!(),
 		}
 	}

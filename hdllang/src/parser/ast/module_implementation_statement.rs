@@ -1,6 +1,6 @@
 use crate::parser::ast::{
-	AssignmentOpcode, Expression, PortBindStatement, SourceLocation, VariableBlock,
-	VariableDeclaration, VariableDefinition,
+	AssignmentOpcode, Expression, PortBindStatement, SourceLocation, VariableBlock, VariableDeclaration,
+	VariableDefinition,
 };
 use crate::{lexer::IdTableKey, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
@@ -87,7 +87,7 @@ impl Debug for ModuleImplementationStatement {
 					write!(fmt, "{:?},\n", port_bind_statement)?;
 				}
 				write!(fmt, "}};")
-			}
+			},
 			ModuleImplementationBlockStatement {
 				statements,
 				location: _,
@@ -97,7 +97,7 @@ impl Debug for ModuleImplementationStatement {
 					write!(fmt, "{:?}\n", statement)?;
 				}
 				write!(fmt, "}}")
-			}
+			},
 			IfStatement {
 				condition,
 				if_statement,

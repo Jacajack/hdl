@@ -1,6 +1,4 @@
-use crate::parser::ast::{
-	ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation,
-};
+use crate::parser::ast::{ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
 use crate::{lexer::IdTableKey, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
 pub enum TopDefinition {
@@ -29,14 +27,14 @@ impl Debug for TopDefinition {
 					write!(fmt, "\n{:?}", module_declaration)?;
 				}
 				write!(fmt, "}}")
-			}
+			},
 			ModuleImplementation {
 				id: _,
 				statement,
 				location: _,
 			} => {
 				write!(fmt, "impl foo {:?}", statement)
-			}
+			},
 		}
 	}
 }

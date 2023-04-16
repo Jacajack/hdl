@@ -1,11 +1,11 @@
-pub mod grammar_parser;
 pub mod ast;
+pub mod grammar_parser;
 pub use grammar_parser::grammar::*;
 
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::lexer::{LogosLexer, Lexer};
+	use crate::lexer::{Lexer, LogosLexer};
 
 	fn parse_expr(s: &str) -> Box<ast::Expression> {
 		let lexer = LogosLexer::new(s);
@@ -33,7 +33,7 @@ mod tests {
 			expr_to_str(format!("1 {} 2 {} 3", second, second).as_str()),
 			format!("((1 {} 2) {} 3)", second, second)
 		);
-		
+
 		// First before second - natural order
 		assert_eq!(
 			expr_to_str(format!("1 {} 2 {} 3", first, second).as_str()),
@@ -135,5 +135,4 @@ mod tests {
 		assert_eq!(expr_to_str("1 ? 2 : 3 ? 4 : 5"), "(1 ? 2 : (3 ? 4 : 5))");
 		assert_eq!(expr_to_str("1 ? 2 ? 3 : 4 : 5"), "(1 ? (2 ? 3 : 4) : 5)");
 	}
-
 }

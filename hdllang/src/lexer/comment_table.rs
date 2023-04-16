@@ -6,14 +6,12 @@ pub struct CommentTableKey {
 	key: usize,
 }
 
-
 /// Stores metadata comments
 pub struct CommentTable {
 	comments: HashMap<CommentTableKey, String>,
 }
 
 impl CommentTable {
-
 	/// Creates a new metadata comment table
 	pub fn new() -> Self {
 		Self {
@@ -28,10 +26,10 @@ impl CommentTable {
 
 	/// Stores a new metadata comment
 	pub fn insert(&mut self, s: String) -> CommentTableKey {
-		let key = CommentTableKey{key: self.comments.len()};
+		let key = CommentTableKey {
+			key: self.comments.len(),
+		};
 		self.comments.insert(key, s);
 		key
 	}
 }
-
-
