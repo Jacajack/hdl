@@ -68,7 +68,7 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start: @L> <id1:"Id"> <id2:"Id"> "{" <port_bind:Semicolon<PortBindStmt>> "}" ";"? <end: @R> =>
+	<start: @L> <id1:"Id"> <id2:"Id"> "{" <port_bind:NonEmptyOptComma<PortBindStmt>> "}" ";"? <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::InstantiationStatement{
 				id1,
@@ -402,15 +402,6 @@ Tier<Op,NextTier>: Box<Expression> = {
 ArgumentList=Comma<Expr>;
 Comma<T>: Vec<T> = { // (1)
     <mut v:(<T> ",")*> <e:T> => match v.len() { // (2)
-        0 => vec![e],
-        _ => {
-            v.push(e);
-            v
-        }
-    }
-};
-Semicolon<T>: Vec<T> = { // (1)
-    <mut v:(<T> ";")*> <e:T> => match v.len() { // (2)
         0 => vec![e],
         _ => {
             v.push(e);
