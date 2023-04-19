@@ -5,12 +5,12 @@ pub use grammar_parser::grammar::*;
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::lexer::{Lexer, LogosLexer};
 	use crate::diagnostic_buffer::DiagnosticBuffer;
+	use crate::lexer::{Lexer, LogosLexer};
 	fn parse_expr(s: &str) -> Box<ast::Expression> {
 		let lexer = LogosLexer::new(s);
 		let mut buf = DiagnosticBuffer::new();
-		ExprParser::new().parse(&mut buf,lexer).expect("parsing failed")
+		ExprParser::new().parse(&mut buf, lexer).expect("parsing failed")
 	}
 
 	/// Returns the same expression but with parentheses

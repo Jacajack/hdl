@@ -1,11 +1,11 @@
 extern crate hdllang;
 use clap::{arg, command, Arg};
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
+use hdllang::diagnostic_buffer::DiagnosticBuffer;
 use hdllang::lexer::{Lexer, LogosLexer};
 use hdllang::parser;
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
-use hdllang::diagnostic_buffer::DiagnosticBuffer;
 use log::info;
 use std::env;
 use std::fs;
@@ -58,7 +58,7 @@ fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let lexer = LogosLexer::new(&code);
 	let mut buf = DiagnosticBuffer::new();
-	let ast = parser::IzuluParser::new().parse(&mut buf,lexer);
+	let ast = parser::IzuluParser::new().parse(&mut buf, lexer);
 	write!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_miette_report())?;
 	Ok(())
 }
