@@ -3,9 +3,10 @@ use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
 	 MatchExpressionAntecendent,TopDefinition,ModuleDeclarationStatement,VariableBlock,
 	 VariableBlockStatement, VariableDeclaration, DirectDeclarator,ModuleImplementationStatement,
 	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root};
-use crate::lexer::*; 
+use crate::lexer::*;
+use crate::diagnostic_buffer::DiagnosticBuffer; 
 use crate::SourceSpan;
-grammar;
+grammar(buffer: &mut DiagnosticBuffer);
 pub Izulu: Root={
 	<start: @L> <definitions:NonEmptySpace<TopDef>> <end: @R> =>
 		Root{

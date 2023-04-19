@@ -6,7 +6,8 @@ pub mod compiler_error;
 pub mod lexer;
 pub mod parser;
 pub mod source_span;
-
+pub mod diagnostic_buffer;
+pub use diagnostic_buffer::DiagnosticBuffer;
 pub use compiler_diagnostic::CompilerDiagnostic;
 pub use compiler_diagnostic::ProvidesCompilerDiagnostic;
 pub use compiler_error::CompilerError;
