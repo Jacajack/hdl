@@ -1,19 +1,34 @@
 use crate::core::id_table::{IdTable, IdTableKey};
 use crate::core::comment_table::{CommentTable, CommentTableKey};
+use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
 use super::numeric_constant_parser::parse_numeric_constant_str;
 use super::{Lexer, SourceSpan, Token, KeywordKind, PunctuatorKind, LexerError, LexerErrorKind, NumericConstant};
 use logos::{Filter, Logos, Skip};
 
+/// Returns constant key for 'true'
+fn parse_true_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstantTableKey> {
+	Some(lex.extras.numeric_constants.insert(
+		NumericConstant::from_u64(1, Some(1), Some(false))
+	))
+}
+
+/// Returns constant key for 'false'
+fn parse_false_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstantTableKey> {
+	Some(lex.extras.numeric_constants.insert(
+		NumericConstant::from_u64(1, Some(1), Some(false))
+	))
+}
 
 /// Parses numeric constant tokens
-fn parse_number_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstant> {
+fn parse_numeric_constant_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstantTableKey> {
 	parse_numeric_constant_str(lex.slice()).map_err(|err| {
 		lex.extras.last_err = Some(LexerError{
 			range: SourceSpan::new_from_range(&lex.span()), // TODO fix this span
 			kind: LexerErrorKind::InvalidNumber(err),
 		});
-		return ();
-	}).ok()
+	}).ok().map(|value| {
+		lex.extras.numeric_constants.insert(value)
+	})
 }
 
 /// Causes lexer to consume and ignore multi-line comments (/* */)
@@ -70,15 +85,10 @@ pub enum TokenKind {
 	#[token("///", consume_metadata_comment)]
 	MetadataComment(CommentTableKey),
 
-    // TODO constant table
-    #[regex(r"[0-9][a-zA-Z0-9_]*", parse_number_token)]
-    NumericConstant(NumericConstant),
-
-    // FIXME legacy
-    #[token("0", |_| 0)]
-    #[token("true",  |_| 1)]
-    #[token("false", |_| 0)]
-    Number(u64),
+    #[token("false", parse_false_token)]
+    #[token("true",  parse_true_token)]
+    #[regex(r"[0-9][a-zA-Z0-9_]*", parse_numeric_constant_token)]
+    NumericConstant(NumericConstantTableKey),
 
 	#[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", register_id_token)]
 	Id(IdTableKey),
@@ -167,6 +177,9 @@ pub struct LogosLexerContext {
 	/// Metadata comments table
 	comment_table: CommentTable, // TODO store reference instead
 
+	/// Numeric constant table
+	numeric_constants: NumericConstantTable, // TODO store reference instead
+
 	/// Last lexing error (written by custom token parsing funcitons)
 	last_err: Option<LexerError>,
 }
@@ -186,6 +199,7 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 				LogosLexerContext {
 					id_table: IdTable::new(),
 					comment_table: CommentTable::new(),
+					numeric_constants: NumericConstantTable::new(),
 					last_err: None,
 				},
 			),

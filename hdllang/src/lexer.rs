@@ -8,6 +8,7 @@ use crate::SourceSpan;
 use crate::core::compiler_diagnostic::*;
 pub use crate::core::id_table::{IdTable, IdTableKey};
 pub use crate::core::comment_table::{CommentTable, CommentTableKey};
+pub use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
 pub use logos_lexer::LogosLexer;
 pub use numeric_constant_parser::NumberParseError;
 pub use numeric_constant::NumericConstant;

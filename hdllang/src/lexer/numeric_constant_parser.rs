@@ -141,7 +141,7 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 	let constant = NumericConstant::from_u64(value, num_bits, is_signed);
 
 	// Check if the number can be represented with this number of bits
-	if constant.is_fully_constrained() && !constant.is_representable_as_negative() && !constant.is_representable_as_positive() {
+	if matches!(constant.is_always_representable(), Some(false)) {
 		return Err(NumberParseError{
 			kind: NumericConstantParseErrorKind::InsufficientWidth,
 			range: (0, s.len()),

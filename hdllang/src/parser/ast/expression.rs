@@ -1,10 +1,11 @@
+use crate::core::numeric_constant_table::NumericConstantTableKey;
 use crate::parser::ast::{opcodes::*, MatchExpressionStatement, SourceLocation, TypeName};
 use crate::{lexer::IdTableKey, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
 
 pub enum Expression {
 	Number {
-		value: u64,
+		key: NumericConstantTableKey,
 		location: SourceSpan,
 	},
 	Identifier {
@@ -87,7 +88,7 @@ impl Debug for Expression {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
 		use self::Expression::*;
 		match &self {
-			Number { value, location: _ } => write!(fmt, "{:?}", value),
+			Number { key: value, location: _ } => write!(fmt, "{:?}", value),
 			Identifier { id: _, location: _ } => write!(fmt, "foo"),
 			ParenthesizedExpression {
 				expression,

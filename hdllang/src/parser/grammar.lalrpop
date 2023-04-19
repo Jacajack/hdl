@@ -236,10 +236,10 @@ MatchExpressionAntecendent: MatchExpressionAntecendent = {
 	},
 }
 Expression: Box<Expression> = {
-	<start:@L> <value:"Number"> <end:@R> => 
+	<start:@L> <key:"NumericConstant"> <end:@R> => 
 		Box::new(
 			Expression::Number{
-				value,
+				key,
 				location:SourceSpan::new_between(start,end)
 			}
 		),
@@ -563,7 +563,7 @@ extern {
     type Error = LexerError;
   
     enum TokenKind {
-		"Number"          => TokenKind::Number(<u64>),
+		"NumericConstant" => TokenKind::NumericConstant(<NumericConstantTableKey>),
 		"Id"              => TokenKind::Id(<IdTableKey>),
 		"module"          => TokenKind::Keyword(KeywordKind::Module),
 		"register"        => TokenKind::Keyword(KeywordKind::Register),
