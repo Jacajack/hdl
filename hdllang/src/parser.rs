@@ -5,7 +5,6 @@ pub use grammar_parser::grammar::*;
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use super::ast::*;
 	use crate::lexer::{Lexer, LogosLexer};
 
 	fn parse_expr(s: &str) -> Box<ast::Expression> {
@@ -23,103 +22,47 @@ mod tests {
 	/// Checks whether the two given opertor have expected precedence
 	/// and if both are left-to-right associative
 	fn check_precedence(first: &str, second: &str) {
-		// These tests depend on this unstable feature: https://github.com/rust-lang/rust/issues/29641
-		// and will likely need reworking in the future :(
-		use Expression::*;
-
 		// First operator - associativity
-		assert!(matches!(
-			*parse_expr(format!("1 {} 2 {} 3", first, first).as_str()),
-			Expression::BinaryExpression {
-				lhs: box BinaryExpression{..},
-				rhs: box Number{..},
-				..
-			}
-		));
+		assert_eq!(
+			expr_to_str(format!("a {} a {} a", first, first).as_str()),
+			format!("((foo {} foo) {} foo)", first, first)
+		);
 
 		// Second operator - associativity
-		assert!(matches!(
-			*parse_expr(format!("1 {} 2 {} 3", second, second).as_str()),
-			Expression::BinaryExpression {
-				lhs: box BinaryExpression{..},
-				rhs: box Number{..},
-				..
-			}
-		));
+		assert_eq!(
+			expr_to_str(format!("a {} a {} a", second, second).as_str()),
+			format!("((foo {} foo) {} foo)", second, second)
+		);
 
-		// // First before second - natural order
-		assert!(matches!(
-			*parse_expr(format!("1 {} 2 {} 3", first, second).as_str()),
-			Expression::BinaryExpression {
-				lhs: box BinaryExpression{..},
-				rhs: box Number{..},
-				..
-			}
-		));
+		// First before second - natural order
+		assert_eq!(
+			expr_to_str(format!("a {} a {} a", first, second).as_str()),
+			format!("((foo {} foo) {} foo)", first, second)
+		);
 
-		// // First before secone - reverse order
-		assert!(matches!(
-			*parse_expr(format!("1 {} 2 {} 3", second, first).as_str()),
-			Expression::BinaryExpression {
-				lhs: box Number{..},
-				rhs: box BinaryExpression{..},
-				..
-			}
-		));
+		// First before secone - reverse order
+		assert_eq!(
+			expr_to_str(format!("a {} a {} a", second, first).as_str()),
+			format!("(foo {} (foo {} foo))", second, first)
+		);
 
-		// // Three operators - start from left
-		assert!(matches!(
-			*parse_expr(format!("1 {} 2 {} 3 {} 4", first, second, second).as_str()),
-			BinaryExpression {
-				lhs: box BinaryExpression{
-					lhs: box BinaryExpression{
-						lhs: box Number{..},
-						rhs: box Number{..},
-						..
-					},
-					rhs: box Number{..},
-					..
-				},
-				rhs: box Number{..},
-				..
-			}
-		));
+		// Three operators - start from left
+		assert_eq!(
+			expr_to_str(format!("a {} a {} a {} a", first, second, second).as_str()),
+			format!("(((foo {} foo) {} foo) {} foo)", first, second, second)
+		);
 
-		// // Three operators - start from the middle
-		assert!(matches!(
-			*parse_expr(format!("1 {} 2 {} 3 {} 4", second, first, second).as_str()),
-			BinaryExpression {
-				lhs: box BinaryExpression{
-					lhs: box Number{..},
-					rhs: box BinaryExpression{
-						lhs: box Number{..},
-						rhs: box Number{..},
-						..
-					},
-					..
-				},
-				rhs: box Number{..},
-				..
-			}
-		));
+		// Three operators - start from the middle
+		assert_eq!(
+			expr_to_str(format!("a {} a {} a {} a", second, first, second).as_str()),
+			format!("((foo {} (foo {} foo)) {} foo)", second, first, second)
+		);
 
-		// // Three operators - start from the end
-		assert!(matches!(
-			*parse_expr(format!("1 {} 2 {} 3 {} 4", second, second, first).as_str()),
-			BinaryExpression {
-				lhs: box BinaryExpression{
-					lhs: box Number{..},
-					rhs: box Number{..},
-					..
-				},
-				rhs: box BinaryExpression{
-					lhs: box Number{..},
-					rhs: box Number{..},
-					..
-				},
-				..
-			}
-		));
+		// Three operators - start from the end
+		assert_eq!(
+			expr_to_str(format!("a {} a {} a {} a", second, second, first).as_str()),
+			format!("((foo {} foo) {} (foo {} foo))", second, second, first)
+		);
 	}
 
 	#[test]
@@ -189,36 +132,7 @@ mod tests {
 
 	#[test]
 	fn test_ternary_chaining() {
-		use Expression::*;
-
-		assert!(matches!(
-			*parse_expr("1 ? 2 : 3 ? 4 : 5"),
-			TernaryExpression {
-				condition: box Number{..},
-				true_branch: box Number{..},
-				false_branch: box TernaryExpression{
-					condition: box Number{..},
-					true_branch: box Number{..},
-					false_branch: box Number{..},
-					..
-				},
-				..
-			}
-		));
-
-		assert!(matches!(
-			*parse_expr("1 ? 2 ? 3 : 4 : 5"),
-			TernaryExpression {
-				condition: box Number{..},
-				true_branch: box TernaryExpression{
-					condition: box Number{..},
-					true_branch: box Number{..},
-					false_branch: box Number{..},
-					..
-				},
-				false_branch: box Number{..},
-				..
-			}
-		));
+		assert_eq!(expr_to_str("a ? a : a ? a : a"), "(foo ? foo : (foo ? foo : foo))");
+		assert_eq!(expr_to_str("a ? a ? a : a : a"), "(foo ? (foo ? foo : foo) : foo)");
 	}
 }
