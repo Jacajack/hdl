@@ -1,5 +1,3 @@
-mod comment_table;
-mod id_table;
 mod logos_lexer;
 mod numeric_constant_parser;
 mod numeric_constant;
