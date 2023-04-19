@@ -88,7 +88,7 @@ impl Debug for Expression {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
 		use self::Expression::*;
 		match &self {
-			Number { key: value, location: _ } => write!(fmt, "{:?}", value),
+			Number { key, location: _ } => write!(fmt, "{:?}", key),
 			Identifier { id: _, location: _ } => write!(fmt, "foo"),
 			ParenthesizedExpression {
 				expression,

@@ -1,3 +1,4 @@
+#![feature(box_patterns)]
 #[macro_use] extern crate lalrpop_util;
 extern crate derive_more;
 

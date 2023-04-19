@@ -141,7 +141,7 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 	let constant = NumericConstant::from_u64(value, num_bits, is_signed);
 
 	// Check if the number can be represented with this number of bits
-	if matches!(constant.is_always_representable(), Some(false)) {
+	if matches!(constant.is_representable(), Some(false)) {
 		return Err(NumberParseError{
 			kind: NumericConstantParseErrorKind::InsufficientWidth,
 			range: (0, s.len()),
@@ -154,10 +154,11 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::core::WideUint;
 
 	fn check_parse(s: &str, value: u64, num_bits: Option<u32>, is_signed: Option<bool>) {
 		let number = parse_numeric_constant_str(s).unwrap();
-		assert_eq!(number.value, value);
+		assert_eq!(number.value, WideUint::from_u64(value));
 		assert_eq!(number.width, num_bits);
 		assert_eq!(number.signed, is_signed);
 	} 

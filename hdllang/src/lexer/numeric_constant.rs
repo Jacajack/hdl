@@ -64,4 +64,12 @@ impl NumericConstant {
 			_ => None
 		}
 	}
+
+	/// Checks if the number is representable as positive OR as negative
+	pub fn is_representable(&self) -> Option<bool> {
+		match (self.is_representable_as_positive(), self.is_representable_as_negative()) {
+			(Some(x), Some(y)) => Some(x || y),
+			_ => None
+		}
+	}
 }
