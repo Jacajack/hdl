@@ -1,8 +1,9 @@
-#[macro_use] extern crate lalrpop_util;
+#[macro_use]
+extern crate lalrpop_util;
 extern crate derive_more;
 
-pub mod diagnostic_buffer;
 pub mod core;
+pub mod diagnostic_buffer;
 pub mod lexer;
 pub mod parser;
 

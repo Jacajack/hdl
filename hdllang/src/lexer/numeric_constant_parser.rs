@@ -1,6 +1,6 @@
 use crate::compiler_diagnostic::*;
-use thiserror::Error;
 use std::fmt;
+use thiserror::Error;
 
 use super::NumericConstant;
 
@@ -30,7 +30,7 @@ pub enum NumericConstantParseErrorKind {
 #[derive(Clone, Copy, Debug, Error)]
 pub struct NumberParseError {
 	pub kind: NumericConstantParseErrorKind,
-	pub range: (usize, usize) // TODO a common source range type
+	pub range: (usize, usize), // TODO a common source range type
 }
 
 impl fmt::Display for NumberParseError {
@@ -44,53 +44,44 @@ impl ProvidesCompilerDiagnostic for NumberParseError {
 		use NumericConstantParseErrorKind::*;
 		CompilerDiagnosticBuilder::from_error(&self)
 			.label(self.range.into(), "This is not a valid number")
-			.help(
-				match self.kind {
-					BadBinaryDigit    => "1 and 0 are the only valid binary digits",
-					BadDecimalDigit   => "0-9 are the only valid decimal digits",
-					BadHexDigit       => "0-9, a-f and A-F are the only valid hexadecimal digits",
-					InsufficientWidth => "Width of this constant is insufficient to represent this number",
-					TooManyBits       => "This numeric constant is too wide (too many bits)",
-					WidthRequired     => "Please add width specifier - this constant exceeds plain integer range",
-				}
-			)
+			.help(match self.kind {
+				BadBinaryDigit => "1 and 0 are the only valid binary digits",
+				BadDecimalDigit => "0-9 are the only valid decimal digits",
+				BadHexDigit => "0-9, a-f and A-F are the only valid hexadecimal digits",
+				InsufficientWidth => "Width of this constant is insufficient to represent this number",
+				TooManyBits => "This numeric constant is too wide (too many bits)",
+				WidthRequired => "Please add width specifier - this constant exceeds plain integer range",
+			})
 			.build()
 	}
 }
 
 /// Parses a pure decimal number
 fn parse_pure_decimal(s: &str) -> Result<u64, NumberParseError> {
-	u64::from_str_radix(s, 10).map_err(|_| {
-		NumberParseError{
-			kind: NumericConstantParseErrorKind::BadDecimalDigit,
-			range: (0, s.len())
-		}
+	u64::from_str_radix(s, 10).map_err(|_| NumberParseError {
+		kind: NumericConstantParseErrorKind::BadDecimalDigit,
+		range: (0, s.len()),
 	})
 }
 
 /// Parses a pure hex number
 fn parse_pure_hex(s: &str) -> Result<u64, NumberParseError> {
-	u64::from_str_radix(s, 16).map_err(|_| {
-		NumberParseError{
-			kind: NumericConstantParseErrorKind::BadHexDigit,
-			range: (0, s.len())
-		}
+	u64::from_str_radix(s, 16).map_err(|_| NumberParseError {
+		kind: NumericConstantParseErrorKind::BadHexDigit,
+		range: (0, s.len()),
 	})
 }
 
 /// Parses a pure binary number
 fn parse_pure_binary(s: &str) -> Result<u64, NumberParseError> {
-	u64::from_str_radix(s, 2).map_err(|_| {
-		NumberParseError{
-			kind: NumericConstantParseErrorKind::BadBinaryDigit,
-			range: (0, s.len())
-		}
+	u64::from_str_radix(s, 2).map_err(|_| NumberParseError {
+		kind: NumericConstantParseErrorKind::BadBinaryDigit,
+		range: (0, s.len()),
 	})
 }
 
 /// Parses numeric constant strings
 pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberParseError> {
-
 	// These two should be enforced by the regex in the lexer
 	assert!(s.len() > 0);
 	assert!(s.chars().nth(0).unwrap().is_digit(10));
@@ -113,10 +104,10 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 
 			// Is the number of bits reasonable?
 			if n > 64 {
-				return Err(NumberParseError{
+				return Err(NumberParseError {
 					kind: NumericConstantParseErrorKind::TooManyBits,
 					range: (0, s.len()),
-				})
+				});
 			}
 
 			num_bits = Some(n);
@@ -142,10 +133,10 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 
 	// Check if the number can be represented with this number of bits
 	if matches!(constant.is_representable(), Some(false)) {
-		return Err(NumberParseError{
+		return Err(NumberParseError {
 			kind: NumericConstantParseErrorKind::InsufficientWidth,
 			range: (0, s.len()),
-		})
+		});
 	}
 
 	Ok(constant)
@@ -161,7 +152,7 @@ mod tests {
 		assert_eq!(number.value, WideUint::from_u64(value));
 		assert_eq!(number.width, num_bits);
 		assert_eq!(number.signed, is_signed);
-	} 
+	}
 
 	fn expect_parse_error(s: &str) {
 		assert!(parse_numeric_constant_str(s).is_err());
@@ -195,7 +186,7 @@ mod tests {
 		check_parse("0xFFs00011", 255, Some(11), Some(true));
 		check_parse("0b0_1_0_1_u_00__010___", 5, Some(10), Some(false));
 		check_parse("0b0_1_0_1_u_00__010___", 5, Some(10), Some(false));
-		
+
 		// I hate this corner case :/
 		check_parse("127s8", 127, Some(8), Some(true));
 		check_parse("128s8", 128, Some(8), Some(true));
@@ -205,7 +196,7 @@ mod tests {
 	#[test]
 	fn test_insufficient_number_width() {
 		expect_parse_error("10u3");
-		expect_parse_error("5s3");	
+		expect_parse_error("5s3");
 	}
 
 	#[test]

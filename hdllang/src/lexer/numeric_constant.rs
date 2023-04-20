@@ -10,7 +10,11 @@ pub struct NumericConstant {
 impl NumericConstant {
 	/// Creates a new numeric constant from u64
 	pub fn from_u64(value: u64, width: Option<u32>, signed: Option<bool>) -> Self {
-		Self {value: WideUint::from_u64(value), width, signed}
+		Self {
+			value: WideUint::from_u64(value),
+			width,
+			signed,
+		}
 	}
 
 	/// Returns true if the constant is fully constrained in terms
@@ -22,7 +26,7 @@ impl NumericConstant {
 	/// Returns number of effective bits (n-1 if signed)
 	fn get_effective_bits(&self) -> Option<u32> {
 		if self.is_fully_constrained() && self.is_width_valid() {
-			Some(self.width.unwrap() - (if self.signed.unwrap() {1} else {0}))
+			Some(self.width.unwrap() - (if self.signed.unwrap() { 1 } else { 0 }))
 		}
 		else {
 			None
@@ -43,9 +47,7 @@ impl NumericConstant {
 	/// Returns if the number can be represented with the specifed
 	/// number of bits and signedness
 	pub fn is_representable_as_positive(&self) -> Option<bool> {
-		self.get_effective_bits().map(|n| {
-			self.value.bits_required() <= n
-		})
+		self.get_effective_bits().map(|n| self.value.bits_required() <= n)
 	}
 
 	/// Returns if the number can be represented with the specifed
@@ -61,7 +63,7 @@ impl NumericConstant {
 	pub fn is_always_representable(&self) -> Option<bool> {
 		match (self.is_representable_as_positive(), self.is_representable_as_negative()) {
 			(Some(x), Some(y)) => Some(x && y),
-			_ => None
+			_ => None,
 		}
 	}
 
@@ -69,7 +71,7 @@ impl NumericConstant {
 	pub fn is_representable(&self) -> Option<bool> {
 		match (self.is_representable_as_positive(), self.is_representable_as_negative()) {
 			(Some(x), Some(y)) => Some(x || y),
-			_ => None
+			_ => None,
 		}
 	}
 }

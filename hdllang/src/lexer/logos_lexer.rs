@@ -1,34 +1,39 @@
-use crate::core::id_table::{IdTable, IdTableKey};
-use crate::core::comment_table::{CommentTable, CommentTableKey};
-use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
 use super::numeric_constant_parser::parse_numeric_constant_str;
-use super::{Lexer, SourceSpan, Token, KeywordKind, PunctuatorKind, LexerError, LexerErrorKind, NumericConstant};
+use super::{KeywordKind, Lexer, LexerError, LexerErrorKind, NumericConstant, PunctuatorKind, SourceSpan, Token};
+use crate::core::comment_table::{CommentTable, CommentTableKey};
+use crate::core::id_table::{IdTable, IdTableKey};
+use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
 use logos::{Filter, Logos, Skip};
 
 /// Returns constant key for 'true'
 fn parse_true_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstantTableKey> {
-	Some(lex.extras.numeric_constants.insert(
-		NumericConstant::from_u64(1, Some(1), Some(false))
-	))
+	Some(
+		lex.extras
+			.numeric_constants
+			.insert(NumericConstant::from_u64(1, Some(1), Some(false))),
+	)
 }
 
 /// Returns constant key for 'false'
 fn parse_false_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstantTableKey> {
-	Some(lex.extras.numeric_constants.insert(
-		NumericConstant::from_u64(1, Some(1), Some(false))
-	))
+	Some(
+		lex.extras
+			.numeric_constants
+			.insert(NumericConstant::from_u64(1, Some(1), Some(false))),
+	)
 }
 
 /// Parses numeric constant tokens
 fn parse_numeric_constant_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstantTableKey> {
-	parse_numeric_constant_str(lex.slice()).map_err(|err| {
-		lex.extras.last_err = Some(LexerError{
-			range: SourceSpan::new_from_range(&lex.span()), // TODO fix this span
-			kind: LexerErrorKind::InvalidNumber(err),
-		});
-	}).ok().map(|value| {
-		lex.extras.numeric_constants.insert(value)
-	})
+	parse_numeric_constant_str(lex.slice())
+		.map_err(|err| {
+			lex.extras.last_err = Some(LexerError {
+				range: SourceSpan::new_from_range(&lex.span()), // TODO fix this span
+				kind: LexerErrorKind::InvalidNumber(err),
+			});
+		})
+		.ok()
+		.map(|value| lex.extras.numeric_constants.insert(value))
 }
 
 /// Causes lexer to consume and ignore multi-line comments (/* */)
@@ -85,10 +90,10 @@ pub enum TokenKind {
 	#[token("///", consume_metadata_comment)]
 	MetadataComment(CommentTableKey),
 
-    #[token("false", parse_false_token)]
-    #[token("true",  parse_true_token)]
-    #[regex(r"[0-9][a-zA-Z0-9_]*", parse_numeric_constant_token)]
-    NumericConstant(NumericConstantTableKey),
+	#[token("false", parse_false_token)]
+	#[token("true", parse_true_token)]
+	#[regex(r"[0-9][a-zA-Z0-9_]*", parse_numeric_constant_token)]
+	NumericConstant(NumericConstantTableKey),
 
 	#[regex(r"[a-zA-Z_][a-zA-Z0-9_]*", register_id_token)]
 	Id(IdTableKey),
