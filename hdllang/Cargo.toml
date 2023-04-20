@@ -13,6 +13,8 @@ lalrpop = "0.19.9"
 "logos" = "0.13.0"
 "thiserror" = "1.0"
 "bimap" = "0.6.2"
+"num-bigint" = "0.4.3"
+"derive_more" = "0.99.17"
 lalrpop-util = {version = "0.19.7",  features = ["lexer"]}
 "regex" = "1"
 log = "0.4.17"

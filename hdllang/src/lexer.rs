@@ -1,16 +1,17 @@
-mod comment_table;
-mod id_table;
 mod logos_lexer;
-mod number_parser;
+mod numeric_constant_parser;
+mod numeric_constant;
 
-use crate::compiler_diagnostic::*;
-use crate::SourceSpan;
-pub use comment_table::{CommentTable, CommentTableKey};
-pub use id_table::{IdTable, IdTableKey};
-pub use logos_lexer::LogosLexer;
-pub use number_parser::NumberParseError;
 use std::fmt;
 use thiserror::Error;
+use crate::SourceSpan;
+use crate::core::compiler_diagnostic::*;
+pub use crate::core::id_table::{IdTable, IdTableKey};
+pub use crate::core::comment_table::{CommentTable, CommentTableKey};
+pub use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
+pub use logos_lexer::LogosLexer;
+pub use numeric_constant_parser::NumberParseError;
+pub use numeric_constant::NumericConstant;
 
 /// Lexer token type
 /// In this case, it's defined by the Logos-based lexer implementation.

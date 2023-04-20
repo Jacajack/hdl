@@ -1,14 +1,13 @@
-#[macro_use]
-extern crate lalrpop_util;
+#[macro_use] extern crate lalrpop_util;
+extern crate derive_more;
 
-pub mod compiler_diagnostic;
-pub mod compiler_error;
 pub mod diagnostic_buffer;
+pub mod core;
 pub mod lexer;
 pub mod parser;
-pub mod source_span;
-pub use compiler_diagnostic::CompilerDiagnostic;
-pub use compiler_diagnostic::ProvidesCompilerDiagnostic;
-pub use compiler_error::CompilerError;
+
+pub use crate::core::compiler_diagnostic;
+pub use crate::core::CompilerDiagnostic;
+pub use crate::core::CompilerError;
+pub use crate::core::SourceSpan;
 pub use diagnostic_buffer::DiagnosticBuffer;
-pub use source_span::SourceSpan;

@@ -25,44 +25,44 @@ mod tests {
 	fn check_precedence(first: &str, second: &str) {
 		// First operator - associativity
 		assert_eq!(
-			expr_to_str(format!("1 {} 2 {} 3", first, first).as_str()),
-			format!("((1 {} 2) {} 3)", first, first)
+			expr_to_str(format!("a {} a {} a", first, first).as_str()),
+			format!("((foo {} foo) {} foo)", first, first)
 		);
 
 		// Second operator - associativity
 		assert_eq!(
-			expr_to_str(format!("1 {} 2 {} 3", second, second).as_str()),
-			format!("((1 {} 2) {} 3)", second, second)
+			expr_to_str(format!("a {} a {} a", second, second).as_str()),
+			format!("((foo {} foo) {} foo)", second, second)
 		);
 
 		// First before second - natural order
 		assert_eq!(
-			expr_to_str(format!("1 {} 2 {} 3", first, second).as_str()),
-			format!("((1 {} 2) {} 3)", first, second)
+			expr_to_str(format!("a {} a {} a", first, second).as_str()),
+			format!("((foo {} foo) {} foo)", first, second)
 		);
 
 		// First before secone - reverse order
 		assert_eq!(
-			expr_to_str(format!("1 {} 2 {} 3", second, first).as_str()),
-			format!("(1 {} (2 {} 3))", second, first)
+			expr_to_str(format!("a {} a {} a", second, first).as_str()),
+			format!("(foo {} (foo {} foo))", second, first)
 		);
 
 		// Three operators - start from left
 		assert_eq!(
-			expr_to_str(format!("1 {} 2 {} 3 {} 4", first, second, second).as_str()),
-			format!("(((1 {} 2) {} 3) {} 4)", first, second, second)
+			expr_to_str(format!("a {} a {} a {} a", first, second, second).as_str()),
+			format!("(((foo {} foo) {} foo) {} foo)", first, second, second)
 		);
 
 		// Three operators - start from the middle
 		assert_eq!(
-			expr_to_str(format!("1 {} 2 {} 3 {} 4", second, first, second).as_str()),
-			format!("((1 {} (2 {} 3)) {} 4)", second, first, second)
+			expr_to_str(format!("a {} a {} a {} a", second, first, second).as_str()),
+			format!("((foo {} (foo {} foo)) {} foo)", second, first, second)
 		);
 
 		// Three operators - start from the end
 		assert_eq!(
-			expr_to_str(format!("1 {} 2 {} 3 {} 4", second, second, first).as_str()),
-			format!("((1 {} 2) {} (3 {} 4))", second, second, first)
+			expr_to_str(format!("a {} a {} a {} a", second, second, first).as_str()),
+			format!("((foo {} foo) {} (foo {} foo))", second, second, first)
 		);
 	}
 
@@ -133,7 +133,7 @@ mod tests {
 
 	#[test]
 	fn test_ternary_chaining() {
-		assert_eq!(expr_to_str("1 ? 2 : 3 ? 4 : 5"), "(1 ? 2 : (3 ? 4 : 5))");
-		assert_eq!(expr_to_str("1 ? 2 ? 3 : 4 : 5"), "(1 ? (2 ? 3 : 4) : 5)");
+		assert_eq!(expr_to_str("a ? a : a ? a : a"), "(foo ? foo : (foo ? foo : foo))");
+		assert_eq!(expr_to_str("a ? a ? a : a : a"), "(foo ? (foo ? foo : foo) : foo)");
 	}
 }
