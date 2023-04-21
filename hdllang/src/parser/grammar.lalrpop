@@ -3,9 +3,10 @@ use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
 	 MatchExpressionAntecendent,TopDefinition,ModuleDeclarationStatement,VariableBlock,
 	 VariableBlockStatement, VariableDeclaration, DirectDeclarator,ModuleImplementationStatement,
 	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root};
-use crate::lexer::*; 
+use crate::lexer::*;
+use crate::diagnostic_buffer::DiagnosticBuffer; 
 use crate::SourceSpan;
-grammar;
+grammar(buffer: &mut DiagnosticBuffer);
 pub Izulu: Root={
 	<start: @L> <definitions:NonEmptySpace<TopDef>> <end: @R> =>
 		Root{
@@ -68,7 +69,7 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start: @L> <id1:"Id"> <id2:"Id"> "{" <port_bind:Semicolon<PortBindStmt>> "}" ";"? <end: @R> =>
+	<start: @L> <id1:"Id"> <id2:"Id"> "{" <port_bind:NonEmptyOptComma<PortBindStmt>> "}" ";"? <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::InstantiationStatement{
 				id1,
@@ -236,10 +237,10 @@ MatchExpressionAntecendent: MatchExpressionAntecendent = {
 	},
 }
 Expression: Box<Expression> = {
-	<start:@L> <value:"Number"> <end:@R> => 
+	<start:@L> <key:"NumericConstant"> <end:@R> => 
 		Box::new(
 			Expression::Number{
-				value,
+				key,
 				location:SourceSpan::new_between(start,end)
 			}
 		),
@@ -409,15 +410,6 @@ Comma<T>: Vec<T> = { // (1)
         }
     }
 };
-Semicolon<T>: Vec<T> = { // (1)
-    <mut v:(<T> ";")*> <e:T> => match v.len() { // (2)
-        0 => vec![e],
-        _ => {
-            v.push(e);
-            v
-        }
-    }
-};
 OptComma<T>: Vec<T> = { // (1)
     <mut v:(<T> ",")*> <e:T?> => match e { // (2)
         None => v,
@@ -572,7 +564,7 @@ extern {
     type Error = LexerError;
   
     enum TokenKind {
-		"Number"          => TokenKind::Number(<u64>),
+		"NumericConstant" => TokenKind::NumericConstant(<NumericConstantTableKey>),
 		"Id"              => TokenKind::Id(<IdTableKey>),
 		"module"          => TokenKind::Keyword(KeywordKind::Module),
 		"register"        => TokenKind::Keyword(KeywordKind::Register),

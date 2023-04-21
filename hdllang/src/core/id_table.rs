@@ -9,7 +9,7 @@ pub struct IdTableKey {
 /// Lexer's ID table - used to avoid storing tokens in strings
 #[derive(Clone, Debug)]
 pub struct IdTable {
-	ids : BiHashMap<IdTableKey, String>,
+	ids: BiHashMap<IdTableKey, String>,
 }
 
 impl IdTable {
@@ -45,15 +45,14 @@ impl IdTable {
 		match self.get_by_name(name) {
 			Some(id) => id,
 			None => {
-				let new_id = IdTableKey{key: self.ids.len()};
+				let new_id = IdTableKey { key: self.ids.len() };
 				match self.ids.insert(new_id, String::from(name)) {
 					bimap::Overwritten::Neither => new_id,
 					_ => panic!("Lexer IdTableKey integrity loss!"),
 				}
-			}
+			},
 		}
 	}
-
 }
 
 impl IntoIterator for IdTable {

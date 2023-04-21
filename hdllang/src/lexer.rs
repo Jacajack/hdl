@@ -1,14 +1,17 @@
 mod logos_lexer;
-mod number_parser;
+mod numeric_constant;
+mod numeric_constant_parser;
 
+pub use crate::core::comment_table::{CommentTable, CommentTableKey};
+use crate::core::compiler_diagnostic::*;
+pub use crate::core::id_table::{IdTable, IdTableKey};
+pub use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
+use crate::SourceSpan;
+pub use logos_lexer::LogosLexer;
+pub use numeric_constant::NumericConstant;
+pub use numeric_constant_parser::NumberParseError;
 use std::fmt;
 use thiserror::Error;
-use crate::SourceSpan;
-use crate::compiler_diagnostic::*;
-pub use crate::core::id_table::{IdTable, IdTableKey};
-pub use crate::core::comment_table::{CommentTable, CommentTableKey};
-pub use logos_lexer::LogosLexer;
-pub use number_parser::NumberParseError;
 
 /// Lexer token type
 /// In this case, it's defined by the Logos-based lexer implementation.
@@ -26,7 +29,7 @@ pub enum LexerErrorKind {
 	#[error("Invalid number token")]
 	InvalidNumber(NumberParseError),
 
-	/// Unterminated block comment 
+	/// Unterminated block comment
 	#[error("Unterminated block comment")]
 	UnterminatedBlockComment,
 }
@@ -48,20 +51,17 @@ impl ProvidesCompilerDiagnostic for LexerError {
 	fn to_diagnostic(&self) -> CompilerDiagnostic {
 		use LexerErrorKind::*;
 		match self.kind {
-			InvalidNumber(parse_err) => 
-				parse_err
+			InvalidNumber(parse_err) => parse_err
 				.to_diagnostic_builder()
 				.shift_labels(self.range.offset())
 				.build(),
 
-			UnterminatedBlockComment =>
-				CompilerDiagnosticBuilder::from_error(&self)
+			UnterminatedBlockComment => CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "This comment never ends")
 				.help("Did you forget to use '*/")
 				.build(),
 
-			InvalidToken =>
-				CompilerDiagnosticBuilder::from_error(&self)
+			InvalidToken => CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "This token doesn't make sense")
 				.help("This is neither a keyword, an identifier nor a valid numeric constant")
 				.build(),
@@ -108,54 +108,54 @@ pub enum KeywordKind {
 /// All language punctuators
 #[derive(Debug, Clone, Copy)]
 pub enum PunctuatorKind {
-	Assignment,      // =
-	AssignmentAnd,   // &=
-	AssignmentPlus,  // +=
-	AssignmentXor,   // ^=
-	AssignmentOr,    // |=
-	Asterisk,        // *
-	BitwiseAnd,      // &
-	BitwiseNot,      // ~
-	BitwiseOr,       // |
-	BitwiseXor,      // ^
-	Colon,           // :
-	Comma,           // ,
-	Dot,             // .
-	Equals,          // ==
-	Greater,         // >
-	GreaterEqual,    // >=
-	Implies,         // =>
-	LBrace,          // {
-	LBracket,        // [
-	Less,            // <
-	LessEqual,       // <=
-	LogicalAnd,      // &&
-	LogicalNot,      // !
+	Assignment,     // =
+	AssignmentAnd,  // &=
+	AssignmentPlus, // +=
+	AssignmentXor,  // ^=
+	AssignmentOr,   // |=
+	Asterisk,       // *
+	BitwiseAnd,     // &
+	BitwiseNot,     // ~
+	BitwiseOr,      // |
+	BitwiseXor,     // ^
+	Colon,          // :
+	Comma,          // ,
+	Dot,            // .
+	Equals,         // ==
+	Greater,        // >
+	GreaterEqual,   // >=
+	Implies,        // =>
+	LBrace,         // {
+	LBracket,       // [
+	Less,           // <
+	LessEqual,      // <=
+	LogicalAnd,     // &&
+	LogicalNot,     // !
 	LogicalOr,      // ||
-	LPar,            // (
-	LShift,          // <<
-	Minus,           // -
-	Modulo,          // %
-	NotEquals,       // !=
-	Plus,            // +
-	QuestionMark,    // ?
-	RBrace,          // }
-	RBracket,        // ]
-	RPar,            // )
-	RShift,          // >>	
-	Semicolon,       // ;
-	Slash,           // /
-	PlusColon,		 // +:
+	LPar,           // (
+	LShift,         // <<
+	Minus,          // -
+	Modulo,         // %
+	NotEquals,      // !=
+	Plus,           // +
+	QuestionMark,   // ?
+	RBrace,         // }
+	RBracket,       // ]
+	RPar,           // )
+	RShift,         // >>
+	Semicolon,      // ;
+	Slash,          // /
+	PlusColon,      // +:
 }
 
 /// Token as produced by the lexer (token kind + source location)
 #[derive(Debug, Copy, Clone)]
 pub struct Token {
 	/// Type of the token
-	pub kind: TokenKind,    
+	pub kind: TokenKind,
 
 	/// Source code location
-	pub range: SourceSpan, 
+	pub range: SourceSpan,
 }
 
 /// Abstract lexer
