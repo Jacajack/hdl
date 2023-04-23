@@ -1,7 +1,8 @@
 pub mod ast;
 pub mod grammar_parser;
+pub mod parser_context;
 pub use grammar_parser::grammar::*;
-
+pub use parser_context::ParserContext;
 #[cfg(test)]
 mod tests {
 	use super::*;

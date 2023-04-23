@@ -4,7 +4,7 @@ pub struct DiagnosticBuffer {
 	buffer: Vec<Box<dyn Diagnostic>>,
 }
 impl DiagnosticBuffer {
-	pub fn _push_diagnostic(&mut self, diag: Box<dyn Diagnostic>) {
+	pub fn push_diagnostic(&mut self, diag: Box<dyn Diagnostic>) {
 		self.buffer.push(diag);
 	}
 	pub fn new() -> DiagnosticBuffer {
