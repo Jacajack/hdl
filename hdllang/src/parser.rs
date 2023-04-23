@@ -1,16 +1,21 @@
 pub mod ast;
 pub mod grammar_parser;
+pub mod parser_context;
 pub use grammar_parser::grammar::*;
-
+pub use parser_context::ParserContext;
 #[cfg(test)]
 mod tests {
-	use super::*;
-	use crate::diagnostic_buffer::DiagnosticBuffer;
+	use std::io::BufRead;
+
+use super::*;
+	use crate::parser::ParserContext;
+	use crate::core::DiagnosticBuffer;
 	use crate::lexer::{Lexer, LogosLexer};
 	fn parse_expr(s: &str) -> Box<ast::Expression> {
 		let lexer = LogosLexer::new(s);
 		let mut buf = DiagnosticBuffer::new();
-		ExprParser::new().parse(&mut buf, lexer).expect("parsing failed")
+		let mut ctx = ParserContext { diagnostic_buffer: &mut buf };
+		ExprParser::new().parse(&mut ctx, lexer).expect("parsing failed")
 	}
 
 	/// Returns the same expression but with parentheses
