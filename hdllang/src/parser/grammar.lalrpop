@@ -4,7 +4,7 @@ use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
 	 VariableBlockStatement, VariableDeclaration, DirectDeclarator,ModuleImplementationStatement,
 	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root};
 use crate::lexer::*;
-use crate::diagnostic_buffer::DiagnosticBuffer; 
+use crate::core::DiagnosticBuffer; 
 use crate::SourceSpan;
 grammar(buffer: &mut DiagnosticBuffer);
 pub Izulu: Root={

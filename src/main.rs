@@ -1,7 +1,7 @@
 extern crate hdllang;
 use clap::{arg, command, Arg};
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
-use hdllang::diagnostic_buffer::DiagnosticBuffer;
+use hdllang::core::DiagnosticBuffer;
 use hdllang::lexer::{Lexer, LogosLexer};
 use hdllang::parser;
 use hdllang::CompilerDiagnostic;
