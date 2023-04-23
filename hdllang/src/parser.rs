@@ -5,12 +5,16 @@ pub use grammar_parser::grammar::*;
 pub use parser_context::ParserContext;
 #[cfg(test)]
 mod tests {
-	use super::*;
+	use std::io::BufRead;
+
+use super::*;
 	use crate::parser::ParserContext;
+	use crate::core::DiagnosticBuffer;
 	use crate::lexer::{Lexer, LogosLexer};
 	fn parse_expr(s: &str) -> Box<ast::Expression> {
 		let lexer = LogosLexer::new(s);
-		let mut ctx = ParserContext::new();
+		let mut buf = DiagnosticBuffer::new();
+		let mut ctx = ParserContext { diagnostic_buffer: &mut buf };
 		ExprParser::new().parse(&mut ctx, lexer).expect("parsing failed")
 	}
 

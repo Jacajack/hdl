@@ -6,7 +6,7 @@ use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
 use crate::lexer::*;
 use crate::parser::ParserContext; 
 use crate::SourceSpan;
-grammar(ctx: &mut ParserContext);
+grammar<'a>(ctx: &'a ParserContext<'a>);
 pub Izulu: Root={
 	<start: @L> <definitions:NonEmptySpace<TopDef>> <end: @R> =>
 		Root{
