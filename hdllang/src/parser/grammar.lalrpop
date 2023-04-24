@@ -4,9 +4,9 @@ use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
 	 VariableBlockStatement, VariableDeclaration, DirectDeclarator,ModuleImplementationStatement,
 	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root};
 use crate::lexer::*;
-use crate::parser::ParserContext; 
+use crate::parser::*; 
 use crate::SourceSpan;
-grammar<'a>(ctx: &'a ParserContext<'a>);
+grammar<'a>(ctx: &'a mut ParserContext<'a>);
 pub Izulu: Root={
 	<start: @L> <definitions:NonEmptySpace<TopDef>> <end: @R> =>
 		Root{
@@ -557,6 +557,17 @@ TypeName: TypeName ={
 		declarator,
 		array_declarators,
 		location:SourceSpan::new_between(start,end),
+	}
+}
+
+Semicolon = {
+	";",
+	<start:@L> ! <end:@R> =>{
+		ctx.diagnostic_buffer.push_diagnostic(Box::new(ParserError{
+			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::Semicolon)),
+			range: SourceSpan::new_between(start,end),
+		}.to_diagnostic()));
+		TokenKind::Punctuator(PunctuatorKind::Semicolon)
 	}
 }
 extern {

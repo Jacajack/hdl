@@ -3,6 +3,50 @@ pub mod grammar_parser;
 pub mod parser_context;
 pub use grammar_parser::grammar::*;
 pub use parser_context::ParserContext;
+
+use crate::core::compiler_diagnostic::*;
+use crate::lexer::TokenKind;
+use crate::SourceSpan;
+use std::fmt;
+use thiserror::Error;
+
+#[derive(Copy, Clone, Error, Debug)]
+pub enum ParserErrorKind {
+	#[error("Missing token")]
+	MissingToken(TokenKind),
+	#[error("Unexpected token")]
+	UnexpectedToken(TokenKind),
+}
+
+#[derive(Copy, Clone, Error, Debug)]
+pub struct ParserError {
+	kind: ParserErrorKind,
+	range: SourceSpan,
+}
+
+impl fmt::Display for ParserError {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", self.kind)
+	}
+}
+
+impl ProvidesCompilerDiagnostic for ParserError {
+	fn to_diagnostic(&self) -> CompilerDiagnostic {
+		match self.kind {
+			ParserErrorKind::MissingToken(kind) => 
+			CompilerDiagnosticBuilder::from_error(&self)
+			.label(self.range,format!("Expected token: {:?}",kind).as_str())
+			.help("Please provide this token")
+			.build(),
+			ParserErrorKind::UnexpectedToken(kind) => 
+			CompilerDiagnosticBuilder::from_error(&self)
+			.label(self.range, format!("Unexpected token: {:?}",kind).as_str())
+			.help("Are you sure this token should be there?")
+			.build(),
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
 	use std::io::BufRead;
