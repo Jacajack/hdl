@@ -1,10 +1,10 @@
-use miette::Diagnostic;
+use crate::compiler_diagnostic::CompilerDiagnostic;
 use std::fmt::Display;
 pub struct DiagnosticBuffer {
-	buffer: Vec<Box<dyn Diagnostic>>,
+	buffer: Vec<CompilerDiagnostic>,
 }
 impl DiagnosticBuffer {
-	pub fn push_diagnostic(&mut self, diag: Box<dyn Diagnostic>) {
+	pub fn push_diagnostic(&mut self, diag: CompilerDiagnostic) {
 		self.buffer.push(diag);
 	}
 	pub fn new() -> DiagnosticBuffer {
@@ -13,8 +13,8 @@ impl DiagnosticBuffer {
 }
 impl Display for DiagnosticBuffer {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		for i in 0..self.buffer.len() {
-			writeln!(f, "{:?}", self.buffer[i])?;
+		for diag in &self.buffer {
+			writeln!(f, "{:?}", miette::Report::new((*diag).clone()))?;
 		}
 		write!(f, "")
 	}

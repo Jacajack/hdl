@@ -62,7 +62,7 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start: @L> <id1:"Id"> <id2:"Id"> "{" <port_bind:NonEmptyOptComma<PortBindStmt>> RBrace Semicolon? <end: @R> =>
+	<start: @L> <id1:"Id"> <id2:"Id"> LBrace <port_bind:NonEmptyOptComma<PortBindStmt>> RBrace Semicolon <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::InstantiationStatement{
 				id1,
@@ -75,7 +75,7 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 		IfStmt,			
 }
 ModuleImplBlockStmt: Box<ModuleImplementationStatement> ={
-	<start: @L>  "{" <statements:NonEmptySpace<ModuleImplStmt>> "}" <end: @R> =>
+	<start: @L>  "{" <statements:NonEmptySpace<ModuleImplStmt>> RBrace <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::ModuleImplementationBlockStatement{
 				statements,
@@ -173,7 +173,7 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 	
 }
 VarBlock: Box<VariableBlock>={
-	<start: @L>  <types:NonEmptySpace<TypeQualifier>> "{" <statements:Space<VarBlockStmt>> RBrace Semicolon <end: @R> =>
+	<start: @L>  <types:NonEmptySpace<TypeQualifier>> LBrace <statements:Space<VarBlockStmt>> RBrace Semicolon <end: @R> =>
 		Box::new(VariableBlock{
 			types,
 			statements,
@@ -259,7 +259,7 @@ Expression: Box<Expression> = {
 			}
 		),
 	
-	<start:@L> "match" "(" <value:Expr> ")" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
+	<start:@L> "match" "(" <value:Expr> ")" LBrace <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
 		Box::new(
 			Expression::MatchExpression{
 				value,
@@ -267,7 +267,7 @@ Expression: Box<Expression> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start:@L> "conditional" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
+	<start:@L> "conditional" LBrace <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
 		Box::new(
 			Expression::ConditionalExpression{
 				statements,
@@ -280,7 +280,7 @@ ExprWithTuple:Box<Expression>={
 	Expr,
 }
 TupleExpr: Box<Expression> ={
-	<start:@L> "{" <expressions:OptComma<Expr>> RBrace <end:@R> =>
+	<start:@L> LBrace <expressions:OptComma<Expr>> RBrace <end:@R> =>
 		Box::new(
 			Expression::Tuple{
 				expressions,
@@ -562,21 +562,32 @@ TypeName: TypeName ={
 RBrace = {
 	"}",
 	<start:@L> ! <end:@R>  =>{
-		ctx.diagnostic_buffer.push_diagnostic(Box::new(ParserError{
+		ctx.diagnostic_buffer.push_diagnostic(ParserError{
 			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::RBrace)),
 			range: SourceSpan::new_between(start,end),
-		}.to_diagnostic()));
+		}.to_diagnostic());
 		//println!("Missing Semicolon"); // for debugging
 		TokenKind::Punctuator(PunctuatorKind::RBrace)
 	}
 }
+LBrace = {
+	"{",
+	<start:@L> ! <end:@R>  =>{
+		ctx.diagnostic_buffer.push_diagnostic(ParserError{
+			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::LBrace)),
+			range: SourceSpan::new_between(start,end),
+		}.to_diagnostic());
+		//println!("Missing Semicolon"); // for debugging
+		TokenKind::Punctuator(PunctuatorKind::LBrace)
+	}
+ }
 Semicolon = {
 	 ";" ,
 	 <start:@L> ! <end:@R>  =>{
-		ctx.diagnostic_buffer.push_diagnostic(Box::new(ParserError{
+		ctx.diagnostic_buffer.push_diagnostic(ParserError{
 			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::Semicolon)),
 			range: SourceSpan::new_between(start,end),
-		}.to_diagnostic()));
+		}.to_diagnostic());
 		//println!("Missing Semicolon"); // for debugging
 		TokenKind::Punctuator(PunctuatorKind::Semicolon)
 	}
