@@ -14,7 +14,7 @@ impl DiagnosticBuffer {
 impl Display for DiagnosticBuffer {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
 		for i in 0..self.buffer.len() {
-			write!(f, "{:?}\n", self.buffer[i])?;
+			writeln!(f, "{:?}", self.buffer[i])?;
 		}
 		write!(f, "")
 	}

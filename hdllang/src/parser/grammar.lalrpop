@@ -15,7 +15,7 @@ pub Izulu: Root={
 		}
 }
 TopDef: TopDefinition={
-	<start: @L> "module" <id:"Id"> "{" <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
+	<start: @L> "module" <id:"Id"> "{" <statements:Space<ModuleDeclStmt>> RBrace <end: @R> =>
 		TopDefinition::ModuleDeclaration{
 			id,
 			statements,
@@ -29,13 +29,6 @@ TopDef: TopDefinition={
 		},
 	}
 ModuleImplStmt: Box<ModuleImplementationStatement> = {
-	//<start: @L>  <declaration:VarDecl> ";" <end: @R> =>
-	//	Box::new(
-	//		ModuleImplementationStatement::VariableDeclarationStatement{
-	//			declaration,
-	//			location:SourceSpan::new_between(start,end),
-	//		}
-	//	),
 	<start: @L>  <block:VarBlock> <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::VariableBlock{
@@ -69,7 +62,7 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start: @L> <id1:"Id"> <id2:"Id"> "{" <port_bind:NonEmptyOptComma<PortBindStmt>> "}" Semicolon? <end: @R> =>
+	<start: @L> <id1:"Id"> <id2:"Id"> "{" <port_bind:NonEmptyOptComma<PortBindStmt>> RBrace Semicolon? <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::InstantiationStatement{
 				id1,
@@ -82,13 +75,20 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 		IfStmt,			
 }
 ModuleImplBlockStmt: Box<ModuleImplementationStatement> ={
-	<start: @L>  "{" <statements:Space<ModuleImplStmt>> "}" <end: @R> =>
+	<start: @L>  "{" <statements:NonEmptySpace<ModuleImplStmt>> "}" <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::ModuleImplementationBlockStatement{
 				statements,
 				location:SourceSpan::new_between(start,end),
 			}
-		)	
+		),
+	<start: @L>  "{"  RBrace <end: @R> =>
+		Box::new(
+			ModuleImplementationStatement::ModuleImplementationBlockStatement{
+				statements:vec![],
+				location:SourceSpan::new_between(start,end),
+			}
+		),	
 }
 IfStmt: Box<ModuleImplementationStatement> ={
 	
@@ -173,7 +173,7 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 	
 }
 VarBlock: Box<VariableBlock>={
-	<start: @L>  <types:NonEmptySpace<TypeQualifier>> "{" <statements:Space<VarBlockStmt>> "}" Semicolon <end: @R> =>
+	<start: @L>  <types:NonEmptySpace<TypeQualifier>> "{" <statements:Space<VarBlockStmt>> RBrace Semicolon <end: @R> =>
 		Box::new(VariableBlock{
 			types,
 			statements,
@@ -259,7 +259,7 @@ Expression: Box<Expression> = {
 			}
 		),
 	
-	<start:@L> "match" "(" <value:Expr> ")" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
+	<start:@L> "match" "(" <value:Expr> ")" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
 		Box::new(
 			Expression::MatchExpression{
 				value,
@@ -267,7 +267,7 @@ Expression: Box<Expression> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start:@L> "conditional" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
+	<start:@L> "conditional" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
 		Box::new(
 			Expression::ConditionalExpression{
 				statements,
@@ -280,7 +280,7 @@ ExprWithTuple:Box<Expression>={
 	Expr,
 }
 TupleExpr: Box<Expression> ={
-	<start:@L> "{" <expressions:OptComma<Expr>> "}" <end:@R> =>
+	<start:@L> "{" <expressions:OptComma<Expr>> RBrace <end:@R> =>
 		Box::new(
 			Expression::Tuple{
 				expressions,
@@ -559,7 +559,17 @@ TypeName: TypeName ={
 		location:SourceSpan::new_between(start,end),
 	}
 }
-
+RBrace = {
+	"}",
+	<start:@L> ! <end:@R>  =>{
+		ctx.diagnostic_buffer.push_diagnostic(Box::new(ParserError{
+			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::RBrace)),
+			range: SourceSpan::new_between(start,end),
+		}.to_diagnostic()));
+		//println!("Missing Semicolon"); // for debugging
+		TokenKind::Punctuator(PunctuatorKind::RBrace)
+	}
+}
 Semicolon = {
 	 ";" ,
 	 <start:@L> ! <end:@R>  =>{
@@ -567,7 +577,7 @@ Semicolon = {
 			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::Semicolon)),
 			range: SourceSpan::new_between(start,end),
 		}.to_diagnostic()));
-		println!("Missing Semicolon"); // for debugging
+		//println!("Missing Semicolon"); // for debugging
 		TokenKind::Punctuator(PunctuatorKind::Semicolon)
 	}
 }
