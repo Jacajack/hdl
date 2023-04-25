@@ -1,10 +1,10 @@
 use crate::core::DiagnosticBuffer;
-use miette::Diagnostic;
-pub struct ParserContext<'a> {
-	pub diagnostic_buffer: &'a mut DiagnosticBuffer,
+//use miette::Diagnostic;
+pub struct ParserContext {
+	pub diagnostic_buffer: Box<DiagnosticBuffer>,
 }
-impl<'a> ParserContext<'a> {
-	pub fn push_diagnostic(&mut self, diag: Box<dyn Diagnostic>) {
-		self.diagnostic_buffer.push_diagnostic(diag);
-	}
-}
+//impl<'a> ParserContext<'a> {
+//	//pub fn push_diagnostic(self, diag: Box<dyn Diagnostic>) {
+//	//	self.diagnostic_buffer.push_diagnostic(diag);
+//	//}
+//}

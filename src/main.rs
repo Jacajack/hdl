@@ -56,9 +56,9 @@ fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 }
 fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let lexer = LogosLexer::new(&code);
-	let mut buf = hdllang::core::DiagnosticBuffer::new();
+	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext {
-		diagnostic_buffer: &mut buf,
+		diagnostic_buffer: buf,
 	};
 	let ast = parser::IzuluParser::new().parse(&mut ctx, lexer);
 	write!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_miette_report())?;

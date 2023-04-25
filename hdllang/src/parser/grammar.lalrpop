@@ -6,7 +6,7 @@ use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
 use crate::lexer::*;
 use crate::parser::*; 
 use crate::SourceSpan;
-grammar<'a>(ctx: &'a mut ParserContext<'a>);
+grammar(ctx: & mut ParserContext);
 pub Izulu: Root={
 	<start: @L> <definitions:NonEmptySpace<TopDef>> <end: @R> =>
 		Root{
@@ -43,14 +43,14 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 		   		location:SourceSpan::new_between(start,end),
 	    	}
 		),
-	<start: @L>  <definition:VarDef> ";" <end: @R> =>
+	<start: @L>  <definition:VarDef> Semicolon <end: @R> =>
 	    Box::new(
 		    ModuleImplementationStatement::VariableDefinitionStatement{
 				definition,
 				location:SourceSpan::new_between(start,end),
 	    	}
 		),
-	<start: @L>  <lhs:Expr> <assignment_opcode:AssignmentOP> <rhs:ExprWithTuple> ";" <end: @R> =>
+	<start: @L>  <lhs:Expr> <assignment_opcode:AssignmentOP> <rhs:ExprWithTuple> Semicolon <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::AssignmentStatement{
 				lhs,
@@ -69,7 +69,7 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start: @L> <id1:"Id"> <id2:"Id"> "{" <port_bind:NonEmptyOptComma<PortBindStmt>> "}" ";"? <end: @R> =>
+	<start: @L> <id1:"Id"> <id2:"Id"> "{" <port_bind:NonEmptyOptComma<PortBindStmt>> "}" Semicolon? <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::InstantiationStatement{
 				id1,
@@ -160,7 +160,7 @@ DirectInitializer: DirectInitializer = {
 	},
 }
 ModuleDeclStmt: ModuleDeclarationStatement={
-	<start: @L>  <declaration:VarDecl> ";" <end: @R> =>
+	<start: @L>  <declaration:VarDecl> Semicolon <end: @R> =>
  		ModuleDeclarationStatement::VariableDeclarationStatement{
 			declaration,
 			location:SourceSpan::new_between(start,end),
@@ -173,7 +173,7 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 	
 }
 VarBlock: Box<VariableBlock>={
-	<start: @L>  <types:NonEmptySpace<TypeQualifier>> "{" <statements:Space<VarBlockStmt>> "}" ";"<end: @R> =>
+	<start: @L>  <types:NonEmptySpace<TypeQualifier>> "{" <statements:Space<VarBlockStmt>> "}" Semicolon <end: @R> =>
 		Box::new(VariableBlock{
 			types,
 			statements,
@@ -186,7 +186,7 @@ VarBlockStmt: VariableBlockStatement={
 	   		block,
 	   		location:SourceSpan::new_between(start,end),
 		},
-	<start: @L>  <declaration:VarDecl> ";" <end: @R> =>
+	<start: @L>  <declaration:VarDecl> Semicolon <end: @R> =>
 		VariableBlockStatement::VariableDeclarationStatement{
 			declaration,
 	   		location:SourceSpan::new_between(start,end),
@@ -561,12 +561,13 @@ TypeName: TypeName ={
 }
 
 Semicolon = {
-	";",
-	<start:@L> ! <end:@R> =>{
+	 ";" ,
+	 <start:@L> ! <end:@R>  =>{
 		ctx.diagnostic_buffer.push_diagnostic(Box::new(ParserError{
 			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::Semicolon)),
 			range: SourceSpan::new_between(start,end),
 		}.to_diagnostic()));
+		println!("Missing Semicolon"); // for debugging
 		TokenKind::Punctuator(PunctuatorKind::Semicolon)
 	}
 }
