@@ -57,9 +57,9 @@ mod tests {
 	use crate::parser::ParserContext;
 	fn parse_expr(s: &str) -> Box<ast::Expression> {
 		let lexer = LogosLexer::new(s);
-		let mut buf = DiagnosticBuffer::new();
+		let buf = Box::new(DiagnosticBuffer::new());
 		let mut ctx = ParserContext {
-			diagnostic_buffer: &mut buf,
+			diagnostic_buffer: buf,
 		};
 		ExprParser::new().parse(&mut ctx, lexer).expect("parsing failed")
 	}
