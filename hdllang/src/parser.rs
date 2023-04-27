@@ -66,7 +66,6 @@ impl ProvidesCompilerDiagnostic for ParserError {
 
 #[cfg(test)]
 mod tests {
-	use std::io::BufRead;
 
 	use super::*;
 	use crate::core::DiagnosticBuffer;
@@ -78,7 +77,7 @@ mod tests {
 		let mut ctx = ParserContext {
 			diagnostic_buffer: buf,
 		};
-		ExprParser::new().parse(&mut ctx, Option(s), lexer).expect("parsing failed")
+		ExprParser::new().parse(&mut ctx, Some(&String::from(s)), lexer).expect("parsing failed")
 	}
 
 	/// Returns the same expression but with parentheses

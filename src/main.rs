@@ -71,11 +71,11 @@ fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 
 fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
-	let mut buf = DiagnosticBuffer::new();
+	let buf = Box::new(DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext {
-		diagnostic_buffer: &mut buf,
+		diagnostic_buffer: buf,
 	};
-	let ast = parser::IzuluParser::new().parse(&mut ctx, &mut lexer);
+	let ast = parser::IzuluParser::new().parse(&mut ctx, Some(&code),&mut lexer);
 	println!("Ids: {:?}", lexer.id_table());
 	println!("Comments: {:?}", lexer.comment_table());
 	let id_table = lexer.id_table().clone();
