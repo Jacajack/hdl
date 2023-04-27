@@ -20,8 +20,12 @@
 					"kind": "bin"
 				}
 			},
-			"args": ["-m", "parse", "${file}"], // Needs to be updated for new stages
-			"cwd": "${workspaceFolder}"
+			"args": ["-m", "analyze", "${file}"], // Needs to be updated for new stages
+			"cwd": "${workspaceFolder}",
+			"env": {
+				"RUST_BACKTRACE": "1",
+				"RUST_LOG": "debug",
+			}
 		},
 		// The below doesn't seem to work, so commenting it out
 		// to avoid trouble later

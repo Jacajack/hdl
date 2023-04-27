@@ -7,6 +7,7 @@ pub struct CommentTableKey {
 }
 
 /// Stores metadata comments
+#[derive(Clone, Debug)]
 pub struct CommentTable {
 	comments: HashMap<CommentTableKey, String>,
 }
