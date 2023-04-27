@@ -1,5 +1,0 @@
-error: Found argument '=' which wasn't expected, or isn't valid in this context
-
-Usage: cargo.exe build [OPTIONS]
-
-For more information try '--help'
