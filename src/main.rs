@@ -61,7 +61,7 @@ fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 		diagnostic_buffer: buf,
 	};
 	let parser = parser::IzuluParser::new();
-	let ast = parser.parse(&mut ctx, lexer);
+	let ast = parser.parse(&mut ctx, Some(&code),lexer);
 	let buffer = ctx.diagnostic_buffer;
 	println!("{}",buffer.to_string());
 	write!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_miette_report())?;

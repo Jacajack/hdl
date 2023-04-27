@@ -6,7 +6,7 @@ use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
 use crate::lexer::*;
 use crate::parser::*; 
 use crate::SourceSpan;
-grammar(ctx: & mut ParserContext);
+grammar<'source>(ctx: & mut ParserContext<'source>, source: Option<&'source String>);
 pub Izulu: Root={
 	<start: @L> <definitions:NonEmptySpace<TopDef>> <end: @R> =>
 		Root{
@@ -570,66 +570,66 @@ TypeName: TypeName ={
 }
 Comma = {
 	",",
-	<start:@L> ! <end:@R>  =>{
+	<start:@L> !  =>{
 		ctx.diagnostic_buffer.push_diagnostic(ParserError{
 			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::Comma)),
-			range: SourceSpan::new_between(start,end),
-		}.to_diagnostic());
+			range: SourceSpan::new_between(start,start),
+		}.to_diagnostic(),source);
 		//println!("Missing Semicolon"); // for debugging
 		TokenKind::Punctuator(PunctuatorKind::Comma)
 	}
 }
 RBrace = {
 	"}",
-	<start:@L> ! <end:@R>  =>{
+	<start:@L> !  =>{
 		ctx.diagnostic_buffer.push_diagnostic(ParserError{
 			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::RBrace)),
-			range: SourceSpan::new_between(start,end),
-		}.to_diagnostic());
+			range: SourceSpan::new_between(start,start),
+		}.to_diagnostic(),source);
 		//println!("Missing Semicolon"); // for debugging
 		TokenKind::Punctuator(PunctuatorKind::RBrace)
 	}
 }
 LBrace = {
 	"{",
-	<start:@L> ! <end:@R>  =>{
+	<start:@L> !  =>{
 		ctx.diagnostic_buffer.push_diagnostic(ParserError{
 			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::LBrace)),
-			range: SourceSpan::new_between(start,end),
-		}.to_diagnostic());
+			range: SourceSpan::new_between(start,start),
+		}.to_diagnostic(),source);
 		//println!("Missing Semicolon"); // for debugging
 		TokenKind::Punctuator(PunctuatorKind::LBrace)
 	}
  }
 Semicolon = {
 	 ";" ,
-	 <start:@L> ! <end:@R>  =>{
+	 <start:@L> !  =>{
 		ctx.diagnostic_buffer.push_diagnostic(ParserError{
 			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::Semicolon)),
-			range: SourceSpan::new_between(start,end),
-		}.to_diagnostic());
+			range: SourceSpan::new_between(start,start),
+		}.to_diagnostic(),source);
 		//println!("Missing Semicolon"); // for debugging
 		TokenKind::Punctuator(PunctuatorKind::Semicolon)
 	}
 }
 LPar = {
 	"(" ,
-	<start:@L> ! <end:@R>  =>{
+	<start:@L> !  =>{
 	   ctx.diagnostic_buffer.push_diagnostic(ParserError{
 		   kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::LPar)),
-		   range: SourceSpan::new_between(start,end),
-	   }.to_diagnostic());
+		   range: SourceSpan::new_between(start,start),
+	   }.to_diagnostic(),source);
 	   //println!("Missing Semicolon"); // for debugging
 	   TokenKind::Punctuator(PunctuatorKind::LPar)
    }
 }
 In = {
 	"in" ,
-	<start:@L> ! <end:@R>  =>{
+	<start:@L> !  =>{
 	   ctx.diagnostic_buffer.push_diagnostic(ParserError{
 		   kind: ParserErrorKind::MissingToken(TokenKind::Keyword(KeywordKind::In)),
-		   range: SourceSpan::new_between(start,end),
-	   }.to_diagnostic());
+		   range: SourceSpan::new_between(start,start),
+	   }.to_diagnostic(),source);
 	   //println!("Missing Semicolon"); // for debugging
 	   TokenKind::Keyword(KeywordKind::In)
    }

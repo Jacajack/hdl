@@ -5,7 +5,7 @@ pub use grammar_parser::grammar::*;
 pub use parser_context::ParserContext;
 
 use crate::core::compiler_diagnostic::*;
-use crate::lexer::TokenKind;
+use crate::lexer::{TokenKind,PunctuatorKind,KeywordKind};
 use crate::SourceSpan;
 use std::fmt;
 use thiserror::Error;
@@ -32,12 +32,29 @@ impl fmt::Display for ParserError {
 
 impl ProvidesCompilerDiagnostic for ParserError {
 	fn to_diagnostic(&self) -> CompilerDiagnostic {
+		use PunctuatorKind::*; 
+		use KeywordKind::*;
 		match self.kind {
-			ParserErrorKind::MissingToken(kind) => 
+			ParserErrorKind::MissingToken(kind) =>
 			CompilerDiagnosticBuilder::from_error(&self)
-			.label(self.range,format!("Expected token: {:?}",kind).as_str())
-			.help("Please provide this token")
+			.label(
+				self.range,
+				match kind {
+					TokenKind::Punctuator(ref punctuator) => match punctuator{
+						Semicolon => "Missing semicolon".to_string(),
+						Comma => "Missing comma".to_string(),
+						_ => format!("Expected token: {:?}", punctuator),
+					},
+					TokenKind::Keyword(keyword) => match keyword{
+						In => "Missing keyword 'in'".to_string(),
+						_ => format!("Expected token: {:?}", keyword),
+					}
+					_ => format!("Expected token: {:?}", kind)
+				}.as_str()
+			)
+			.help("Please provide this token.")
 			.build(),
+			
 			ParserErrorKind::UnexpectedToken(kind) => 
 			CompilerDiagnosticBuilder::from_error(&self)
 			.label(self.range, format!("Unexpected token: {:?}",kind).as_str())
@@ -61,7 +78,7 @@ mod tests {
 		let mut ctx = ParserContext {
 			diagnostic_buffer: buf,
 		};
-		ExprParser::new().parse(&mut ctx, lexer).expect("parsing failed")
+		ExprParser::new().parse(&mut ctx, Option(s), lexer).expect("parsing failed")
 	}
 
 	/// Returns the same expression but with parentheses
