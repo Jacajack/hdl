@@ -1,9 +1,9 @@
 pub mod preamble {
-	pub use crate::core::IdTable;
-	pub use crate::core::CommentTable;
-	pub use crate::parser::ast::Root;
 	pub use super::AnalyzerPass;
 	pub use super::PassContext;
+	pub use crate::core::CommentTable;
+	pub use crate::core::IdTable;
+	pub use crate::parser::ast::Root;
 }
 
 use preamble::*;
@@ -19,4 +19,3 @@ pub struct PassContext<'source> {
 pub trait AnalyzerPass<'source> {
 	fn run(&mut self, ctx: &PassContext<'source>, ast: &'source Root);
 }
-

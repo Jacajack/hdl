@@ -1,11 +1,11 @@
 extern crate hdllang;
 use clap::{arg, command, Arg};
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
+use hdllang::core::DiagnosticBuffer;
 use hdllang::lexer::{Lexer, LogosLexer};
-use hdllang::{parser, analyzer};
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
-use hdllang::core::DiagnosticBuffer;
+use hdllang::{analyzer, parser};
 use log::info;
 use std::env;
 use std::fs;
@@ -67,22 +67,22 @@ fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 }
 
 fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
-    let mut lexer = LogosLexer::new(&code);
+	let mut lexer = LogosLexer::new(&code);
 	let mut buf = DiagnosticBuffer::new();
 	let mut ctx = parser::ParserContext {
 		diagnostic_buffer: &mut buf,
 	};
-    let ast = parser::IzuluParser::new().parse(&mut ctx, &mut lexer);
-    println!("Ids: {:?}", lexer.id_table());
-    println!("Comments: {:?}", lexer.comment_table());
-    let id_table = lexer.id_table().clone();
-    let comment_table = lexer.comment_table().clone();
-    
-    let mut analyzer = analyzer::SemanticAnalyzer::new(&id_table, &comment_table);
-    
-    writeln!(&mut output,"{:?}", ast).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
-    analyzer.process(ast.as_ref().unwrap());
-    Ok(())
+	let ast = parser::IzuluParser::new().parse(&mut ctx, &mut lexer);
+	println!("Ids: {:?}", lexer.id_table());
+	println!("Comments: {:?}", lexer.comment_table());
+	let id_table = lexer.id_table().clone();
+	let comment_table = lexer.comment_table().clone();
+
+	let mut analyzer = analyzer::SemanticAnalyzer::new(&id_table, &comment_table);
+
+	writeln!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
+	analyzer.process(ast.as_ref().unwrap());
+	Ok(())
 }
 
 fn init_logging() {

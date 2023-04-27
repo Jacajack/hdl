@@ -8,15 +8,13 @@ pub struct SemanticAnalyzer<'source> {
 
 impl<'source> SemanticAnalyzer<'source> {
 	pub fn new(id_table: &'source IdTable, comment_table: &'source CommentTable) -> Self {
-		let context = PassContext{
+		let context = PassContext {
 			id_table,
-			comment_table
+			comment_table,
 		};
 
 		Self {
-			passes: vec![
-				Box::new(ToplevelPass{}),
-			],
+			passes: vec![Box::new(ToplevelPass {})],
 			context,
 		}
 	}

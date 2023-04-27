@@ -13,8 +13,8 @@ pub use hdl_type::Sensitivity;
 pub use wide_int::WideInt;
 pub use wide_int::WideUint;
 
-pub use id_table::{IdTable, IdTableKey};
 pub use comment_table::{CommentTable, CommentTableKey};
+pub use id_table::{IdTable, IdTableKey};
 
 pub use compiler_diagnostic::{CompilerDiagnostic, CompilerDiagnosticBuilder, ProvidesCompilerDiagnostic};
 pub use compiler_error::CompilerError;

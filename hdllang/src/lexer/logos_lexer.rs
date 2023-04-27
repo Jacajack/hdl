@@ -236,14 +236,14 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 		Ok(tokens)
 	}
 
-    /// Provides access to the ID table
-    fn id_table(&self) -> &IdTable {
-        &self.lexer.extras.id_table
-    }
+	/// Provides access to the ID table
+	fn id_table(&self) -> &IdTable {
+		&self.lexer.extras.id_table
+	}
 
-    fn comment_table(&self) -> &CommentTable {
-        &self.lexer.extras.comment_table
-    }
+	fn comment_table(&self) -> &CommentTable {
+		&self.lexer.extras.comment_table
+	}
 }
 
 pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;

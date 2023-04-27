@@ -1,6 +1,6 @@
+use crate::analyzer::SemanticError;
 use crate::compiler_diagnostic::*;
 use crate::lexer::LexerError;
-use crate::analyzer::SemanticError;
 use thiserror::Error;
 
 /// General compiler error
@@ -24,8 +24,7 @@ impl ProvidesCompilerDiagnostic for CompilerError {
 		match self {
 			LexerError(lexer_error) => lexer_error.into(),
 
-			SemanticError(semantic_error) =>
-				semantic_error.into(),
+			SemanticError(semantic_error) => semantic_error.into(),
 
 			IoError(ref io_error) => CompilerDiagnosticBuilder::from_error(&self)
 				.help(&io_error.to_string())
