@@ -105,7 +105,7 @@ fn main() -> miette::Result<()> {
 		.arg(
 			arg!(<MODE>)
 				.help("Specify which action should be performed")
-				.value_parser(["tokenize", "parse", "analyse", "compile"])
+				.value_parser(["tokenize", "parse", "analyse", "analyze", "compile"])
 				.required(false)
 				.short('m')
 				.long("mode"),
