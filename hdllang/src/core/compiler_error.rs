@@ -1,3 +1,4 @@
+use crate::analyzer::SemanticError;
 use crate::compiler_diagnostic::*;
 use crate::lexer::LexerError;
 use thiserror::Error;
@@ -12,6 +13,9 @@ pub enum CompilerError {
 
 	#[error(transparent)]
 	IoError(#[from] std::io::Error),
+
+	#[error(transparent)]
+	SemanticError(SemanticError),
 }
 
 impl ProvidesCompilerDiagnostic for CompilerError {
@@ -19,6 +23,8 @@ impl ProvidesCompilerDiagnostic for CompilerError {
 		use CompilerError::*;
 		match self {
 			LexerError(lexer_error) => lexer_error.into(),
+
+			SemanticError(semantic_error) => semantic_error.into(),
 
 			IoError(ref io_error) => CompilerDiagnosticBuilder::from_error(&self)
 				.help(&io_error.to_string())

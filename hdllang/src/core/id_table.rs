@@ -7,6 +7,7 @@ pub struct IdTableKey {
 }
 
 /// Lexer's ID table - used to avoid storing tokens in strings
+#[derive(Clone, Debug)]
 pub struct IdTable {
 	ids: BiHashMap<IdTableKey, String>,
 }

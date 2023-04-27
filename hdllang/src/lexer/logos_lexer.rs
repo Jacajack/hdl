@@ -240,7 +240,12 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 	fn id_table(&self) -> &IdTable {
 		&self.lexer.extras.id_table
 	}
+
+	fn comment_table(&self) -> &CommentTable {
+		&self.lexer.extras.comment_table
+	}
 }
+
 pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
 
 impl<'input> Iterator for LogosLexer<'input> {
