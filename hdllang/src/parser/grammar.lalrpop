@@ -15,7 +15,7 @@ pub Izulu: Root={
 		}
 }
 TopDef: TopDefinition={
-	<start: @L> "module" <id:"Id"> "{" <statements:Space<ModuleDeclStmt>> RBrace <end: @R> =>
+	<start: @L> "module" <id:"Id"> LBrace <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
 		TopDefinition::ModuleDeclaration{
 			id,
 			statements,
@@ -53,7 +53,7 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 	    	}
 	  	),
 	
-	<start: @L> "for" "(" <id:"Id"> "in" <range:RangeExpr> ")" <statement:ModuleImplBlockStmt> <end: @R> =>
+	<start: @L> "for" LPar <id:"Id"> In <range:RangeExpr> ")" <statement:ModuleImplBlockStmt> <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::IterationStatement{
 				id,
@@ -92,7 +92,7 @@ ModuleImplBlockStmt: Box<ModuleImplementationStatement> ={
 }
 IfStmt: Box<ModuleImplementationStatement> ={
 	
-	<start: @L> "if"  "(" <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:ModuleImplBlockStmt> <end: @R> =>
+	<start: @L> "if"  LPar <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:ModuleImplBlockStmt> <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::IfElseStatement{
 				condition,
@@ -101,7 +101,7 @@ IfStmt: Box<ModuleImplementationStatement> ={
 				location:SourceSpan::new_between(start,end),
 	    	}
 		),
-	<start: @L> "if"  "(" <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:IfStmt> <end: @R> =>
+	<start: @L> "if"  LPar <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:IfStmt> <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::IfElseStatement{
 				condition,
@@ -110,7 +110,7 @@ IfStmt: Box<ModuleImplementationStatement> ={
 				location:SourceSpan::new_between(start,end),
 	    	}
 		),
-	<start: @L> "if" "(" <condition:Expr> ")"  <if_statement:ModuleImplBlockStmt> <end: @R> =>
+	<start: @L> "if" LPar <condition:Expr> ")"  <if_statement:ModuleImplBlockStmt> <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::IfStatement{
 				condition,
@@ -259,7 +259,7 @@ Expression: Box<Expression> = {
 			}
 		),
 	
-	<start:@L> "match" "(" <value:Expr> ")" LBrace <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
+	<start:@L> "match" LPar <value:Expr> ")" LBrace <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
 		Box::new(
 			Expression::MatchExpression{
 				value,
@@ -400,7 +400,16 @@ Tier<Op,NextTier>: Box<Expression> = {
 	),
     NextTier
 };
-ArgumentList=NonEmptyComma<Expr>;
+ArgumentList=NonEmptyCommaErr<Expr>;
+NonEmptyCommaErr<T>: Vec<T> = { // (1)
+    <mut v:(<T> Comma)*> <e:T> => match v.len() { // (2)
+        0 => vec![e],
+        _ => {
+            v.push(e);
+            v
+        }
+    }
+};
 NonEmptyComma<T>: Vec<T> = { // (1)
     <mut v:(<T> ",")*> <e:T> => match v.len() { // (2)
         0 => vec![e],
@@ -532,11 +541,11 @@ TypeQualifier: TypeQualifier = {
 	<start:@L> "async" <end:@R> => TypeQualifier::Async{
 		location:SourceSpan::new_between(start,end),
 	},
-	<start:@L> "comb" "(" <expression:Expr> ")" <end:@R> => TypeQualifier::Comb{
+	<start:@L> "comb" LPar <expression:Expr> ")" <end:@R> => TypeQualifier::Comb{
 		expression,
 		location:SourceSpan::new_between(start,end),
 	},
-	<start:@L> "sync" "(" <expression:Expr> ")" <end:@R> => TypeQualifier::Sync{
+	<start:@L> "sync" LPar <expression:Expr> ")" <end:@R> => TypeQualifier::Sync{
 		expression,
 		location:SourceSpan::new_between(start,end),
 	},
@@ -557,6 +566,17 @@ TypeName: TypeName ={
 		declarator,
 		array_declarators,
 		location:SourceSpan::new_between(start,end),
+	}
+}
+Comma = {
+	",",
+	<start:@L> ! <end:@R>  =>{
+		ctx.diagnostic_buffer.push_diagnostic(ParserError{
+			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::Comma)),
+			range: SourceSpan::new_between(start,end),
+		}.to_diagnostic());
+		//println!("Missing Semicolon"); // for debugging
+		TokenKind::Punctuator(PunctuatorKind::Comma)
 	}
 }
 RBrace = {
@@ -591,6 +611,28 @@ Semicolon = {
 		//println!("Missing Semicolon"); // for debugging
 		TokenKind::Punctuator(PunctuatorKind::Semicolon)
 	}
+}
+LPar = {
+	"(" ,
+	<start:@L> ! <end:@R>  =>{
+	   ctx.diagnostic_buffer.push_diagnostic(ParserError{
+		   kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::LPar)),
+		   range: SourceSpan::new_between(start,end),
+	   }.to_diagnostic());
+	   //println!("Missing Semicolon"); // for debugging
+	   TokenKind::Punctuator(PunctuatorKind::LPar)
+   }
+}
+In = {
+	"in" ,
+	<start:@L> ! <end:@R>  =>{
+	   ctx.diagnostic_buffer.push_diagnostic(ParserError{
+		   kind: ParserErrorKind::MissingToken(TokenKind::Keyword(KeywordKind::In)),
+		   range: SourceSpan::new_between(start,end),
+	   }.to_diagnostic());
+	   //println!("Missing Semicolon"); // for debugging
+	   TokenKind::Keyword(KeywordKind::In)
+   }
 }
 extern {
     type Location = usize;
