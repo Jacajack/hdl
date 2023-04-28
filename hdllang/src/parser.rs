@@ -43,6 +43,8 @@ impl ProvidesCompilerDiagnostic for ParserError {
 					TokenKind::Punctuator(ref punctuator) => match punctuator{
 						Semicolon => "Missing semicolon".to_string(),
 						Comma => "Missing comma".to_string(),
+						LBrace => "Missing left brace".to_string(),
+						RBrace => "Missing right brace".to_string(),
 						_ => format!("Expected token: {:?}", punctuator),
 					},
 					TokenKind::Keyword(keyword) => match keyword{
