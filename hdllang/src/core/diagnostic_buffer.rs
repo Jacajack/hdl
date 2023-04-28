@@ -7,7 +7,7 @@ pub struct DiagnosticBuffer<'source> {
 
 impl<'source> DiagnosticBuffer<'source> {
 	pub fn push_diagnostic(&mut self, diag: CompilerDiagnostic, source: Option<&'source String>) {
-		self.buffer.push((diag,source));
+		self.buffer.push((diag, source));
 	}
 	pub fn new() -> Self {
 		Self { buffer: vec![] }
