@@ -57,22 +57,25 @@ fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 }
 fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let lexer = LogosLexer::new(&code);
-	let mut buf = hdllang::core::DiagnosticBuffer::new();
+	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext {
-		diagnostic_buffer: &mut buf,
+		diagnostic_buffer: buf,
 	};
-	let ast = parser::IzuluParser::new().parse(&mut ctx, lexer);
+	let parser = parser::IzuluParser::new();
+	let ast = parser.parse(&mut ctx, Some(&code),lexer);
+	let buffer = ctx.diagnostic_buffer;
+	println!("{}",buffer.to_string());
 	write!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_miette_report())?;
 	Ok(())
 }
 
 fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
-	let mut buf = DiagnosticBuffer::new();
+	let buf = Box::new(DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext {
-		diagnostic_buffer: &mut buf,
+		diagnostic_buffer: buf,
 	};
-	let ast = parser::IzuluParser::new().parse(&mut ctx, &mut lexer);
+	let ast = parser::IzuluParser::new().parse(&mut ctx, Some(&code),&mut lexer);
 	println!("Ids: {:?}", lexer.id_table());
 	println!("Comments: {:?}", lexer.comment_table());
 	let id_table = lexer.id_table().clone();
