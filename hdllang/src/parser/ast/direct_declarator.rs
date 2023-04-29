@@ -8,10 +8,11 @@ pub struct DirectDeclarator {
 }
 impl Debug for DirectDeclarator {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-		match self.array_declarators.len() {
-			0 => write!(fmt, "foo"),
-			_ => write!(fmt, "foo{:?}", self.array_declarators),
+		write!(fmt, "{:?}", self.name)?;
+		for array in &self.array_declarators{
+			write!(fmt, "[{:?}]", array)?;
 		}
+		Ok(())
 	}
 }
 impl SourceLocation for DirectDeclarator {

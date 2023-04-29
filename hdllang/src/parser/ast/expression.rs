@@ -88,17 +88,17 @@ impl Debug for Expression {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
 		use self::Expression::*;
 		match &self {
-			Number { key, location: _ } => write!(fmt, "{:?}", key),
-			Identifier { id: _, location: _ } => write!(fmt, "foo"),
+			Number { key, .. } => write!(fmt, "{:?}", key),
+			Identifier { id, .. } => write!(fmt, "{:?}", id),
 			ParenthesizedExpression {
 				expression,
-				location: _,
+				..
 			} => write!(fmt, "({:?})", *expression),
 			BinaryExpression {
 				lhs,
 				rhs,
 				code,
-				location: _,
+				..
 			} => {
 				write!(fmt, "({:?} {:?} {:?})", lhs, code, rhs)
 			},
@@ -106,42 +106,42 @@ impl Debug for Expression {
 				condition,
 				true_branch,
 				false_branch,
-				location: _,
+				..
 			} => {
 				write!(fmt, "({:?} ? {:?} : {:?})", condition, true_branch, false_branch)
 			},
 			RangeExpression {
 				lhs,
 				rhs,
-				location: _,
 				code,
+				..
 			} => {
 				write!(fmt, "([{:?}{:?}{:?}])", lhs, code, rhs)
 			},
 			UnaryOperatorExpression {
 				expression,
 				code,
-				location: _,
+				..
 			} => write!(fmt, "{:?}{:?}", code, expression),
 			PostfixWithId {
 				expression,
 				id,
-				location: _,
+				..
 			} => write!(fmt, "({:?}.{:?})", expression, id),
 			PostfixWithIndex {
 				expression,
 				index,
-				location: _,
+				..
 			} => write!(fmt, "({:?}[{:?}])", expression, index),
 			PostfixWithRange {
 				expression,
 				range,
-				location: _,
+				..
 			} => write!(fmt, "({:?}{:?})", expression, range),
 			PostfixWithArgs {
 				expression,
 				argument_list,
-				location: _,
+				..
 			} => {
 				write!(fmt, "({:?}(", expression)?;
 				for arg in argument_list.into_iter() {
@@ -151,16 +151,16 @@ impl Debug for Expression {
 			},
 			PostfixEmptyCall {
 				expression,
-				location: _,
+				..
 			} => write!(fmt, "({:?}())", expression),
 			UnaryCastExpression {
 				type_name,
 				expression,
-				location: _,
+				..
 			} => write!(fmt, "(({:?}){:?})", type_name, expression),
 			Tuple {
 				expressions,
-				location: _,
+				..
 			} => {
 				write!(fmt, "{{")?;
 				for expr in expressions.into_iter() {
@@ -171,7 +171,7 @@ impl Debug for Expression {
 			MatchExpression {
 				value,
 				statements,
-				location: _,
+				..
 			} => {
 				write!(fmt, "match({:?}){{\n", value)?;
 				for s in statements.into_iter() {
@@ -181,7 +181,7 @@ impl Debug for Expression {
 			},
 			ConditionalExpression {
 				statements,
-				location: _,
+				..
 			} => {
 				write!(fmt, "conditional{{\n")?;
 				for s in statements.into_iter() {
