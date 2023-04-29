@@ -171,4 +171,6 @@ pub trait Lexer<'source> {
 
 	/// Access the comment table
 	fn comment_table(&self) -> &CommentTable;
+
+	fn numeric_constant_table(&self) -> &NumericConstantTable;
 }
