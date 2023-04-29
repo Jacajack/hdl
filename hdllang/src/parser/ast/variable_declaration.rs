@@ -1,7 +1,9 @@
 use crate::parser::ast::{DirectDeclarator, SourceLocation, TypeDeclarator};
 use crate::SourceSpan;
+use crate::lexer::CommentTableKey;
 use std::fmt::{Debug, Error, Formatter};
 pub struct VariableDeclaration {
+	pub metadata: Vec<CommentTableKey>,
 	pub type_declarator: TypeDeclarator,
 	pub direct_declarators: Vec<Box<DirectDeclarator>>,
 	pub location: SourceSpan,

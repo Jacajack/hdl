@@ -1,13 +1,15 @@
 use crate::parser::ast::{ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
-use crate::{lexer::IdTableKey, SourceSpan};
+use crate::{lexer::IdTableKey,lexer::CommentTableKey, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
 pub enum TopDefinition {
 	ModuleDeclaration {
+		metadata: Vec<CommentTableKey>,
 		id: IdTableKey,
 		statements: Vec<ModuleDeclarationStatement>,
 		location: SourceSpan,
 	},
 	ModuleImplementation {
+		metadata: Vec<CommentTableKey>,
 		id: IdTableKey,
 		statement: Box<ModuleImplementationStatement>,
 		location: SourceSpan,

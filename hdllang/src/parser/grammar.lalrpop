@@ -16,18 +16,31 @@ pub Izulu: Root={
 		}
 }
 TopDef: TopDefinition={
-	<start: @L> MetadataComments? "module" <id:"Id"> LBrace <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
+	<start: @L> <mc:MetadataComments ?> "module" <id:"Id"> LBrace <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
+		{
+			let metadata = match mc{
+			Some(mc) => mc,
+			None => vec![],
+		};
 		TopDefinition::ModuleDeclaration{
+			metadata,
 			id,
 			statements,
 			location:SourceSpan::new_between(start,end),
-		},
-	<start: @L> MetadataComments? "impl" <id:"Id">  <statement:ModuleImplBlockStmt>  <end: @R> =>
-		TopDefinition::ModuleImplementation{
+		}
+	},
+	<start: @L> <mc:MetadataComments ?> "impl" <id:"Id">  <statement:ModuleImplBlockStmt>  <end: @R> =>
+	{
+		let metadata = match mc{
+		Some(mc) => mc,
+		None => vec![],
+	};	
+	TopDefinition::ModuleImplementation{
+			metadata,
 			id,
 			statement,
 			location:SourceSpan::new_between(start,end),
-		},
+		}},
 	}
 ModuleImplStmt: Box<ModuleImplementationStatement> = {
 	<start: @L>  <block:VarBlock> <end: @R> =>
@@ -63,15 +76,22 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start: @L> MetadataComments? <id1:"Id"> <id2:"Id"> LBrace <port_bind:NonEmptyOptComma<PortBindStmt>> RBrace Semicolon <end: @R> =>
-		Box::new(
-			ModuleImplementationStatement::InstantiationStatement{
-				id1,
-				id2,
-				port_bind,
-				location:SourceSpan::new_between(start,end),
+	<start: @L> <mc :MetadataComments?> <id1:"Id"> <id2:"Id"> LBrace <port_bind:NonEmptyOptComma<PortBindStmt>> RBrace Semicolon <end: @R> =>
+		{
+			let metadata = match mc{
+			Some(mc) => mc,
+			None => vec![],
+		};		
+			Box::new(
+				ModuleImplementationStatement::InstantiationStatement{
+					metadata,
+					id1,
+					id2,
+					port_bind,
+					location:SourceSpan::new_between(start,end),
 			}
-		),
+		)
+		},
 		ModuleImplBlockStmt,	
 		IfStmt,			
 }
@@ -140,12 +160,19 @@ pub PortBindStmt: PortBindStatement={
 		},
 }
 VarDef: VariableDefinition={
-	<start: @L> MetadataComments? <type_declarator:TypeDeclarator> <initializer_list:NonEmptyComma<DirectInitializer>> <end: @R> =>
+	<start: @L> <mc: MetadataComments ?> <type_declarator:TypeDeclarator> <initializer_list:NonEmptyComma<DirectInitializer>> <end: @R> =>
+	{
+		let metadata = match mc{
+		Some(mc) => mc,
+		None => vec![],
+	};	
 	VariableDefinition{
+		metadata,
 		type_declarator,
 		initializer_list,
 		location:SourceSpan::new_between(start,end),
 	}
+}
 }
 DirectInitializer: DirectInitializer = {
 	<start: @L>  <declarator:DirectDecl> <end: @R> =>
@@ -195,16 +222,24 @@ VarBlockStmt: VariableBlockStatement={
 }
 
 VarDecl: VariableDeclaration = {
-	<start: @L> MetadataComments? <type_declarator:TypeDeclarator> <direct_declarators:NonEmptyComma<DirectDecl>> <end: @R>=>
+	<start: @L> <mc: MetadataComments?> <type_declarator:TypeDeclarator> <direct_declarators:NonEmptyComma<DirectDecl>> <end: @R>=>
+	{
+		let metadata = match mc{
+		Some(mc) => mc,
+		None => vec![],
+		};		
 		VariableDeclaration{
+			metadata,
 			type_declarator,
 			direct_declarators,
 			location:SourceSpan::new_between(start,end),
-		},
+		}
+	},
 }
 SingleVarDecl: VariableDeclaration = {
 	<start: @L>  <type_declarator:TypeDeclarator> <direct_declarator:DirectDecl> <end: @R>=>
 		VariableDeclaration{
+			metadata:vec![],
 			type_declarator,
 			direct_declarators: vec![direct_declarator],
 			location:SourceSpan::new_between(start,end),
@@ -710,7 +745,7 @@ extern {
 		"||"			  => TokenKind::Punctuator(PunctuatorKind::LogicalOr),
 		"+:"			  => TokenKind::Punctuator(PunctuatorKind::PlusColon),
 		"=>"			  => TokenKind::Punctuator(PunctuatorKind::Implies),
-		"MC"              => TokenKind::MetadataComment(CommentTableKey),
+		"MC"              => TokenKind::MetadataComment(<CommentTableKey>),
 
 
 

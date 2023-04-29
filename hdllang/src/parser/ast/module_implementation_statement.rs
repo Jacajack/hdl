@@ -2,7 +2,7 @@ use crate::parser::ast::{
 	AssignmentOpcode, Expression, PortBindStatement, SourceLocation, VariableBlock, VariableDeclaration,
 	VariableDefinition,
 };
-use crate::{lexer::IdTableKey, SourceSpan};
+use crate::{lexer::{IdTableKey,CommentTableKey}, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
 pub enum ModuleImplementationStatement {
 	VariableDeclarationStatement {
@@ -41,6 +41,7 @@ pub enum ModuleImplementationStatement {
 		location: SourceSpan,
 	},
 	InstantiationStatement {
+		metadata: Vec<CommentTableKey>,
 		id1: IdTableKey,
 		id2: IdTableKey,
 		port_bind: Vec<PortBindStatement>,
