@@ -15,6 +15,8 @@ mod type_specifier;
 mod variable_block;
 mod variable_declaration;
 mod variable_definition;
+mod pretty_printable;
+pub use pretty_printable::*;
 use crate::SourceSpan;
 pub use direct_declarator::*;
 pub use direct_initializer::*;
