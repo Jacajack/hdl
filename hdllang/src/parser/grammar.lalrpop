@@ -7,6 +7,7 @@ use crate::lexer::*;
 use crate::parser::*; 
 use crate::SourceSpan;
 grammar<'source>(ctx: & mut ParserContext<'source>, source: Option<&'source String>);
+MetadataComments = NonEmptySpace<"MC">;
 pub Izulu: Root={
 	<start: @L> <definitions:NonEmptySpace<TopDef>> <end: @R> =>
 		Root{
@@ -15,13 +16,13 @@ pub Izulu: Root={
 		}
 }
 TopDef: TopDefinition={
-	<start: @L> "module" <id:"Id"> LBrace <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
+	<start: @L> MetadataComments? "module" <id:"Id"> LBrace <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
 		TopDefinition::ModuleDeclaration{
 			id,
 			statements,
 			location:SourceSpan::new_between(start,end),
 		},
-	<start: @L> "impl" <id:"Id">  <statement:ModuleImplBlockStmt>  <end: @R> =>
+	<start: @L> MetadataComments? "impl" <id:"Id">  <statement:ModuleImplBlockStmt>  <end: @R> =>
 		TopDefinition::ModuleImplementation{
 			id,
 			statement,
@@ -62,7 +63,7 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start: @L> <id1:"Id"> <id2:"Id"> LBrace <port_bind:NonEmptyOptComma<PortBindStmt>> RBrace Semicolon <end: @R> =>
+	<start: @L> MetadataComments? <id1:"Id"> <id2:"Id"> LBrace <port_bind:NonEmptyOptComma<PortBindStmt>> RBrace Semicolon <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::InstantiationStatement{
 				id1,
@@ -139,7 +140,7 @@ pub PortBindStmt: PortBindStatement={
 		},
 }
 VarDef: VariableDefinition={
-	<start: @L>  <type_declarator:TypeDeclarator> <initializer_list:NonEmptyComma<DirectInitializer>> <end: @R> =>
+	<start: @L> MetadataComments? <type_declarator:TypeDeclarator> <initializer_list:NonEmptyComma<DirectInitializer>> <end: @R> =>
 	VariableDefinition{
 		type_declarator,
 		initializer_list,
@@ -194,7 +195,7 @@ VarBlockStmt: VariableBlockStatement={
 }
 
 VarDecl: VariableDeclaration = {
-	<start: @L>  <type_declarator:TypeDeclarator> <direct_declarators:NonEmptyComma<DirectDecl>> <end: @R>=>
+	<start: @L> MetadataComments? <type_declarator:TypeDeclarator> <direct_declarators:NonEmptyComma<DirectDecl>> <end: @R>=>
 		VariableDeclaration{
 			type_declarator,
 			direct_declarators,
@@ -709,7 +710,7 @@ extern {
 		"||"			  => TokenKind::Punctuator(PunctuatorKind::LogicalOr),
 		"+:"			  => TokenKind::Punctuator(PunctuatorKind::PlusColon),
 		"=>"			  => TokenKind::Punctuator(PunctuatorKind::Implies),
-
+		"MC"              => TokenKind::MetadataComment(CommentTableKey),
 
 
 
