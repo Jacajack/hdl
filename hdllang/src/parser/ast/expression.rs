@@ -89,17 +89,9 @@ impl Debug for Expression {
 		use self::Expression::*;
 		match &self {
 			Number { key, .. } => write!(fmt, "{:?}", key),
-			Identifier { id, .. } => write!(fmt, "{:?}", id),
-			ParenthesizedExpression {
-				expression,
-				..
-			} => write!(fmt, "({:?})", *expression),
-			BinaryExpression {
-				lhs,
-				rhs,
-				code,
-				..
-			} => {
+			Identifier { .. } => write!(fmt, "foo"),
+			ParenthesizedExpression { expression, .. } => write!(fmt, "({:?})", *expression),
+			BinaryExpression { lhs, rhs, code, .. } => {
 				write!(fmt, "({:?} {:?} {:?})", lhs, code, rhs)
 			},
 			TernaryExpression {
@@ -110,34 +102,13 @@ impl Debug for Expression {
 			} => {
 				write!(fmt, "({:?} ? {:?} : {:?})", condition, true_branch, false_branch)
 			},
-			RangeExpression {
-				lhs,
-				rhs,
-				code,
-				..
-			} => {
+			RangeExpression { lhs, rhs, code, .. } => {
 				write!(fmt, "([{:?}{:?}{:?}])", lhs, code, rhs)
 			},
-			UnaryOperatorExpression {
-				expression,
-				code,
-				..
-			} => write!(fmt, "{:?}{:?}", code, expression),
-			PostfixWithId {
-				expression,
-				id,
-				..
-			} => write!(fmt, "({:?}.{:?})", expression, id),
-			PostfixWithIndex {
-				expression,
-				index,
-				..
-			} => write!(fmt, "({:?}[{:?}])", expression, index),
-			PostfixWithRange {
-				expression,
-				range,
-				..
-			} => write!(fmt, "({:?}{:?})", expression, range),
+			UnaryOperatorExpression { expression, code, .. } => write!(fmt, "{:?}{:?}", code, expression),
+			PostfixWithId { expression, id, .. } => write!(fmt, "({:?}.{:?})", expression, id),
+			PostfixWithIndex { expression, index, .. } => write!(fmt, "({:?}[{:?}])", expression, index),
+			PostfixWithRange { expression, range, .. } => write!(fmt, "({:?}{:?})", expression, range),
 			PostfixWithArgs {
 				expression,
 				argument_list,
@@ -149,40 +120,25 @@ impl Debug for Expression {
 				}
 				write!(fmt, "))")
 			},
-			PostfixEmptyCall {
-				expression,
-				..
-			} => write!(fmt, "({:?}())", expression),
+			PostfixEmptyCall { expression, .. } => write!(fmt, "({:?}())", expression),
 			UnaryCastExpression {
-				type_name,
-				expression,
-				..
+				type_name, expression, ..
 			} => write!(fmt, "(({:?}){:?})", type_name, expression),
-			Tuple {
-				expressions,
-				..
-			} => {
+			Tuple { expressions, .. } => {
 				write!(fmt, "{{")?;
 				for expr in expressions.into_iter() {
 					write!(fmt, "{:?},", expr)?;
 				}
 				write!(fmt, "}}")
 			},
-			MatchExpression {
-				value,
-				statements,
-				..
-			} => {
+			MatchExpression { value, statements, .. } => {
 				write!(fmt, "match({:?}){{\n", value)?;
 				for s in statements.into_iter() {
 					write!(fmt, "{:?},\n", s)?;
 				}
 				write!(fmt, "}}")
 			},
-			ConditionalExpression {
-				statements,
-				..
-			} => {
+			ConditionalExpression { statements, .. } => {
 				write!(fmt, "conditional{{\n")?;
 				for s in statements.into_iter() {
 					write!(fmt, "{:?},\n", s)?;
