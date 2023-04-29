@@ -124,6 +124,7 @@ pub enum TokenKind {
 	#[token("tristate_buffer", |_| KeywordKind::TristateBuffer)]
 	#[token("enum",            |_| KeywordKind::Enum)]
 	#[token("if",              |_| KeywordKind::If)]
+	#[token("else",            |_| KeywordKind::Else)]
 	#[token("for",             |_| KeywordKind::For)]
 	#[token("in",              |_| KeywordKind::In)]
 	#[token("bool",            |_| KeywordKind::Bool)]
@@ -243,6 +244,10 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 
 	fn comment_table(&self) -> &CommentTable {
 		&self.lexer.extras.comment_table
+	}
+
+	fn numeric_constant_table(&self) -> &NumericConstantTable {
+		&self.lexer.extras.numeric_constants
 	}
 }
 
