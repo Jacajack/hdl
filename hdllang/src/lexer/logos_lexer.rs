@@ -69,8 +69,8 @@ fn consume_metadata_comment(lex: &mut logos::Lexer<TokenKind>) -> CommentTableKe
 		Some(offset) => offset,
 		None => lex.remainder().len(),
 	};
-
 	let comment = lex.remainder().chars().take(length).collect();
+	lex.bump(length);
 	lex.extras.comment_table.insert(comment)
 }
 
