@@ -201,12 +201,19 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 	
 }
 VarBlock: Box<VariableBlock>={
-	<start: @L>  <types:NonEmptySpace<TypeQualifier>> LBrace <statements:Space<VarBlockStmt>> RBrace Semicolon <end: @R> =>
+	<start: @L> <mc: MetadataComments ?> <types:NonEmptySpace<TypeQualifier>> LBrace <statements:Space<VarBlockStmt>> RBrace Semicolon <end: @R> =>
+		{
+			let metadata = match mc{
+			Some(mc) => mc,
+			None => vec![],
+		};	
 		Box::new(VariableBlock{
+			metadata,
 			types,
 			statements,
 			location:SourceSpan::new_between(start,end),
-		}),
+		})
+	},
 }
 VarBlockStmt: VariableBlockStatement={
 	<start: @L>  <block:VarBlock> <end: @R> =>

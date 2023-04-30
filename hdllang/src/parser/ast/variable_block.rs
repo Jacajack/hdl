@@ -1,7 +1,9 @@
 use crate::parser::ast::{SourceLocation, TypeQualifier, VariableDeclaration};
 use crate::SourceSpan;
+use crate::lexer::CommentTableKey;
 use std::fmt::{Debug, Error, Formatter};
 pub struct VariableBlock {
+	pub metadata: Vec<CommentTableKey>,
 	pub types: Vec<TypeQualifier>,
 	pub statements: Vec<VariableBlockStatement>,
 	pub location: SourceSpan,
