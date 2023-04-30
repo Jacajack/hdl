@@ -90,6 +90,8 @@ fn pretty_print(code: String, mut output: Box<dyn Write>) -> miette::Result<()> 
 	let buf = Box::new(DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
 	let ast = parser::IzuluParser::new().parse(&mut ctx, Some(&code), &mut lexer);
+	let buffer = ctx.diagnostic_buffer;
+	println!("{}", buffer.to_string());
 	match ast {
 		Ok(root) => {
 			let mut printer = parser::pretty_printer::PrettyPrinterContext::new(lexer.id_table(),lexer.comment_table(),lexer.numeric_constant_table(),output);

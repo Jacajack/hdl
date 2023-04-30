@@ -65,7 +65,7 @@ impl PrettyPrintable for ModuleImplementationStatement{
             IterationStatement { id, range, statement, .. } => {
                 ctx.after_brackets=false;
                 ctx.write_indent("")?;
-                ctx.write("for (")?;
+                ctx.write("for(")?;
                 ctx.write(format!("{}", &ctx.get_id(*id)).as_str())?;
                 ctx.write(" in ")?;
                 range.pretty_print(ctx)?;
