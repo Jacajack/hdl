@@ -5,7 +5,10 @@ impl PrettyPrintable for TopDefinition {
     fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
         use TopDefinition::*;
         match self {
-            ModuleDeclaration { id, statements, .. } => {
+            ModuleDeclaration { metadata, id, statements, .. } => {
+                for comment in metadata.iter() {
+                    ctx.writeln(format!("///{}", ctx.get_comment(*comment)).as_str())?;
+                }
                 ctx.write_indent("module ")?;
                 ctx.write(format!("{}", &ctx.get_id(*id)).as_str())?;
                 ctx.writeln(" {")?;
@@ -17,7 +20,10 @@ impl PrettyPrintable for TopDefinition {
                 ctx.decrease_indent();
                 Ok(())
             },
-            ModuleImplementation { id, statement, .. } => {
+            ModuleImplementation { metadata, id, statement, .. } => {
+                for comment in metadata.iter() {
+                    ctx.writeln(format!("///{}", ctx.get_comment(*comment)).as_str())?;
+                }
                 ctx.write_indent("impl ")?;
                 ctx.write(format!("{} ", &ctx.get_id(*id)).as_str())?;
                 statement.pretty_print(ctx)
