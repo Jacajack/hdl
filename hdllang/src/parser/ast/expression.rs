@@ -2,7 +2,9 @@ use crate::core::numeric_constant_table::NumericConstantTableKey;
 use crate::parser::ast::{opcodes::*, MatchExpressionStatement, SourceLocation, TypeName};
 use crate::{lexer::IdTableKey, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize)]
 pub enum Expression {
 	Number {
 		key: NumericConstantTableKey,

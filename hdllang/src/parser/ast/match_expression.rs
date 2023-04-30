@@ -2,7 +2,9 @@ use crate::SourceSpan;
 use std::fmt::{Debug, Error, Formatter};
 
 use crate::parser::ast::{Expression, SourceLocation};
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize)]
 pub struct MatchExpressionStatement {
 	pub antecedent: MatchExpressionAntecendent,
 	pub expression: Box<Expression>,
@@ -19,6 +21,7 @@ impl SourceLocation for MatchExpressionStatement {
 		self.location
 	}
 }
+#[derive(Serialize, Deserialize)]
 pub enum MatchExpressionAntecendent {
 	Expression {
 		expression: Box<Expression>,

@@ -1,6 +1,9 @@
 use crate::parser::ast::{DirectDeclarator, Expression, SourceLocation};
 use crate::SourceSpan;
 use std::fmt::{Debug, Error, Formatter};
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
 pub enum DirectInitializer {
 	DirectDeclarator {
 		declarator: Box<DirectDeclarator>,

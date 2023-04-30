@@ -1,6 +1,9 @@
 use crate::parser::ast::{Expression, SourceLocation};
 use crate::{lexer::IdTableKey, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct DirectDeclarator {
 	pub name: IdTableKey,
 	pub array_declarators: Vec<Box<Expression>>,

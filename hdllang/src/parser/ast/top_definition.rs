@@ -1,6 +1,9 @@
 use crate::parser::ast::{ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
 use crate::{lexer::IdTableKey,lexer::CommentTableKey, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
 pub enum TopDefinition {
 	ModuleDeclaration {
 		metadata: Vec<CommentTableKey>,

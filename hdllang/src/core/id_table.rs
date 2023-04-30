@@ -1,5 +1,7 @@
 use bimap::BiHashMap;
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize)]
 /// Opaque key type for the lexer ID table
 #[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
 pub struct IdTableKey {

@@ -2,6 +2,9 @@ use crate::parser::ast::{SourceLocation, TypeQualifier, VariableDeclaration};
 use crate::SourceSpan;
 use crate::lexer::CommentTableKey;
 use std::fmt::{Debug, Error, Formatter};
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct VariableBlock {
 	pub metadata: Vec<CommentTableKey>,
 	pub types: Vec<TypeQualifier>,
@@ -21,6 +24,8 @@ impl SourceLocation for VariableBlock {
 		self.location
 	}
 }
+
+#[derive(Serialize, Deserialize)]
 pub enum VariableBlockStatement {
 	VariableDeclarationStatement {
 		declaration: VariableDeclaration,

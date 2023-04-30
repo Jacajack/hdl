@@ -4,6 +4,9 @@ use crate::parser::ast::{
 };
 use crate::{lexer::{IdTableKey,CommentTableKey}, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
 pub enum ModuleImplementationStatement {
 	VariableDeclarationStatement {
 		declaration: VariableDeclaration,

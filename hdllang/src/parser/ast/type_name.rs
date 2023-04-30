@@ -1,6 +1,9 @@
 use crate::parser::ast::{Expression, SourceLocation, TypeDeclarator};
 use crate::SourceSpan;
 use std::fmt::{Debug, Error, Formatter};
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
 pub struct TypeName {
 	pub declarator: TypeDeclarator,
 	pub array_declarators: Vec<Box<Expression>>,

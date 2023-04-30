@@ -1,10 +1,13 @@
 use std::fmt::{Debug, Error, Formatter};
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize)]
 #[derive(Copy, Clone)]
 pub enum RangeOpcode {
 	Colon,
 	PlusColon,
 }
+#[derive(Serialize, Deserialize)]
 #[derive(Copy, Clone)]
 pub enum UnaryOpcode {
 	BitwiseNot,
@@ -12,6 +15,7 @@ pub enum UnaryOpcode {
 	Minus,
 	Plus,
 }
+#[derive(Serialize, Deserialize)]
 #[derive(Copy, Clone)]
 pub enum BinaryOpcode {
 	Multiplication,
@@ -79,6 +83,7 @@ impl Debug for UnaryOpcode {
 		}
 	}
 }
+#[derive(Serialize, Deserialize)]
 #[derive(Copy, Clone)]
 pub enum AssignmentOpcode {
 	Equal,
