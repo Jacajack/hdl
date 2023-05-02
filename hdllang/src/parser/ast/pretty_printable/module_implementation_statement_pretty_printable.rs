@@ -72,7 +72,7 @@ impl PrettyPrintable for ModuleImplementationStatement{
                 ctx.write(")")?;
                 statement.pretty_print(ctx)
             },
-            InstantiationStatement { id1, id2, port_bind, .. } => {
+            InstantiationStatement { module_name: id1, instance_name: id2, port_bind, .. } => {
                 ctx.after_brackets=false;
                 ctx.write_indent("")?;
                 ctx.write(format!("{}", &ctx.get_id(*id1)).as_str())?;

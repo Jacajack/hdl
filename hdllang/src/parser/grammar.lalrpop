@@ -76,7 +76,7 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start: @L> <mc :MetadataComments?> <id1:"Id"> <id2:"Id"> LBrace <port_bind:NonEmptyOptComma<PortBindStmt>> RBrace Semicolon <end: @R> =>
+	<start: @L> <mc :MetadataComments?> <module_name:"Id"> <instance_name:"Id"> LBrace <port_bind:NonEmptyOptComma<PortBindStmt>> RBrace Semicolon <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
@@ -85,8 +85,8 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 			Box::new(
 				ModuleImplementationStatement::InstantiationStatement{
 					metadata,
-					id1,
-					id2,
+					module_name,
+					instance_name,
 					port_bind,
 					location:SourceSpan::new_between(start,end),
 			}
@@ -175,17 +175,22 @@ VarDef: VariableDefinition={
 }
 }
 DirectInitializer: DirectInitializer = {
-	<start: @L>  <declarator:DirectDecl> <end: @R> =>
-	DirectInitializer::DirectDeclarator{
-		declarator,
-		location:SourceSpan::new_between(start,end),
-	},
-	<start: @L>  <declarator:DirectDecl> "=" <expression:ExprWithTuple> <end: @R> =>
-	DirectInitializer::DirectDeclaratorWithInitializer{
+	<start: @L>  <declarator:DirectDecl> <end: @R> =>{
+		let expression = None;
+		DirectInitializer{
+			declarator,
+			expression,
+			location:SourceSpan::new_between(start,end),
+		}},
+	<start: @L>  <declarator:DirectDecl> "=" <expr:ExprWithTuple> <end: @R> =>
+	{
+	let expression = Some(expr);
+	DirectInitializer{
 		declarator,
 		expression,
 		location:SourceSpan::new_between(start,end),
-	},
+	}
+},
 }
 ModuleDeclStmt: ModuleDeclarationStatement={
 	<start: @L>  <declaration:VarDecl> Semicolon <end: @R> =>

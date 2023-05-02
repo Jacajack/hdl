@@ -45,8 +45,8 @@ pub enum ModuleImplementationStatement {
 	},
 	InstantiationStatement {
 		metadata: Vec<CommentTableKey>,
-		id1: IdTableKey,
-		id2: IdTableKey,
+		module_name: IdTableKey,
+		instance_name: IdTableKey,
 		port_bind: Vec<PortBindStatement>,
 		location: SourceSpan,
 	},
@@ -81,8 +81,8 @@ impl Debug for ModuleImplementationStatement {
 				..
 			} => write!(fmt, "\nfor(foo in {:?})\n{:?}", range, statement),
 			InstantiationStatement {
-				id1,
-				id2,
+				module_name: id1,
+				instance_name: id2,
 				port_bind,
 				..
 			} => {
