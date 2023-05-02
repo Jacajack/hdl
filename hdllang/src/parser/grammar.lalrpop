@@ -146,7 +146,7 @@ pub PortBindStmt: PortBindStatement={
 			id,
 			location:SourceSpan::new_between(start,end),
 		},
-	<start:@L> <id:"Id"> ":" <expression:Expr> <end:@R> =>
+	<start:@L> <id:"Id"> ":" <expression:ExprWithTuple> <end:@R> =>
 		PortBindStatement::IdWithExpression{
 			id,
 			expression,
