@@ -2,7 +2,7 @@ use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
 	 TypeSpecifier, TypeQualifier, TypeDeclarator, TypeName, MatchExpressionStatement,
 	 MatchExpressionAntecendent,TopDefinition,ModuleDeclarationStatement,VariableBlock,
 	 VariableBlockStatement, VariableDeclaration, DirectDeclarator,ModuleImplementationStatement,
-	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root};
+	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root, RangeExpression};
 use crate::lexer::*;
 use crate::parser::*; 
 use crate::SourceSpan;
@@ -331,16 +331,14 @@ TupleExpr: Box<Expression> ={
 			}
 		),
 }
-pub RangeExpr :  Box<Expression> = {
+pub RangeExpr :  RangeExpression = {
 	<start:@L> "[" <lhs:Expr> <code:RangeOp> <rhs:Expr> "]" <end:@R> =>
-		Box::new(
-			Expression::RangeExpression{
-				lhs,
-				rhs,
-				code,
-				location:SourceSpan::new_between(start,end)
+		RangeExpression{
+			lhs,
+			rhs,
+			code,
+			location:SourceSpan::new_between(start,end)
 		}
-	),
 }
 IndexExpr : Box<Expression> ={
 	"[" <PostfixExpr> "]"

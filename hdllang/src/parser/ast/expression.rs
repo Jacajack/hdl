@@ -1,5 +1,5 @@
 use crate::core::numeric_constant_table::NumericConstantTableKey;
-use crate::parser::ast::{opcodes::*, MatchExpressionStatement, SourceLocation, TypeName};
+use crate::parser::ast::{opcodes::*, MatchExpressionStatement, SourceLocation, TypeName,RangeExpression};
 use crate::{lexer::IdTableKey, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
 use serde::{Serialize, Deserialize};
@@ -44,7 +44,7 @@ pub enum Expression {
 	},
 	PostfixWithRange {
 		expression: Box<Expression>,
-		range: Box<Expression>,
+		range: RangeExpression,
 		location: SourceSpan,
 	},
 	PostfixWithArgs {
@@ -69,12 +69,6 @@ pub enum Expression {
 	UnaryCastExpression {
 		type_name: TypeName,
 		expression: Box<Expression>,
-		location: SourceSpan,
-	},
-	RangeExpression {
-		lhs: Box<Expression>,
-		rhs: Box<Expression>,
-		code: RangeOpcode,
 		location: SourceSpan,
 	},
 	BinaryExpression {
@@ -104,9 +98,9 @@ impl Debug for Expression {
 			} => {
 				write!(fmt, "({:?} ? {:?} : {:?})", condition, true_branch, false_branch)
 			},
-			RangeExpression { lhs, rhs, code, .. } => {
-				write!(fmt, "([{:?}{:?}{:?}])", lhs, code, rhs)
-			},
+			// RangeExpression { lhs, rhs, code, .. } => {
+			// 	write!(fmt, "([{:?}{:?}{:?}])", lhs, code, rhs)
+			// },
 			UnaryOperatorExpression { expression, code, .. } => write!(fmt, "{:?}{:?}", code, expression),
 			PostfixWithId { expression, id, .. } => write!(fmt, "({:?}.{:?})", expression, id),
 			PostfixWithIndex { expression, index, .. } => write!(fmt, "({:?}[{:?}])", expression, index),
@@ -169,7 +163,7 @@ impl SourceLocation for Expression {
 			PostfixWithId { location, .. } => location,
 			UnaryOperatorExpression { location, .. } => location,
 			UnaryCastExpression { location, .. } => location,
-			RangeExpression { location, .. } => location,
+			//RangeExpression { location, .. } => location,
 			BinaryExpression { location, .. } => location,
 			Error => todo!(),
 		}

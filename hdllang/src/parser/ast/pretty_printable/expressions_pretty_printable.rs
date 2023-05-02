@@ -102,13 +102,13 @@ impl PrettyPrintable for Expression {
 				ctx.write(")")?;
 				expression.pretty_print(ctx)
 			},
-			RangeExpression { lhs, rhs, code, .. } => {
-				ctx.write("[")?;
-				lhs.pretty_print(ctx)?;
-				ctx.write(format!(" {:?} ", code).as_str())?;
-				rhs.pretty_print(ctx)?;
-				ctx.write("]")
-			},
+			// RangeExpression { lhs, rhs, code, .. } => {
+			// 	ctx.write("[")?;
+			// 	lhs.pretty_print(ctx)?;
+			// 	ctx.write(format!(" {:?} ", code).as_str())?;
+			// 	rhs.pretty_print(ctx)?;
+			// 	ctx.write("]")
+			// },
 			BinaryExpression { lhs, rhs, code, .. } => {
 				lhs.pretty_print(ctx)?;
 				ctx.write(format!(" {:?} ", code).as_str())?;

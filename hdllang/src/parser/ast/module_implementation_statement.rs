@@ -1,6 +1,6 @@
 use crate::parser::ast::{
 	AssignmentOpcode, Expression, PortBindStatement, SourceLocation, VariableBlock, VariableDeclaration,
-	VariableDefinition,
+	VariableDefinition, RangeExpression
 };
 use crate::{lexer::{IdTableKey,CommentTableKey}, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
@@ -39,7 +39,7 @@ pub enum ModuleImplementationStatement {
 	},
 	IterationStatement {
 		id: IdTableKey,
-		range: Box<Expression>,
+		range: RangeExpression,
 		statement: Box<ModuleImplementationStatement>,
 		location: SourceSpan,
 	},

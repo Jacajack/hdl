@@ -1,6 +1,7 @@
 mod direct_declarator;
 mod direct_initializer;
 mod expression;
+mod range_expression;
 mod match_expression;
 mod module_declaration_statement;
 mod module_implementation_statement;
@@ -21,6 +22,7 @@ use crate::SourceSpan;
 pub use direct_declarator::*;
 pub use direct_initializer::*;
 pub use expression::*;
+pub use range_expression::*;
 pub use match_expression::*;
 pub use module_declaration_statement::*;
 pub use module_implementation_statement::*;
