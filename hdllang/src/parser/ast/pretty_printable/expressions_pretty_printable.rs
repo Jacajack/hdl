@@ -82,10 +82,10 @@ impl PrettyPrintable for Expression {
 				}
 				ctx.write(")")
 			},
-			PostfixEmptyCall { expression, .. } => {
-				expression.pretty_print(ctx)?;
-				ctx.write("()")
-			},
+			// PostfixEmptyCall { expression, .. } => {
+			// 	expression.pretty_print(ctx)?;
+			// 	ctx.write("()")
+			// },
 			PostfixWithId { expression, id, .. } => {
 				expression.pretty_print(ctx)?;
 				ctx.write(format!(".{}", ctx.get_id(*id)).as_str())

@@ -370,12 +370,16 @@ PostfixExpr: Box<Expression>={
 		),
 	<start:@L> <expression:PostfixExpr> "(" <args:ArgumentList ?> ")" <end:@R> =>
 		match args{
-			None => Box::new(
-				Expression::PostfixEmptyCall{
+			None => {
+				let argument_list= vec![];
+				Box::new(
+					Expression::PostfixWithArgs{
 					expression,
+					argument_list,
 					location:SourceSpan::new_between(start,end),
 				}
-			),
+				)
+			},
 			Some(argument_list) =>Box::new(
 				Expression::PostfixWithArgs{
 					expression,

@@ -52,10 +52,6 @@ pub enum Expression {
 		argument_list: Vec<Box<Expression>>,
 		location: SourceSpan,
 	},
-	PostfixEmptyCall {
-		expression: Box<Expression>,
-		location: SourceSpan,
-	},
 	PostfixWithId {
 		expression: Box<Expression>,
 		id: IdTableKey,
@@ -116,7 +112,7 @@ impl Debug for Expression {
 				}
 				write!(fmt, "))")
 			},
-			PostfixEmptyCall { expression, .. } => write!(fmt, "({:?}())", expression),
+			//PostfixEmptyCall { expression, .. } => write!(fmt, "({:?}())", expression),
 			UnaryCastExpression {
 				type_name, expression, ..
 			} => write!(fmt, "(({:?}){:?})", type_name, expression),
@@ -159,7 +155,7 @@ impl SourceLocation for Expression {
 			PostfixWithIndex { location, .. } => location,
 			PostfixWithRange { location, .. } => location,
 			PostfixWithArgs { location, .. } => location,
-			PostfixEmptyCall { location, .. } => location,
+			//PostfixEmptyCall { location, .. } => location,
 			PostfixWithId { location, .. } => location,
 			UnaryOperatorExpression { location, .. } => location,
 			UnaryCastExpression { location, .. } => location,
