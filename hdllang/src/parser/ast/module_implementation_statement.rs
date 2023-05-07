@@ -1,10 +1,13 @@
 use crate::parser::ast::{
-	AssignmentOpcode, Expression, PortBindStatement, SourceLocation, VariableBlock, VariableDeclaration,
-	VariableDefinition, RangeExpression
+	AssignmentOpcode, Expression, PortBindStatement, RangeExpression, SourceLocation, VariableBlock,
+	VariableDeclaration, VariableDefinition,
 };
-use crate::{lexer::{IdTableKey,CommentTableKey}, SourceSpan};
+use crate::{
+	lexer::{CommentTableKey, IdTableKey},
+	SourceSpan,
+};
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
-use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
 pub enum ModuleImplementationStatement {
@@ -59,15 +62,9 @@ impl Debug for ModuleImplementationStatement {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
 		use self::ModuleImplementationStatement::*;
 		match &self {
-			VariableDeclarationStatement {
-				declaration,
-				..
-			} => write!(fmt, "\n{:?};", declaration),
+			VariableDeclarationStatement { declaration, .. } => write!(fmt, "\n{:?};", declaration),
 			VariableBlock { block, location: _ } => write!(fmt, "\n{:?}", block),
-			VariableDefinitionStatement {
-				definition,
-				..
-			} => write!(fmt, "\n{:?};", definition),
+			VariableDefinitionStatement { definition, .. } => write!(fmt, "\n{:?};", definition),
 			AssignmentStatement {
 				lhs,
 				assignment_opcode,
@@ -86,16 +83,13 @@ impl Debug for ModuleImplementationStatement {
 				port_bind,
 				..
 			} => {
-				write!(fmt, "\n{:?} {:?}{{\n",id1,id2)?;
+				write!(fmt, "\n{:?} {:?}{{\n", id1, id2)?;
 				for port_bind_statement in port_bind.into_iter() {
 					write!(fmt, "{:?},\n", port_bind_statement)?;
 				}
 				write!(fmt, "}};")
 			},
-			ModuleImplementationBlockStatement {
-				statements,
-				..
-			} => {
+			ModuleImplementationBlockStatement { statements, .. } => {
 				write!(fmt, "\n{{")?;
 				for statement in statements.into_iter() {
 					write!(fmt, "{:?}\n", statement)?;
@@ -112,11 +106,7 @@ impl Debug for ModuleImplementationStatement {
 				if_statement,
 				else_statement,
 				..
-			} => write!(
-				fmt,
-				"\nif({:?}){:?}\nelse{:?}",
-				condition, if_statement, else_statement
-			),
+			} => write!(fmt, "\nif({:?}){:?}\nelse{:?}", condition, if_statement, else_statement),
 		}
 	}
 }

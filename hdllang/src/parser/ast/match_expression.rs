@@ -2,7 +2,7 @@ use crate::SourceSpan;
 use std::fmt::{Debug, Error, Formatter};
 
 use crate::parser::ast::{Expression, SourceLocation};
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct MatchExpressionStatement {

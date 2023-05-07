@@ -2,9 +2,9 @@ pub mod ast;
 pub mod grammar_parser;
 pub mod parser_context;
 pub mod pretty_printer;
-pub use pretty_printer::PrettyPrinterContext;
 pub use grammar_parser::grammar::*;
 pub use parser_context::ParserContext;
+pub use pretty_printer::PrettyPrinterContext;
 
 use crate::core::compiler_diagnostic::*;
 use crate::lexer::{KeywordKind, PunctuatorKind, TokenKind};

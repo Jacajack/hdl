@@ -1,7 +1,7 @@
 use crate::parser::ast::{ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
-use crate::{lexer::IdTableKey,lexer::CommentTableKey, SourceSpan};
+use crate::{lexer::CommentTableKey, lexer::IdTableKey, SourceSpan};
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
-use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
 pub enum TopDefinition {
@@ -22,23 +22,15 @@ impl Debug for TopDefinition {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
 		use self::TopDefinition::*;
 		match &self {
-			ModuleDeclaration {
-				id,
-				statements,
-				..
-			} => {
-				write!(fmt, "\nmodule {:?} {{",id)?;
+			ModuleDeclaration { id, statements, .. } => {
+				write!(fmt, "\nmodule {:?} {{", id)?;
 				for module_declaration in statements.into_iter() {
 					write!(fmt, "\n{:?}", module_declaration)?;
 				}
 				write!(fmt, "}}")
 			},
-			ModuleImplementation {
-				id,
-				statement,
-				..
-			} => {
-				write!(fmt, "\nimpl {:?} {:?}",id, statement)
+			ModuleImplementation { id, statement, .. } => {
+				write!(fmt, "\nimpl {:?} {:?}", id, statement)
 			},
 		}
 	}

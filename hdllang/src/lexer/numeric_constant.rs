@@ -27,7 +27,8 @@ impl NumericConstant {
 	fn get_effective_bits(&self) -> Option<u32> {
 		if self.is_fully_constrained() && self.is_width_valid() {
 			Some(self.width.unwrap() - (if self.signed.unwrap() { 1 } else { 0 }))
-		} else {
+		}
+		else {
 			None
 		}
 	}
@@ -37,7 +38,8 @@ impl NumericConstant {
 	fn is_width_valid(&self) -> bool {
 		if let Some(n) = self.width {
 			n > 0 && n <= 64
-		} else {
+		}
+		else {
 			true
 		}
 	}

@@ -1,8 +1,8 @@
+use crate::lexer::CommentTableKey;
 use crate::parser::ast::{SourceLocation, TypeQualifier, VariableDeclaration};
 use crate::SourceSpan;
-use crate::lexer::CommentTableKey;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
-use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct VariableBlock {

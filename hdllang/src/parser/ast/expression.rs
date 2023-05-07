@@ -1,8 +1,8 @@
 use crate::core::numeric_constant_table::NumericConstantTableKey;
-use crate::parser::ast::{opcodes::*, MatchExpressionStatement, SourceLocation, TypeName,RangeExpression};
+use crate::parser::ast::{opcodes::*, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName};
 use crate::{lexer::IdTableKey, SourceSpan};
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
-use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
 pub enum Expression {

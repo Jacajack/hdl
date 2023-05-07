@@ -1,10 +1,9 @@
 use std::collections::HashMap;
 
 use crate::lexer::NumericConstant;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize)]
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct NumericConstantTableKey {
 	key: usize,
 }

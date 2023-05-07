@@ -1,5 +1,5 @@
 use bimap::BiHashMap;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize)]
 /// Opaque key type for the lexer ID table

@@ -5,8 +5,8 @@ impl PrettyPrintable for MatchExpressionStatement {
 	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
 		self.antecedent.pretty_print(ctx)?;
 		ctx.write(" => ")?;
-        self.expression.pretty_print(ctx)?;
-        ctx.writeln(";")
+		self.expression.pretty_print(ctx)?;
+		ctx.writeln(";")
 	}
 }
 impl PrettyPrintable for MatchExpressionAntecendent {

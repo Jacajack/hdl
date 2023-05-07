@@ -102,9 +102,9 @@ fn serialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	}
 	Ok(())
 }
-fn deserialize(code: String,mut output: Box<dyn Write>) -> miette::Result<()>{
-	let deserialized:Root = serde_json::from_str(&code).unwrap();
-	writeln!(output,"{:?}",deserialized).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
+fn deserialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
+	let deserialized: Root = serde_json::from_str(&code).unwrap();
+	writeln!(output, "{:?}", deserialized).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())
 }
 fn pretty_print(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
@@ -138,7 +138,8 @@ fn init_logging() {
 			.init();
 
 		info!("Logging to file '{}'", logfile);
-	} else {
+	}
+	else {
 		env_logger::init();
 		info!("Hello! Logging to stderr...");
 	}
@@ -204,7 +205,7 @@ fn main() -> miette::Result<()> {
 			serialize(code, output)?;
 		},
 		"deserialize" => {
-			deserialize(code,output)?;
+			deserialize(code, output)?;
 		},
 		"compile" => {
 			println!("Not implemented!");

@@ -1,7 +1,7 @@
 use crate::parser::ast::{SourceLocation, TopDefinition};
 use crate::SourceSpan;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
-use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct Root {

@@ -1,5 +1,5 @@
+use serde::{Deserialize, Serialize};
 use std::ops::Range;
-use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
 /// Indicates a region in the source code

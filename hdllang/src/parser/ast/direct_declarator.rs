@@ -1,7 +1,7 @@
 use crate::parser::ast::{Expression, SourceLocation};
 use crate::{lexer::IdTableKey, SourceSpan};
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
-use serde::{Serialize, Deserialize};
 
 #[derive(Serialize, Deserialize)]
 pub struct DirectDeclarator {
@@ -12,7 +12,7 @@ pub struct DirectDeclarator {
 impl Debug for DirectDeclarator {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
 		write!(fmt, "{:?}", self.name)?;
-		for array in &self.array_declarators{
+		for array in &self.array_declarators {
 			write!(fmt, "[{:?}]", array)?;
 		}
 		Ok(())

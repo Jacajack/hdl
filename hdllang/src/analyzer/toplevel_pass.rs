@@ -10,14 +10,12 @@ impl<'source> AnalyzerPass<'source> for ToplevelPass {
 		for def in &ast.definitions {
 			use crate::parser::ast::TopDefinition::*;
 			match def {
-				ModuleDeclaration {
-					id,
-					..
-				} => debug!("Found module def for {:?}", ctx.id_table.get_by_key(id).unwrap()), // FIXME
-				ModuleImplementation {
-					id,
-					..
-				} => debug!("Found module impl for {:?}", ctx.id_table.get_by_key(id).unwrap()), // FIXME
+				ModuleDeclaration { id, .. } => {
+					debug!("Found module def for {:?}", ctx.id_table.get_by_key(id).unwrap())
+				}, // FIXME
+				ModuleImplementation { id, .. } => {
+					debug!("Found module impl for {:?}", ctx.id_table.get_by_key(id).unwrap())
+				}, // FIXME
 			}
 		}
 	}
