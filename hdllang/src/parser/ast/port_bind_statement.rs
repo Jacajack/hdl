@@ -1,6 +1,9 @@
 use crate::parser::ast::{Expression, SourceLocation, VariableDeclaration};
 use crate::{lexer::IdTableKey, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
 pub enum PortBindStatement {
 	OnlyId {
 		id: IdTableKey,

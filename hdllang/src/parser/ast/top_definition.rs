@@ -1,13 +1,18 @@
 use crate::parser::ast::{ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
-use crate::{lexer::IdTableKey, SourceSpan};
+use crate::{lexer::IdTableKey,lexer::CommentTableKey, SourceSpan};
 use std::fmt::{Debug, Error, Formatter};
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize)]
 pub enum TopDefinition {
 	ModuleDeclaration {
+		metadata: Vec<CommentTableKey>,
 		id: IdTableKey,
 		statements: Vec<ModuleDeclarationStatement>,
 		location: SourceSpan,
 	},
 	ModuleImplementation {
+		metadata: Vec<CommentTableKey>,
 		id: IdTableKey,
 		statement: Box<ModuleImplementationStatement>,
 		location: SourceSpan,
@@ -18,22 +23,22 @@ impl Debug for TopDefinition {
 		use self::TopDefinition::*;
 		match &self {
 			ModuleDeclaration {
-				id: _,
+				id,
 				statements,
-				location: _,
+				..
 			} => {
-				write!(fmt, "\nmodule foo {{")?;
+				write!(fmt, "\nmodule {:?} {{",id)?;
 				for module_declaration in statements.into_iter() {
 					write!(fmt, "\n{:?}", module_declaration)?;
 				}
 				write!(fmt, "}}")
 			},
 			ModuleImplementation {
-				id: _,
+				id,
 				statement,
-				location: _,
+				..
 			} => {
-				write!(fmt, "impl foo {:?}", statement)
+				write!(fmt, "\nimpl {:?} {:?}",id, statement)
 			},
 		}
 	}
