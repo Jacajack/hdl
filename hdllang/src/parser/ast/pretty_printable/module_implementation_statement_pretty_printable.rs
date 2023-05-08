@@ -36,7 +36,7 @@ impl PrettyPrintable for ModuleImplementationStatement {
 				lhs.pretty_print(ctx)?;
 				ctx.write(format!(" {:?} ", assignment_opcode).as_str())?;
 				rhs.pretty_print(ctx)?;
-				ctx.write(";")
+				ctx.writeln(";")
 			},
 			IfStatement {
 				condition,
@@ -48,9 +48,9 @@ impl PrettyPrintable for ModuleImplementationStatement {
 					ctx.writeln("")?;
 				}
 				ctx.after_brackets = false;
-				ctx.write_indent("if(")?;
+				ctx.write_indent("if (")?;
 				condition.pretty_print(ctx)?;
-				ctx.write(")")?;
+				ctx.write(") ")?;
 				if_statement.pretty_print(ctx)
 			},
 			IfElseStatement {
@@ -63,17 +63,13 @@ impl PrettyPrintable for ModuleImplementationStatement {
 					ctx.writeln("")?;
 				}
 				ctx.after_brackets = false;
-				ctx.write_indent("if(")?;
+				ctx.write_indent("if (")?;
 				condition.pretty_print(ctx)?;
-				ctx.write(")")?;
+				ctx.write(") ")?;
 				if_statement.pretty_print(ctx)?;
-				ctx.write(" else")?;
+				ctx.write(" else ")?;
 				ctx.after_brackets = false;
 				ctx.afer_else = true;
-				match else_statement.as_ref() {
-					IfStatement { .. } | IfElseStatement { .. } => ctx.write(" ")?,
-					_ => ctx.write("")?,
-				}
 				else_statement.pretty_print(ctx)
 			},
 			IterationStatement {
@@ -81,11 +77,11 @@ impl PrettyPrintable for ModuleImplementationStatement {
 			} => {
 				ctx.after_brackets = false;
 				ctx.write_indent("")?;
-				ctx.write("for(")?;
+				ctx.write("for (")?;
 				ctx.write(format!("{}", &ctx.get_id(*id)).as_str())?;
 				ctx.write(" in ")?;
 				range.pretty_print(ctx)?;
-				ctx.write(")")?;
+				ctx.write(") ")?;
 				statement.pretty_print(ctx)
 			},
 			InstantiationStatement {

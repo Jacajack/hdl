@@ -56,7 +56,7 @@ impl<'extras> PrettyPrinterContext<'extras> {
 	}
 	pub fn write_opt_newline(&mut self, s: &str) -> miette::Result<()> {
 		match self.newline_given {
-			true => self.write(s),
+			true => self.write_indent(s),
 			false => {
 				self.writeln("")?;
 				self.write_indent(s)
