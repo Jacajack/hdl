@@ -20,7 +20,7 @@ pub enum ParserErrorKind {
 	UnexpectedToken(TokenKind),
 	#[error("Invalid token")]
 	InvalidToken,
-	#[error("Unrecognized end of file")]
+	#[error("Unexpected end of file")]
 	UnrecognizedEof,
 	#[error("Other parser error")]
 	Other,
