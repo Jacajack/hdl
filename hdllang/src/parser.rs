@@ -7,17 +7,23 @@ pub use parser_context::ParserContext;
 pub use pretty_printer::PrettyPrinterContext;
 
 use crate::core::compiler_diagnostic::*;
-use crate::lexer::{KeywordKind, PunctuatorKind, TokenKind};
+use crate::lexer::{KeywordKind, LexerError, PunctuatorKind, TokenKind};
 use crate::SourceSpan;
+use lalrpop_util::ParseError;
 use std::fmt;
 use thiserror::Error;
-
 #[derive(Copy, Clone, Error, Debug)]
 pub enum ParserErrorKind {
 	#[error("Missing token")]
 	MissingToken(TokenKind),
 	#[error("Unexpected token")]
 	UnexpectedToken(TokenKind),
+	#[error("Unexpected token")]
+	InvalidToken,
+	#[error("Unexpected token")]
+	UnrecognizedEof,
+	#[error("Unexpected token")]
+	Other,
 }
 
 #[derive(Copy, Clone, Error, Debug)]
@@ -31,13 +37,40 @@ impl fmt::Display for ParserError {
 		write!(f, "{}", self.kind)
 	}
 }
-
+impl ParserError {
+	pub fn new_form_lalrpop_error(e: ParseError<usize, TokenKind, LexerError>) -> Self {
+		use ParserErrorKind::*;
+		match e {
+			ParseError::InvalidToken { location } => Self {
+				kind: InvalidToken,
+				range: SourceSpan::new_between(location, location + 1),
+			},
+			ParseError::UnrecognizedEof { location, expected: _ } => Self {
+				kind: UnrecognizedEof,
+				range: SourceSpan::new_between(location, location + 1),
+			},
+			ParseError::UnrecognizedToken { token, expected: _ } => Self {
+				kind: UnexpectedToken(token.1),
+				range: SourceSpan::new_between(token.0, token.2),
+			},
+			ParseError::ExtraToken { token } => Self {
+				kind: UnexpectedToken(token.1),
+				range: SourceSpan::new_between(token.0, token.2),
+			},
+			ParseError::User { .. } => Self {
+				kind: Other,
+				range: SourceSpan::new_between(0, 0),
+			},
+		}
+	}
+}
 impl ProvidesCompilerDiagnostic for ParserError {
 	fn to_diagnostic(&self) -> CompilerDiagnostic {
 		use KeywordKind::*;
+		use ParserErrorKind::*;
 		use PunctuatorKind::*;
 		match self.kind {
-			ParserErrorKind::MissingToken(kind) => CompilerDiagnosticBuilder::from_error(&self)
+			MissingToken(kind) => CompilerDiagnosticBuilder::from_error(&self)
 				.label(
 					self.range,
 					match kind {
@@ -58,10 +91,21 @@ impl ProvidesCompilerDiagnostic for ParserError {
 				)
 				.help("Please provide this token.")
 				.build(),
-
-			ParserErrorKind::UnexpectedToken(kind) => CompilerDiagnosticBuilder::from_error(&self)
+			UnexpectedToken(kind) => CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, format!("Unexpected token: {:?}", kind).as_str())
 				.help("Are you sure this token should be there?")
+				.build(),
+			InvalidToken => CompilerDiagnosticBuilder::from_error(&self)
+				.label(self.range, "Invalid token")
+				.help("Please replace this token with a valid one.")
+				.build(),
+			UnrecognizedEof => CompilerDiagnosticBuilder::from_error(&self)
+				.label(self.range, "Unexpected end of file")
+				.help("Please inspect the end of file and make sure it is valid.")
+				.build(),
+			Other => CompilerDiagnosticBuilder::from_error(&self)
+				.label(self.range, "Something went wrong")
+				.help("An unexpected error occured.")
 				.build(),
 		}
 	}

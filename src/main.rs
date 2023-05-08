@@ -5,6 +5,7 @@ use hdllang::core::DiagnosticBuffer;
 use hdllang::lexer::{Lexer, LogosLexer};
 use hdllang::parser::ast::Root;
 use hdllang::parser::pretty_printer::PrettyPrintable;
+use hdllang::parser::ParserError;
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
 use hdllang::{analyzer, parser};
@@ -62,7 +63,7 @@ fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
 	let parser = parser::IzuluParser::new();
-	let ast = parser.parse(&mut ctx, Some(&code), lexer);
+	let ast = parser.parse(&mut ctx, Some(&code), lexer).map_err(|e| ParserError::new_form_lalrpop_error(e).to_diagnostic())?;
 	let buffer = ctx.diagnostic_buffer;
 	println!("{}", buffer.to_string());
 	write!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_miette_report())?;
@@ -73,7 +74,9 @@ fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
 	let buf = Box::new(DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
-	let ast = parser::IzuluParser::new().parse(&mut ctx, Some(&code), &mut lexer);
+	let ast = parser::IzuluParser::new()
+		.parse(&mut ctx, Some(&code), &mut lexer)
+		.map_err(|e| ParserError::new_form_lalrpop_error(e).to_diagnostic())?;
 	println!("Ids: {:?}", lexer.id_table());
 	println!("Comments: {:?}", lexer.comment_table());
 	let id_table = lexer.id_table().clone();
@@ -82,7 +85,7 @@ fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut analyzer = analyzer::SemanticAnalyzer::new(&id_table, &comment_table);
 
 	writeln!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
-	analyzer.process(ast.as_ref().unwrap());
+	analyzer.process(&ast);
 	Ok(())
 }
 fn serialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
@@ -90,16 +93,13 @@ fn serialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
 	let parser = parser::IzuluParser::new();
-	let ast = parser.parse(&mut ctx, Some(&code), lexer);
+	let ast = parser
+		.parse(&mut ctx, Some(&code), lexer)
+		.map_err(|e| ParserError::new_form_lalrpop_error(e).to_diagnostic())?;
 	let buffer = ctx.diagnostic_buffer;
 	println!("{}", buffer.to_string());
-	match ast {
-		Ok(root) => {
-			writeln!(output, "{}", serde_json::to_string_pretty(&root).unwrap())
-				.map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
-		},
-		Err(err) => writeln!(&mut output, "{:?}", err).map_err(|e| CompilerError::IoError(e).to_diagnostic())?,
-	}
+	writeln!(output, "{}", serde_json::to_string_pretty(&ast).unwrap())
+		.map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())
 }
 fn deserialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
@@ -107,25 +107,22 @@ fn deserialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	writeln!(output, "{:?}", deserialized).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())
 }
-fn pretty_print(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
+fn pretty_print(code: String, output: Box<dyn Write>) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
 	let buf = Box::new(DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
-	let ast = parser::IzuluParser::new().parse(&mut ctx, Some(&code), &mut lexer);
+	let ast = parser::IzuluParser::new()
+		.parse(&mut ctx, Some(&code), &mut lexer)
+		.map_err(|e| ParserError::new_form_lalrpop_error(e).to_diagnostic())?;
 	let buffer = ctx.diagnostic_buffer;
 	println!("{}", buffer.to_string());
-	match ast {
-		Ok(root) => {
-			let mut printer = parser::pretty_printer::PrettyPrinterContext::new(
-				lexer.id_table(),
-				lexer.comment_table(),
-				lexer.numeric_constant_table(),
-				output,
-			);
-			root.pretty_print(&mut printer)?;
-		},
-		Err(err) => writeln!(&mut output, "{:?}", err).map_err(|e| CompilerError::IoError(e).to_diagnostic())?,
-	}
+	let mut printer = parser::pretty_printer::PrettyPrinterContext::new(
+		lexer.id_table(),
+		lexer.comment_table(),
+		lexer.numeric_constant_table(),
+		output,
+	);
+	ast.pretty_print(&mut printer)?;
 	Ok(())
 }
 fn init_logging() {
@@ -138,8 +135,7 @@ fn init_logging() {
 			.init();
 
 		info!("Logging to file '{}'", logfile);
-	}
-	else {
+	} else {
 		env_logger::init();
 		info!("Hello! Logging to stderr...");
 	}
