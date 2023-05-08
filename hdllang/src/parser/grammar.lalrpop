@@ -2,7 +2,7 @@ use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
 	 TypeSpecifier, TypeQualifier, TypeDeclarator, TypeName, MatchExpressionStatement,
 	 MatchExpressionAntecendent,TopDefinition,ModuleDeclarationStatement,VariableBlock,
 	 VariableBlockStatement, VariableDeclaration, DirectDeclarator,ModuleImplementationStatement,
-	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root, RangeExpression};
+	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root, RangeExpression, SourceLocation};
 use crate::lexer::*;
 use crate::parser::*; 
 use crate::SourceSpan;
@@ -206,7 +206,7 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 	
 }
 VarBlock: Box<VariableBlock>={
-	<start: @L> <mc: MetadataComments ?> <types:NonEmptySpace<TypeQualifier>> LBrace <statements:Space<VarBlockStmt>> RBrace Semicolon <end: @R> =>
+	<start: @L> <mc: MetadataComments ?> <types:NonEmptySpace<Qualifier>> LBrace <statements:Space<VarBlockStmt>> RBrace Semicolon <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
@@ -551,25 +551,42 @@ AssignmentOP: AssignmentOpcode={
 	"^=" => AssignmentOpcode::XorEqual,
 	"|=" => AssignmentOpcode::OrEqual,
 }
-TypeSpecifier: TypeSpecifier = {
+SynType: TypeSpecifier ={
 	<start:@L> "auto" <end:@R> => TypeSpecifier::Auto{
-		location:SourceSpan::new_between(start,end),
-	},
-	<start:@L> "int" <end:@R> => TypeSpecifier::Int{
 		location:SourceSpan::new_between(start,end),
 	},
 	<start:@L> "wire" <end:@R> => TypeSpecifier::Wire{
 		location:SourceSpan::new_between(start,end),
 	},
-	<start:@L> "bool" <end:@R> => TypeSpecifier::Bool{
-		location:SourceSpan::new_between(start,end),
-	},
-	<start:@L> "bus" "<" <width:Expression> ">" <end:@R> => TypeSpecifier::Bus{
+	<start:@L> "bus" <width:VecDecl> <end:@R> => TypeSpecifier::Bus{
 		width,
 		location:SourceSpan::new_between(start,end),
 	},
 }
-TypeQualifier: TypeQualifier = {
+CompType: TypeSpecifier = {
+	<start:@L> "int" <end:@R> => TypeSpecifier::Int{
+		location:SourceSpan::new_between(start,end),
+	},	
+	<start:@L> "bool" <end:@R> => TypeSpecifier::Bool{
+		location:SourceSpan::new_between(start,end),
+	},	
+}
+VecDecl: Box<Expression>={
+	"<" <Expression> ">",
+}
+QualifierWithDirection={
+	Direction,
+	Qualifier,
+}
+Direction: TypeQualifier={
+	<start:@L> "input" <end:@R> => TypeQualifier::Input{
+		location:SourceSpan::new_between(start,end),
+	},
+	<start:@L> "output" <end:@R> => TypeQualifier::Output{
+		location:SourceSpan::new_between(start,end),
+	},
+}
+Qualifier: TypeQualifier = {
 	<start:@L> "signed" <end:@R> => TypeQualifier::Signed{
 		location:SourceSpan::new_between(start,end),
 	},
@@ -580,12 +597,6 @@ TypeQualifier: TypeQualifier = {
 		location:SourceSpan::new_between(start,end),
 	},
 	<start:@L> "const" <end:@R> => TypeQualifier::Const{
-		location:SourceSpan::new_between(start,end),
-	},
-	<start:@L> "input" <end:@R> => TypeQualifier::Input{
-		location:SourceSpan::new_between(start,end),
-	},
-	<start:@L> "output" <end:@R> => TypeQualifier::Output{
 		location:SourceSpan::new_between(start,end),
 	},
 	<start:@L> "async" <end:@R> => TypeQualifier::Async{
@@ -605,11 +616,63 @@ TypeQualifier: TypeQualifier = {
 	
 }
 TypeDeclarator: TypeDeclarator ={
-	<start:@L> <qualifiers:Space<TypeQualifier>> <specifier:TypeSpecifier> <end:@R> => TypeDeclarator{
+	<start:@L> <dir:Direction?> <mut qualifiers:Space<Qualifier>> <specifier:SynType> <end:@R> =>{
+		if let Some(d)=dir{
+			qualifiers.splice(0..0, [d]);
+		};
+		TypeDeclarator{
 		specifier,
 		qualifiers,
 		location:SourceSpan::new_between(start,end),
-	}
+		}
+	},
+	<start:@L> <dir:Direction?> <specifier:CompType> <end:@R> =>{
+		let qualifiers = match dir{
+			Some(dir) => vec![dir],
+			None => vec![],
+		};
+		TypeDeclarator{
+		specifier,
+		qualifiers,
+		location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start:@L> <dir:Direction?> <mut qualifiers:NonEmptySpace<Qualifier>> <bus_expr:VecDecl?> <end:@R> =>{
+		if let Some(d)=dir{
+			qualifiers.splice(0..0, [d]);
+		};
+		let specifier = match bus_expr{
+			Some(expr) => TypeSpecifier::Bus{
+				location: expr.get_location(),
+				width: expr,
+			},
+			None => TypeSpecifier::Wire{
+				location:SourceSpan::new_between(start,end),
+			},
+		};
+		TypeDeclarator{
+		specifier,
+		qualifiers,
+		location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start:@L> <dir:Direction> <bus_expr:VecDecl?> <end:@R> =>{
+		let qualifiers = vec![dir];
+		let specifier = match bus_expr{
+			Some(expr) => TypeSpecifier::Bus{
+				location: expr.get_location(),
+				width: expr,
+			},
+			None => TypeSpecifier::Wire{
+				location:SourceSpan::new_between(start,end),
+			},
+		};
+		TypeDeclarator{
+		specifier,
+		qualifiers,
+		location:SourceSpan::new_between(start,end),
+		}
+	},
 }
 TypeName: TypeName ={
 	<start:@L> <declarator:TypeDeclarator> <array_declarators:Space<IndexExpr>> <end:@R> => TypeName{
