@@ -76,7 +76,7 @@ fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
 	let ast = parser::IzuluParser::new()
 		.parse(&mut ctx, Some(&code), &mut lexer)
-		.map_err(|e| ParserError::new_form_lalrpop_error(e).to_diagnostic())?;
+		.map_err(|e| ParserError::new_form_lalrpop_error(e).to_miette_report().with_source_code(code.clone()))?;
 	println!("Ids: {:?}", lexer.id_table());
 	println!("Comments: {:?}", lexer.comment_table());
 	let id_table = lexer.id_table().clone();
@@ -95,7 +95,7 @@ fn serialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let parser = parser::IzuluParser::new();
 	let ast = parser
 		.parse(&mut ctx, Some(&code), lexer)
-		.map_err(|e| ParserError::new_form_lalrpop_error(e).to_diagnostic())?;
+		.map_err(|e| ParserError::new_form_lalrpop_error(e).to_miette_report().with_source_code(code.clone()))?;
 	let buffer = ctx.diagnostic_buffer;
 	println!("{}", buffer.to_string());
 	writeln!(output, "{}", serde_json::to_string_pretty(&ast).unwrap())
@@ -113,7 +113,7 @@ fn pretty_print(code: String, output: Box<dyn Write>) -> miette::Result<()> {
 	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
 	let ast = parser::IzuluParser::new()
 		.parse(&mut ctx, Some(&code), &mut lexer)
-		.map_err(|e| ParserError::new_form_lalrpop_error(e).to_diagnostic())?;
+		.map_err(|e| ParserError::new_form_lalrpop_error(e).to_miette_report().with_source_code(code.clone()))?;
 	let buffer = ctx.diagnostic_buffer;
 	println!("{}", buffer.to_string());
 	let mut printer = parser::pretty_printer::PrettyPrinterContext::new(

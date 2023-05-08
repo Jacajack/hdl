@@ -18,11 +18,11 @@ pub enum ParserErrorKind {
 	MissingToken(TokenKind),
 	#[error("Unexpected token")]
 	UnexpectedToken(TokenKind),
-	#[error("Unexpected token")]
+	#[error("Invalid token")]
 	InvalidToken,
-	#[error("Unexpected token")]
+	#[error("Unrecognized end of file")]
 	UnrecognizedEof,
-	#[error("Unexpected token")]
+	#[error("Other parser error")]
 	Other,
 }
 
