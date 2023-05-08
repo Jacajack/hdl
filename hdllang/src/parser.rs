@@ -105,7 +105,7 @@ impl ProvidesCompilerDiagnostic for ParserError {
 				.build(),
 			Other => CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "Something went wrong")
-				.help("An unexpected error occured.")
+				.help("An unexpected parser error occurred.")
 				.build(),
 		}
 	}
