@@ -101,7 +101,7 @@ impl ProvidesCompilerDiagnostic for ParserError {
 				.build(),
 			UnrecognizedEof => CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "Unexpected end of file")
-				.help("Please inspect the end of file and make sure it is valid.")
+				.help("Did not expect end of file here. Are you sure it's not truncated?")
 				.build(),
 			Other => CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "Something went wrong")
