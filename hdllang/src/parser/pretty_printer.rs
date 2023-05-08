@@ -37,7 +37,7 @@ impl<'extras> PrettyPrinterContext<'extras> {
 	}
 	pub fn write_indent(&mut self, s: &str) -> miette::Result<()> {
 		match self.newline_given {
-			true => write!(self.output, "{}{}", " ".repeat(self.indentation_level), s)
+			true => write!(self.output, "{}{}", "\t".repeat(self.indentation_level), s)
 				.map_err(|e| CompilerError::IoError(e).to_diagnostic())?,
 			false => self.write(s)?,
 		}
@@ -74,11 +74,11 @@ impl<'extras> PrettyPrinterContext<'extras> {
 	}
 	pub fn increase_indent(&mut self) {
 		//println!("increase_indent");
-		self.indentation_level += 4;
+		self.indentation_level += 1;
 	}
 	pub fn decrease_indent(&mut self) {
 		//println!("decrease_indent");
-		self.indentation_level -= 4;
+		self.indentation_level -= 1;
 	}
 }
 pub trait PrettyPrintable {
