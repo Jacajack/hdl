@@ -6,6 +6,7 @@ pub mod analyzer;
 pub mod core;
 pub mod lexer;
 pub mod parser;
+mod hirn;
 
 pub use crate::core::compiler_diagnostic;
 pub use crate::core::CompilerDiagnostic;
