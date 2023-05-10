@@ -8,6 +8,7 @@ pub struct NumericConstantTableKey {
 	key: usize,
 }
 
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NumericConstantTable {
 	constants: HashMap<NumericConstantTableKey, NumericConstant>,
 }
