@@ -9,7 +9,7 @@ impl PrettyPrintable for ModuleImplementationStatement {
 				ctx.after_brackets = false;
 				ctx.write_indent("")?;
 				declaration.pretty_print(ctx)?;
-				ctx.write(";")
+				ctx.writeln(";")
 			},
 			VariableBlock { block, .. } => {
 				ctx.after_brackets = false;
@@ -23,7 +23,7 @@ impl PrettyPrintable for ModuleImplementationStatement {
 				ctx.after_brackets = false;
 				ctx.write_indent("")?;
 				definition.pretty_print(ctx)?;
-				ctx.write(";")
+				ctx.writeln(";")
 			},
 			AssignmentStatement {
 				lhs,
