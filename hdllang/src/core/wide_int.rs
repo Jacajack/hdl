@@ -1,17 +1,18 @@
 use derive_more::{Add, Display};
 use num_bigint::BigInt;
 use num_bigint::BigUint;
+use serde::{Deserialize, Serialize};
 
 /// Dynamic-wdith signed integer
 /// Backbone of all integer operations in the compiler
-#[derive(Clone, Add, Display)]
+#[derive(Clone, Add, Display, Serialize, Deserialize)]
 pub struct WideInt {
 	value: BigInt,
 }
 
 /// Dynamic-wdith unsigned integer
 /// Backbone of all integer operations in the compiler
-#[derive(Clone, Display, Debug, PartialEq, Eq)]
+#[derive(Clone, Display, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WideUint {
 	value: BigUint,
 }

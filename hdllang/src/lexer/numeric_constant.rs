@@ -1,6 +1,8 @@
 use crate::core::WideUint;
+use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug)]
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NumericConstant {
 	pub value: WideUint,
 	pub width: Option<u32>,
