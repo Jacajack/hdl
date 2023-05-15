@@ -99,7 +99,6 @@ pub enum TokenKind {
 	Id(IdTableKey),
 
 	#[token("module",          |_| KeywordKind::Module)]
-	#[token("register",        |_| KeywordKind::Register)]
 	#[token("input",           |_| KeywordKind::Input)]
 	#[token("output",          |_| KeywordKind::Output)]
 	#[token("default",         |_| KeywordKind::Default)]
@@ -119,9 +118,6 @@ pub enum TokenKind {
 	#[token("auto",            |_| KeywordKind::Auto)]
 	#[token("unused",          |_| KeywordKind::Unused)]
 	#[token("const",           |_| KeywordKind::Const)]
-	#[token("ff_sync",         |_| KeywordKind::FfSync)]
-	#[token("clock_gate",      |_| KeywordKind::ClockGate)]
-	#[token("tristate_buffer", |_| KeywordKind::TristateBuffer)]
 	#[token("enum",            |_| KeywordKind::Enum)]
 	#[token("if",              |_| KeywordKind::If)]
 	#[token("else",            |_| KeywordKind::Else)]
