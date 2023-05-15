@@ -14,7 +14,7 @@ impl PrettyPrintable for MatchExpressionAntecendent {
 		use MatchExpressionAntecendent::*;
 		match self {
 			Expression { expression, .. } => expression.pretty_print(ctx),
-			Default { .. } => todo!(),
+			Default { .. } => ctx.write("default"),
 		}
 	}
 }
