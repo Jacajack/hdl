@@ -1,4 +1,4 @@
-
+#!/bin/env python3
 from fuzzingbook.Grammars import is_valid_grammar, convert_ebnf_grammar
 from fuzzingbook.GeneratorGrammarFuzzer import ProbabilisticGeneratorGrammarCoverageFuzzer
 from grammar import GRAMMAR
