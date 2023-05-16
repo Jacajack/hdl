@@ -16,7 +16,7 @@ pub Izulu: Root={
 		}
 }
 TopDef: TopDefinition={
-	<start: @L> <mc:MetadataComments ?> "module" <id:"Id"> LBrace <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
+	<start: @L> <mc:MetadataComments ?> "module" <id:"Id"> "{" <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
@@ -96,14 +96,14 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 		IfStmt,			
 }
 ModuleImplBlockStmt: Box<ModuleImplementationStatement> ={
-	<start: @L>  LBrace <statements:NonEmptySpace<ModuleImplStmt>> "}" <end: @R> =>
+	<start: @L>  "{" <statements:NonEmptySpace<ModuleImplStmt>> "}" <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::ModuleImplementationBlockStatement{
 				statements,
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start: @L>  LBrace  "}" <end: @R> =>
+	<start: @L>  "{"  "}" <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::ModuleImplementationBlockStatement{
 				statements:vec![],
@@ -206,12 +206,15 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 	
 }
 VarBlock: Box<VariableBlock>={
-	<start: @L> <mc: MetadataComments ?> <types:NonEmptySpace<Qualifier>> LBrace <statements:Space<VarBlockStmt>> RBrace Semicolon <end: @R> =>
+	<start: @L> <mc: MetadataComments ?> <dir:Direction?> <mut types:NonEmptySpace<Qualifier>> "{" <statements:Space<VarBlockStmt>> RBrace Semicolon <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
 			None => vec![],
 		};	
+		if let Some(d)=dir{
+			types.splice(0..0, [d]);
+		};
 		Box::new(VariableBlock{
 			metadata,
 			types,
@@ -276,8 +279,8 @@ MatchExpressionStatement: MatchExpressionStatement = {
 		}
 }
 MatchExpressionAntecendent: MatchExpressionAntecendent = {
-	<start: @L> <expression:Expr> <end: @R> => MatchExpressionAntecendent::Expression{
-		expression,
+	<start: @L> <expressions:NonEmptyComma<Expr>> <end: @R> => MatchExpressionAntecendent::Expression{
+		expressions,
 		location:SourceSpan::new_between(start,end),
 	},
 	<start:@L> "default" <end:@R> =>MatchExpressionAntecendent::Default{
@@ -307,7 +310,7 @@ Expression: Box<Expression> = {
 			}
 		),
 	
-	<start:@L> "match" LPar <value:Expr> ")" LBrace <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
+	<start:@L> "match" "(" <value:Expr> ")" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
 		Box::new(
 			Expression::MatchExpression{
 				value,
@@ -315,7 +318,7 @@ Expression: Box<Expression> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start:@L> "conditional" LBrace <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
+	<start:@L> "conditional" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
 		Box::new(
 			Expression::ConditionalExpression{
 				statements,
@@ -328,7 +331,7 @@ ExprWithTuple:Box<Expression>={
 	Expr,
 }
 TupleExpr: Box<Expression> ={
-	<start:@L> LBrace <expressions:OptComma<Expr>> RBrace <end:@R> =>
+	<start:@L> "{" <expressions:OptComma<Expr>> RBrace <end:@R> =>
 		Box::new(
 			Expression::Tuple{
 				expressions,
