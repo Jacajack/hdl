@@ -13,11 +13,12 @@ impl PrettyPrintable for ModuleImplementationStatement {
 			},
 			VariableBlock { block, .. } => {
 				ctx.after_brackets = false;
-				ctx.writeln("{")?;
-				ctx.increase_indent();
-				block.pretty_print(ctx)?;
-				ctx.decrease_indent();
-				ctx.write("}")
+				// ctx.writeln("{")?;
+				// ctx.increase_indent();
+				ctx.write("dupa")?;
+				block.pretty_print(ctx)
+				// ctx.decrease_indent();
+				// ctx.write("}")
 			},
 			VariableDefinitionStatement { definition, .. } => {
 				ctx.after_brackets = false;
@@ -92,13 +93,16 @@ impl PrettyPrintable for ModuleImplementationStatement {
 			} => {
 				ctx.after_brackets = false;
 				ctx.write_indent("")?;
-				ctx.write(format!("{}", &ctx.get_id(*id1)).as_str())?;
-				ctx.write(format!("{}", &ctx.get_id(*id2)).as_str())?;
+				ctx.write(format!("{} ", &ctx.get_id(*id1)).as_str())?;
+				ctx.write(format!("{} ", &ctx.get_id(*id2)).as_str())?;
 				ctx.increase_indent();
 				ctx.writeln("{")?;
 				for statement in port_bind {
+					ctx.write_indent("")?;
 					statement.pretty_print(ctx)?;
 				}
+				ctx.decrease_indent();
+				ctx.write_indent("")?;
 				ctx.writeln("}")
 			},
 			ModuleImplementationBlockStatement { statements, .. } => {

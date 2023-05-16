@@ -11,10 +11,11 @@ impl PrettyPrintable for VariableBlockStatement {
 			},
 			VariableBlock { block, .. } => {
 				ctx.increase_indent();
-				ctx.writeln("{")?;
+				//ctx.writeln("{")?;
 				block.pretty_print(ctx)?;
 				ctx.decrease_indent();
-				ctx.writeln("}")
+				Ok(())
+				//ctx.writeln("}")
 			},
 		}
 	}
