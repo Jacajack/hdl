@@ -609,8 +609,8 @@ Qualifier: TypeQualifier = {
 		expression,
 		location:SourceSpan::new_between(start,end),
 	},
-	<start:@L> "sync" LPar <expression:Expr> ")" <end:@R> => TypeQualifier::Sync{
-		expression,
+	<start:@L> "sync" LPar <expressions:NonEmptyComma<Expr>> ")" <end:@R> => TypeQualifier::Sync{
+		expressions,
 		location:SourceSpan::new_between(start,end),
 	},
 	<start:@L> "clock" <end:@R> => TypeQualifier::Clock{
