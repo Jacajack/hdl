@@ -43,6 +43,22 @@ impl PrettyPrintable for TopDefinition {
 				ctx.writeln("")?;
 				Ok(())
 			},
+    		PackageDeclaration { metadata, path, .. } => {
+				for comment in metadata.iter() {
+					ctx.writeln(format!("///{}", ctx.get_comment(*comment)).as_str())?;
+				}
+				ctx.write_indent("package ")?;
+				path.pretty_print(ctx)?;
+				ctx.writeln(";")
+			},
+    		UseStatement { metadata, path, .. } => {
+				for comment in metadata.iter() {
+					ctx.writeln(format!("///{}", ctx.get_comment(*comment)).as_str())?;
+				}
+				ctx.write_indent("use ")?;
+				path.pretty_print(ctx)?;
+				ctx.writeln(";")
+			},
 		}
 	}
 }

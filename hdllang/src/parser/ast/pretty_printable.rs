@@ -16,6 +16,8 @@ mod variable_block_pretty_printable;
 mod variable_block_statement_pretty_printable;
 mod variable_declaration_pretty_printable;
 mod variable_definition_pretty_printable;
+mod import_path_pretty_printable;
+pub use import_path_pretty_printable::*;
 pub use direct_declarator_pretty_printable::*;
 pub use direct_initializer_pretty_printable::*;
 pub use expressions_pretty_printable::*;

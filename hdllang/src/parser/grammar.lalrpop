@@ -2,7 +2,7 @@ use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
 	 TypeSpecifier, TypeQualifier, TypeDeclarator, TypeName, MatchExpressionStatement,
 	 MatchExpressionAntecendent,TopDefinition,ModuleDeclarationStatement,VariableBlock,
 	 VariableBlockStatement, VariableDeclaration, DirectDeclarator,ModuleImplementationStatement,
-	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root, RangeExpression, SourceLocation};
+	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root, RangeExpression, SourceLocation, ImportPath, Start, Modules};
 use crate::lexer::*;
 use crate::parser::*; 
 use crate::SourceSpan;
@@ -41,7 +41,64 @@ TopDef: TopDefinition={
 			statement,
 			location:SourceSpan::new_between(start,end),
 		}},
-	}
+	<start: @L> <mc:MetadataComments ?> "package" <path:ImportPath> ";"  <end: @R> =>
+		{
+			let metadata = match mc{
+				Some(mc) => mc,
+				None => vec![],
+			};
+			TopDefinition::PackageDeclaration{
+				metadata,
+				path,
+				location:SourceSpan::new_between(start,end),
+			}
+
+		},
+		<start: @L> <mc:MetadataComments ?> "use" <path:ImportPath> ";"  <end: @R> =>
+		{
+			let metadata = match mc{
+				Some(mc) => mc,
+				None => vec![],
+			};
+			TopDefinition::UseStatement{
+				metadata,
+				path,
+				location:SourceSpan::new_between(start,end),
+			}
+
+		},
+}
+ImportPath: ImportPath={
+	<start: @L> "super" "::" <path:DoubleColon<"Id">> <modules:Modules> <end: @R> =>{
+		ImportPath{
+			start:Start::Super,
+			path,
+			modules,
+			location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start: @L> "::" <path:DoubleColon<"Id">> <modules:Modules> <end: @R> =>{
+		ImportPath{
+			start:Start::Root,
+			path,
+			modules,
+			location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start: @L> <path:DoubleColon<"Id">> <modules:Modules> <end: @R> =>{
+		ImportPath{
+			start:Start::Local,
+			path,
+			modules,
+			location:SourceSpan::new_between(start,end),
+		}
+	},
+}
+Modules :Modules = {
+	<id:"Id"> => Modules::Specific{modules: vec![id]},
+	"{" <modules:NonEmptyOptComma<"Id">> "}" => Modules::Specific{modules},
+	"*" => Modules::All,
+}
 ModuleImplStmt: Box<ModuleImplementationStatement> = {
 	<start: @L>  <block:VarBlock> <end: @R> =>
 		Box::new(
@@ -481,6 +538,10 @@ OptComma<T>: Vec<T> = { // (1)
         }
     }
 };
+#[inline]
+DoubleColon<T>: Vec<T> = { // (1)
+    <v:(<T> "::")+> => v
+};
 NonEmptyOptComma<T>: Vec<T> = { // (1)
     <b:T> <mut v:("," <T>)*> ","? => match v.len() { // (2)
         0 => {
@@ -783,6 +844,9 @@ extern {
 		"in"              => TokenKind::Keyword(KeywordKind::In),
 		"for"             => TokenKind::Keyword(KeywordKind::For),
 		"bool"            => TokenKind::Keyword(KeywordKind::Bool),
+		"super"           => TokenKind::Keyword(KeywordKind::Super),
+		"package"         => TokenKind::Keyword(KeywordKind::Package),
+		"use"             => TokenKind::Keyword(KeywordKind::Use),
 		"("               => TokenKind::Punctuator(PunctuatorKind::LPar),
 		")"               => TokenKind::Punctuator(PunctuatorKind::RPar),
 		"{"               => TokenKind::Punctuator(PunctuatorKind::LBrace),
@@ -811,6 +875,7 @@ extern {
 		"<"				  => TokenKind::Punctuator(PunctuatorKind::Less),
 		"?"				  => TokenKind::Punctuator(PunctuatorKind::QuestionMark),
 		":"				  => TokenKind::Punctuator(PunctuatorKind::Colon),
+		"::"              => TokenKind::Punctuator(PunctuatorKind::DoubleColon),
 		">>"			  => TokenKind::Punctuator(PunctuatorKind::RShift),
 		"<<"			  => TokenKind::Punctuator(PunctuatorKind::LShift),
 		"<="			  => TokenKind::Punctuator(PunctuatorKind::LessEqual),
@@ -822,7 +887,6 @@ extern {
 		"+:"			  => TokenKind::Punctuator(PunctuatorKind::PlusColon),
 		"=>"			  => TokenKind::Punctuator(PunctuatorKind::Implies),
 		"MC"              => TokenKind::MetadataComment(<CommentTableKey>),
-
 
 
     }

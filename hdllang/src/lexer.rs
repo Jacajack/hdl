@@ -99,6 +99,9 @@ pub enum KeywordKind {
 	Unsigned,
 	Unused,
 	Wire,
+	Use,
+	Package,
+	Super,
 }
 
 /// All language punctuators
@@ -115,6 +118,7 @@ pub enum PunctuatorKind {
 	BitwiseOr,      // |
 	BitwiseXor,     // ^
 	Colon,          // :
+	DoubleColon,    // ::
 	Comma,          // ,
 	Dot,            // .
 	Equals,         // ==
