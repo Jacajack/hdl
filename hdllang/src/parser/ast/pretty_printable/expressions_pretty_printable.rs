@@ -64,9 +64,10 @@ impl PrettyPrintable for Expression {
 			},
 			PostfixWithRange { expression, range, .. } => {
 				expression.pretty_print(ctx)?;
-				ctx.write("[")?;
+				//ctx.write("[")?;
 				range.pretty_print(ctx)?;
-				ctx.write("]")
+				//ctx.write("]")
+				Ok(())
 			},
 			PostfixWithArgs {
 				expression,
