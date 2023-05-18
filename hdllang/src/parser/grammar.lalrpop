@@ -563,6 +563,7 @@ NonEmptySpace<T>: Vec<T> = { // (1)
 RangeOp: RangeOpcode={
 	":"  => RangeOpcode::Colon,
 	"+:" => RangeOpcode::PlusColon,
+	":<" => RangeOpcode::ColonLessThan,
 }
 ShiftOp: BinaryOpcode={
 	">>" => BinaryOpcode::RShift,
@@ -885,6 +886,7 @@ extern {
 		"&&"			  => TokenKind::Punctuator(PunctuatorKind::LogicalAnd),
 		"||"			  => TokenKind::Punctuator(PunctuatorKind::LogicalOr),
 		"+:"			  => TokenKind::Punctuator(PunctuatorKind::PlusColon),
+		":<"			  => TokenKind::Punctuator(PunctuatorKind::ColonLessThan),
 		"=>"			  => TokenKind::Punctuator(PunctuatorKind::Implies),
 		"MC"              => TokenKind::MetadataComment(<CommentTableKey>),
 

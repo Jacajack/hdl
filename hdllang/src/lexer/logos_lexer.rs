@@ -168,6 +168,7 @@ pub enum TokenKind {
 	#[token("=>", |_| PunctuatorKind::Implies)]
 	#[token("+:", |_| PunctuatorKind::PlusColon)]
 	#[token("::", |_| PunctuatorKind::DoubleColon)]
+	#[token(":<", |_| PunctuatorKind::ColonLessThan)]
 	Punctuator(PunctuatorKind),
 }
 

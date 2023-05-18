@@ -5,6 +5,7 @@ use std::fmt::{Debug, Error, Formatter};
 pub enum RangeOpcode {
 	Colon,
 	PlusColon,
+	ColonLessThan,
 }
 #[derive(Serialize, Deserialize, Copy, Clone)]
 pub enum UnaryOpcode {
@@ -66,6 +67,7 @@ impl Debug for RangeOpcode {
 		match *self {
 			Colon => write!(fmt, ":"),
 			PlusColon => write!(fmt, "+:"),
+			ColonLessThan => write!(fmt, ":<"),
 		}
 	}
 }
