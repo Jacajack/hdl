@@ -344,7 +344,7 @@ MatchExpressionAntecendent: MatchExpressionAntecendent = {
 		location:SourceSpan::new_between(start,end),
 	},
 }
-Expression: Box<Expression> = {
+PrimaryExpression: Box<Expression> = {
 	<start:@L> <key:"NumericConstant"> <end:@R> => 
 		Box::new(
 			Expression::Number{
@@ -406,7 +406,7 @@ pub RangeExpr :  RangeExpression = {
 		}
 }
 IndexExpr : Box<Expression> ={
-	"[" <PostfixExpr> "]"
+	"[" <Expr> "]"
 }
 PostfixExpr: Box<Expression>={
 	<start:@L> <expression:PostfixExpr> "." <id:"Id"> <end:@R> =>
@@ -453,7 +453,7 @@ PostfixExpr: Box<Expression>={
 				}
 			),
 		},		
-	Expression,
+	PrimaryExpression,
 }
 UnaryExpr: Box<Expression> ={
 	<start:@L> <code:UnaryExprOP> <expression:PostfixExpr>  <end:@R> => 
@@ -636,7 +636,7 @@ CompType: TypeSpecifier = {
 	},	
 }
 VecDecl: Box<Expression>={
-	"<" <Expression> ">",
+	"<" <PrimaryExpression> ">",
 }
 QualifierWithDirection={
 	Direction,
