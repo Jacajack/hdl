@@ -23,16 +23,6 @@ impl PrettyPrintable for ImportPath {
         ctx.write("::")?;
         self.modules.pretty_print(ctx)?;
         Ok(())
-        // match self.modules.len(){
-        //     1 => ctx.write(format!("{}", &ctx.get_id(self.modules[0])).as_str()),
-        //     _ => {
-        //         ctx.write("{")?;
-        //         for module in &self.modules {
-        //             ctx.write(format!("{},", &ctx.get_id(*module)).as_str())?;
-        //         }
-        //         ctx.write("}")
-        //     }
-        // }
 	}
 }
 
