@@ -49,7 +49,7 @@ impl PrettyPrintable for Modules {
                     _ => {
                         ctx.write("{")?;
                         for module in modules {
-                            ctx.write(format!("{},", &ctx.get_id(*module)).as_str())?;
+                            ctx.write(format!("{}, ", &ctx.get_id(*module)).as_str())?;
                         }
                         ctx.write("}")
                     }
