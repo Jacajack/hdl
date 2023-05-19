@@ -19,7 +19,9 @@ impl SourceLocation for ImportPath {
 #[derive(Serialize, Deserialize, Debug)]
 
 pub enum Start {
-	Super,
+	Super{
+		number: usize,
+	},
 	Root,
 	Local,
 }

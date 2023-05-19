@@ -4,8 +4,10 @@ use crate::parser::pretty_printer::*;
 impl PrettyPrintable for ImportPath {
 	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
         match &self.start {
-            Start::Super => {
-                ctx.write("super::")?;
+            Start::Super{number } => {
+                for _ in 0..*number {
+                    ctx.write("super::")?;
+                }
             },
             Start::Root => {
                 ctx.write("::")?;

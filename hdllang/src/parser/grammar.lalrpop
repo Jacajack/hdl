@@ -69,15 +69,17 @@ TopDef: TopDefinition={
 		},
 }
 ImportPath: ImportPath={
-	<start: @L> "super" "::" <path:DoubleColon<"Id">> <modules:Modules> <end: @R> =>{
+	<start: @L> <quantity: ("super" "::")+> <path:DoubleColon<"Id">> <modules:Modules> <end: @R> =>{
 		ImportPath{
-			start:Start::Super,
+			start:Start::Super{
+				number: quantity.len()
+			},
 			path,
 			modules,
 			location:SourceSpan::new_between(start,end),
 		}
 	},
-	<start: @L> "::" <path:DoubleColon<"Id">> <modules:Modules> <end: @R> =>{
+	<start: @L> "root" "::" <path:DoubleColon<"Id">> <modules:Modules> <end: @R> =>{
 		ImportPath{
 			start:Start::Root,
 			path,
@@ -847,6 +849,7 @@ extern {
 		"super"           => TokenKind::Keyword(KeywordKind::Super),
 		"package"         => TokenKind::Keyword(KeywordKind::Package),
 		"use"             => TokenKind::Keyword(KeywordKind::Use),
+		"root"            => TokenKind::Keyword(KeywordKind::Root),
 		"("               => TokenKind::Punctuator(PunctuatorKind::LPar),
 		")"               => TokenKind::Punctuator(PunctuatorKind::RPar),
 		"{"               => TokenKind::Punctuator(PunctuatorKind::LBrace),
