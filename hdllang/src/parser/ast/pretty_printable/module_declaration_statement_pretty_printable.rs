@@ -10,11 +10,12 @@ impl PrettyPrintable for ModuleDeclarationStatement {
 				ctx.writeln(";")
 			},
 			VariableBlock { block, .. } => {
-				ctx.increase_indent();
-				ctx.writeln("{")?;
+				// ctx.increase_indent();
+				// ctx.writeln("{")?;
 				block.pretty_print(ctx)?;
-				ctx.decrease_indent();
-				ctx.writeln("}")
+				Ok(())
+				// ctx.decrease_indent();
+				// ctx.writeln("}")
 			},
 		}
 	}

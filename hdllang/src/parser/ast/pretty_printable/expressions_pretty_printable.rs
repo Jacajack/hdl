@@ -13,15 +13,16 @@ impl PrettyPrintable for Expression {
 				ctx.write(")")
 			},
 			MatchExpression { value, statements, .. } => {
-				ctx.write("match ")?;
+				ctx.write("match (")?;
 				value.pretty_print(ctx)?;
+				ctx.write(")")?;
 				ctx.increase_indent();
 				ctx.writeln(" {")?;
 				for statement in statements {
 					statement.pretty_print(ctx)?;
 				}
 				ctx.decrease_indent();
-				ctx.writeln("}")
+				ctx.write_indent("}")
 			},
 			ConditionalExpression { statements, .. } => {
 				ctx.write("conditional")?;
@@ -63,9 +64,10 @@ impl PrettyPrintable for Expression {
 			},
 			PostfixWithRange { expression, range, .. } => {
 				expression.pretty_print(ctx)?;
-				ctx.write("[")?;
+				//ctx.write("[")?;
 				range.pretty_print(ctx)?;
-				ctx.write("]")
+				//ctx.write("]")
+				Ok(())
 			},
 			PostfixWithArgs {
 				expression,

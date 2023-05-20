@@ -7,21 +7,16 @@ impl PrettyPrintable for ModuleImplementationStatement {
 		match self {
 			VariableDeclarationStatement { declaration, .. } => {
 				ctx.after_brackets = false;
-				ctx.write_indent("")?;
+				ctx.write_opt_newline("")?;
 				declaration.pretty_print(ctx)?;
 				ctx.writeln(";")
 			},
 			VariableBlock { block, .. } => {
-				ctx.after_brackets = false;
-				ctx.writeln("{")?;
-				ctx.increase_indent();
-				block.pretty_print(ctx)?;
-				ctx.decrease_indent();
-				ctx.write("}")
+				block.pretty_print(ctx)
 			},
 			VariableDefinitionStatement { definition, .. } => {
 				ctx.after_brackets = false;
-				ctx.write_indent("")?;
+				ctx.write_opt_newline("")?;
 				definition.pretty_print(ctx)?;
 				ctx.writeln(";")
 			},
@@ -32,7 +27,7 @@ impl PrettyPrintable for ModuleImplementationStatement {
 				..
 			} => {
 				ctx.after_brackets = false;
-				ctx.write_indent("")?;
+				ctx.write_opt_newline("")?;
 				lhs.pretty_print(ctx)?;
 				ctx.write(format!(" {:?} ", assignment_opcode).as_str())?;
 				rhs.pretty_print(ctx)?;
@@ -76,7 +71,7 @@ impl PrettyPrintable for ModuleImplementationStatement {
 				id, range, statement, ..
 			} => {
 				ctx.after_brackets = false;
-				ctx.write_indent("")?;
+				ctx.write_opt_newline("")?;
 				ctx.write("for (")?;
 				ctx.write(format!("{}", &ctx.get_id(*id)).as_str())?;
 				ctx.write(" in ")?;
@@ -91,14 +86,17 @@ impl PrettyPrintable for ModuleImplementationStatement {
 				..
 			} => {
 				ctx.after_brackets = false;
-				ctx.write_indent("")?;
-				ctx.write(format!("{}", &ctx.get_id(*id1)).as_str())?;
-				ctx.write(format!("{}", &ctx.get_id(*id2)).as_str())?;
+				ctx.write_opt_newline("")?;
+				ctx.write(format!("{} ", &ctx.get_id(*id1)).as_str())?;
+				ctx.write(format!("{} ", &ctx.get_id(*id2)).as_str())?;
 				ctx.increase_indent();
 				ctx.writeln("{")?;
 				for statement in port_bind {
+					ctx.write_indent("")?;
 					statement.pretty_print(ctx)?;
 				}
+				ctx.decrease_indent();
+				ctx.write_indent("")?;
 				ctx.writeln("}")
 			},
 			ModuleImplementationBlockStatement { statements, .. } => {
@@ -107,7 +105,7 @@ impl PrettyPrintable for ModuleImplementationStatement {
 					ctx.writeln("")?;
 				}
 				ctx.write_indent("{")?;
-				ctx.writeln("")?;
+				ctx.after_brackets = true;
 				ctx.increase_indent();
 				for statement in statements {
 					statement.pretty_print(ctx)?;

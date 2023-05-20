@@ -2,7 +2,7 @@ use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
 	 TypeSpecifier, TypeQualifier, TypeDeclarator, TypeName, MatchExpressionStatement,
 	 MatchExpressionAntecendent,TopDefinition,ModuleDeclarationStatement,VariableBlock,
 	 VariableBlockStatement, VariableDeclaration, DirectDeclarator,ModuleImplementationStatement,
-	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root, RangeExpression, SourceLocation};
+	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root, RangeExpression, SourceLocation, ImportPath, Start, Modules};
 use crate::lexer::*;
 use crate::parser::*; 
 use crate::SourceSpan;
@@ -16,7 +16,7 @@ pub Izulu: Root={
 		}
 }
 TopDef: TopDefinition={
-	<start: @L> <mc:MetadataComments ?> "module" <id:"Id"> LBrace <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
+	<start: @L> <mc:MetadataComments ?> "module" <id:"Id"> "{" <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
@@ -41,7 +41,66 @@ TopDef: TopDefinition={
 			statement,
 			location:SourceSpan::new_between(start,end),
 		}},
-	}
+	<start: @L> <mc:MetadataComments ?> "package" <path:ImportPath> ";"  <end: @R> =>
+		{
+			let metadata = match mc{
+				Some(mc) => mc,
+				None => vec![],
+			};
+			TopDefinition::PackageDeclaration{
+				metadata,
+				path,
+				location:SourceSpan::new_between(start,end),
+			}
+
+		},
+		<start: @L> <mc:MetadataComments ?> "use" <path:ImportPath> ";"  <end: @R> =>
+		{
+			let metadata = match mc{
+				Some(mc) => mc,
+				None => vec![],
+			};
+			TopDefinition::UseStatement{
+				metadata,
+				path,
+				location:SourceSpan::new_between(start,end),
+			}
+
+		},
+}
+ImportPath: ImportPath={
+	<start: @L> <quantity: ("super" "::")+> <path:DoubleColon<"Id">> <modules:Modules> <end: @R> =>{
+		ImportPath{
+			start:Start::Super{
+				number: quantity.len()
+			},
+			path,
+			modules,
+			location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start: @L> "root" "::" <path:DoubleColon<"Id">> <modules:Modules> <end: @R> =>{
+		ImportPath{
+			start:Start::Root,
+			path,
+			modules,
+			location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start: @L> <path:DoubleColon<"Id">> <modules:Modules> <end: @R> =>{
+		ImportPath{
+			start:Start::Local,
+			path,
+			modules,
+			location:SourceSpan::new_between(start,end),
+		}
+	},
+}
+Modules :Modules = {
+	<id:"Id"> => Modules::Specific{modules: vec![id]},
+	"{" <modules:NonEmptyOptComma<"Id">> "}" => Modules::Specific{modules},
+	"*" => Modules::All,
+}
 ModuleImplStmt: Box<ModuleImplementationStatement> = {
 	<start: @L>  <block:VarBlock> <end: @R> =>
 		Box::new(
@@ -96,14 +155,14 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 		IfStmt,			
 }
 ModuleImplBlockStmt: Box<ModuleImplementationStatement> ={
-	<start: @L>  LBrace <statements:NonEmptySpace<ModuleImplStmt>> "}" <end: @R> =>
+	<start: @L>  "{" <statements:NonEmptySpace<ModuleImplStmt>> "}" <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::ModuleImplementationBlockStatement{
 				statements,
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start: @L>  LBrace  "}" <end: @R> =>
+	<start: @L>  "{"  "}" <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::ModuleImplementationBlockStatement{
 				statements:vec![],
@@ -206,12 +265,15 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 	
 }
 VarBlock: Box<VariableBlock>={
-	<start: @L> <mc: MetadataComments ?> <types:NonEmptySpace<Qualifier>> LBrace <statements:Space<VarBlockStmt>> RBrace Semicolon <end: @R> =>
+	<start: @L> <mc: MetadataComments ?> <dir:Direction?> <mut types:NonEmptySpace<Qualifier>> "{" <statements:Space<VarBlockStmt>> RBrace Semicolon <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
 			None => vec![],
 		};	
+		if let Some(d)=dir{
+			types.splice(0..0, [d]);
+		};
 		Box::new(VariableBlock{
 			metadata,
 			types,
@@ -276,15 +338,15 @@ MatchExpressionStatement: MatchExpressionStatement = {
 		}
 }
 MatchExpressionAntecendent: MatchExpressionAntecendent = {
-	<start: @L> <expression:Expr> <end: @R> => MatchExpressionAntecendent::Expression{
-		expression,
+	<start: @L> <expressions:NonEmptyComma<Expr>> <end: @R> => MatchExpressionAntecendent::Expression{
+		expressions,
 		location:SourceSpan::new_between(start,end),
 	},
 	<start:@L> "default" <end:@R> =>MatchExpressionAntecendent::Default{
 		location:SourceSpan::new_between(start,end),
 	},
 }
-Expression: Box<Expression> = {
+PrimaryExpression: Box<Expression> = {
 	<start:@L> <key:"NumericConstant"> <end:@R> => 
 		Box::new(
 			Expression::Number{
@@ -307,7 +369,7 @@ Expression: Box<Expression> = {
 			}
 		),
 	
-	<start:@L> "match" LPar <value:Expr> ")" LBrace <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
+	<start:@L> "match" "(" <value:Expr> ")" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
 		Box::new(
 			Expression::MatchExpression{
 				value,
@@ -315,7 +377,7 @@ Expression: Box<Expression> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start:@L> "conditional" LBrace <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
+	<start:@L> "conditional" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
 		Box::new(
 			Expression::ConditionalExpression{
 				statements,
@@ -328,7 +390,7 @@ ExprWithTuple:Box<Expression>={
 	Expr,
 }
 TupleExpr: Box<Expression> ={
-	<start:@L> LBrace <expressions:OptComma<Expr>> RBrace <end:@R> =>
+	<start:@L> "{" <expressions:OptComma<Expr>> RBrace <end:@R> =>
 		Box::new(
 			Expression::Tuple{
 				expressions,
@@ -346,7 +408,7 @@ pub RangeExpr :  RangeExpression = {
 		}
 }
 IndexExpr : Box<Expression> ={
-	"[" <PostfixExpr> "]"
+	"[" <Expr> "]"
 }
 PostfixExpr: Box<Expression>={
 	<start:@L> <expression:PostfixExpr> "." <id:"Id"> <end:@R> =>
@@ -393,7 +455,7 @@ PostfixExpr: Box<Expression>={
 				}
 			),
 		},		
-	Expression,
+	PrimaryExpression,
 }
 UnaryExpr: Box<Expression> ={
 	<start:@L> <code:UnaryExprOP> <expression:PostfixExpr>  <end:@R> => 
@@ -477,6 +539,10 @@ OptComma<T>: Vec<T> = { // (1)
             v
         }
     }
+};
+#[inline]
+DoubleColon<T>: Vec<T> = { // (1)
+    <v:(<T> "::")+> => v
 };
 NonEmptyOptComma<T>: Vec<T> = { // (1)
     <b:T> <mut v:("," <T>)*> ","? => match v.len() { // (2)
@@ -572,7 +638,7 @@ CompType: TypeSpecifier = {
 	},	
 }
 VecDecl: Box<Expression>={
-	"<" <Expression> ">",
+	"<" <PrimaryExpression> ">",
 }
 QualifierWithDirection={
 	Direction,
@@ -606,8 +672,8 @@ Qualifier: TypeQualifier = {
 		expression,
 		location:SourceSpan::new_between(start,end),
 	},
-	<start:@L> "sync" LPar <expression:Expr> ")" <end:@R> => TypeQualifier::Sync{
-		expression,
+	<start:@L> "sync" LPar <expressions:NonEmptyComma<Expr>> ")" <end:@R> => TypeQualifier::Sync{
+		expressions,
 		location:SourceSpan::new_between(start,end),
 	},
 	<start:@L> "clock" <end:@R> => TypeQualifier::Clock{
@@ -780,6 +846,10 @@ extern {
 		"in"              => TokenKind::Keyword(KeywordKind::In),
 		"for"             => TokenKind::Keyword(KeywordKind::For),
 		"bool"            => TokenKind::Keyword(KeywordKind::Bool),
+		"super"           => TokenKind::Keyword(KeywordKind::Super),
+		"package"         => TokenKind::Keyword(KeywordKind::Package),
+		"use"             => TokenKind::Keyword(KeywordKind::Use),
+		"root"            => TokenKind::Keyword(KeywordKind::Root),
 		"("               => TokenKind::Punctuator(PunctuatorKind::LPar),
 		")"               => TokenKind::Punctuator(PunctuatorKind::RPar),
 		"{"               => TokenKind::Punctuator(PunctuatorKind::LBrace),
@@ -808,6 +878,7 @@ extern {
 		"<"				  => TokenKind::Punctuator(PunctuatorKind::Less),
 		"?"				  => TokenKind::Punctuator(PunctuatorKind::QuestionMark),
 		":"				  => TokenKind::Punctuator(PunctuatorKind::Colon),
+		"::"              => TokenKind::Punctuator(PunctuatorKind::DoubleColon),
 		">>"			  => TokenKind::Punctuator(PunctuatorKind::RShift),
 		"<<"			  => TokenKind::Punctuator(PunctuatorKind::LShift),
 		"<="			  => TokenKind::Punctuator(PunctuatorKind::LessEqual),
@@ -819,7 +890,6 @@ extern {
 		"+:"			  => TokenKind::Punctuator(PunctuatorKind::PlusColon),
 		"=>"			  => TokenKind::Punctuator(PunctuatorKind::Implies),
 		"MC"              => TokenKind::MetadataComment(<CommentTableKey>),
-
 
 
     }

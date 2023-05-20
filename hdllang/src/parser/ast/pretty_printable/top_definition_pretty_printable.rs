@@ -19,10 +19,13 @@ impl PrettyPrintable for TopDefinition {
 				ctx.writeln(" {")?;
 				ctx.increase_indent();
 				for statement in statements {
+					ctx.write_indent("")?;
 					statement.pretty_print(ctx)?;
 				}
-				ctx.write_opt_newline("}")?;
 				ctx.decrease_indent();
+				ctx.write_opt_newline("}")?;
+				ctx.writeln("")?;
+				ctx.writeln("")?;
 				Ok(())
 			},
 			ModuleImplementation {
@@ -36,7 +39,25 @@ impl PrettyPrintable for TopDefinition {
 				}
 				ctx.write_indent("impl ")?;
 				ctx.write(format!("{} ", &ctx.get_id(*id)).as_str())?;
-				statement.pretty_print(ctx)
+				statement.pretty_print(ctx)?;
+				ctx.writeln("")?;
+				Ok(())
+			},
+    		PackageDeclaration { metadata, path, .. } => {
+				for comment in metadata.iter() {
+					ctx.writeln(format!("///{}", ctx.get_comment(*comment)).as_str())?;
+				}
+				ctx.write_indent("package ")?;
+				path.pretty_print(ctx)?;
+				ctx.writeln(";")
+			},
+    		UseStatement { metadata, path, .. } => {
+				for comment in metadata.iter() {
+					ctx.writeln(format!("///{}", ctx.get_comment(*comment)).as_str())?;
+				}
+				ctx.write_indent("use ")?;
+				path.pretty_print(ctx)?;
+				ctx.writeln(";")
 			},
 		}
 	}

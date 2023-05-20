@@ -17,6 +17,8 @@ mod type_specifier;
 mod variable_block;
 mod variable_declaration;
 mod variable_definition;
+mod import_path;
+pub use import_path::*;
 use crate::SourceSpan;
 pub use direct_declarator::*;
 pub use direct_initializer::*;

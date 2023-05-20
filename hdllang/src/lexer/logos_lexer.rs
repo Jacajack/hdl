@@ -124,6 +124,10 @@ pub enum TokenKind {
 	#[token("for",             |_| KeywordKind::For)]
 	#[token("in",              |_| KeywordKind::In)]
 	#[token("bool",            |_| KeywordKind::Bool)]
+	#[token("use",             |_| KeywordKind::Use)]
+	#[token("package",         |_| KeywordKind::Package)]
+	#[token("super",           |_| KeywordKind::Super)]
+	#[token("root",            |_| KeywordKind::Root)]
 	Keyword(KeywordKind),
 
 	#[token("=",  |_| PunctuatorKind::Assignment)]
@@ -164,6 +168,7 @@ pub enum TokenKind {
 	#[token("||", |_| PunctuatorKind::LogicalOr)]
 	#[token("=>", |_| PunctuatorKind::Implies)]
 	#[token("+:", |_| PunctuatorKind::PlusColon)]
+	#[token("::", |_| PunctuatorKind::DoubleColon)]
 	Punctuator(PunctuatorKind),
 }
 
