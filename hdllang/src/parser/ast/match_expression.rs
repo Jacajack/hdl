@@ -21,7 +21,7 @@ impl SourceLocation for MatchExpressionStatement {
 		self.location
 	}
 }
-#[derive(Serialize, Deserialize,Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum MatchExpressionAntecendent {
 	Expression {
 		expressions: Vec<Box<Expression>>,

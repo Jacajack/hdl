@@ -43,7 +43,7 @@ impl PrettyPrintable for TopDefinition {
 				ctx.writeln("")?;
 				Ok(())
 			},
-    		PackageDeclaration { metadata, path, .. } => {
+			PackageDeclaration { metadata, path, .. } => {
 				for comment in metadata.iter() {
 					ctx.writeln(format!("///{}", ctx.get_comment(*comment)).as_str())?;
 				}
@@ -51,7 +51,7 @@ impl PrettyPrintable for TopDefinition {
 				path.pretty_print(ctx)?;
 				ctx.writeln(";")
 			},
-    		UseStatement { metadata, path, .. } => {
+			UseStatement { metadata, path, .. } => {
 				for comment in metadata.iter() {
 					ctx.writeln(format!("///{}", ctx.get_comment(*comment)).as_str())?;
 				}

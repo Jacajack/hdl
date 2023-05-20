@@ -127,6 +127,7 @@ pub enum TokenKind {
 	#[token("use",             |_| KeywordKind::Use)]
 	#[token("package",         |_| KeywordKind::Package)]
 	#[token("super",           |_| KeywordKind::Super)]
+	#[token("root",            |_| KeywordKind::Root)]
 	Keyword(KeywordKind),
 
 	#[token("=",  |_| PunctuatorKind::Assignment)]

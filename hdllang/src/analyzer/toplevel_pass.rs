@@ -16,10 +16,8 @@ impl<'source> AnalyzerPass<'source> for ToplevelPass {
 				ModuleImplementation { id, .. } => {
 					debug!("Found module impl for {:?}", ctx.id_table.get_by_key(id).unwrap())
 				},
-				PackageDeclaration {.. } => todo!(),
-				UseStatement {
-					..
-				} => todo!(), // FIXME
+				PackageDeclaration { .. } => todo!(),
+				UseStatement { .. } => todo!(), // FIXME
 			}
 		}
 	}

@@ -1,9 +1,9 @@
-use crate::parser::ast::{ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation, ImportPath};
+use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
 use crate::{lexer::CommentTableKey, lexer::IdTableKey, SourceSpan};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-#[derive(Serialize, Deserialize,Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum TopDefinition {
 	ModuleDeclaration {
 		metadata: Vec<CommentTableKey>,
@@ -28,31 +28,14 @@ pub enum TopDefinition {
 		location: SourceSpan,
 	},
 }
-// impl Debug for TopDefinition {
-// 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-// 		use self::TopDefinition::*;
-// 		match &self {
-// 			ModuleDeclaration { id, statements, .. } => {
-// 				write!(fmt, "\nmodule {:?} {{", id)?;
-// 				for module_declaration in statements.into_iter() {
-// 					write!(fmt, "\n{:?}", module_declaration)?;
-// 				}
-// 				write!(fmt, "}}")
-// 			},
-// 			ModuleImplementation { id, statement, .. } => {
-// 				write!(fmt, "\nimpl {:?} {:?}", id, statement)
-// 			},
-// 		}
-// 	}
-// }
 impl SourceLocation for TopDefinition {
 	fn get_location(&self) -> SourceSpan {
 		use self::TopDefinition::*;
 		match *self {
 			ModuleImplementation { location, .. } => location,
 			ModuleDeclaration { location, .. } => location,
-    		PackageDeclaration { location, ..} => location,
-   			UseStatement { location, .. } => location,
+			PackageDeclaration { location, .. } => location,
+			UseStatement { location, .. } => location,
 		}
 	}
 }

@@ -38,29 +38,6 @@ pub enum TypeQualifier {
 		location: SourceSpan,
 	},
 }
-// impl Debug for TypeQualifier {
-// 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-// 		use self::TypeQualifier::*;
-// 		match &self {
-// 			Signed { location: _ } => write!(fmt, "signed"),
-// 			Unsigned { location: _ } => write!(fmt, "unsigned"),
-// 			Tristate { location: _ } => write!(fmt, "tristate"),
-// 			Const { location: _ } => write!(fmt, "const"),
-// 			Comb {
-// 				expression,
-// 				location: _,
-// 			} => write!(fmt, "comb({:?})", expression),
-// 			Clock { location: _ } => write!(fmt, "clock"),
-// 			Sync {
-// 				expression,
-// 				location: _,
-// 			} => write!(fmt, "sync({:?})", expression),
-// 			Input { location: _ } => write!(fmt, "input"),
-// 			Output { location: _ } => write!(fmt, "output"),
-// 			Async { location: _ } => write!(fmt, "async"),
-// 		}
-// 	}
-// }
 impl SourceLocation for TypeQualifier {
 	fn get_location(&self) -> SourceSpan {
 		use TypeQualifier::*;

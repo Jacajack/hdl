@@ -102,6 +102,7 @@ pub enum KeywordKind {
 	Use,
 	Package,
 	Super,
+	Root,
 }
 
 /// All language punctuators
