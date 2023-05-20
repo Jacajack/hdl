@@ -147,7 +147,7 @@ pub enum PunctuatorKind {
 	Semicolon,      // ;
 	Slash,          // /
 	PlusColon,      // +:
-	ColonLessThan   // :<
+	ColonLessThan,  // :<
 }
 
 /// Token as produced by the lexer (token kind + source location)
