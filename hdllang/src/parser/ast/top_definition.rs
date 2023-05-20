@@ -1,9 +1,9 @@
-use crate::parser::ast::{ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation, ImportPath};
+use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
 use crate::{lexer::CommentTableKey, lexer::IdTableKey, SourceSpan};
 use serde::{Deserialize, Serialize};
 use std::fmt::Debug;
 
-#[derive(Serialize, Deserialize,Debug)]
+#[derive(Serialize, Deserialize, Debug)]
 pub enum TopDefinition {
 	ModuleDeclaration {
 		metadata: Vec<CommentTableKey>,
@@ -34,8 +34,8 @@ impl SourceLocation for TopDefinition {
 		match *self {
 			ModuleImplementation { location, .. } => location,
 			ModuleDeclaration { location, .. } => location,
-    		PackageDeclaration { location, ..} => location,
-   			UseStatement { location, .. } => location,
+			PackageDeclaration { location, .. } => location,
+			UseStatement { location, .. } => location,
 		}
 	}
 }

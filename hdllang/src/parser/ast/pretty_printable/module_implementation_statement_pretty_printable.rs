@@ -11,9 +11,7 @@ impl PrettyPrintable for ModuleImplementationStatement {
 				declaration.pretty_print(ctx)?;
 				ctx.writeln(";")
 			},
-			VariableBlock { block, .. } => {
-				block.pretty_print(ctx)
-			},
+			VariableBlock { block, .. } => block.pretty_print(ctx),
 			VariableDefinitionStatement { definition, .. } => {
 				ctx.after_brackets = false;
 				ctx.write_opt_newline("")?;

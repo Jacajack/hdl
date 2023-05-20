@@ -17,8 +17,8 @@ impl PrettyPrintable for TypeQualifier {
 			},
 			Sync { expressions, .. } => {
 				ctx.write("sync(")?;
-				for (i,expr) in expressions.iter().enumerate(){
-					if i!=0{
+				for (i, expr) in expressions.iter().enumerate() {
+					if i != 0 {
 						ctx.write(", ")?;
 					}
 					expr.pretty_print(ctx)?;
