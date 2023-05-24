@@ -94,7 +94,7 @@ def log_expected(index:str):
 
 if __name__ == "__main__":
 	parser = argparse.ArgumentParser(
-                    prog='ProgramName',
+                    prog='HIRL fuzzer',
                     description='What the program does',
                     epilog='Text at the bottom of help')
 	parser.add_argument('--seed', type=int, default=0, help='Seed for random generator',required=False)
