@@ -22,8 +22,8 @@ pub enum ParserErrorKind {
 	InvalidToken,
 	#[error("Unexpected end of file")]
 	UnrecognizedEof,
-	#[error("Other parser error")]
-	Other,
+	#[error("Lexer error")]
+	LexerError(LexerError),
 }
 
 #[derive(Copy, Clone, Error, Debug)]
@@ -57,8 +57,8 @@ impl ParserError {
 				kind: UnexpectedToken(token.1),
 				range: SourceSpan::new_between(token.0, token.2),
 			},
-			ParseError::User { .. } => Self {
-				kind: Other,
+			ParseError::User { error  } => Self {
+				kind: LexerError(error),
 				range: SourceSpan::new_between(0, 0),
 			},
 		}
@@ -103,10 +103,7 @@ impl ProvidesCompilerDiagnostic for ParserError {
 				.label(self.range, "Unexpected end of file")
 				.help("Did not expect end of file here. Are you sure it's not truncated?")
 				.build(),
-			Other => CompilerDiagnosticBuilder::from_error(&self)
-				.label(self.range, "Something went wrong")
-				.help("An unexpected parser error occurred.")
-				.build(),
+			LexerError(err) => err.to_diagnostic(),
 		}
 	}
 }
