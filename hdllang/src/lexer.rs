@@ -8,7 +8,7 @@ pub use crate::core::id_table::{IdTable, IdTableKey};
 pub use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
 use crate::SourceSpan;
 pub use logos_lexer::LogosLexer;
-pub use numeric_constant::NumericConstant;
+pub use numeric_constant::{NumericConstant, NumericConstantBase};
 pub use numeric_constant_parser::NumberParseError;
 use std::fmt;
 use thiserror::Error;

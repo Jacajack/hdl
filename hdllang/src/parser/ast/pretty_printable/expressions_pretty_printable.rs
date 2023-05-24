@@ -5,7 +5,7 @@ impl PrettyPrintable for Expression {
 	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
 		use Expression::*;
 		match self {
-			Number { key, .. } => ctx.write(format!("{}", &ctx.get_numeric_constant(*key).to_string()).as_str()),
+			Number { key, .. } => ctx.write(format!("{}", &ctx.get_numeric_constant(*key).to_pretty_string()).as_str()),
 			Identifier { id, .. } => ctx.write(format!("{}", &ctx.get_id(*id)).as_str()),
 			ParenthesizedExpression { expression, .. } => {
 				ctx.write("(")?;
