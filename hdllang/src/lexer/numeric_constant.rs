@@ -29,7 +29,7 @@ impl NumericConstant {
 		assert!(num.consistency_check());
 		num
 	}
-	
+
 	/// Internal consistency checks
 	fn consistency_check(&self) -> bool {
 		// Boolean constants
@@ -120,9 +120,10 @@ impl NumericConstant {
 		if matches!(self.base, Some(Boolean)) {
 			return if self.value.count_ones() == 0 {
 				"false".to_string()
-			} else {
-				"true".to_string()
 			}
+			else {
+				"true".to_string()
+			};
 		}
 
 		let radix_prefix;

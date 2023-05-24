@@ -1,5 +1,8 @@
 use super::numeric_constant_parser::parse_numeric_constant_str;
-use super::{KeywordKind, Lexer, LexerError, LexerErrorKind, NumericConstant, NumericConstantBase, PunctuatorKind, SourceSpan, Token};
+use super::{
+	KeywordKind, Lexer, LexerError, LexerErrorKind, NumericConstant, NumericConstantBase, PunctuatorKind, SourceSpan,
+	Token,
+};
 use crate::core::comment_table::{CommentTable, CommentTableKey};
 use crate::core::id_table::{IdTable, IdTableKey};
 use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
@@ -7,30 +10,22 @@ use logos::{Filter, Logos, Skip};
 
 /// Returns constant key for 'true'
 fn parse_true_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstantTableKey> {
-	Some(
-		lex.extras
-			.numeric_constants
-			.insert(NumericConstant::from_u64(
-				1,
-				Some(1),
-				Some(false),
-				Some(NumericConstantBase::Boolean)
-			)),
-	)
+	Some(lex.extras.numeric_constants.insert(NumericConstant::from_u64(
+		1,
+		Some(1),
+		Some(false),
+		Some(NumericConstantBase::Boolean),
+	)))
 }
 
 /// Returns constant key for 'false'
 fn parse_false_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstantTableKey> {
-	Some(
-		lex.extras
-			.numeric_constants
-			.insert(NumericConstant::from_u64(
-				1,
-				Some(1),
-				Some(false),
-				Some(NumericConstantBase::Boolean)
-			)),
-	)
+	Some(lex.extras.numeric_constants.insert(NumericConstant::from_u64(
+		1,
+		Some(1),
+		Some(false),
+		Some(NumericConstantBase::Boolean),
+	)))
 }
 
 /// Parses numeric constant tokens
