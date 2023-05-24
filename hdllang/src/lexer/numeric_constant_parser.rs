@@ -1,4 +1,4 @@
-use crate::compiler_diagnostic::*;
+use crate::{compiler_diagnostic::*, lexer::numeric_constant::NumericConstantBase};
 use std::fmt;
 use thiserror::Error;
 
@@ -118,18 +118,22 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 	// TODO same dillema but for hex numbers
 
 	// Parse according to base
+	let base;
 	let value = if s.starts_with("0x") {
+		base = NumericConstantBase::Hexadecimal;
 		parse_pure_hex(&s[2..digits_end])?
 	}
 	else if s.starts_with("0b") {
+		base = NumericConstantBase::Binary;
 		parse_pure_binary(&s[2..digits_end])?
 	}
 	else {
+		base = NumericConstantBase::Decimal;
 		parse_pure_decimal(&s[0..digits_end])?
 	};
 
 	// Create the constant and check if it's valid
-	let constant = NumericConstant::from_u64(value, num_bits, is_signed);
+	let constant = NumericConstant::from_u64(value, num_bits, is_signed, Some(base));
 
 	// Check if the number can be represented with this number of bits
 	if matches!(constant.is_representable(), Some(false)) {

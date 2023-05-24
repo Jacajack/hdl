@@ -24,6 +24,11 @@ impl WideUint {
 		}
 	}
 
+	/// Returns string with specified radix
+	pub fn to_string_radix(&self, radix: u32) -> String {
+		self.value.to_str_radix(radix)
+	}
+
 	/// Returns number of bits required to store this number
 	pub fn bits_required(&self) -> u32 {
 		self.value.bits() as u32
