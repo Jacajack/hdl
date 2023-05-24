@@ -50,7 +50,7 @@ def log_unexpected(index:str):
 	if timeout:
 		unexp_or_timeout = "Timeout"
 	else:
-		unexp_or_timeout = "" if timeout else "Unexpected"
+		unexp_or_timeout = "Unexpected"
 	
 	# copy to failed-test dir with name <id>-unexpected.c or <id>-timeout.c
 	with open(TMP_TEST_PATH, "r") as fd_test:
