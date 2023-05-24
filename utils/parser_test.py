@@ -1,3 +1,4 @@
+#!/bin/env python3
 import subprocess
 import platform
 import sys
@@ -28,7 +29,7 @@ GRAMMAR = convert_ebnf_grammar(GRAMMAR)
 def run_test(test_path = TMP_TEST_PATH):
 	path = BINARY_PATH + " -q run -- -m pretty-print "+ test_path
 	#print(path)
-	c4 = subprocess.Popen(path,	stdout=subprocess.PIPE,	stderr=subprocess.STDOUT)
+	c4 = subprocess.Popen(path,	stdout=subprocess.PIPE,	stderr=subprocess.STDOUT, shell=True) # FIXME shell=True and pass args properly
 	output = ""
 	try:
 		output = c4.communicate(timeout=60)[0]
