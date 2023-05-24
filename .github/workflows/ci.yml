@@ -69,6 +69,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
             shared-key: "post-cargo-build"
+      - name: Python setup
+        run: pip3 install fuzzingbook
       - name: Fuzzer tests
         run: utils/parser_test.py --seed 3721
 
