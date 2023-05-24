@@ -265,7 +265,7 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 	
 }
 VarBlock: Box<VariableBlock>={
-	<start: @L> <mc: MetadataComments ?> <dir:Direction?> <mut types:NonEmptySpace<Qualifier>> "{" <statements:Space<VarBlockStmt>> RBrace Semicolon <end: @R> =>
+	<start: @L> <mc: MetadataComments ?> <dir:Direction?> <mut types:NonEmptySpace<Qualifier>> "{" <statements:Space<VarBlockStmt>> RBrace ";"? <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
@@ -281,6 +281,19 @@ VarBlock: Box<VariableBlock>={
 			location:SourceSpan::new_between(start,end),
 		})
 	},
+	<start: @L> <mc: MetadataComments ?> <dir:Direction>  "{" <statements:Space<VarBlockStmt>> RBrace ";"? <end: @R> =>
+	{
+		let metadata = match mc{
+		Some(mc) => mc,
+		None => vec![],
+	};
+	Box::new(VariableBlock{
+		metadata,
+		types: vec![dir],
+		statements,
+		location:SourceSpan::new_between(start,end),
+	})
+},
 }
 VarBlockStmt: VariableBlockStatement={
 	<start: @L>  <block:VarBlock> <end: @R> =>
