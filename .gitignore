@@ -8,3 +8,4 @@
 **/Cargo.lock
 *.json
 target/
+utils/fuzzer/
