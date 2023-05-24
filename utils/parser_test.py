@@ -3,7 +3,8 @@ import platform
 import sys
 import random
 import argparse
-
+import os 
+import shutil
 from fuzzingbook.Grammars import is_valid_grammar, convert_ebnf_grammar
 from fuzzingbook.GeneratorGrammarFuzzer import ProbabilisticGeneratorGrammarCoverageFuzzer
 
@@ -13,8 +14,8 @@ from config import *
 
 ################ Constants ################
 
-TMP_TEST_PATH = "utils/fuzzer-failed-tests/tmp-test.hirl"
-TMP_LOG_PATH = "utils/fuzzer-failed-tests/tmp.log"
+TMP_TEST_PATH = "utils/tmp/tmp-test.hirl"
+TMP_LOG_PATH = "utils/tmp/tmp.log"
 
 EXTENSION = ".exe" if platform.system() == "Windows" else ""
 LOG_TO_FILE = False
@@ -63,7 +64,9 @@ def log_unexpected(index:str):
 		test_content += output
 
 	if LOG_TO_FILE:
-		with open(f"fuzzer-failed-tests/{f_name}", "w") as f:
+		if not os.path.exists("utils/fuzzer/fuzzer-failed-tests"):
+			os.makedirs("utils/fuzzer/fuzzer-failed-tests")
+		with open(f"utils/fuzzer/fuzzer-failed-tests/{f_name}", "w") as f:
 			f.write(test_content)
 	else:
 		sys.stderr.write(f"Unexpected fail on test {f_name}:\n{test_content}\n")
@@ -81,7 +84,9 @@ def log_expected(index:str):
 		test_content += output
 
 	if LOG_TO_FILE:
-		with open(f"fuzzer-succeded-tests/{f_name}", "w") as f:
+		if not os.path.exists("utils/fuzzer/fuzzer-succeded-tests"):
+			os.makedirs("utils/fuzzer/fuzzer-succeded-tests")
+		with open(f"utils/fuzzer/fuzzer-succeded-tests/{f_name}", "w") as f:
 			f.write(test_content)
 	else:
 		sys.stdout.write(f"Succesful test {f_name}:\n{test_content}")
@@ -107,7 +112,8 @@ if __name__ == "__main__":
 		random.seed()
 		print(f"Starting fuzzing with random seed = {random.getstate()[1][0]}")
 	LOG_TO_FILE = args.log_to_file
-    
+	if not os.path.exists("utils/tmp"):
+		os.makedirs("utils/tmp")
 	fuzzer = ProbabilisticGeneratorGrammarCoverageFuzzer(
 									GRAMMAR, 
 									min_nonterminals = MIN_NON_TERMINALS,
@@ -158,3 +164,4 @@ if __name__ == "__main__":
 	print(f"Done: expected {expected_total}, unexpected {unexpected_total}, timeout {timeout_total}")
 	print(f"Amount of missing coverages: {len(fuzzer.missing_expansion_coverage())} / {initilal_coverage}")
 	print(f"Missing coverages: {fuzzer.missing_expansion_coverage()}")
+	shutil.rmtree("utils/tmp")
