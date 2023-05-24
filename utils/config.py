@@ -1,7 +1,7 @@
 ## Config
 
 ## Constants and Paths
-BINARY_PATH = "target/debug/hdl"
+BINARY_PATH = "cargo"
 
 # Be verbose with command line outputs
 VERBOSE = False

@@ -17,7 +17,7 @@ from config import *
 TMP_TEST_PATH = "utils/tmp/tmp-test.hirl"
 TMP_LOG_PATH = "utils/tmp/tmp.log"
 
-EXTENSION = ".exe" if platform.system() == "Windows" else ""
+
 LOG_TO_FILE = False
 ## Grammar and Fuzzer init
 assert is_valid_grammar(GRAMMAR)
@@ -26,12 +26,12 @@ GRAMMAR = convert_ebnf_grammar(GRAMMAR)
 
 
 def run_test(test_path = TMP_TEST_PATH):
-	path = BINARY_PATH + EXTENSION + " -m pretty-print "+ test_path
+	path = BINARY_PATH + " -q run -- -m pretty-print "+ test_path
 	#print(path)
 	c4 = subprocess.Popen(path,	stdout=subprocess.PIPE,	stderr=subprocess.STDOUT)
 	output = ""
 	try:
-		output = c4.communicate(timeout=5)[0]
+		output = c4.communicate(timeout=60)[0]
 		output = output.decode(errors="replace")
 		failed = c4.returncode != 0
 		timeout = False
@@ -61,7 +61,8 @@ def log_unexpected(index:str):
 		test_content += fd_test.read()
 
 		test_content += "\n\nWith following parser output:\n"
-		test_content += output
+		if not output is None:
+			test_content += output
 
 	if LOG_TO_FILE:
 		if not os.path.exists("utils/fuzzer/fuzzer-failed-tests"):
@@ -81,7 +82,8 @@ def log_expected(index:str):
 		test_content += fd_test.read()
 
 		test_content += "\n\nWith following parser output:\n"
-		test_content += output
+		if not output is None:
+			test_content += output
 
 	if LOG_TO_FILE:
 		if not os.path.exists("utils/fuzzer/fuzzer-succeded-tests"):
@@ -141,7 +143,7 @@ if __name__ == "__main__":
 			print("Run:", i)
 			print("Amount of missing coverages:", len(fuzzer.missing_expansion_coverage()))
 
-		
+		# redundant, to delete in next version
 		# Close file before running
 		with open(TMP_TEST_PATH, "w") as fd_test: 
 		# Redirect stdout to file for log
@@ -165,3 +167,6 @@ if __name__ == "__main__":
 	print(f"Amount of missing coverages: {len(fuzzer.missing_expansion_coverage())} / {initilal_coverage}")
 	print(f"Missing coverages: {fuzzer.missing_expansion_coverage()}")
 	shutil.rmtree("utils/tmp")
+ 
+	if unexpected_total:
+		sys.exit(1)
