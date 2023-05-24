@@ -15,6 +15,10 @@ fuzzer = ProbabilisticGeneratorGrammarCoverageFuzzer(
 	max_nonterminals = MAX_NON_TERMINALS,
 	log = False
 )
-
-while len(fuzzer.missing_expansion_coverage()) != 0:
-	print(fuzzer.fuzz())
+i = 0 
+initilal_coverage = len(fuzzer.missing_expansion_coverage())
+while len(fuzzer.missing_expansion_coverage()) >  0.05 * initilal_coverage:
+	print(f"{i=}, result: {fuzzer.fuzz()}")
+	i+=1
+ 
+print(f"Final coverage: {len(fuzzer.missing_expansion_coverage())} / {initilal_coverage}")
