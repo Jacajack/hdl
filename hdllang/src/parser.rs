@@ -57,7 +57,7 @@ impl ParserError {
 				kind: UnexpectedToken(token.1),
 				range: SourceSpan::new_between(token.0, token.2),
 			},
-			ParseError::User { error  } => Self {
+			ParseError::User { error } => Self {
 				kind: LexerError(error),
 				range: SourceSpan::new_between(0, 0),
 			},
