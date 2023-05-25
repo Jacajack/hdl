@@ -46,13 +46,24 @@ GRAMMAR = {
 	],
     "<direct_declarator>": ["<id><array_declarator>*"],
 	"<type_name>": ["<type_declarator><array_declarator>*"],
-	"<type_declarator>": ["<direction>? <type_qualifier>* <type_specifier>"],
+	"<type_declarator>": [
+     "<direction>? <type_qualifier>* <syn_type>", 
+     "<comp_type>",
+     "<direction>? <type_qualifier>+ <vec_decl>?", 
+     "<direction>  <vec_decl>?"
+     ],
 	"<array_declarator>": ["<index_expression>"],
-	"<type_specifier>": [
-    	"auto",
-        "int",
+	"<comp_type>" : [
+     "int",
+     "bool",
+     ],
+	"<syn_type>" : [
+	    "auto",
         "wire",
-        "bus<<primary_expression>>", # TODO maybe there's a better solution
+        "bus<vec_decl>",
+     ], 
+ 	"<vec_decl>": [
+        "<<primary_expression>>",
     ],
 	"<direction>":[
       "input ",
