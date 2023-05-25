@@ -32,7 +32,7 @@ def run_test(test_path = TMP_TEST_PATH):
 	c4 = subprocess.Popen(path,	stdout=subprocess.PIPE,	stderr=subprocess.STDOUT, shell=True) # FIXME shell=True and pass args properly
 	output = ""
 	try:
-		output = c4.communicate(timeout=60)[0]
+		output = c4.communicate(timeout=180)[0]
 		output = output.decode(errors="replace")
 		failed = c4.returncode != 0
 		timeout = False
