@@ -48,7 +48,7 @@ GRAMMAR = {
 	"<type_name>": ["<type_declarator><array_declarator>*"],
 	"<type_declarator>": [
      "<direction>? <type_qualifier>* <syn_type>", 
-     "<direction>? <comp_type>",
+     "<comp_type>",
      "<direction>? <type_qualifier>+ <vec_decl>?", 
      "<direction>  <vec_decl>?"
      ],

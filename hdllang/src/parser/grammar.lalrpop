@@ -706,11 +706,8 @@ TypeDeclarator: TypeDeclarator ={
 		location:SourceSpan::new_between(start,end),
 		}
 	},
-	<start:@L> <dir:Direction?> <specifier:CompType> <end:@R> =>{
-		let qualifiers = match dir{
-			Some(dir) => vec![dir],
-			None => vec![],
-		};
+	<start:@L> <specifier:CompType> <end:@R> =>{
+		let qualifiers = vec![];
 		TypeDeclarator{
 		specifier,
 		qualifiers,
