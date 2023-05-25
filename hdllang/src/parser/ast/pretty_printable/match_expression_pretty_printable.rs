@@ -7,7 +7,7 @@ impl PrettyPrintable for MatchExpressionStatement {
 		self.antecedent.pretty_print(ctx)?;
 		ctx.write(" => ")?;
 		self.expression.pretty_print(ctx)?;
-		ctx.writeln(";")
+		ctx.writeln(",")
 	}
 }
 impl PrettyPrintable for MatchExpressionAntecendent {
