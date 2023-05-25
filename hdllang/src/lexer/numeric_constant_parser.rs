@@ -125,19 +125,17 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 	let base;
 	let value = if s.starts_with("0x") {
 		base = NumericConstantBase::Hexadecimal;
-		parse_pure_hex(&s[2..digits_end])
-			.map_err(|e| NumberParseError {
-				kind: e.kind,
-				range: (0, token_len),
-			})?
+		parse_pure_hex(&s[2..digits_end]).map_err(|e| NumberParseError {
+			kind: e.kind,
+			range: (0, token_len),
+		})?
 	}
 	else if s.starts_with("0b") {
 		base = NumericConstantBase::Binary;
-		parse_pure_binary(&s[2..digits_end])
-			.map_err(|e| NumberParseError {
-				kind: e.kind,
-				range: (0, token_len),
-			})?
+		parse_pure_binary(&s[2..digits_end]).map_err(|e| NumberParseError {
+			kind: e.kind,
+			range: (0, token_len),
+		})?
 	}
 	else {
 		base = NumericConstantBase::Decimal;
