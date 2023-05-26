@@ -5,6 +5,7 @@ use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
 	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root, RangeExpression, SourceLocation, ImportPath, Start, Modules};
 use crate::lexer::*;
 use crate::parser::*; 
+use crate::core::CompilerError;
 use crate::SourceSpan;
 grammar<'source>(ctx: & mut ParserContext<'source>, source: Option<&'source String>);
 MetadataComments = NonEmptySpace<"MC">;
@@ -16,7 +17,7 @@ pub Izulu: Root={
 		}
 }
 TopDef: TopDefinition={
-	<start: @L> <mc:MetadataComments ?> "module" <id:"Id"> "{" <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
+	<start: @L> <mc:MetadataComments ?> "module" <id:"Id"> LBrace <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
@@ -782,13 +783,14 @@ RBrace = {
 }
 LBrace = {
 	"{",
-	<start:@L> !  =>{
-		ctx.diagnostic_buffer.push_diagnostic(ParserError{
+	<start:@L> !  =>?{
+		//println!("Missing Semicolon"); // for debugging
+		//TokenKind::Punctuator(PunctuatorKind::LBrace)
+		Err(ParseError::User {
+			error: CompilerError::ParserError(ParserError{
 			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::LBrace)),
 			range: SourceSpan::new_between(start,start),
-		}.to_diagnostic(),source);
-		//println!("Missing Semicolon"); // for debugging
-		TokenKind::Punctuator(PunctuatorKind::LBrace)
+		})})
 	}
  }
 Semicolon = {
@@ -826,7 +828,7 @@ In = {
 }
 extern {
     type Location = usize;
-    type Error = LexerError;
+    type Error = CompilerError;
   
     enum TokenKind {
 		"NumericConstant" => TokenKind::NumericConstant(<NumericConstantTableKey>),
