@@ -6,13 +6,14 @@ pub use grammar_parser::grammar::*;
 pub use parser_context::ParserContext;
 pub use pretty_printer::PrettyPrinterContext;
 
+use crate::core::CompilerError;
 use crate::core::compiler_diagnostic::*;
-use crate::lexer::{KeywordKind, LexerError, PunctuatorKind, TokenKind};
+use crate::lexer::{KeywordKind, PunctuatorKind, TokenKind};
 use crate::SourceSpan;
 use lalrpop_util::ParseError;
 use std::fmt;
 use thiserror::Error;
-#[derive(Copy, Clone, Error, Debug)]
+#[derive(Error, Debug)]
 pub enum ParserErrorKind {
 	#[error("Missing token")]
 	MissingToken(TokenKind),
@@ -23,10 +24,10 @@ pub enum ParserErrorKind {
 	#[error("Unexpected end of file")]
 	UnrecognizedEof,
 	#[error("Lexer error")]
-	LexerError(LexerError),
+	LexerError(Box<CompilerError>),
 }
 
-#[derive(Copy, Clone, Error, Debug)]
+#[derive(Error, Debug)]
 pub struct ParserError {
 	kind: ParserErrorKind,
 	range: SourceSpan,
@@ -38,7 +39,7 @@ impl fmt::Display for ParserError {
 	}
 }
 impl ParserError {
-	pub fn new_form_lalrpop_error(e: ParseError<usize, TokenKind, LexerError>) -> Self {
+	pub fn new_form_lalrpop_error(e: ParseError<usize, TokenKind, CompilerError>) -> Self {
 		use ParserErrorKind::*;
 		match e {
 			ParseError::InvalidToken { location } => Self {
@@ -58,7 +59,7 @@ impl ParserError {
 				range: SourceSpan::new_between(token.0, token.2),
 			},
 			ParseError::User { error } => Self {
-				kind: LexerError(error),
+				kind: LexerError(Box::new(error)),
 				range: SourceSpan::new_between(0, 0),
 			},
 		}
@@ -69,7 +70,7 @@ impl ProvidesCompilerDiagnostic for ParserError {
 		use KeywordKind::*;
 		use ParserErrorKind::*;
 		use PunctuatorKind::*;
-		match self.kind {
+		match &self.kind {
 			MissingToken(kind) => CompilerDiagnosticBuilder::from_error(&self)
 				.label(
 					self.range,
