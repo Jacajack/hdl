@@ -471,7 +471,7 @@ PostfixExpr: Box<Expression>={
 	PrimaryExpression,
 }
 UnaryExpr: Box<Expression> ={
-	<start:@L> <code:UnaryExprOP> <expression:PostfixExpr>  <end:@R> => 
+	<start:@L> <code:UnaryExprOP> <expression:UnaryExpr>  <end:@R> => 
 	Box::new(
 		Expression::UnaryOperatorExpression{
 			expression,
@@ -479,7 +479,7 @@ UnaryExpr: Box<Expression> ={
 			location:SourceSpan::new_between(start,end),
 		}
 	),
-	<start:@L> "(" <type_name:TypeName> ")" <expression:PostfixExpr>  <end:@R> => 
+	<start:@L> "(" <type_name:TypeName> ")" <expression:UnaryExpr>  <end:@R> => 
 	Box::new(
 		Expression::UnaryCastExpression{
 			type_name,
