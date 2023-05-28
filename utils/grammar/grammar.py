@@ -154,10 +154,8 @@ GRAMMAR = {
     ],
 	"<expression>": [
 		"<primary_expression>",
-		"<ternary_expression>",
         "<postfix_expression>",
         "<unary_expression>",
-        "<postfix_expression>",
         "<multiplicative_expression>",
 		"<additive_expression>",
 		"<shift_expression>",
