@@ -4,7 +4,7 @@ use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
 	 VariableBlockStatement, VariableDeclaration, DirectDeclarator,ModuleImplementationStatement,
 	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root, RangeExpression, SourceLocation, ImportPath, Start, Modules};
 use crate::lexer::*;
-use crate::parser::*; 
+use crate::parser::*;
 use crate::core::CompilerError;
 use crate::SourceSpan;
 grammar<'source>(ctx: & mut ParserContext<'source>, source: Option<&'source String>);
@@ -17,7 +17,7 @@ pub Izulu: Root={
 		}
 }
 TopDef: TopDefinition={
-	<start: @L> <mc:MetadataComments ?> "module" <id:"Id"> LBrace <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
+	<start: @L> <mc:MetadataComments ?> "module" <id:"Id"> "{" <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
@@ -110,14 +110,14 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 		   		location:SourceSpan::new_between(start,end),
 	    	}
 		),
-	<start: @L>  <definition:VarDef> Semicolon <end: @R> =>
+	<start: @L>  <definition:VarDef> ";" <end: @R> =>
 	    Box::new(
 		    ModuleImplementationStatement::VariableDefinitionStatement{
 				definition,
 				location:SourceSpan::new_between(start,end),
 	    	}
 		),
-	<start: @L>  <lhs:Expr> <assignment_opcode:AssignmentOP> <rhs:ExprWithTuple> Semicolon <end: @R> =>
+	<start: @L>  <lhs:Expr> <assignment_opcode:AssignmentOP> <rhs:ExprWithTuple> ";" <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::AssignmentStatement{
 				lhs,
@@ -127,7 +127,7 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 	    	}
 	  	),
 	
-	<start: @L> "for" LPar <id:"Id"> In <range:RangeExpr> ")" <statement:ModuleImplBlockStmt> <end: @R> =>
+	<start: @L> "for" "(" <id:"Id">"in"<range:RangeExpr> ")" <statement:ModuleImplBlockStmt> <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::IterationStatement{
 				id,
@@ -173,7 +173,7 @@ ModuleImplBlockStmt: Box<ModuleImplementationStatement> ={
 }
 IfStmt: Box<ModuleImplementationStatement> ={
 	
-	<start: @L> "if"  LPar <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:ModuleImplBlockStmt> <end: @R> =>
+	<start: @L> "if"  "(" <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:ModuleImplBlockStmt> <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::IfElseStatement{
 				condition,
@@ -182,7 +182,7 @@ IfStmt: Box<ModuleImplementationStatement> ={
 				location:SourceSpan::new_between(start,end),
 	    	}
 		),
-	<start: @L> "if"  LPar <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:IfStmt> <end: @R> =>
+	<start: @L> "if"  "(" <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:IfStmt> <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::IfElseStatement{
 				condition,
@@ -191,7 +191,7 @@ IfStmt: Box<ModuleImplementationStatement> ={
 				location:SourceSpan::new_between(start,end),
 	    	}
 		),
-	<start: @L> "if" LPar <condition:Expr> ")"  <if_statement:ModuleImplBlockStmt> <end: @R> =>
+	<start: @L> "if" "(" <condition:Expr> ")"  <if_statement:ModuleImplBlockStmt> <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::IfStatement{
 				condition,
@@ -253,7 +253,7 @@ DirectInitializer: DirectInitializer = {
 },
 }
 ModuleDeclStmt: ModuleDeclarationStatement={
-	<start: @L>  <declaration:VarDecl> Semicolon <end: @R> =>
+	<start: @L>  <declaration:VarDecl> ";" <end: @R> =>
  		ModuleDeclarationStatement::VariableDeclarationStatement{
 			declaration,
 			location:SourceSpan::new_between(start,end),
@@ -266,7 +266,7 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 	
 }
 VarBlock: Box<VariableBlock>={
-	<start: @L> <mc: MetadataComments ?> <dir:Direction?> <mut types:NonEmptySpace<Qualifier>> "{" <statements:Space<VarBlockStmt>> RBrace ";"? <end: @R> =>
+	<start: @L> <mc: MetadataComments ?> <dir:Direction?> <mut types:NonEmptySpace<Qualifier>> "{" <statements:Space<VarBlockStmt>> "}" ";"? <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
@@ -282,7 +282,7 @@ VarBlock: Box<VariableBlock>={
 			location:SourceSpan::new_between(start,end),
 		})
 	},
-	<start: @L> <mc: MetadataComments ?> <dir:Direction>  "{" <statements:Space<VarBlockStmt>> RBrace ";"? <end: @R> =>
+	<start: @L> <mc: MetadataComments ?> <dir:Direction>  "{" <statements:Space<VarBlockStmt>> "}" ";"? <end: @R> =>
 	{
 		let metadata = match mc{
 		Some(mc) => mc,
@@ -302,7 +302,7 @@ VarBlockStmt: VariableBlockStatement={
 	   		block,
 	   		location:SourceSpan::new_between(start,end),
 		},
-	<start: @L>  <declaration:VarDecl> Semicolon <end: @R> =>
+	<start: @L>  <declaration:VarDecl> ";" <end: @R> =>
 		VariableBlockStatement::VariableDeclarationStatement{
 			declaration,
 	   		location:SourceSpan::new_between(start,end),
@@ -391,7 +391,7 @@ PrimaryExpression: Box<Expression> = {
 				location:SourceSpan::new_between(start,end),
 			}
 		),
-	<start:@L> "conditional" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> RBrace <end:@R> =>
+	<start:@L> "conditional" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
 		Box::new(
 			Expression::ConditionalExpression{
 				statements,
@@ -404,7 +404,7 @@ ExprWithTuple:Box<Expression>={
 	Expr,
 }
 TupleExpr: Box<Expression> ={
-	<start:@L> "{" <expressions:OptComma<Expr>> RBrace <end:@R> =>
+	<start:@L> "{" <expressions:OptComma<Expr>> "}" <end:@R> =>
 		Box::new(
 			Expression::Tuple{
 				expressions,
@@ -526,16 +526,7 @@ Tier<Op,NextTier>: Box<Expression> = {
 	),
     NextTier
 };
-ArgumentList=NonEmptyCommaErr<Expr>;
-NonEmptyCommaErr<T>: Vec<T> = { // (1)
-    <mut v:(<T> Comma)*> <e:T> => match v.len() { // (2)
-        0 => vec![e],
-        _ => {
-            v.push(e);
-            v
-        }
-    }
-};
+ArgumentList=NonEmptyComma<Expr>;
 NonEmptyComma<T>: Vec<T> = { // (1)
     <mut v:(<T> ",")*> <e:T> => match v.len() { // (2)
         0 => vec![e],
@@ -683,11 +674,11 @@ Qualifier: TypeQualifier = {
 	<start:@L> "async" <end:@R> => TypeQualifier::Async{
 		location:SourceSpan::new_between(start,end),
 	},
-	<start:@L> "comb" LPar <expression:Expr> ")" <end:@R> => TypeQualifier::Comb{
+	<start:@L> "comb" "(" <expression:Expr> ")" <end:@R> => TypeQualifier::Comb{
 		expression,
 		location:SourceSpan::new_between(start,end),
 	},
-	<start:@L> "sync" LPar <expressions:NonEmptyComma<Expr>> ")" <end:@R> => TypeQualifier::Sync{
+	<start:@L> "sync" "(" <expressions:NonEmptyComma<Expr>> ")" <end:@R> => TypeQualifier::Sync{
 		expressions,
 		location:SourceSpan::new_between(start,end),
 	},
@@ -758,73 +749,6 @@ TypeName: TypeName ={
 		array_declarators,
 		location:SourceSpan::new_between(start,end),
 	}
-}
-Comma = {
-	",",
-	<start:@L> !  =>{
-		ctx.diagnostic_buffer.push_diagnostic(ParserError{
-			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::Comma)),
-			range: SourceSpan::new_between(start,start),
-		}.to_diagnostic(),source);
-		//println!("Missing Semicolon"); // for debugging
-		TokenKind::Punctuator(PunctuatorKind::Comma)
-	}
-}
-RBrace = {
-	"}",
-	<start:@L> !  =>{
-		ctx.diagnostic_buffer.push_diagnostic(ParserError{
-			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::RBrace)),
-			range: SourceSpan::new_between(start,start),
-		}.to_diagnostic(),source);
-		//println!("Missing Semicolon"); // for debugging
-		TokenKind::Punctuator(PunctuatorKind::RBrace)
-	}
-}
-LBrace = {
-	"{",
-	<start:@L> !  =>?{
-		//println!("Missing Semicolon"); // for debugging
-		//TokenKind::Punctuator(PunctuatorKind::LBrace)
-		Err(ParseError::User {
-			error: CompilerError::ParserError(ParserError{
-			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::LBrace)),
-			range: SourceSpan::new_between(start,start),
-		})})
-	}
- }
-Semicolon = {
-	 ";" ,
-	 <start:@L> !  =>{
-		ctx.diagnostic_buffer.push_diagnostic(ParserError{
-			kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::Semicolon)),
-			range: SourceSpan::new_between(start,start),
-		}.to_diagnostic(),source);
-		//println!("Missing Semicolon"); // for debugging
-		TokenKind::Punctuator(PunctuatorKind::Semicolon)
-	}
-}
-LPar = {
-	"(" ,
-	<start:@L> !  =>{
-	   ctx.diagnostic_buffer.push_diagnostic(ParserError{
-		   kind: ParserErrorKind::MissingToken(TokenKind::Punctuator(PunctuatorKind::LPar)),
-		   range: SourceSpan::new_between(start,start),
-	   }.to_diagnostic(),source);
-	   //println!("Missing Semicolon"); // for debugging
-	   TokenKind::Punctuator(PunctuatorKind::LPar)
-   }
-}
-In = {
-	"in" ,
-	<start:@L> !  =>{
-	   ctx.diagnostic_buffer.push_diagnostic(ParserError{
-		   kind: ParserErrorKind::MissingToken(TokenKind::Keyword(KeywordKind::In)),
-		   range: SourceSpan::new_between(start,start),
-	   }.to_diagnostic(),source);
-	   //println!("Missing Semicolon"); // for debugging
-	   TokenKind::Keyword(KeywordKind::In)
-   }
 }
 extern {
     type Location = usize;
