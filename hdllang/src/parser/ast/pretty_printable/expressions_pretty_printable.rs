@@ -32,7 +32,8 @@ impl PrettyPrintable for Expression {
 					statement.pretty_print(ctx)?;
 				}
 				ctx.decrease_indent();
-				ctx.writeln("}")
+				ctx.writeln("")?;
+				ctx.write_indent("}")
 			},
 			Tuple { expressions, .. } => {
 				ctx.write("(")?;

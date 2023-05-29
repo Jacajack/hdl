@@ -36,7 +36,7 @@ impl PrettyPrintable for ModuleImplementationStatement {
 				if_statement,
 				..
 			} => {
-				if !ctx.afer_else {
+				if !ctx.afer_else || ctx.after_brackets {
 					ctx.afer_else = false;
 					ctx.writeln("")?;
 				}
