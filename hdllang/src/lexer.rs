@@ -3,7 +3,6 @@ mod numeric_constant;
 mod numeric_constant_parser;
 
 pub use crate::core::comment_table::{CommentTable, CommentTableKey};
-use crate::core::CompilerError;
 use crate::core::compiler_diagnostic::*;
 pub use crate::core::id_table::{IdTable, IdTableKey};
 pub use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
@@ -167,7 +166,7 @@ pub trait Lexer<'source> {
 	fn new(source: &'source str) -> Self;
 
 	/// Processes the text and returns a vector of tokens
-	fn process(&mut self) -> Result<Vec<Token>, CompilerError>;
+	fn process(&mut self) -> Result<Vec<Token>, LexerError>;
 
 	/// Access the ID table
 	fn id_table(&self) -> &IdTable;
