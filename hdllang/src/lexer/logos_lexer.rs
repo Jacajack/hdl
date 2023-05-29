@@ -232,10 +232,10 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 					range: SourceSpan::new_from_range(&self.lexer.span()),
 				}),
 				Err(_) => {
-					return Err(LexerError {
+					return Err(self.lexer.extras.last_err.unwrap_or(LexerError {
 						kind: LexerErrorKind::InvalidToken,
 						range: SourceSpan::new_from_range(&self.lexer.span()),
-					});
+					}));
 				},
 			}
 		}
@@ -267,10 +267,10 @@ impl<'input> Iterator for LogosLexer<'input> {
 	fn next(&mut self) -> Option<Self::Item> {
 		self.lexer.next().map(|token_result| match token_result {
 			Err(_) => 
-				Err(CompilerError::LexerError(LexerError {
+				Err(CompilerError::LexerError(self.lexer.extras.last_err.unwrap_or(LexerError {
 					kind: LexerErrorKind::InvalidToken,
 					range: SourceSpan::new_from_range(&self.lexer.span()),
-				})),
+				}))),
 			Ok(token_kind) => Ok((self.lexer.span().start, token_kind, self.lexer.span().end)),
 		})
 	}
