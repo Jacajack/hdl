@@ -221,7 +221,7 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 	}
 
 	/// Processes the string and produces a vector of tokens
-	fn process(&mut self) -> Result<Vec<Token>, CompilerError> {
+	fn process(&mut self) -> Result<Vec<Token>, LexerError> {
 		// TODO determine average token length and pre-allocate vector space based on that
 		let mut tokens = Vec::<Token>::with_capacity(1000);
 
@@ -232,10 +232,10 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 					range: SourceSpan::new_from_range(&self.lexer.span()),
 				}),
 				Err(_) => {
-					return Err(CompilerError::LexerError(LexerError {
+					return Err(LexerError {
 						kind: LexerErrorKind::InvalidToken,
 						range: SourceSpan::new_from_range(&self.lexer.span()),
-					}));
+					});
 				},
 			}
 		}
