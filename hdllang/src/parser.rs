@@ -28,7 +28,7 @@ fn map_token_to_help_msg(expected:&Vec<String>) -> String{
 			_ => &token[1..token.len()-1],
 		});
 	}
-    format!("We expected these productions instead:\n{}", itertools::join(messages, ", ")).as_str()
+    format!("We expected these productions instead:\n{}", itertools::join(messages, ", "))
 }
 #[derive(Error, Debug)]
 pub enum ParserErrorKind {
@@ -99,21 +99,10 @@ impl ProvidesCompilerDiagnostic for ParserError {
 				.help("Please replace this token with a valid one.")
 				.build(),
 			UnrecognizedEof{expected} => 
-			{
-				let mut help_msg = String::from("We expected these tokens instead:\n");
-				for t in expected.iter(){
-					
-					let tok = match t.as_str(){
-						"\"MC\"" => "\"Metada comment\"",
-						_ => t,
-					};
-					help_msg+=format!("{}\n",tok).as_str();
-				}
 				CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "Unexpected end of file")
-				.help("Did not expect end of file here. Are you sure it's not truncated?")
-				.build()
-			},
+				.help(&map_token_to_help_msg(expected))
+				.build(),
 			LexerError(err) => err.to_diagnostic(),
 		}
 	}
