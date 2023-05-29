@@ -15,7 +15,6 @@ use std::fmt;
 use thiserror::Error;
 use std::collections::HashSet;
 fn map_token_to_help_msg(expected:&Vec<String>) -> String{
-	let mut help_msg=String::from("We expected these productions instead:\n");
 	let mut messages = HashSet::new();
 	for token in expected.iter(){
 		messages.insert( match token.as_str(){
