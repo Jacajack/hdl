@@ -29,8 +29,7 @@ fn map_token_to_help_msg(expected:&Vec<String>) -> String{
 			_ => &token[1..token.len()-1],
 		});
 	}
-	help_msg+=format!("{}", itertools::join(messages, ", ")).as_str();
-	help_msg
+    format!("We expected these productions instead:\n{}", itertools::join(messages, ", ")).as_str()
 }
 #[derive(Error, Debug)]
 pub enum ParserErrorKind {
