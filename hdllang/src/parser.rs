@@ -5,7 +5,7 @@ pub mod pretty_printer;
 pub use grammar_parser::grammar::*;
 pub use parser_context::ParserContext;
 pub use pretty_printer::PrettyPrinterContext;
-
+extern crate itertools;
 use crate::core::CompilerError;
 use crate::core::compiler_diagnostic::*;
 use crate::lexer::TokenKind;
@@ -18,20 +18,18 @@ fn map_token_to_help_msg(expected:&Vec<String>) -> String{
 	let mut help_msg=String::from("We expected these productions instead:\n");
 	let mut messages = HashSet::new();
 	for token in expected.iter(){
-		match token.as_str(){
-			"\"MC\"" => messages.insert("metadata comment"),
+		messages.insert( match token.as_str(){
+			"\"MC\"" => "metadata comment",
 			"\"async\"" | "\"auto\"" | "\"bool\"" | "\"bus\"" | "\"clock\"" | "\"comb\"" | "\"const\"" | "\"input\"" | "\"int\"" | "\"output\"" | "\"signed\"" |      
-        	"\"sync\"" | "\"tristate\"" | "\"unsigned\"" | "\"wire\""  => messages.insert("variable block/declaration"),
-			"\",\"" => messages.insert("comma"),
-			"\";\"" => messages.insert("semicolon"),
-			"\"(\"" => messages.insert("left parenthesis"),
-			"\")\"" => messages.insert("right parenthesis"),
-			_ => messages.insert(&token[1..token.len()-1]),
-		};
+        	"\"sync\"" | "\"tristate\"" | "\"unsigned\"" | "\"wire\""  => "variable block/declaration",
+			"\",\"" => "comma",
+			"\";\"" => "semicolon",
+			"\"(\"" => "left parenthesis",
+			"\")\"" => "right parenthesis",
+			_ => &token[1..token.len()-1],
+		});
 	}
-	for t in messages.iter(){
-		help_msg+=format!("{}, ",t).as_str();
-	} 
+	help_msg+=format!("{}", itertools::join(messages, ", ")).as_str();
 	help_msg
 }
 #[derive(Error, Debug)]
