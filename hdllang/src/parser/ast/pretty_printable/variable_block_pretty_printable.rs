@@ -3,6 +3,7 @@ use crate::parser::pretty_printer::*;
 
 impl PrettyPrintable for VariableBlock {
 	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
+		ctx.write_opt_newline("")?;
 		ctx.write_indent("")?;
 		for ty in &self.types {
 			ty.pretty_print(ctx)?;

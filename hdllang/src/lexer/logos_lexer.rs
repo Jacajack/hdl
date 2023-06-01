@@ -5,6 +5,7 @@ use super::{
 };
 use crate::core::comment_table::{CommentTable, CommentTableKey};
 use crate::core::id_table::{IdTable, IdTableKey};
+use crate::core::CompilerError;
 use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
 use logos::{Filter, Logos, Skip};
 
@@ -234,7 +235,7 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 					return Err(self.lexer.extras.last_err.unwrap_or(LexerError {
 						kind: LexerErrorKind::InvalidToken,
 						range: SourceSpan::new_from_range(&self.lexer.span()),
-					}))
+					}));
 				},
 			}
 		}
@@ -261,14 +262,15 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 pub type Spanned<Tok, Loc, Error> = Result<(Loc, Tok, Loc), Error>;
 
 impl<'input> Iterator for LogosLexer<'input> {
-	type Item = Spanned<TokenKind, usize, LexerError>;
+	type Item = Spanned<TokenKind, usize, CompilerError>;
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.lexer.next().map(|token_result| match token_result {
-			Err(_) => Err(self.lexer.extras.last_err.unwrap_or(LexerError {
-				range: SourceSpan::new_from_range(&self.lexer.span()),
-				kind: LexerErrorKind::InvalidToken,
-			})),
+			Err(_) => 
+				Err(CompilerError::LexerError(self.lexer.extras.last_err.unwrap_or(LexerError {
+					kind: LexerErrorKind::InvalidToken,
+					range: SourceSpan::new_from_range(&self.lexer.span()),
+				}))),
 			Ok(token_kind) => Ok((self.lexer.span().start, token_kind, self.lexer.span().end)),
 		})
 	}

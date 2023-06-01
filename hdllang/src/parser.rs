@@ -5,28 +5,49 @@ pub mod pretty_printer;
 pub use grammar_parser::grammar::*;
 pub use parser_context::ParserContext;
 pub use pretty_printer::PrettyPrinterContext;
-
+extern crate itertools;
+use crate::core::CompilerError;
 use crate::core::compiler_diagnostic::*;
-use crate::lexer::{KeywordKind, LexerError, PunctuatorKind, TokenKind};
+use crate::lexer::TokenKind;
 use crate::SourceSpan;
 use lalrpop_util::ParseError;
 use std::fmt;
 use thiserror::Error;
-#[derive(Copy, Clone, Error, Debug)]
+use std::collections::HashSet;
+fn map_token_to_help_msg(expected:&Vec<String>) -> String{
+	let mut messages = HashSet::new();
+	for token in expected.iter(){
+		messages.insert( match token.as_str(){
+			"\"MC\"" => "metadata comment",
+			"\"async\"" | "\"auto\"" | "\"bool\"" | "\"bus\"" | "\"clock\"" | "\"comb\"" | "\"const\"" | "\"input\"" | "\"int\"" | "\"output\"" | "\"signed\"" |      
+        	"\"sync\"" | "\"tristate\"" | "\"unsigned\"" | "\"wire\""  => "variable block/declaration",
+			"\",\"" => "comma",
+			"\";\"" => "semicolon",
+			"\"(\"" => "left parenthesis",
+			"\")\"" => "right parenthesis",
+			_ => &token[1..token.len()-1],
+		});
+	}
+    format!("We expected these productions instead:\n{}", itertools::join(messages, ", "))
+}
+#[derive(Error, Debug)]
 pub enum ParserErrorKind {
-	#[error("Missing token")]
-	MissingToken(TokenKind),
 	#[error("Unexpected token")]
-	UnexpectedToken(TokenKind),
+	UnexpectedToken{
+		token:TokenKind,
+		expected: Vec<String>
+	},
 	#[error("Invalid token")]
 	InvalidToken,
 	#[error("Unexpected end of file")]
-	UnrecognizedEof,
+	UnrecognizedEof{
+		expected: Vec<String>
+	},
 	#[error("Lexer error")]
-	LexerError(LexerError),
+	LexerError(Box<CompilerError>),
 }
 
-#[derive(Copy, Clone, Error, Debug)]
+#[derive(Error, Debug)]
 pub struct ParserError {
 	kind: ParserErrorKind,
 	range: SourceSpan,
@@ -38,27 +59,27 @@ impl fmt::Display for ParserError {
 	}
 }
 impl ParserError {
-	pub fn new_form_lalrpop_error(e: ParseError<usize, TokenKind, LexerError>) -> Self {
+	pub fn new_form_lalrpop_error(e: ParseError<usize, TokenKind, CompilerError>) -> Self {
 		use ParserErrorKind::*;
 		match e {
 			ParseError::InvalidToken { location } => Self {
 				kind: InvalidToken,
 				range: SourceSpan::new_between(location, location + 1),
 			},
-			ParseError::UnrecognizedEof { location, expected: _ } => Self {
-				kind: UnrecognizedEof,
+			ParseError::UnrecognizedEof { location, expected } => Self {
+				kind: UnrecognizedEof{expected},
 				range: SourceSpan::new_between(location, location + 1),
 			},
-			ParseError::UnrecognizedToken { token, expected: _ } => Self {
-				kind: UnexpectedToken(token.1),
+			ParseError::UnrecognizedToken { token, expected } => Self {
+				kind: UnexpectedToken{token:token.1,expected},
 				range: SourceSpan::new_between(token.0, token.2),
 			},
 			ParseError::ExtraToken { token } => Self {
-				kind: UnexpectedToken(token.1),
+				kind: UnexpectedToken{token:token.1,expected:vec![]},
 				range: SourceSpan::new_between(token.0, token.2),
 			},
 			ParseError::User { error } => Self {
-				kind: LexerError(error),
+				kind: LexerError(Box::new(error)),
 				range: SourceSpan::new_between(0, 0),
 			},
 		}
@@ -66,42 +87,21 @@ impl ParserError {
 }
 impl ProvidesCompilerDiagnostic for ParserError {
 	fn to_diagnostic(&self) -> CompilerDiagnostic {
-		use KeywordKind::*;
 		use ParserErrorKind::*;
-		use PunctuatorKind::*;
-		match self.kind {
-			MissingToken(kind) => CompilerDiagnosticBuilder::from_error(&self)
-				.label(
-					self.range,
-					match kind {
-						TokenKind::Punctuator(ref punctuator) => match punctuator {
-							Semicolon => "Missing semicolon".to_string(),
-							Comma => "Missing comma".to_string(),
-							LBrace => "Missing left brace".to_string(),
-							RBrace => "Missing right brace".to_string(),
-							_ => format!("Expected token: {:?}", punctuator),
-						},
-						TokenKind::Keyword(keyword) => match keyword {
-							In => "Missing keyword 'in'".to_string(),
-							_ => format!("Expected token: {:?}", keyword),
-						},
-						_ => format!("Expected token: {:?}", kind),
-					}
-					.as_str(),
-				)
-				.help("Please provide this token.")
-				.build(),
-			UnexpectedToken(kind) => CompilerDiagnosticBuilder::from_error(&self)
-				.label(self.range, format!("Unexpected token: {:?}", kind).as_str())
-				.help("Are you sure this token should be there?")
-				.build(),
+		match &self.kind {
+			UnexpectedToken{token,expected} =>{
+				CompilerDiagnosticBuilder::from_error(&self)
+				.label(self.range, format!("Unexpected token: {:?}", token).as_str())
+				.help(&map_token_to_help_msg(expected))
+				.build()},
 			InvalidToken => CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "Invalid token")
 				.help("Please replace this token with a valid one.")
 				.build(),
-			UnrecognizedEof => CompilerDiagnosticBuilder::from_error(&self)
+			UnrecognizedEof{expected} => 
+				CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "Unexpected end of file")
-				.help("Did not expect end of file here. Are you sure it's not truncated?")
+				.help(&map_token_to_help_msg(expected))
 				.build(),
 			LexerError(err) => err.to_diagnostic(),
 		}
