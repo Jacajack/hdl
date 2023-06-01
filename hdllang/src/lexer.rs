@@ -8,7 +8,7 @@ pub use crate::core::id_table::{IdTable, IdTableKey};
 pub use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
 use crate::SourceSpan;
 pub use logos_lexer::LogosLexer;
-pub use numeric_constant::NumericConstant;
+pub use numeric_constant::{NumericConstant, NumericConstantBase};
 pub use numeric_constant_parser::NumberParseError;
 use std::fmt;
 use thiserror::Error;
@@ -76,14 +76,12 @@ pub enum KeywordKind {
 	Bus,
 	Bool,
 	Clock,
-	ClockGate,
 	Comb,
 	Conditional,
 	Const,
 	Default,
 	Else,
 	Enum,
-	FfSync,
 	For,
 	If,
 	In,
@@ -94,15 +92,17 @@ pub enum KeywordKind {
 	Module,
 	Node,
 	Output,
-	Register,
 	Signed,
 	Sync,
 	Async,
 	Tristate,
-	TristateBuffer,
 	Unsigned,
 	Unused,
 	Wire,
+	Use,
+	Package,
+	Super,
+	Root,
 }
 
 /// All language punctuators
@@ -119,6 +119,7 @@ pub enum PunctuatorKind {
 	BitwiseOr,      // |
 	BitwiseXor,     // ^
 	Colon,          // :
+	DoubleColon,    // ::
 	Comma,          // ,
 	Dot,            // .
 	Equals,         // ==
@@ -146,6 +147,7 @@ pub enum PunctuatorKind {
 	Semicolon,      // ;
 	Slash,          // /
 	PlusColon,      // +:
+	ColonLessThan,  // :<
 }
 
 /// Token as produced by the lexer (token kind + source location)
@@ -171,4 +173,6 @@ pub trait Lexer<'source> {
 
 	/// Access the comment table
 	fn comment_table(&self) -> &CommentTable;
+
+	fn numeric_constant_table(&self) -> &NumericConstantTable;
 }

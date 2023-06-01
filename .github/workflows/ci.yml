@@ -58,6 +58,21 @@ jobs:
           shared-key: "post-cargo-build"
     - name: Tests
       run: cargo test -p hdl -p hdllang --verbose
+
+  parser-fuzz-test:
+    name: Parser fuzz test (constant seed)
+    if: ${{ always() && needs.cargo-build.result == 'success' }}
+    needs: [cargo-build]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
+        with:
+            shared-key: "post-cargo-build"
+      - name: Python setup
+        run: pip3 install fuzzingbook
+      - name: Fuzzer tests
+        run: utils/parser_test.py --seed 3721
+
     
 # TODO add iverilog tests
-# TODO add fuzzer tests

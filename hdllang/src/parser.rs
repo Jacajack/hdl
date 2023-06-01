@@ -1,11 +1,115 @@
 pub mod ast;
 pub mod grammar_parser;
 pub mod parser_context;
+pub mod pretty_printer;
 pub use grammar_parser::grammar::*;
 pub use parser_context::ParserContext;
+pub use pretty_printer::PrettyPrinterContext;
+
+use crate::core::compiler_diagnostic::*;
+use crate::lexer::{KeywordKind, LexerError, PunctuatorKind, TokenKind};
+use crate::SourceSpan;
+use lalrpop_util::ParseError;
+use std::fmt;
+use thiserror::Error;
+#[derive(Copy, Clone, Error, Debug)]
+pub enum ParserErrorKind {
+	#[error("Missing token")]
+	MissingToken(TokenKind),
+	#[error("Unexpected token")]
+	UnexpectedToken(TokenKind),
+	#[error("Invalid token")]
+	InvalidToken,
+	#[error("Unexpected end of file")]
+	UnrecognizedEof,
+	#[error("Lexer error")]
+	LexerError(LexerError),
+}
+
+#[derive(Copy, Clone, Error, Debug)]
+pub struct ParserError {
+	kind: ParserErrorKind,
+	range: SourceSpan,
+}
+
+impl fmt::Display for ParserError {
+	fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+		write!(f, "{}", self.kind)
+	}
+}
+impl ParserError {
+	pub fn new_form_lalrpop_error(e: ParseError<usize, TokenKind, LexerError>) -> Self {
+		use ParserErrorKind::*;
+		match e {
+			ParseError::InvalidToken { location } => Self {
+				kind: InvalidToken,
+				range: SourceSpan::new_between(location, location + 1),
+			},
+			ParseError::UnrecognizedEof { location, expected: _ } => Self {
+				kind: UnrecognizedEof,
+				range: SourceSpan::new_between(location, location + 1),
+			},
+			ParseError::UnrecognizedToken { token, expected: _ } => Self {
+				kind: UnexpectedToken(token.1),
+				range: SourceSpan::new_between(token.0, token.2),
+			},
+			ParseError::ExtraToken { token } => Self {
+				kind: UnexpectedToken(token.1),
+				range: SourceSpan::new_between(token.0, token.2),
+			},
+			ParseError::User { error } => Self {
+				kind: LexerError(error),
+				range: SourceSpan::new_between(0, 0),
+			},
+		}
+	}
+}
+impl ProvidesCompilerDiagnostic for ParserError {
+	fn to_diagnostic(&self) -> CompilerDiagnostic {
+		use KeywordKind::*;
+		use ParserErrorKind::*;
+		use PunctuatorKind::*;
+		match self.kind {
+			MissingToken(kind) => CompilerDiagnosticBuilder::from_error(&self)
+				.label(
+					self.range,
+					match kind {
+						TokenKind::Punctuator(ref punctuator) => match punctuator {
+							Semicolon => "Missing semicolon".to_string(),
+							Comma => "Missing comma".to_string(),
+							LBrace => "Missing left brace".to_string(),
+							RBrace => "Missing right brace".to_string(),
+							_ => format!("Expected token: {:?}", punctuator),
+						},
+						TokenKind::Keyword(keyword) => match keyword {
+							In => "Missing keyword 'in'".to_string(),
+							_ => format!("Expected token: {:?}", keyword),
+						},
+						_ => format!("Expected token: {:?}", kind),
+					}
+					.as_str(),
+				)
+				.help("Please provide this token.")
+				.build(),
+			UnexpectedToken(kind) => CompilerDiagnosticBuilder::from_error(&self)
+				.label(self.range, format!("Unexpected token: {:?}", kind).as_str())
+				.help("Are you sure this token should be there?")
+				.build(),
+			InvalidToken => CompilerDiagnosticBuilder::from_error(&self)
+				.label(self.range, "Invalid token")
+				.help("Please replace this token with a valid one.")
+				.build(),
+			UnrecognizedEof => CompilerDiagnosticBuilder::from_error(&self)
+				.label(self.range, "Unexpected end of file")
+				.help("Did not expect end of file here. Are you sure it's not truncated?")
+				.build(),
+			LexerError(err) => err.to_diagnostic(),
+		}
+	}
+}
+
 #[cfg(test)]
 mod tests {
-	use std::io::BufRead;
 
 	use super::*;
 	use crate::core::DiagnosticBuffer;
@@ -13,11 +117,11 @@ mod tests {
 	use crate::parser::ParserContext;
 	fn parse_expr(s: &str) -> Box<ast::Expression> {
 		let lexer = LogosLexer::new(s);
-		let mut buf = DiagnosticBuffer::new();
-		let mut ctx = ParserContext {
-			diagnostic_buffer: &mut buf,
-		};
-		ExprParser::new().parse(&mut ctx, lexer).expect("parsing failed")
+		let buf = Box::new(DiagnosticBuffer::new());
+		let mut ctx = ParserContext { diagnostic_buffer: buf };
+		ExprParser::new()
+			.parse(&mut ctx, Some(&String::from(s)), lexer)
+			.expect("parsing failed")
 	}
 
 	/// Returns the same expression but with parentheses

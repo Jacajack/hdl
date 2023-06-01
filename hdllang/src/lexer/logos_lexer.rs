@@ -1,5 +1,8 @@
 use super::numeric_constant_parser::parse_numeric_constant_str;
-use super::{KeywordKind, Lexer, LexerError, LexerErrorKind, NumericConstant, PunctuatorKind, SourceSpan, Token};
+use super::{
+	KeywordKind, Lexer, LexerError, LexerErrorKind, NumericConstant, NumericConstantBase, PunctuatorKind, SourceSpan,
+	Token,
+};
 use crate::core::comment_table::{CommentTable, CommentTableKey};
 use crate::core::id_table::{IdTable, IdTableKey};
 use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
@@ -7,20 +10,22 @@ use logos::{Filter, Logos, Skip};
 
 /// Returns constant key for 'true'
 fn parse_true_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstantTableKey> {
-	Some(
-		lex.extras
-			.numeric_constants
-			.insert(NumericConstant::from_u64(1, Some(1), Some(false))),
-	)
+	Some(lex.extras.numeric_constants.insert(NumericConstant::from_u64(
+		1,
+		Some(1),
+		Some(false),
+		Some(NumericConstantBase::Boolean),
+	)))
 }
 
 /// Returns constant key for 'false'
 fn parse_false_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstantTableKey> {
-	Some(
-		lex.extras
-			.numeric_constants
-			.insert(NumericConstant::from_u64(1, Some(1), Some(false))),
-	)
+	Some(lex.extras.numeric_constants.insert(NumericConstant::from_u64(
+		1,
+		Some(1),
+		Some(false),
+		Some(NumericConstantBase::Boolean),
+	)))
 }
 
 /// Parses numeric constant tokens
@@ -69,8 +74,8 @@ fn consume_metadata_comment(lex: &mut logos::Lexer<TokenKind>) -> CommentTableKe
 		Some(offset) => offset,
 		None => lex.remainder().len(),
 	};
-
 	let comment = lex.remainder().chars().take(length).collect();
+	lex.bump(length);
 	lex.extras.comment_table.insert(comment)
 }
 
@@ -99,7 +104,6 @@ pub enum TokenKind {
 	Id(IdTableKey),
 
 	#[token("module",          |_| KeywordKind::Module)]
-	#[token("register",        |_| KeywordKind::Register)]
 	#[token("input",           |_| KeywordKind::Input)]
 	#[token("output",          |_| KeywordKind::Output)]
 	#[token("default",         |_| KeywordKind::Default)]
@@ -119,14 +123,16 @@ pub enum TokenKind {
 	#[token("auto",            |_| KeywordKind::Auto)]
 	#[token("unused",          |_| KeywordKind::Unused)]
 	#[token("const",           |_| KeywordKind::Const)]
-	#[token("ff_sync",         |_| KeywordKind::FfSync)]
-	#[token("clock_gate",      |_| KeywordKind::ClockGate)]
-	#[token("tristate_buffer", |_| KeywordKind::TristateBuffer)]
 	#[token("enum",            |_| KeywordKind::Enum)]
 	#[token("if",              |_| KeywordKind::If)]
+	#[token("else",            |_| KeywordKind::Else)]
 	#[token("for",             |_| KeywordKind::For)]
 	#[token("in",              |_| KeywordKind::In)]
 	#[token("bool",            |_| KeywordKind::Bool)]
+	#[token("use",             |_| KeywordKind::Use)]
+	#[token("package",         |_| KeywordKind::Package)]
+	#[token("super",           |_| KeywordKind::Super)]
+	#[token("root",            |_| KeywordKind::Root)]
 	Keyword(KeywordKind),
 
 	#[token("=",  |_| PunctuatorKind::Assignment)]
@@ -167,6 +173,8 @@ pub enum TokenKind {
 	#[token("||", |_| PunctuatorKind::LogicalOr)]
 	#[token("=>", |_| PunctuatorKind::Implies)]
 	#[token("+:", |_| PunctuatorKind::PlusColon)]
+	#[token("::", |_| PunctuatorKind::DoubleColon)]
+	#[token(":<", |_| PunctuatorKind::ColonLessThan)]
 	Punctuator(PunctuatorKind),
 }
 
@@ -243,6 +251,10 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 
 	fn comment_table(&self) -> &CommentTable {
 		&self.lexer.extras.comment_table
+	}
+
+	fn numeric_constant_table(&self) -> &NumericConstantTable {
+		&self.lexer.extras.numeric_constants
 	}
 }
 

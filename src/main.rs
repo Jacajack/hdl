@@ -3,6 +3,9 @@ use clap::{arg, command, Arg};
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
 use hdllang::core::DiagnosticBuffer;
 use hdllang::lexer::{Lexer, LogosLexer};
+use hdllang::parser::ast::Root;
+use hdllang::parser::pretty_printer::PrettyPrintable;
+use hdllang::parser::ParserError;
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
 use hdllang::{analyzer, parser};
@@ -57,22 +60,29 @@ fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 }
 fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let lexer = LogosLexer::new(&code);
-	let mut buf = hdllang::core::DiagnosticBuffer::new();
-	let mut ctx = parser::ParserContext {
-		diagnostic_buffer: &mut buf,
-	};
-	let ast = parser::IzuluParser::new().parse(&mut ctx, lexer);
+	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
+	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
+	let parser = parser::IzuluParser::new();
+	let ast = parser
+		.parse(&mut ctx, Some(&code), lexer)
+		.map_err(|e| ParserError::new_form_lalrpop_error(e).to_diagnostic())?;
+	let buffer = ctx.diagnostic_buffer;
+	println!("{}", buffer.to_string());
 	write!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_miette_report())?;
 	Ok(())
 }
 
 fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
-	let mut buf = DiagnosticBuffer::new();
-	let mut ctx = parser::ParserContext {
-		diagnostic_buffer: &mut buf,
-	};
-	let ast = parser::IzuluParser::new().parse(&mut ctx, &mut lexer);
+	let buf = Box::new(DiagnosticBuffer::new());
+	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
+	let ast = parser::IzuluParser::new()
+		.parse(&mut ctx, Some(&code), &mut lexer)
+		.map_err(|e| {
+			ParserError::new_form_lalrpop_error(e)
+				.to_miette_report()
+				.with_source_code(code.clone())
+		})?;
 	println!("Ids: {:?}", lexer.id_table());
 	println!("Comments: {:?}", lexer.comment_table());
 	let id_table = lexer.id_table().clone();
@@ -81,10 +91,52 @@ fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut analyzer = analyzer::SemanticAnalyzer::new(&id_table, &comment_table);
 
 	writeln!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
-	analyzer.process(ast.as_ref().unwrap());
+	analyzer.process(&ast);
 	Ok(())
 }
-
+fn serialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
+	let lexer = LogosLexer::new(&code);
+	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
+	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
+	let parser = parser::IzuluParser::new();
+	let ast = parser.parse(&mut ctx, Some(&code), lexer).map_err(|e| {
+		ParserError::new_form_lalrpop_error(e)
+			.to_miette_report()
+			.with_source_code(code.clone())
+	})?;
+	let buffer = ctx.diagnostic_buffer;
+	println!("{}", buffer.to_string());
+	writeln!(output, "{}", serde_json::to_string_pretty(&ast).unwrap())
+		.map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
+	Ok(())
+}
+fn deserialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
+	let deserialized: Root = serde_json::from_str(&code).unwrap();
+	writeln!(output, "{:?}", deserialized).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
+	Ok(())
+}
+fn pretty_print(code: String, output: Box<dyn Write>) -> miette::Result<()> {
+	let mut lexer = LogosLexer::new(&code);
+	let buf = Box::new(DiagnosticBuffer::new());
+	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
+	let ast = parser::IzuluParser::new()
+		.parse(&mut ctx, Some(&code), &mut lexer)
+		.map_err(|e| {
+			ParserError::new_form_lalrpop_error(e)
+				.to_miette_report()
+				.with_source_code(code.clone())
+		})?;
+	let buffer = ctx.diagnostic_buffer;
+	println!("{}", buffer.to_string());
+	let mut printer = parser::pretty_printer::PrettyPrinterContext::new(
+		lexer.id_table(),
+		lexer.comment_table(),
+		lexer.numeric_constant_table(),
+		output,
+	);
+	ast.pretty_print(&mut printer)?;
+	Ok(())
+}
 fn init_logging() {
 	if let Some(logfile) = std::env::var("RUST_LOG_FILE").ok() {
 		// See: https://github.com/rust-cli/env_logger/issues/125
@@ -111,7 +163,16 @@ fn main() -> miette::Result<()> {
 		.arg(
 			arg!(<MODE>)
 				.help("Specify which action should be performed")
-				.value_parser(["tokenize", "parse", "analyse", "analyze", "compile"])
+				.value_parser([
+					"tokenize",
+					"parse",
+					"pretty-print",
+					"serialize",
+					"deserialize",
+					"analyse",
+					"analyze",
+					"compile",
+				])
 				.required(false)
 				.short('m')
 				.long("mode"),
@@ -145,6 +206,15 @@ fn main() -> miette::Result<()> {
 		},
 		"analyse" | "analyze" => {
 			analyze(code, output)?;
+		},
+		"pretty-print" => {
+			pretty_print(code, output)?;
+		},
+		"serialize" => {
+			serialize(code, output)?;
+		},
+		"deserialize" => {
+			deserialize(code, output)?;
 		},
 		"compile" => {
 			println!("Not implemented!");

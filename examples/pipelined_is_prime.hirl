@@ -1,0 +1,37 @@
+module pipelined_is_prime {
+	input clock clk;
+	input nreset;
+
+	input in_valid;
+	output in_ready;
+	input bus<4> number;
+
+	input out_ready;
+	output sync(clk) {
+		wire is_prime;
+		wire out_valid;
+	};
+}
+
+impl pipelined_is_prime {
+	in_ready = out_ready; // comb passthrough - should warn
+
+	register out_valid_r {
+		clk, // must be a clock signal
+		nreset,
+		en: true,
+		data: out_valid,
+		next: in_valid,
+	};
+
+	register is_prime_r {
+		clk,    // auto connected
+		nreset, // auto connected
+		en: out_ready,
+		data: is_prime, // type deduced from input, connects to 'output sync(clk)'
+		next: match(number) {
+			2_u4, 3_u4, 5_u4, 7_u4, 11_u4, 13_u4 => true, // or 1u1
+			default => false,
+		},
+	};
+}

@@ -1,7 +1,9 @@
 use crate::parser::ast::{SourceLocation, TopDefinition};
 use crate::SourceSpan;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
 
+#[derive(Serialize, Deserialize)]
 pub struct Root {
 	pub definitions: Vec<TopDefinition>,
 	pub location: SourceSpan,

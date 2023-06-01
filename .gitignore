@@ -6,4 +6,6 @@
 **/*.tmp
 **/__pycache__
 **/Cargo.lock
+*.json
 target/
+utils/fuzzer/

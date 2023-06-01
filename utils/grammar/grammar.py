@@ -46,29 +46,41 @@ GRAMMAR = {
 	],
     "<direct_declarator>": ["<id><array_declarator>*"],
 	"<type_name>": ["<type_declarator><array_declarator>*"],
-	"<type_declarator>": ["<type_qualifier>* <type_specifier>"],
+	"<type_declarator>": [
+     "<direction>? <type_qualifier>* <syn_type>", 
+     "<comp_type>",
+     "<direction>? <type_qualifier>+ <vec_decl>?", 
+     "<direction>  <vec_decl>?"
+     ],
 	"<array_declarator>": ["<index_expression>"],
-	"<type_specifier>": [
-    	"auto",
-        "int",
+	"<comp_type>" : [
+     "int",
+     "bool",
+     ],
+	"<syn_type>" : [
+	    "auto",
         "wire",
-        "bus<<primary_expression>>", # TODO maybe there's a better solution
+        "bus<vec_decl>",
+     ], 
+ 	"<vec_decl>": [
+        "<<primary_expression>>",
     ],
-
+	"<direction>":[
+      "input ",
+      "output ",
+    ],
 	"<type_qualifier>": [
-		"signed",
-		"unsigned",
-		"tristate",
-		"const",
-		"comb(<expression>)",
-		"sync(<expression>)",
-        "input",
-        "output",
-        "async",
+		"signed ",
+		"unsigned ",
+		"const ",
+		"comb(<expression>) ",
+		"sync(<expression>) ",
+        "async ",
 	],
 	
 	# Variable blocks
-	"<variable_block>": ["<metadata_comment>? <type_qualifier>+ { <variable_block_stmt>* }"],
+	"<variable_block>": ["<metadata_comment>? <direction>? <type_qualifier>+ { <variable_block_stmt>+ }",
+                      	 "<metadata_comment>? <direction> <type_qualifier>* { <variable_block_stmt>+ }"],
 	"<variable_block_stmt>": [
     	"<variable_decl_stmt>",
     	# "<variable_def_stmt>", # TODO For review!!!
@@ -82,7 +94,7 @@ GRAMMAR = {
     ],
     "<direct_initializer>": [
         "<direct_declarator>",
-		"<direct_declarator> = <expression>",
+		"<direct_declarator> = <expr_with_tuple>",
 	],
     "<direct_initializer_list>": [
 		"<direct_initializer>",
@@ -91,7 +103,7 @@ GRAMMAR = {
 	
 	# Standalone assignment
 	"<assignment_op>": ["=", "+=", "&=", "^=", "|="],
-	"<assignment_stmt>": ["<expression> <assignment_op> <expression>;"],
+	"<assignment_stmt>": ["<expression> <assignment_op> <expr_with_tuple>;"],
 	
 	# For statement
 	"<for_stmt>": [
@@ -117,7 +129,7 @@ GRAMMAR = {
         "<port_bind_stmt_list>, <port_bind_stmt>",
 	],
 	"<port_bind_stmt>": [
-		"<id>: <expression>",
+		"<id>: <expr_with_tuple>",
 		"<id>: <type_declarator> <direct_declarator>",
 		"<id>",
 	],
@@ -127,11 +139,14 @@ GRAMMAR = {
 		"<number>",
 		"<id>",
 		"(<expression>)",
-		"<tuple>",
         "<boolean>",
         "<match_expression>",
 		"<conditional_expression>",
         # TODO FSM expression
+	],
+	"<expr_with_tuple>": [
+		"<expression>",
+		"<tuple>",
 	],
     "<boolean>": [
 		"true",
@@ -139,10 +154,8 @@ GRAMMAR = {
     ],
 	"<expression>": [
 		"<primary_expression>",
-		"<ternary_expression>",
         "<postfix_expression>",
         "<unary_expression>",
-        "<postfix_expression>",
         "<multiplicative_expression>",
 		"<additive_expression>",
 		"<shift_expression>",

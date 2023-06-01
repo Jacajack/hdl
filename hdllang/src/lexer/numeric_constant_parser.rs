@@ -1,4 +1,4 @@
-use crate::compiler_diagnostic::*;
+use crate::{compiler_diagnostic::*, lexer::numeric_constant::NumericConstantBase};
 use std::fmt;
 use thiserror::Error;
 
@@ -86,6 +86,9 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 	assert!(s.len() > 0);
 	assert!(s.chars().nth(0).unwrap().is_digit(10));
 
+	// Token width before we remove underscores
+	let token_len = s.len();
+
 	// Get rid of all '_' and convert to lowercase
 	let s = String::from(s).replace("_", "").to_lowercase();
 
@@ -106,7 +109,7 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 			if n > 64 {
 				return Err(NumberParseError {
 					kind: NumericConstantParseErrorKind::TooManyBits,
-					range: (0, s.len()),
+					range: (0, token_len),
 				});
 			}
 
@@ -116,26 +119,37 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 
 	// TODO corner case - should oldest bit in binary representation affect sign?
 	// TODO same dillema but for hex numbers
+	// TODO handle precise error underline in funky numbers like 0b__1__2__u35
 
 	// Parse according to base
+	let base;
 	let value = if s.starts_with("0x") {
-		parse_pure_hex(&s[2..digits_end])?
+		base = NumericConstantBase::Hexadecimal;
+		parse_pure_hex(&s[2..digits_end]).map_err(|e| NumberParseError {
+			kind: e.kind,
+			range: (0, token_len),
+		})?
 	}
 	else if s.starts_with("0b") {
-		parse_pure_binary(&s[2..digits_end])?
+		base = NumericConstantBase::Binary;
+		parse_pure_binary(&s[2..digits_end]).map_err(|e| NumberParseError {
+			kind: e.kind,
+			range: (0, token_len),
+		})?
 	}
 	else {
+		base = NumericConstantBase::Decimal;
 		parse_pure_decimal(&s[0..digits_end])?
 	};
 
 	// Create the constant and check if it's valid
-	let constant = NumericConstant::from_u64(value, num_bits, is_signed);
+	let constant = NumericConstant::from_u64(value, num_bits, is_signed, Some(base));
 
 	// Check if the number can be represented with this number of bits
 	if matches!(constant.is_representable(), Some(false)) {
 		return Err(NumberParseError {
 			kind: NumericConstantParseErrorKind::InsufficientWidth,
-			range: (0, s.len()),
+			range: (0, token_len),
 		});
 	}
 

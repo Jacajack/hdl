@@ -1,7 +1,12 @@
+use crate::lexer::CommentTableKey;
 use crate::parser::ast::{DirectDeclarator, SourceLocation, TypeDeclarator};
 use crate::SourceSpan;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
+
+#[derive(Serialize, Deserialize)]
 pub struct VariableDeclaration {
+	pub metadata: Vec<CommentTableKey>,
 	pub type_declarator: TypeDeclarator,
 	pub direct_declarators: Vec<Box<DirectDeclarator>>,
 	pub location: SourceSpan,

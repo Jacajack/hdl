@@ -1,7 +1,8 @@
+use serde::{Deserialize, Serialize};
 use std::ops::Range;
 
 /// Indicates a region in the source code
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct SourceSpan {
 	start: usize,
 	end: usize,

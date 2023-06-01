@@ -1,8 +1,10 @@
 use crate::parser::ast::expression::Expression;
 use crate::parser::ast::SourceLocation;
 use crate::SourceSpan;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
 
+#[derive(Serialize, Deserialize)]
 pub enum TypeSpecifier {
 	Auto {
 		location: SourceSpan,

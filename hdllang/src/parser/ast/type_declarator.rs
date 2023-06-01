@@ -1,6 +1,9 @@
 use crate::parser::ast::{SourceLocation, TypeQualifier, TypeSpecifier};
 use crate::SourceSpan;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
+
+#[derive(Serialize, Deserialize)]
 pub struct TypeDeclarator {
 	pub specifier: TypeSpecifier,
 	pub qualifiers: Vec<TypeQualifier>,

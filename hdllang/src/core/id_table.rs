@@ -1,13 +1,14 @@
 use bimap::BiHashMap;
+use serde::{Deserialize, Serialize};
 
 /// Opaque key type for the lexer ID table
-#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug)]
+#[derive(Hash, PartialEq, Eq, Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct IdTableKey {
 	key: usize,
 }
 
 /// Lexer's ID table - used to avoid storing tokens in strings
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdTable {
 	ids: BiHashMap<IdTableKey, String>,
 }

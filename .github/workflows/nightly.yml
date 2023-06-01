@@ -1,0 +1,50 @@
+name: Nightly CI
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '20 02 * * *'
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  cargo-build:
+    name: Cargo build
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cargo build --verbose
+    - uses: Swatinem/rust-cache@v2
+      with:
+        shared-key: "post-cargo-build-nightly"
+    
+  cargo-test:
+    name: Cargo test
+    needs: [cargo-build]
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    - uses: Swatinem/rust-cache@v2
+      with:
+          shared-key: "post-cargo-build-nightly"
+    - name: Tests
+      run: cargo test -p hdl -p hdllang --verbose
+
+  # TODO increase number of tests
+  parser-fuzz-test:
+    name: Parser fuzz test (random seed)
+    needs: [cargo-build]
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v3
+      - uses: Swatinem/rust-cache@v2
+        with:
+            shared-key: "post-cargo-build-nightly"
+      - name: Python setup
+        run: pip3 install fuzzingbook
+      - name: Fuzzer tests
+        run: utils/parser_test.py --random-seed
+

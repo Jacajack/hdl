@@ -1,13 +1,15 @@
 use std::collections::HashMap;
 
 /// Used to access metadata comments
-#[derive(Copy, Clone, Debug, Hash, PartialEq, Eq)]
+use serde::{Deserialize, Serialize};
+
+#[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CommentTableKey {
 	key: usize,
 }
 
 /// Stores metadata comments
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CommentTable {
 	comments: HashMap<CommentTableKey, String>,
 }

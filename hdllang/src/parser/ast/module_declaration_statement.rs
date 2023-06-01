@@ -1,7 +1,9 @@
 use crate::parser::ast::{SourceLocation, VariableBlock, VariableDeclaration};
 use crate::SourceSpan;
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
 
+#[derive(Serialize, Deserialize)]
 pub enum ModuleDeclarationStatement {
 	VariableDeclarationStatement {
 		declaration: VariableDeclaration,
