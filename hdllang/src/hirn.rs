@@ -46,6 +46,10 @@ impl Module {
 	}
 }
 
+pub struct ModuleInstance {
+	pub name: String,
+	pub bindings: Vec<(String, SignalRef)>,
+}
 
 pub enum ArraySlice {
 	Range(usize, usize),
@@ -58,15 +62,16 @@ pub struct SignalRef {
 	pub bit_range: (usize, usize),
 }
 
-pub struct GenerateIf {
-
+pub struct ConditionalScope {
+	pub condition: Expression,
+	pub scope: Scope,
 }
 
-pub struct GenerateFor {
-	pub scope: Scope,
+pub struct RangeScope {
 	pub iterator_var: GenericRef,
 	pub iterator_begin: Expression,
 	pub iterator_end: Expression,
+	pub scope: Scope,
 }
 
 pub struct Assignment {
@@ -74,51 +79,106 @@ pub struct Assignment {
 	pub rhs: Expression,
 }
 
-pub struct ModuleInstance {
-	pub name: String,
-	// TODO bindings
-}
-
 pub struct Register {
-	pub width: u32,
-	pub class: SignalClass,
 	pub input_nreset: Option<SignalRef>,
+	pub input_en: Option<SignalRef>,
 	pub input_clk: SignalRef,
 	pub input_next: SignalRef,
 	pub output_data: SignalRef,
+}
 
+pub struct TristateBuffer {
+	pub input_en: Option<SignalRef>,
+	pub input_data: SignalRef,
+	pub output_data: SignalRef,
+}
+
+pub struct ClockGate {
+	pub input_en: SignalRef,
+	pub input_clk: SignalRef,
+	pub output_clk: SignalRef,
+}
+
+pub struct FfSync {
+	pub input_nreset: Option<SignalRef>,
+	pub input_en: Option<SignalRef>,
+	pub input_clk1: SignalRef,
+	pub input_clk2: SignalRef,
+	pub input_next: SignalRef,
+	pub output_data: SignalRef,
+}
+
+pub enum FunctionalBlock {
+	Register(Register),
+	TristateBuffer(TristateBuffer),
+	ClockGate(ClockGate),
+	FfSync(FfSync),
+	Instance(ModuleInstance),
+}
+
+pub struct Signal {
+	// TODO
+}
+
+pub struct Generic {
+	// TODO
 }
 
 pub struct Scope {
 	// signals
 	// genvars
 	// assignments
-	pub assignments: Vec<Assignment>,
 
+	signals: Vec<Signal>,
+	generic: Vec<Generic>,
+	assignments: Vec<Assignment>,
+	loops: Vec<RangeScope>,
+	conditionals: Vec<ConditionalScope>,
+	blocks: Vec<FunctionalBlock>,
 }
 
 impl Scope {
-	fn new() -> Self {
+	pub fn new() -> Self {
 		Self {
+			signals: vec![],
+			generic: vec![],
 			assignments: vec![],
+			loops: vec![],
+			conditionals: vec![],
+			blocks: vec![],
 		}
 	}
 
-	fn add_signal() {
-
+	pub fn get_signal_ref(&mut self, name: &String) -> SignalRef {
+		todo!();
 	}
 
-	fn add_assignment() {
-
+	pub fn add_signal(&mut self, signal_type: SignalType, name: String) {
+		todo!();
 	}
 
-	fn add_conditional_block() {
-
+	pub fn assign(&mut self, lhs: SignalRef, rhs: Expression) {
+		todo!();
 	}
 
-	fn add_loop_block() {
-
+	pub fn conditional_block(&mut self, condition: &Expression) -> &mut Scope {
+		todo!();
 	}
+
+	pub fn loop_block(&mut self, iterator: GenericRef, from: Expression, to: Expression) -> &mut Scope {
+		todo!();
+	}
+
+	pub fn subscope(&mut self) -> &mut Scope {
+		todo!();
+	}
+	
+	// TODO add_register
+	// TODO add_tristate_buffer
+	// TODO add_clock_gate
+	// TODO add_ff_sync
+	// TODO add_instance
+
 }
 
 // TODO do we want generic array parameters
@@ -153,9 +213,9 @@ pub struct SensitivityList {
 }
 
 pub enum SignalSensitivity {
-	Asynchronous,
-	Combinational(SensitivityList),
-	Sequential(SensitivityList),
+	Async,
+	Comb(SensitivityList),
+	Sync(SensitivityList),
 	Clock,
 	Const,
 }
@@ -217,6 +277,34 @@ pub enum Expression {
 	Cast{dest_type: SignalType, src: Box<Expression>},
 }
 
+impl Expression {
+
+	pub fn cast(self, dest_type: SignalType) -> Self {
+		Self::Cast{dest_type, src: Box::new(self)}
+	}
+
+	pub fn zero_extend(self, width: u32) -> Self {
+		Self::Unary{op: UnaryOp::ZeroExtend{width}, operand: Box::new(self)}
+	}
+
+	pub fn sign_extend(self, width: u32) -> Self {
+		Self::Unary{op: UnaryOp::SignExtend{width}, operand: Box::new(self)}
+	}
+
+	pub fn bit_select(self, msb: u32, lsb: u32) -> Self {
+		assert!(msb >= lsb);
+		Self::Unary{op: UnaryOp::BitSelect(msb, lsb), operand: Box::new(self)}
+	}
+
+	// TODO reduction AND/OR/XOR
+	// TODO bitwise not
+	// TODO from i32
+	// TODO from u32
+	// TODO from bool
+	// TODO from signal ref
+	// TODO from generic ref
+	// TODO remaining binary ops
+}
 
 
 pub trait IsCompileTimeConst {
