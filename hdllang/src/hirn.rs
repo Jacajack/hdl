@@ -1,3 +1,5 @@
+pub mod expression_ops;
+
 pub struct HirnDesign {
 	pub root_namespace: Namespace,
 }
@@ -159,7 +161,7 @@ pub enum SignalSensitivity {
 }
 
 // TODO check if we have all 
-pub enum BinaryExpression {
+pub enum BinaryOp {
 	Add,
 	Subtract,
 	Multiply,
@@ -173,16 +175,25 @@ pub enum BinaryExpression {
 	BitwiseOr,
 	BitwiseXor,
 	Join,
+	Equal,
+	NotEqual,
+	Less,
+	LessEqual,
+	Greater,
+	GreaterEqual,
 }
 
 // TODO check if we have all
-pub enum UnaryExpression {
-	Plus,
-	Minus,
+pub enum UnaryOp {
+	Negate,
 	LogicalNot,
 	BitwiseNot,
-	ZeroExtend,
-	SignExtend,
+	ZeroExtend{width: u32},
+	SignExtend{width: u32},
+	BitSelect(u32, u32),
+	ReductionAnd,
+	ReductionOr,
+	ReductionXor,
 }
 
 pub struct ConditionalExpressionBranch {
@@ -201,10 +212,12 @@ pub enum Expression {
 	Constant(NumericConstant),
 	Generic(GenericRef),
 	Signal(SignalRef),
-	BinaryExpression{op: BinaryExpression, lhs: Box<Expression>, rhs: Box<Expression>},
-	UnaryExpression{op: UnaryExpression, operand: Box<Expression>},
+	Binary{op: BinaryOp, lhs: Box<Expression>, rhs: Box<Expression>},
+	Unary{op: UnaryOp, operand: Box<Expression>},
 	Cast{dest_type: SignalType, src: Box<Expression>},
 }
+
+
 
 pub trait IsCompileTimeConst {
 	fn is_compile_time_const(&self) -> bool;
@@ -230,46 +243,6 @@ impl IsCompileTimeConst for  Expression {
 			Constant{..} => true,
 			Generic{..} => true,
 			_ => false,
-		}
-	}
-}
-
-struct HirnAnalyzer {
-	
-}
-
-impl HirnAnalyzer {
-	fn elaborate_design(&self, design: &HirnDesign) {
-
-	}
-
-	fn elaborate_module(&self, module: &Module) {
-
-	}
-}
-
-struct HirnDesignBuilder {
-	design: HirnDesign,
-}
-
-impl HirnDesignBuilder {
-	// fn new() -> Self {
-	// 	Self {
-	// 		design: HirnDesign {
-
-	// 		}
-	// 	}
-	// }
-}
-
-struct HirnModuleBuilder {
-	module: Module
-}
-
-impl HirnModuleBuilder {
-	fn new(name: String) -> Self {
-		Self {
-			module: Module::new(name),
 		}
 	}
 }
