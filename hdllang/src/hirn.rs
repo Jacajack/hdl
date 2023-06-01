@@ -1,4 +1,6 @@
 pub mod expression_ops;
+pub mod sv_backend;
+pub mod indenter;
 
 pub struct HirnDesign {
 	pub root_namespace: Namespace,
@@ -117,7 +119,11 @@ pub enum FunctionalBlock {
 }
 
 pub struct Signal {
-	// TODO
+	name: String,
+	dimensions: Vec<u32>,
+	bit_width: u32,
+	class: SignalClass,
+	sensitivity: SignalSensitivity,
 }
 
 pub struct Generic {
@@ -125,10 +131,6 @@ pub struct Generic {
 }
 
 pub struct Scope {
-	// signals
-	// genvars
-	// assignments
-
 	signals: Vec<Signal>,
 	generic: Vec<Generic>,
 	assignments: Vec<Assignment>,
@@ -332,5 +334,16 @@ impl IsCompileTimeConst for  Expression {
 			Generic{..} => true,
 			_ => false,
 		}
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn basic_test() {
+		let m = Module::new("test".into());
+
 	}
 }
