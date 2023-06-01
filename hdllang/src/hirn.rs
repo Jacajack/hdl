@@ -17,10 +17,44 @@ pub struct NumericConstant {
 pub struct Module {
 	pub name: String,
 	pub interface: Scope,
+	pub main_scope: Scope,
 	pub parameters: Vec<GenericParam>,
 }
 
+impl Module {
+	pub fn new(name: String) -> Self {
+		Self {
+			name,
+			interface: Scope::new(),
+			main_scope: Scope::new(), // TODO link scopes
+			parameters: Vec::new(),
+		}
+	}
 
+	pub fn add_generic_parameter(&mut self, name: &String) {
+		todo!();
+	}
+
+	pub fn add_interface_signal(&mut self, name: &String, signal_type: SignalType) {
+		todo!();
+	}
+
+	pub fn get_scope(&mut self) -> &mut Scope {
+		todo!();
+	}
+}
+
+
+pub enum ArraySlice {
+	Range(usize, usize),
+	Index(usize),
+}
+
+pub struct SignalRef {
+	pub signal_id: usize, // TODO ???
+	pub slices: Vec<ArraySlice>,
+	pub bit_range: (usize, usize),
+}
 
 pub struct GenerateIf {
 
@@ -29,12 +63,13 @@ pub struct GenerateIf {
 pub struct GenerateFor {
 	pub scope: Scope,
 	pub iterator_var: GenericRef,
-	pub iterator_begin: GenericRef,
-	pub iterator_end: GenericRef,
+	pub iterator_begin: Expression,
+	pub iterator_end: Expression,
 }
 
 pub struct Assignment {
-
+	pub lhs: SignalRef,
+	pub rhs: Expression,
 }
 
 pub struct ModuleInstance {
@@ -55,12 +90,43 @@ pub struct Register {
 pub struct Scope {
 	// signals
 	// genvars
+	// assignments
+	pub assignments: Vec<Assignment>,
+
+}
+
+impl Scope {
+	fn new() -> Self {
+		Self {
+			assignments: vec![],
+		}
+	}
+
+	fn add_signal() {
+
+	}
+
+	fn add_assignment() {
+
+	}
+
+	fn add_conditional_block() {
+
+	}
+
+	fn add_loop_block() {
+
+	}
+}
+
+// TODO do we want generic array parameters
+pub struct GenericRef {
+
 }
 
 
 pub struct GenericParam {
 	pub name: String,
-
 }
 
 pub struct SignalType {
@@ -75,18 +141,135 @@ pub enum SignalClass {
 	Unsigned,
 }
 
-pub enum SignalSensitivity {
-	Asynchronous,
-	Combinational,
-	Sequential,
-	Clock,
+pub struct EdgeSensitivity {
+	pub clock_signal: SignalRef,
+	pub on_rising: bool,
 }
 
-pub enum Operation {
-	ConditionalChain,
-	Constant{value: NumericConstant},
-	SignalRef{signal: SignalRef},
-	Addition{lhs: Box<Operation>, rhs: Box<Operation>},
-	Subtraction{lhs: Box<Operation>, rhs: Box<Operation>},
-	Cast{dest_type: SignalType, src: Box<Operation>},
+pub struct SensitivityList {
+	pub edges: Vec<EdgeSensitivity>,
+}
+
+pub enum SignalSensitivity {
+	Asynchronous,
+	Combinational(SensitivityList),
+	Sequential(SensitivityList),
+	Clock,
+	Const,
+}
+
+// TODO check if we have all 
+pub enum BinaryExpression {
+	Add,
+	Subtract,
+	Multiply,
+	Divide,
+	Modulo,
+	ShiftLeft,
+	ShiftRight,
+	LogicalAnd,
+	LogicalOr,
+	BitwiseAnd,
+	BitwiseOr,
+	BitwiseXor,
+	Join,
+}
+
+// TODO check if we have all
+pub enum UnaryExpression {
+	Plus,
+	Minus,
+	LogicalNot,
+	BitwiseNot,
+	ZeroExtend,
+	SignExtend,
+}
+
+pub struct ConditionalExpressionBranch {
+	pub condition: Expression,
+	pub value: Expression,
+}
+
+pub struct ConditionalExpression {
+	pub branches: Vec<ConditionalExpressionBranch>,
+	pub default: Box<Expression>,
+}
+
+// TODO implement Rust operator overloads
+pub enum Expression {
+	Conditional(ConditionalExpression),
+	Constant(NumericConstant),
+	Generic(GenericRef),
+	Signal(SignalRef),
+	BinaryExpression{op: BinaryExpression, lhs: Box<Expression>, rhs: Box<Expression>},
+	UnaryExpression{op: UnaryExpression, operand: Box<Expression>},
+	Cast{dest_type: SignalType, src: Box<Expression>},
+}
+
+pub trait IsCompileTimeConst {
+	fn is_compile_time_const(&self) -> bool;
+}
+
+pub trait HasBitWidth {
+	fn get_bit_width(&self) -> u32;
+}
+
+impl IsCompileTimeConst for ConditionalExpression {
+	fn is_compile_time_const(&self) -> bool {
+		self.default.is_compile_time_const() && self.branches.iter().all(|branch| {
+			branch.condition.is_compile_time_const() && branch.value.is_compile_time_const()
+		})
+	}
+}
+
+impl IsCompileTimeConst for  Expression {
+	fn is_compile_time_const(&self) -> bool {
+		use Expression::*;
+		match self {
+			Conditional(cond) => cond.is_compile_time_const(),
+			Constant{..} => true,
+			Generic{..} => true,
+			_ => false,
+		}
+	}
+}
+
+struct HirnAnalyzer {
+	
+}
+
+impl HirnAnalyzer {
+	fn elaborate_design(&self, design: &HirnDesign) {
+
+	}
+
+	fn elaborate_module(&self, module: &Module) {
+
+	}
+}
+
+struct HirnDesignBuilder {
+	design: HirnDesign,
+}
+
+impl HirnDesignBuilder {
+	// fn new() -> Self {
+	// 	Self {
+	// 		design: HirnDesign {
+
+	// 		}
+	// 	}
+	// }
+}
+
+struct HirnModuleBuilder {
+	module: Module
+}
+
+impl HirnModuleBuilder {
+	fn new(name: String) -> Self {
+		Self {
+			module: Module::new(name),
+		}
+	}
 }
