@@ -29,7 +29,7 @@ impl ProvidesCompilerDiagnostic for CompilerError {
 			LexerError(lexer_error) => lexer_error.into(),
 
 			ParserError(parser_error) => parser_error.into(),
-			
+
 			SemanticError(semantic_error) => semantic_error.into(),
 
 			IoError(ref io_error) => CompilerDiagnosticBuilder::from_error(&self)

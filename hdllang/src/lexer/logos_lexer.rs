@@ -5,8 +5,8 @@ use super::{
 };
 use crate::core::comment_table::{CommentTable, CommentTableKey};
 use crate::core::id_table::{IdTable, IdTableKey};
-use crate::core::CompilerError;
 use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
+use crate::core::CompilerError;
 use logos::{Filter, Logos, Skip};
 
 /// Returns constant key for 'true'
@@ -266,11 +266,12 @@ impl<'input> Iterator for LogosLexer<'input> {
 
 	fn next(&mut self) -> Option<Self::Item> {
 		self.lexer.next().map(|token_result| match token_result {
-			Err(_) => 
-				Err(CompilerError::LexerError(self.lexer.extras.last_err.unwrap_or(LexerError {
+			Err(_) => Err(CompilerError::LexerError(self.lexer.extras.last_err.unwrap_or(
+				LexerError {
 					kind: LexerErrorKind::InvalidToken,
 					range: SourceSpan::new_from_range(&self.lexer.span()),
-				}))),
+				},
+			))),
 			Ok(token_kind) => Ok((self.lexer.span().start, token_kind, self.lexer.span().end)),
 		})
 	}

@@ -6,43 +6,42 @@ pub use grammar_parser::grammar::*;
 pub use parser_context::ParserContext;
 pub use pretty_printer::PrettyPrinterContext;
 extern crate itertools;
-use crate::core::CompilerError;
 use crate::core::compiler_diagnostic::*;
+use crate::core::CompilerError;
 use crate::lexer::TokenKind;
 use crate::SourceSpan;
 use lalrpop_util::ParseError;
+use std::collections::HashSet;
 use std::fmt;
 use thiserror::Error;
-use std::collections::HashSet;
-fn map_token_to_help_msg(expected:&Vec<String>) -> String{
+fn map_token_to_help_msg(expected: &Vec<String>) -> String {
 	let mut messages = HashSet::new();
-	for token in expected.iter(){
-		messages.insert( match token.as_str(){
+	for token in expected.iter() {
+		messages.insert(match token.as_str() {
 			"\"MC\"" => "metadata comment",
-			"\"async\"" | "\"auto\"" | "\"bool\"" | "\"bus\"" | "\"clock\"" | "\"comb\"" | "\"const\"" | "\"input\"" | "\"int\"" | "\"output\"" | "\"signed\"" |      
-        	"\"sync\"" | "\"tristate\"" | "\"unsigned\"" | "\"wire\""  => "variable block/declaration",
+			"\"async\"" | "\"auto\"" | "\"bool\"" | "\"bus\"" | "\"clock\"" | "\"comb\"" | "\"const\""
+			| "\"input\"" | "\"int\"" | "\"output\"" | "\"signed\"" | "\"sync\"" | "\"tristate\"" | "\"unsigned\""
+			| "\"wire\"" => "variable block/declaration",
 			"\",\"" => "comma",
 			"\";\"" => "semicolon",
 			"\"(\"" => "left parenthesis",
 			"\")\"" => "right parenthesis",
-			_ => &token[1..token.len()-1],
+			_ => &token[1..token.len() - 1],
 		});
 	}
-    format!("We expected these productions instead:\n{}", itertools::join(messages, ", "))
+	format!(
+		"We expected these productions instead:\n{}",
+		itertools::join(messages, ", ")
+	)
 }
 #[derive(Error, Debug)]
 pub enum ParserErrorKind {
 	#[error("Unexpected token")]
-	UnexpectedToken{
-		token:TokenKind,
-		expected: Vec<String>
-	},
+	UnexpectedToken { token: TokenKind, expected: Vec<String> },
 	#[error("Invalid token")]
 	InvalidToken,
 	#[error("Unexpected end of file")]
-	UnrecognizedEof{
-		expected: Vec<String>
-	},
+	UnrecognizedEof { expected: Vec<String> },
 	#[error("Lexer error")]
 	LexerError(Box<CompilerError>),
 }
@@ -67,15 +66,21 @@ impl ParserError {
 				range: SourceSpan::new_between(location, location + 1),
 			},
 			ParseError::UnrecognizedEof { location, expected } => Self {
-				kind: UnrecognizedEof{expected},
+				kind: UnrecognizedEof { expected },
 				range: SourceSpan::new_between(location, location + 1),
 			},
 			ParseError::UnrecognizedToken { token, expected } => Self {
-				kind: UnexpectedToken{token:token.1,expected},
+				kind: UnexpectedToken {
+					token: token.1,
+					expected,
+				},
 				range: SourceSpan::new_between(token.0, token.2),
 			},
 			ParseError::ExtraToken { token } => Self {
-				kind: UnexpectedToken{token:token.1,expected:vec![]},
+				kind: UnexpectedToken {
+					token: token.1,
+					expected: vec![],
+				},
 				range: SourceSpan::new_between(token.0, token.2),
 			},
 			ParseError::User { error } => Self {
@@ -89,17 +94,15 @@ impl ProvidesCompilerDiagnostic for ParserError {
 	fn to_diagnostic(&self) -> CompilerDiagnostic {
 		use ParserErrorKind::*;
 		match &self.kind {
-			UnexpectedToken{token,expected} =>{
-				CompilerDiagnosticBuilder::from_error(&self)
+			UnexpectedToken { token, expected } => CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, format!("Unexpected token: {:?}", token).as_str())
 				.help(&map_token_to_help_msg(expected))
-				.build()},
+				.build(),
 			InvalidToken => CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "Invalid token")
 				.help("Please replace this token with a valid one.")
 				.build(),
-			UnrecognizedEof{expected} => 
-				CompilerDiagnosticBuilder::from_error(&self)
+			UnrecognizedEof { expected } => CompilerDiagnosticBuilder::from_error(&self)
 				.label(self.range, "Unexpected end of file")
 				.help(&map_token_to_help_msg(expected))
 				.build(),
