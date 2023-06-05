@@ -45,6 +45,8 @@ jobs:
             shared-key: "post-cargo-build-nightly"
       - name: Python setup
         run: pip3 install fuzzingbook
+      - name: Cargo build
+        run: cargo build
       - name: Fuzzer tests
         run: utils/parser_test.py --random-seed
 
