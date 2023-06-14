@@ -2,14 +2,17 @@ use std::collections::HashMap;
 
 use crate::lexer::NumericConstant;
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct NumericConstantTableKey {
 	key: usize,
 }
 
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NumericConstantTable {
+	#[serde_as(as = "Vec<(_, _)>")]
 	constants: HashMap<NumericConstantTableKey, NumericConstant>,
 }
 

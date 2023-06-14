@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 /// Used to access metadata comments
 use serde::{Deserialize, Serialize};
+use serde_with::serde_as;
 
 #[derive(Serialize, Deserialize, Copy, Clone, Debug, Hash, PartialEq, Eq)]
 pub struct CommentTableKey {
@@ -9,8 +10,10 @@ pub struct CommentTableKey {
 }
 
 /// Stores metadata comments
+#[serde_as]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CommentTable {
+	#[serde_as(as = "Vec<(_, _)>")]
 	comments: HashMap<CommentTableKey, String>,
 }
 
