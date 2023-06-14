@@ -3,11 +3,11 @@ use clap::{arg, command, Arg};
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
 use hdllang::core::DiagnosticBuffer;
 use hdllang::lexer::{Lexer, LogosLexer};
-use hdllang::parser::ast::Root;
 use hdllang::parser::pretty_printer::PrettyPrintable;
 use hdllang::parser::ParserError;
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
+use hdllang::serializer::SerializerContext;
 use hdllang::{analyzer, parser};
 use log::info;
 use std::env;
@@ -95,24 +95,37 @@ fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	Ok(())
 }
 fn serialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
-	let lexer = LogosLexer::new(&code);
+	let mut lexer = LogosLexer::new(&code);
 	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
 	let parser = parser::IzuluParser::new();
-	let ast = parser.parse(&mut ctx, Some(&code), lexer).map_err(|e| {
+	let ast = parser.parse(&mut ctx, Some(&code), &mut lexer).map_err(|e| {
 		ParserError::new_form_lalrpop_error(e)
 			.to_miette_report()
 			.with_source_code(code.clone())
 	})?;
-	let buffer = ctx.diagnostic_buffer;
-	println!("{}", buffer.to_string());
-	writeln!(output, "{}", serde_json::to_string_pretty(&ast).unwrap())
-		.map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
+	let serializer_ctx = SerializerContext{
+		ast_root: ast,
+		id_table: lexer.id_table().clone(),
+		comment_table: lexer.comment_table().clone(),
+		nc_table: lexer.numeric_constant_table().clone(),
+	};
+	let res = serde_json::to_string_pretty(&serializer_ctx).map_err(|err|{
+		CompilerError::JsonError(err).to_diagnostic()
+	})?;
+	writeln!(output, "{}", res)
+		.map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())
 }
-fn deserialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
-	let deserialized: Root = serde_json::from_str(&code).unwrap();
-	writeln!(output, "{:?}", deserialized).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
+fn deserialize(code: String, output: Box<dyn Write>) -> miette::Result<()> {
+	let deserialized: SerializerContext = serde_json::from_str(&code).unwrap();
+	let mut printer = parser::pretty_printer::PrettyPrinterContext::new(
+		&deserialized.id_table,
+		&deserialized.comment_table,
+		&deserialized.nc_table,
+		output,
+	);
+	deserialized.ast_root.pretty_print(&mut printer)?;
 	Ok(())
 }
 fn pretty_print(code: String, output: Box<dyn Write>) -> miette::Result<()> {

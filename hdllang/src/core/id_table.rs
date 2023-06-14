@@ -10,14 +10,14 @@ pub struct IdTableKey {
 /// Lexer's ID table - used to avoid storing tokens in strings
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct IdTable {
-	ids: BiHashMap<IdTableKey, String>,
+	ids: BiHashMap<String, IdTableKey>,
 }
 
 impl IdTable {
 	/// Creates a new ID table
 	pub fn new() -> IdTable {
 		IdTable {
-			ids: BiHashMap::<IdTableKey, String>::new(),
+			ids: BiHashMap::<String, IdTableKey>::new(),
 		}
 	}
 
@@ -33,12 +33,12 @@ impl IdTable {
 
 	/// Gets ID string by key (or None)
 	pub fn get_by_key(&self, key: &IdTableKey) -> Option<&String> {
-		self.ids.get_by_left(&key)
+		self.ids.get_by_right(&key)
 	}
 
 	/// Gets key by identifier name (or None)
 	pub fn get_by_name(&self, name: &str) -> Option<IdTableKey> {
-		self.ids.get_by_right(name).copied()
+		self.ids.get_by_left(name).copied()
 	}
 
 	/// Inserts a new string or returns the key for it
@@ -47,7 +47,7 @@ impl IdTable {
 			Some(id) => id,
 			None => {
 				let new_id = IdTableKey { key: self.ids.len() };
-				match self.ids.insert(new_id, String::from(name)) {
+				match self.ids.insert(String::from(name), new_id) {
 					bimap::Overwritten::Neither => new_id,
 					_ => panic!("Lexer IdTableKey integrity loss!"),
 				}
@@ -57,8 +57,8 @@ impl IdTable {
 }
 
 impl IntoIterator for IdTable {
-	type Item = <BiHashMap<IdTableKey, String> as IntoIterator>::Item;
-	type IntoIter = <BiHashMap<IdTableKey, String> as IntoIterator>::IntoIter;
+	type Item = <BiHashMap<String, IdTableKey> as IntoIterator>::Item;
+	type IntoIter = <BiHashMap<String, IdTableKey> as IntoIterator>::IntoIter;
 	fn into_iter(self) -> Self::IntoIter {
 		self.ids.into_iter()
 	}
