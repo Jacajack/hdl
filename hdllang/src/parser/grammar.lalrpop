@@ -117,7 +117,7 @@ ModuleImplStmt: Box<ModuleImplementationStatement> = {
 				location:SourceSpan::new_between(start,end),
 	    	}
 		),
-	<start: @L>  <lhs:Expr> <assignment_opcode:AssignmentOP> <rhs:ExprWithTuple> ";" <end: @R> =>
+	<start: @L>  <lhs:PostfixExpr> <assignment_opcode:AssignmentOP> <rhs:ExprWithTuple> ";" <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::AssignmentStatement{
 				lhs,

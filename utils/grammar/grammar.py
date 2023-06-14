@@ -103,7 +103,7 @@ GRAMMAR = {
 	
 	# Standalone assignment
 	"<assignment_op>": ["=", "+=", "&=", "^=", "|="],
-	"<assignment_stmt>": ["<expression> <assignment_op> <expr_with_tuple>;"],
+	"<assignment_stmt>": ["<postfix_expression> <assignment_op> <expr_with_tuple>;"],
 	
 	# For statement
 	"<for_stmt>": [
@@ -214,10 +214,11 @@ GRAMMAR = {
 
 	# Precedence: 0 - postfix ops
 	"<postfix_expression>": [
-		"<expression><index_expression>",
-		"<expression><range_expression>",
-        "<expression>(<argument_list>?)",
-        "<expression>.<id>",
+		"<postfix_expression><index_expression>",
+		"<postfix_expression><range_expression>",
+        "<postfix_expression>(<argument_list>?)",
+        "<postfix_expression>.<id>",
+        "<primary_expression>"
 	],
 	"<argument_list>": [
         "<argument_list>, <expression>",
