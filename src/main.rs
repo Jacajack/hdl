@@ -5,9 +5,9 @@ use hdllang::core::DiagnosticBuffer;
 use hdllang::lexer::{Lexer, LogosLexer};
 use hdllang::parser::pretty_printer::PrettyPrintable;
 use hdllang::parser::ParserError;
+use hdllang::serializer::SerializerContext;
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
-use hdllang::serializer::SerializerContext;
 use hdllang::{analyzer, parser};
 use log::info;
 use std::env;
@@ -104,17 +104,15 @@ fn serialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 			.to_miette_report()
 			.with_source_code(code.clone())
 	})?;
-	let serializer_ctx = SerializerContext{
+	let serializer_ctx = SerializerContext {
 		ast_root: ast,
 		id_table: lexer.id_table().clone(),
 		comment_table: lexer.comment_table().clone(),
 		nc_table: lexer.numeric_constant_table().clone(),
 	};
-	let res = serde_json::to_string_pretty(&serializer_ctx).map_err(|err|{
-		CompilerError::JsonError(err).to_diagnostic()
-	})?;
-	writeln!(output, "{}", res)
-		.map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
+	let res =
+		serde_json::to_string_pretty(&serializer_ctx).map_err(|err| CompilerError::JsonError(err).to_diagnostic())?;
+	writeln!(output, "{}", res).map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())
 }
 fn deserialize(code: String, output: Box<dyn Write>) -> miette::Result<()> {

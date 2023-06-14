@@ -17,7 +17,7 @@ pub enum CompilerError {
 
 	#[error(transparent)]
 	IoError(#[from] std::io::Error),
-	
+
 	#[error(transparent)]
 	JsonError(#[from] serde_json::Error),
 	#[error(transparent)]
@@ -37,9 +37,9 @@ impl ProvidesCompilerDiagnostic for CompilerError {
 			IoError(ref io_error) => CompilerDiagnosticBuilder::from_error(&self)
 				.help(&io_error.to_string())
 				.build(),
-    		JsonError(serde_error) => CompilerDiagnosticBuilder::from_error(&self)
-			.help(&serde_error.to_string())
-			.build(),
+			JsonError(serde_error) => CompilerDiagnosticBuilder::from_error(&self)
+				.help(&serde_error.to_string())
+				.build(),
 		}
 	}
 }
