@@ -17,7 +17,7 @@ impl PrettyPrintable for ImportPath {
 			},
 		}
 		for (i, path) in self.path.iter().enumerate() {
-			ctx.write(format!("{}", &ctx.get_id(*path)).as_str())?;
+			ctx.write((&ctx.get_id(*path)).to_string().as_str())?;
 			if i != self.path.len() - 1 {
 				ctx.write("::")?;
 			}
@@ -34,7 +34,7 @@ impl PrettyPrintable for Modules {
 		match self {
 			All => ctx.write("*"),
 			Specific { modules } => match modules.len() {
-				1 => ctx.write(format!("{}", &ctx.get_id(modules[0])).as_str()),
+				1 => ctx.write((&ctx.get_id(modules[0])).to_string().as_str()),
 				_ => {
 					ctx.write("{")?;
 					for module in modules {

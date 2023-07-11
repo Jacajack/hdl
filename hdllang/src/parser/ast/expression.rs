@@ -107,7 +107,7 @@ impl Debug for Expression {
 				..
 			} => {
 				write!(fmt, "({:?}(", expression)?;
-				for arg in argument_list.into_iter() {
+				for arg in argument_list.iter() {
 					write!(fmt, "{:?}, ", arg)?;
 				}
 				write!(fmt, "))")
@@ -118,22 +118,22 @@ impl Debug for Expression {
 			} => write!(fmt, "(({:?}){:?})", type_name, expression),
 			Tuple { expressions, .. } => {
 				write!(fmt, "{{")?;
-				for expr in expressions.into_iter() {
+				for expr in expressions.iter() {
 					write!(fmt, "{:?},", expr)?;
 				}
 				write!(fmt, "}}")
 			},
 			MatchExpression { value, statements, .. } => {
-				write!(fmt, "match({:?}){{\n", value)?;
-				for s in statements.into_iter() {
-					write!(fmt, "{:?},\n", s)?;
+				writeln!(fmt, "match({:?}){{", value)?;
+				for s in statements.iter() {
+					writeln!(fmt, "{:?},", s)?;
 				}
 				write!(fmt, "}}")
 			},
 			ConditionalExpression { statements, .. } => {
-				write!(fmt, "conditional{{\n")?;
-				for s in statements.into_iter() {
-					write!(fmt, "{:?},\n", s)?;
+				writeln!(fmt, "conditional{{")?;
+				for s in statements.iter() {
+					writeln!(fmt, "{:?},", s)?;
 				}
 				write!(fmt, "}}")
 			},
