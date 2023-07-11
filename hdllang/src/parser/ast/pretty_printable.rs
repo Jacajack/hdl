@@ -1,6 +1,6 @@
 mod direct_declarator_pretty_printable;
 mod direct_initializer_pretty_printable;
-mod expressions_pretty_printable;
+mod expression_pretty_printable;
 mod import_path_pretty_printable;
 mod match_expression_pretty_printable;
 mod module_declaration_statement_pretty_printable;
@@ -19,7 +19,7 @@ mod variable_declaration_pretty_printable;
 mod variable_definition_pretty_printable;
 pub use direct_declarator_pretty_printable::*;
 pub use direct_initializer_pretty_printable::*;
-pub use expressions_pretty_printable::*;
+pub use expression_pretty_printable::*;
 pub use import_path_pretty_printable::*;
 pub use match_expression_pretty_printable::*;
 pub use module_declaration_statement_pretty_printable::*;
