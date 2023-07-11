@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use super::SourceLocation;
 use super::SourceSpan;
 use crate::lexer::IdTableKey;

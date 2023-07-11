@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::lexer::CommentTableKey;
 use crate::parser::ast::{DirectDeclarator, SourceLocation, TypeDeclarator};
 use crate::SourceSpan;

@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::core::numeric_constant_table::NumericConstantTableKey;
 use crate::parser::ast::{opcodes::*, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName};
 use crate::{lexer::IdTableKey, SourceSpan};

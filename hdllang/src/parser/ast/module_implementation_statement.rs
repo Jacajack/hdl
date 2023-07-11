@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::parser::ast::{
 	AssignmentOpcode, Expression, PortBindStatement, RangeExpression, SourceLocation, VariableBlock,
 	VariableDeclaration, VariableDefinition,

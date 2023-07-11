@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::parser::ast::{Expression, SourceLocation};
 use crate::{lexer::IdTableKey, SourceSpan};
 use serde::{Deserialize, Serialize};

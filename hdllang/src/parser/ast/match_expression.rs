@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::SourceSpan;
 use std::fmt::{Debug, Error, Formatter};
 

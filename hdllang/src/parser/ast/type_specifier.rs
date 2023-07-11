@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::parser::ast::expression::Expression;
 use crate::parser::ast::SourceLocation;
 use crate::SourceSpan;

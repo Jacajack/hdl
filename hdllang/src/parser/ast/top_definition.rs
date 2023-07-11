@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
 use crate::{lexer::CommentTableKey, lexer::IdTableKey, SourceSpan};
 use serde::{Deserialize, Serialize};
