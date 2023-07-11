@@ -10,7 +10,7 @@ use std::fmt::{Debug, Error, Formatter};
 pub struct VariableDeclaration {
 	pub metadata: Vec<CommentTableKey>,
 	pub type_declarator: TypeDeclarator,
-	pub direct_declarators: Vec<Box<DirectDeclarator>>,
+	pub direct_declarators: Vec<DirectDeclarator>,
 	pub location: SourceSpan,
 }
 impl Debug for VariableDeclaration {

@@ -7,7 +7,7 @@ use std::fmt::{Debug, Error, Formatter};
 
 #[derive(Serialize, Deserialize)]
 pub struct DirectInitializer {
-	pub declarator: Box<DirectDeclarator>,
+	pub declarator: DirectDeclarator,
 	pub expression: Option<Expression>,
 	pub location: SourceSpan,
 }

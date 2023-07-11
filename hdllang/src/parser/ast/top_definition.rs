@@ -16,7 +16,7 @@ pub enum TopDefinition {
 	ModuleImplementation {
 		metadata: Vec<CommentTableKey>,
 		id: IdTableKey,
-		statement: Box<ModuleImplementationStatement>,
+		statement: ModuleImplementationStatement,
 		location: SourceSpan,
 	},
 	PackageDeclaration {

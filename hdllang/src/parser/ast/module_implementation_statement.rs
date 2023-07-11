@@ -56,7 +56,7 @@ pub enum ModuleImplementationStatement {
 		location: SourceSpan,
 	},
 	ModuleImplementationBlockStatement {
-		statements: Vec<Box<ModuleImplementationStatement>>,
+		statements: Vec<ModuleImplementationStatement>,
 		location: SourceSpan,
 	},
 }

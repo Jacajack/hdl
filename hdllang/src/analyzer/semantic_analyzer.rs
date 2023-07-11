@@ -21,7 +21,7 @@ impl<'source> SemanticAnalyzer<'source> {
 
 	pub fn process(&mut self, ast: &'source Root) {
 		for pass in &mut self.passes {
-			pass.run(&mut self.context, ast);
+			pass.run(& self.context, ast);
 		}
 	}
 }
