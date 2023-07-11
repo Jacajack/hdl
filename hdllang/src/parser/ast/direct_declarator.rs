@@ -8,7 +8,7 @@ use std::fmt::{Debug, Error, Formatter};
 #[derive(Serialize, Deserialize)]
 pub struct DirectDeclarator {
 	pub name: IdTableKey,
-	pub array_declarators: Vec<Box<Expression>>,
+	pub array_declarators: Vec<Expression>,
 	pub location: SourceSpan,
 }
 impl Debug for DirectDeclarator {

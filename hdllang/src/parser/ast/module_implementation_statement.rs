@@ -26,18 +26,18 @@ pub enum ModuleImplementationStatement {
 		location: SourceSpan,
 	},
 	AssignmentStatement {
-		lhs: Box<Expression>,
+		lhs: Expression,
 		assignment_opcode: AssignmentOpcode,
-		rhs: Box<Expression>,
+		rhs: Expression,
 		location: SourceSpan,
 	},
 	IfStatement {
-		condition: Box<Expression>,
+		condition: Expression,
 		if_statement: Box<ModuleImplementationStatement>,
 		location: SourceSpan,
 	},
 	IfElseStatement {
-		condition: Box<Expression>,
+		condition: Expression,
 		if_statement: Box<ModuleImplementationStatement>,
 		else_statement: Box<ModuleImplementationStatement>,
 		location: SourceSpan,

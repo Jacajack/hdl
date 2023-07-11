@@ -30,7 +30,7 @@ pub enum Expression {
 		location: SourceSpan,
 	},
 	Tuple {
-		expressions: Vec<Box<Expression>>,
+		expressions: Vec<Expression>,
 		location: SourceSpan,
 	},
 	TernaryExpression {
@@ -51,7 +51,7 @@ pub enum Expression {
 	},
 	PostfixWithArgs {
 		expression: Box<Expression>,
-		argument_list: Vec<Box<Expression>>,
+		argument_list: Vec<Expression>,
 		location: SourceSpan,
 	},
 	PostfixWithId {

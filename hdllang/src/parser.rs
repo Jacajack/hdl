@@ -118,7 +118,7 @@ mod tests {
 	use crate::core::DiagnosticBuffer;
 	use crate::lexer::{Lexer, LogosLexer};
 	use crate::parser::ParserContext;
-	fn parse_expr(s: &str) -> Box<ast::Expression> {
+	fn parse_expr(s: &str) -> ast::Expression {
 		let lexer = LogosLexer::new(s);
 		let buf = Box::new(DiagnosticBuffer::new());
 		let mut ctx = ParserContext { diagnostic_buffer: buf };

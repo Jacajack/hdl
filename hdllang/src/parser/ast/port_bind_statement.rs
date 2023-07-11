@@ -13,7 +13,7 @@ pub enum PortBindStatement {
 	},
 	IdWithExpression {
 		id: IdTableKey,
-		expression: Box<Expression>,
+		expression: Expression,
 		location: SourceSpan,
 	},
 	IdWithDeclaration {

@@ -172,7 +172,6 @@ ModuleImplBlockStmt: Box<ModuleImplementationStatement> ={
 		),
 }
 IfStmt: Box<ModuleImplementationStatement> ={
-	
 	<start: @L> "if"  "(" <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:ModuleImplBlockStmt> <end: @R> =>
 		Box::new(
 			ModuleImplementationStatement::IfElseStatement{
@@ -360,134 +359,109 @@ MatchExpressionAntecendent: MatchExpressionAntecendent = {
 		location:SourceSpan::new_between(start,end),
 	},
 }
-PrimaryExpression: Box<Expression> = {
+PrimaryExpression : Expression = {
 	<start:@L> <key:"NumericConstant"> <end:@R> => 
-		Box::new(
-			Expression::Number{
-				key,
-				location:SourceSpan::new_between(start,end)
-			}
-		),
+		Expression::Number{
+			key,
+			location:SourceSpan::new_between(start,end)
+		},
 	<start:@L> <id:"Id"> <end:@R> => 
-		Box::new(
-			Expression::Identifier{
-				id,
-				location:SourceSpan::new_between(start,end),
-			}
-		),
+		Expression::Identifier{
+			id,
+			location:SourceSpan::new_between(start,end),
+		},
 	<start:@L> "(" <expression:Expr> ")" <end:@R> => 
-		Box::new(
-			Expression::ParenthesizedExpression{
-				expression,
-				location:SourceSpan::new_between(start,end)
-			}
-		),
+		Expression::ParenthesizedExpression{
+			expression: Box::new(expression),
+			location:SourceSpan::new_between(start,end)
+		},
 	
 	<start:@L> "match" "(" <value:Expr> ")" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
-		Box::new(
-			Expression::MatchExpression{
-				value,
-				statements,
-				location:SourceSpan::new_between(start,end),
-			}
-		),
+		Expression::MatchExpression{
+			value: Box::new(value),
+			statements,
+			location:SourceSpan::new_between(start,end),
+		},
 	<start:@L> "conditional" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
-		Box::new(
-			Expression::ConditionalExpression{
-				statements,
-				location:SourceSpan::new_between(start,end),
-			}
-		),
+		Expression::ConditionalExpression{
+			statements,
+			location:SourceSpan::new_between(start,end),
+		},
 }
-ExprWithTuple:Box<Expression>={
+ExprWithTuple : Expression={
 	TupleExpr,
 	Expr,
 }
-TupleExpr: Box<Expression> ={
+TupleExpr : Expression ={
 	<start:@L> "{" <expressions:OptComma<Expr>> "}" <end:@R> =>
-		Box::new(
-			Expression::Tuple{
+		Expression::Tuple{
 				expressions,
 				location:SourceSpan::new_between(start,end)
-			}
-		),
+		},
 }
 pub RangeExpr :  RangeExpression = {
 	<start:@L> "[" <lhs:Expr> <code:RangeOp> <rhs:Expr> "]" <end:@R> =>
 		RangeExpression{
-			lhs,
-			rhs,
+			lhs: Box::new(lhs),
+			rhs: Box::new(rhs),
 			code,
 			location:SourceSpan::new_between(start,end)
 		}
 }
-IndexExpr : Box<Expression> ={
+IndexExpr : Expression ={
 	"[" <Expr> "]"
 }
-PostfixExpr: Box<Expression>={
+PostfixExpr : Expression = {
 	<start:@L> <expression:PostfixExpr> "." <id:"Id"> <end:@R> =>
-		Box::new(
-			Expression::PostfixWithId{
-				expression,
-				id,
-				location:SourceSpan::new_between(start,end),
-		}
-	),
+		Expression::PostfixWithId{
+			expression: Box::new(expression),
+			id,
+			location:SourceSpan::new_between(start,end),
+		},
 	<start:@L> <expression:PostfixExpr> <index:IndexExpr> <end:@R> =>
-		Box::new(
-			Expression::PostfixWithIndex{
-				expression,
-				index,
-				location:SourceSpan::new_between(start,end),
-			}
-		),
+		Expression::PostfixWithIndex{
+			expression: Box::new(expression),
+			index: Box::new(index),
+			location:SourceSpan::new_between(start,end),
+		},
 	<start:@L> <expression:PostfixExpr> <range:RangeExpr> <end:@R> =>
-		Box::new(
-			Expression::PostfixWithRange{
-				expression,
-				range,
-				location:SourceSpan::new_between(start,end),
-			}
-		),
+		Expression::PostfixWithRange{
+			expression: Box::new(expression),
+			range,
+			location:SourceSpan::new_between(start,end),
+		},
 	<start:@L> <expression:PostfixExpr> "(" <args:ArgumentList ?> ")" <end:@R> =>
 		match args{
 			None => {
 				let argument_list= vec![];
-				Box::new(
 					Expression::PostfixWithArgs{
-					expression,
+					expression : Box::new(expression),
 					argument_list,
 					location:SourceSpan::new_between(start,end),
 				}
-				)
 			},
-			Some(argument_list) =>Box::new(
+			Some(argument_list) =>
 				Expression::PostfixWithArgs{
-					expression,
+					expression : Box::new(expression),
 					argument_list,
 					location:SourceSpan::new_between(start,end),
-				}
-			),
+				},
 		},		
 	PrimaryExpression,
 }
-UnaryExpr: Box<Expression> ={
+UnaryExpr : Expression ={
 	<start:@L> <code:UnaryExprOP> <expression:UnaryExpr>  <end:@R> => 
-	Box::new(
 		Expression::UnaryOperatorExpression{
-			expression,
+			expression : Box::new(expression),
 			code,
 			location:SourceSpan::new_between(start,end),
-		}
-	),
+		},
 	<start:@L> "(" <type_name:TypeName> ")" <expression:UnaryExpr>  <end:@R> => 
-	Box::new(
 		Expression::UnaryCastExpression{
 			type_name,
-			expression,
+			expression : Box::new(expression),
 			location:SourceSpan::new_between(start,end),
-		}
-	),
+		},
 	PostfixExpr,
 }
 Factor = Tier<FactorOp, UnaryExpr>;
@@ -499,32 +473,28 @@ BitwiseOr= Tier<BitwiseOrOp,BitwiseXor>;
 Comparison = Tier<RelationalOp,BitwiseOr>;
 Equality = Tier<EqualityOp,Comparison>;
 LogicalAnd = Tier<LAandOP,Equality>;
-LogicalOr = Tier<LOrOp,LogicalAnd>;// a || b
-TernaryExpression : Box<Expression> = {
+LogicalOr = Tier<LOrOp,LogicalAnd>;
+TernaryExpression : Expression = {
 	<start:@L> <condition:LogicalOr> "?" <true_branch:TernaryExpression>  ":" <false_branch:TernaryExpression> <end:@R> => 
-		Box::new(
-			Expression::TernaryExpression{
-				condition,
-				true_branch,
-				false_branch,
-				location:SourceSpan::new_between(start,end),
-			}
-		),
-	LogicalOr
+		Expression::TernaryExpression{
+			condition: Box::new(condition),
+			true_branch: Box::new(true_branch),
+			false_branch: Box::new(false_branch),
+			location:SourceSpan::new_between(start,end),
+		},
+		LogicalOr
 }
 
 pub Expr=TernaryExpression;
-Tier<Op,NextTier>: Box<Expression> = {
+Tier<Op,NextTier> : Expression = {
     <start:@L> <lhs:Tier<Op,NextTier>> <code:Op> <rhs:NextTier> <end:@R> => 
-	Box::new(
 		Expression::BinaryExpression{
-			lhs,
-			rhs,
+			lhs : Box::new(lhs),
+			rhs : Box::new(rhs),
 			code,
 			location:SourceSpan::new_between(start,end),
-		}
-	),
-    NextTier
+		},
+    	NextTier
 };
 ArgumentList=NonEmptyComma<Expr>;
 NonEmptyComma<T>: Vec<T> = { // (1)
@@ -631,7 +601,7 @@ SynType: TypeSpecifier ={
 		location:SourceSpan::new_between(start,end),
 	},
 	<start:@L> "bus" <width:VecDecl> <end:@R> => TypeSpecifier::Bus{
-		width,
+		width: Box::new(width),
 		location:SourceSpan::new_between(start,end),
 	},
 }
@@ -643,7 +613,7 @@ CompType: TypeSpecifier = {
 		location:SourceSpan::new_between(start,end),
 	},	
 }
-VecDecl: Box<Expression>={
+VecDecl: Expression={
 	"<" <PrimaryExpression> ">",
 }
 QualifierWithDirection={
@@ -713,7 +683,7 @@ TypeDeclarator: TypeDeclarator ={
 		let specifier = match bus_expr{
 			Some(expr) => TypeSpecifier::Bus{
 				location: expr.get_location(),
-				width: expr,
+				width: Box::new(expr),
 			},
 			None => TypeSpecifier::Wire{
 				location:SourceSpan::new_between(start,end),
@@ -730,7 +700,7 @@ TypeDeclarator: TypeDeclarator ={
 		let specifier = match bus_expr{
 			Some(expr) => TypeSpecifier::Bus{
 				location: expr.get_location(),
-				width: expr,
+				width: Box::new(expr),
 			},
 			None => TypeSpecifier::Wire{
 				location:SourceSpan::new_between(start,end),
