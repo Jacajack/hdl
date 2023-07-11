@@ -34,10 +34,10 @@ fn lexer_example() -> miette::Result<()> {
 	Ok(())
 }
 fn read_input_from_file(filename: String) -> miette::Result<String> {
-	return match fs::read_to_string(&filename) {
+	match fs::read_to_string(filename) {
 		Ok(file) => Ok(file),
-		Err(err) => return Err(CompilerError::IoError(err).to_miette_report()),
-	};
+		Err(err) => Err(CompilerError::IoError(err).to_miette_report()),
+	}
 }
 fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
@@ -45,9 +45,9 @@ fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 		Ok(tokens) => {
 			println!("okayy we have {} tokens", tokens.len());
 			for t in &tokens {
-				write!(
+				writeln!(
 					output,
-					"Token {:?} - '{}'\n",
+					"Token {:?} - '{}'",
 					t.kind,
 					&code[t.range.start()..t.range.end()]
 				)
@@ -67,7 +67,7 @@ fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 		.parse(&mut ctx, Some(&code), lexer)
 		.map_err(|e| ParserError::new_form_lalrpop_error(e).to_diagnostic())?;
 	let buffer = ctx.diagnostic_buffer;
-	println!("{}", buffer.to_string());
+	println!("{}", buffer);
 	write!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_miette_report())?;
 	Ok(())
 }
@@ -138,7 +138,7 @@ fn pretty_print(code: String, output: Box<dyn Write>) -> miette::Result<()> {
 				.with_source_code(code.clone())
 		})?;
 	let buffer = ctx.diagnostic_buffer;
-	println!("{}", buffer.to_string());
+	println!("{}", buffer);
 	let mut printer = parser::pretty_printer::PrettyPrinterContext::new(
 		lexer.id_table(),
 		lexer.comment_table(),
@@ -149,7 +149,7 @@ fn pretty_print(code: String, output: Box<dyn Write>) -> miette::Result<()> {
 	Ok(())
 }
 fn init_logging() {
-	if let Some(logfile) = std::env::var("RUST_LOG_FILE").ok() {
+	if let Ok(logfile) = std::env::var("RUST_LOG_FILE") {
 		// See: https://github.com/rust-cli/env_logger/issues/125
 		env_logger::Builder::from_default_env()
 			.target(env_logger::Target::Pipe(Box::new(

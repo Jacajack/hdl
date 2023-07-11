@@ -33,7 +33,7 @@ impl IdTable {
 
 	/// Gets ID string by key (or None)
 	pub fn get_by_key(&self, key: &IdTableKey) -> Option<&String> {
-		self.ids.get_by_right(&key)
+		self.ids.get_by_right(key)
 	}
 
 	/// Gets key by identifier name (or None)
