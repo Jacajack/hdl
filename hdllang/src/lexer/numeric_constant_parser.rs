@@ -83,26 +83,26 @@ fn parse_pure_binary(s: &str) -> Result<u64, NumberParseError> {
 /// Parses numeric constant strings
 pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberParseError> {
 	// These two should be enforced by the regex in the lexer
-	assert!(s.len() > 0);
-	assert!(s.chars().nth(0).unwrap().is_digit(10));
+	assert!(!s.is_empty());
+	assert!(s.chars().next().unwrap().is_ascii_digit());
 
 	// Token width before we remove underscores
 	let token_len = s.len();
 
 	// Get rid of all '_' and convert to lowercase
-	let s = String::from(s).replace("_", "").to_lowercase();
+	let s = String::from(s).replace('_', "").to_lowercase();
 
 	let mut is_signed: Option<bool> = None;
 	let mut num_bits: Option<u32> = None;
 	let mut digits_end = s.len();
 
 	// Find the last character which could indicate signedness
-	if let Some(index) = s.rfind("s").or(s.rfind("u")) {
+	if let Some(index) = s.rfind('s').or(s.rfind('u')) {
 		is_signed = Some(s.chars().nth(index).unwrap() == 's');
 		digits_end = index;
 
 		let width_str = &s[index + 1..];
-		if width_str.len() > 0 {
+		if !width_str.is_empty() {
 			let n = parse_pure_decimal(width_str)?.try_into().unwrap();
 
 			// Is the number of bits reasonable?

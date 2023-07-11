@@ -86,15 +86,15 @@ impl Debug for ModuleImplementationStatement {
 				..
 			} => {
 				write!(fmt, "\n{:?} {:?}{{\n", id1, id2)?;
-				for port_bind_statement in port_bind.into_iter() {
-					write!(fmt, "{:?},\n", port_bind_statement)?;
+				for port_bind_statement in port_bind.iter() {
+					writeln!(fmt, "{:?},", port_bind_statement)?;
 				}
 				write!(fmt, "}};")
 			},
 			ModuleImplementationBlockStatement { statements, .. } => {
 				write!(fmt, "\n{{")?;
-				for statement in statements.into_iter() {
-					write!(fmt, "{:?}\n", statement)?;
+				for statement in statements.iter() {
+					writeln!(fmt, "{:?}", statement)?;
 				}
 				write!(fmt, "}}")
 			},

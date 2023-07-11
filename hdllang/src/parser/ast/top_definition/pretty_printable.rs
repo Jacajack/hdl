@@ -15,7 +15,7 @@ impl PrettyPrintable for TopDefinition {
 					ctx.writeln(format!("///{}", ctx.get_comment(*comment)).as_str())?;
 				}
 				ctx.write_indent("module ")?;
-				ctx.write(format!("{}", &ctx.get_id(*id)).as_str())?;
+				ctx.write((&ctx.get_id(*id)).to_string().as_str())?;
 				ctx.writeln(" {")?;
 				ctx.increase_indent();
 				for statement in statements {

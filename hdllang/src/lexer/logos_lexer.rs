@@ -62,7 +62,7 @@ fn consume_block_comment(lex: &mut logos::Lexer<TokenKind>) -> Filter<()> {
 
 /// Causes lexer to consume and ignore single-line comments (//)
 fn consume_line_comment(lex: &mut logos::Lexer<TokenKind>) -> Skip {
-	match lex.remainder().find("\n") {
+	match lex.remainder().find('\n') {
 		Some(offset) => lex.bump(offset + 1),
 		None => lex.bump(lex.remainder().len()),
 	}
@@ -71,7 +71,7 @@ fn consume_line_comment(lex: &mut logos::Lexer<TokenKind>) -> Skip {
 
 /// Consumes a metadata comment and stores the string in the metadata table
 fn consume_metadata_comment(lex: &mut logos::Lexer<TokenKind>) -> CommentTableKey {
-	let length = match lex.remainder().find("\n") {
+	let length = match lex.remainder().find('\n') {
 		Some(offset) => offset,
 		None => lex.remainder().len(),
 	};
