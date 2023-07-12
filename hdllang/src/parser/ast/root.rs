@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::parser::ast::{SourceLocation, TopDefinition};
 use crate::SourceSpan;
 use serde::{Deserialize, Serialize};
@@ -11,9 +13,9 @@ pub struct Root {
 impl Debug for Root {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
 		for i in 0..self.definitions.len() {
-			write!(fmt, "{:?}\n", self.definitions[i])?;
+			writeln!(fmt, "{:?}", self.definitions[i])?;
 		}
-		write!(fmt, "\n")
+		writeln!(fmt)
 	}
 }
 impl SourceLocation for Root {

@@ -14,7 +14,7 @@ use lalrpop_util::ParseError;
 use std::collections::HashSet;
 use std::fmt;
 use thiserror::Error;
-fn map_token_to_help_msg(expected: &Vec<String>) -> String {
+fn map_token_to_help_msg(expected: &[String]) -> String {
 	let mut messages = HashSet::new();
 	for token in expected.iter() {
 		messages.insert(match token.as_str() {
@@ -118,7 +118,7 @@ mod tests {
 	use crate::core::DiagnosticBuffer;
 	use crate::lexer::{Lexer, LogosLexer};
 	use crate::parser::ParserContext;
-	fn parse_expr(s: &str) -> Box<ast::Expression> {
+	fn parse_expr(s: &str) -> ast::Expression {
 		let lexer = LogosLexer::new(s);
 		let buf = Box::new(DiagnosticBuffer::new());
 		let mut ctx = ParserContext { diagnostic_buffer: buf };

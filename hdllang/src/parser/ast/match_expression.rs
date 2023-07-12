@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::SourceSpan;
 use std::fmt::{Debug, Error, Formatter};
 
@@ -7,7 +9,7 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize)]
 pub struct MatchExpressionStatement {
 	pub antecedent: MatchExpressionAntecendent,
-	pub expression: Box<Expression>,
+	pub expression: Expression,
 	pub location: SourceSpan,
 }
 
@@ -24,7 +26,7 @@ impl SourceLocation for MatchExpressionStatement {
 #[derive(Serialize, Deserialize, Debug)]
 pub enum MatchExpressionAntecendent {
 	Expression {
-		expressions: Vec<Box<Expression>>,
+		expressions: Vec<Expression>,
 		location: SourceSpan,
 	},
 	Default {

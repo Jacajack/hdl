@@ -27,7 +27,7 @@ impl CommentTable {
 
 	/// Returns comment contents by key
 	pub fn get_by_key(&self, key: &CommentTableKey) -> Option<&String> {
-		self.comments.get(&key)
+		self.comments.get(key)
 	}
 
 	/// Stores a new metadata comment

@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::parser::ast::{Expression, SourceLocation, TypeDeclarator};
 use crate::SourceSpan;
 use serde::{Deserialize, Serialize};
@@ -6,7 +8,7 @@ use std::fmt::{Debug, Error, Formatter};
 #[derive(Serialize, Deserialize)]
 pub struct TypeName {
 	pub declarator: TypeDeclarator,
-	pub array_declarators: Vec<Box<Expression>>,
+	pub array_declarators: Vec<Expression>,
 	pub location: SourceSpan,
 }
 impl Debug for TypeName {

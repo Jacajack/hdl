@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
 use crate::{lexer::CommentTableKey, lexer::IdTableKey, SourceSpan};
 use serde::{Deserialize, Serialize};
@@ -14,7 +16,7 @@ pub enum TopDefinition {
 	ModuleImplementation {
 		metadata: Vec<CommentTableKey>,
 		id: IdTableKey,
-		statement: Box<ModuleImplementationStatement>,
+		statement: ModuleImplementationStatement,
 		location: SourceSpan,
 	},
 	PackageDeclaration {

@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::parser::ast::{DirectDeclarator, Expression, SourceLocation};
 use crate::SourceSpan;
 use serde::{Deserialize, Serialize};
@@ -5,8 +7,8 @@ use std::fmt::{Debug, Error, Formatter};
 
 #[derive(Serialize, Deserialize)]
 pub struct DirectInitializer {
-	pub declarator: Box<DirectDeclarator>,
-	pub expression: Option<Box<Expression>>,
+	pub declarator: DirectDeclarator,
+	pub expression: Option<Expression>,
 	pub location: SourceSpan,
 }
 impl Debug for DirectInitializer {

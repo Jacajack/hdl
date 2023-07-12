@@ -24,7 +24,7 @@ impl NumericConstantTable {
 	}
 
 	pub fn get_by_key(&self, key: &NumericConstantTableKey) -> Option<&NumericConstant> {
-		self.constants.get(&key)
+		self.constants.get(key)
 	}
 
 	pub fn insert(&mut self, n: NumericConstant) -> NumericConstantTableKey {

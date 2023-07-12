@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::parser::ast::{
 	AssignmentOpcode, Expression, PortBindStatement, RangeExpression, SourceLocation, VariableBlock,
 	VariableDeclaration, VariableDefinition,
@@ -24,18 +26,18 @@ pub enum ModuleImplementationStatement {
 		location: SourceSpan,
 	},
 	AssignmentStatement {
-		lhs: Box<Expression>,
+		lhs: Expression,
 		assignment_opcode: AssignmentOpcode,
-		rhs: Box<Expression>,
+		rhs: Expression,
 		location: SourceSpan,
 	},
 	IfStatement {
-		condition: Box<Expression>,
+		condition: Expression,
 		if_statement: Box<ModuleImplementationStatement>,
 		location: SourceSpan,
 	},
 	IfElseStatement {
-		condition: Box<Expression>,
+		condition: Expression,
 		if_statement: Box<ModuleImplementationStatement>,
 		else_statement: Box<ModuleImplementationStatement>,
 		location: SourceSpan,
@@ -54,7 +56,7 @@ pub enum ModuleImplementationStatement {
 		location: SourceSpan,
 	},
 	ModuleImplementationBlockStatement {
-		statements: Vec<Box<ModuleImplementationStatement>>,
+		statements: Vec<ModuleImplementationStatement>,
 		location: SourceSpan,
 	},
 }
@@ -84,15 +86,15 @@ impl Debug for ModuleImplementationStatement {
 				..
 			} => {
 				write!(fmt, "\n{:?} {:?}{{\n", id1, id2)?;
-				for port_bind_statement in port_bind.into_iter() {
-					write!(fmt, "{:?},\n", port_bind_statement)?;
+				for port_bind_statement in port_bind.iter() {
+					writeln!(fmt, "{:?},", port_bind_statement)?;
 				}
 				write!(fmt, "}};")
 			},
 			ModuleImplementationBlockStatement { statements, .. } => {
 				write!(fmt, "\n{{")?;
-				for statement in statements.into_iter() {
-					write!(fmt, "{:?}\n", statement)?;
+				for statement in statements.iter() {
+					writeln!(fmt, "{:?}", statement)?;
 				}
 				write!(fmt, "}}")
 			},

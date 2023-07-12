@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::core::SourceSpan;
 use crate::parser::ast::{opcodes::*, Expression, SourceLocation};
 use serde::{Deserialize, Serialize};

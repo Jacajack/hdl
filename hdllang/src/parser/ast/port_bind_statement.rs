@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::parser::ast::{Expression, SourceLocation, VariableDeclaration};
 use crate::{lexer::IdTableKey, SourceSpan};
 use serde::{Deserialize, Serialize};
@@ -11,7 +13,7 @@ pub enum PortBindStatement {
 	},
 	IdWithExpression {
 		id: IdTableKey,
-		expression: Box<Expression>,
+		expression: Expression,
 		location: SourceSpan,
 	},
 	IdWithDeclaration {

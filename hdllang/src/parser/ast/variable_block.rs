@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::lexer::CommentTableKey;
 use crate::parser::ast::{SourceLocation, TypeQualifier, VariableDeclaration};
 use crate::SourceSpan;
@@ -14,7 +16,7 @@ pub struct VariableBlock {
 impl Debug for VariableBlock {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
 		match self.statements.len() {
-			0 => write!(fmt, "{:?}{{}}\n", self.types),
+			0 => writeln!(fmt, "{:?}{{}}", self.types),
 			_ => write!(fmt, "{:?}{{\n{:?}}}\n", self.types, self.statements),
 		}
 	}

@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::core::numeric_constant_table::NumericConstantTableKey;
 use crate::parser::ast::{opcodes::*, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName};
 use crate::{lexer::IdTableKey, SourceSpan};
@@ -28,7 +30,7 @@ pub enum Expression {
 		location: SourceSpan,
 	},
 	Tuple {
-		expressions: Vec<Box<Expression>>,
+		expressions: Vec<Expression>,
 		location: SourceSpan,
 	},
 	TernaryExpression {
@@ -49,7 +51,7 @@ pub enum Expression {
 	},
 	PostfixWithArgs {
 		expression: Box<Expression>,
-		argument_list: Vec<Box<Expression>>,
+		argument_list: Vec<Expression>,
 		location: SourceSpan,
 	},
 	PostfixWithId {
@@ -107,7 +109,7 @@ impl Debug for Expression {
 				..
 			} => {
 				write!(fmt, "({:?}(", expression)?;
-				for arg in argument_list.into_iter() {
+				for arg in argument_list.iter() {
 					write!(fmt, "{:?}, ", arg)?;
 				}
 				write!(fmt, "))")
@@ -118,22 +120,22 @@ impl Debug for Expression {
 			} => write!(fmt, "(({:?}){:?})", type_name, expression),
 			Tuple { expressions, .. } => {
 				write!(fmt, "{{")?;
-				for expr in expressions.into_iter() {
+				for expr in expressions.iter() {
 					write!(fmt, "{:?},", expr)?;
 				}
 				write!(fmt, "}}")
 			},
 			MatchExpression { value, statements, .. } => {
-				write!(fmt, "match({:?}){{\n", value)?;
-				for s in statements.into_iter() {
-					write!(fmt, "{:?},\n", s)?;
+				writeln!(fmt, "match({:?}){{", value)?;
+				for s in statements.iter() {
+					writeln!(fmt, "{:?},", s)?;
 				}
 				write!(fmt, "}}")
 			},
 			ConditionalExpression { statements, .. } => {
-				write!(fmt, "conditional{{\n")?;
-				for s in statements.into_iter() {
-					write!(fmt, "{:?},\n", s)?;
+				writeln!(fmt, "conditional{{")?;
+				for s in statements.iter() {
+					writeln!(fmt, "{:?},", s)?;
 				}
 				write!(fmt, "}}")
 			},

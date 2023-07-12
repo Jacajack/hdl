@@ -1,3 +1,5 @@
+mod pretty_printable;
+
 use crate::lexer::CommentTableKey;
 use crate::parser::ast::{DirectDeclarator, SourceLocation, TypeDeclarator};
 use crate::SourceSpan;
@@ -8,7 +10,7 @@ use std::fmt::{Debug, Error, Formatter};
 pub struct VariableDeclaration {
 	pub metadata: Vec<CommentTableKey>,
 	pub type_declarator: TypeDeclarator,
-	pub direct_declarators: Vec<Box<DirectDeclarator>>,
+	pub direct_declarators: Vec<DirectDeclarator>,
 	pub location: SourceSpan,
 }
 impl Debug for VariableDeclaration {
