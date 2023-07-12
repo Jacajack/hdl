@@ -33,9 +33,12 @@ impl NumericConstant {
 	/// Internal consistency checks
 	fn consistency_check(&self) -> bool {
 		// Boolean constants
-		if matches!(self.base, Some(NumericConstantBase::Boolean)) && self.value != WideUint::from_u64(0) && self.value != WideUint::from_u64(1) {
-  				return false;
-  			}
+		if matches!(self.base, Some(NumericConstantBase::Boolean))
+			&& self.value != WideUint::from_u64(0)
+			&& self.value != WideUint::from_u64(1)
+		{
+			return false;
+		}
 
 		// Id width is specified, signedness must be specified as well
 		if self.width.is_some() && self.signed.is_none() {

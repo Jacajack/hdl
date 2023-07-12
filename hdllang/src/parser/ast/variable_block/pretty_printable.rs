@@ -23,7 +23,6 @@ impl PrettyPrintable for VariableBlock {
 	}
 }
 
-
 impl PrettyPrintable for VariableBlockStatement {
 	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
 		use VariableBlockStatement::*;
