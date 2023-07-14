@@ -10,7 +10,7 @@ impl PrettyPrintable for ImportPath {
 				}
 			},
 			Start::Root => {
-				ctx.write("::")?;
+				ctx.write("root::")?;
 			},
 			Start::Local => {
 				ctx.write("")?;
@@ -22,7 +22,9 @@ impl PrettyPrintable for ImportPath {
 				ctx.write("::")?;
 			}
 		}
-		ctx.write("::")?;
+		if !self.path.is_empty(){
+			ctx.write("::")?;
+		}
 		self.modules.pretty_print(ctx)?;
 		Ok(())
 	}
