@@ -2,7 +2,7 @@ mod pretty_printable;
 
 use crate::parser::ast::{
 	AssignmentOpcode, Expression, PortBindStatement, RangeExpression, SourceLocation, VariableBlock,
-	VariableDeclaration, VariableDefinition,
+	VariableDeclaration, VariableDefinition, ImportPath,
 };
 use crate::{
 	lexer::{CommentTableKey, IdTableKey},
@@ -50,7 +50,7 @@ pub enum ModuleImplementationStatement {
 	},
 	InstantiationStatement {
 		metadata: Vec<CommentTableKey>,
-		module_name: IdTableKey,
+		module_name: ImportPath,
 		instance_name: IdTableKey,
 		port_bind: Vec<PortBindStatement>,
 		location: SourceSpan,

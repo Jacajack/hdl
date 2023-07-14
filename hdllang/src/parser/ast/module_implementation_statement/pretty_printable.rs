@@ -85,8 +85,8 @@ impl PrettyPrintable for ModuleImplementationStatement {
 			} => {
 				ctx.after_brackets = false;
 				ctx.write_opt_newline("")?;
-				ctx.write(format!("{} ", &ctx.get_id(*id1)).as_str())?;
-				ctx.write(format!("{} ", &ctx.get_id(*id2)).as_str())?;
+				id1.pretty_print(ctx)?;
+				ctx.write(format!(" {} ", &ctx.get_id(*id2)).as_str())?;
 				ctx.increase_indent();
 				ctx.writeln("{")?;
 				for statement in port_bind {
