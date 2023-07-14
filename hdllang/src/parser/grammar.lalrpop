@@ -70,7 +70,11 @@ TopDef: TopDefinition={
 		},
 }
 ImportPath: ImportPath={
-	<start: @L> <quantity: ("super" "::")+> <path:DoubleColon<"Id">> <modules:Modules> <end: @R> =>{
+	SingleImportPath,
+	MultipleImportPath,
+}
+SingleImportPath: ImportPath={
+	<start: @L> <quantity: ("super" "::")+> <path:DoubleColon<"Id">> <modules:SingleModule> <end: @R> =>{
 		ImportPath{
 			start:Start::Super{
 				number: quantity.len()
@@ -80,7 +84,7 @@ ImportPath: ImportPath={
 			location:SourceSpan::new_between(start,end),
 		}
 	},
-	<start: @L> "root" "::" <path:DoubleColon<"Id">> <modules:Modules> <end: @R> =>{
+	<start: @L> "root" "::" <path:DoubleColon<"Id">> <modules:SingleModule> <end: @R> =>{
 		ImportPath{
 			start:Start::Root,
 			path,
@@ -88,7 +92,43 @@ ImportPath: ImportPath={
 			location:SourceSpan::new_between(start,end),
 		}
 	},
-	<start: @L> <path:DoubleColon<"Id">> <modules:Modules> <end: @R> =>{
+	<start: @L> <path:DoubleColon<"Id">> <modules:SingleModule> <end: @R> =>{
+		ImportPath{
+			start:Start::Local,
+			path,
+			modules,
+			location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start: @L> <modules:SingleModule> <end: @R> =>{
+		ImportPath{
+			start: Start::Local,
+			path: vec![],
+			modules,
+			location:SourceSpan::new_between(start,end),
+		}
+	},
+}
+MultipleImportPath: ImportPath={
+	<start: @L> <quantity: ("super" "::")+> <path:DoubleColon<"Id">> <modules:MultipleModules> <end: @R> =>{
+		ImportPath{
+			start:Start::Super{
+				number: quantity.len()
+			},
+			path,
+			modules,
+			location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start: @L> "root" "::" <path:DoubleColon<"Id">> <modules:MultipleModules> <end: @R> =>{
+		ImportPath{
+			start:Start::Root,
+			path,
+			modules,
+			location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start: @L> <path:DoubleColon<"Id">> <modules:MultipleModules> <end: @R> =>{
 		ImportPath{
 			start:Start::Local,
 			path,
@@ -97,8 +137,10 @@ ImportPath: ImportPath={
 		}
 	},
 }
-Modules :Modules = {
+SingleModule: Modules={
 	<id:"Id"> => Modules::Specific{modules: vec![id]},
+}
+MultipleModules :Modules = {
 	"{" <modules:NonEmptyOptComma<"Id">> "}" => Modules::Specific{modules},
 	"*" => Modules::All,
 }
@@ -128,7 +170,7 @@ ModuleImplStmt: ModuleImplementationStatement = {
 			statement: Box::new(statement),
 			location:SourceSpan::new_between(start,end),
 		},
-	<start: @L> <mc :MetadataComments?> <module_name:"Id"> <instance_name:"Id"> "{" <port_bind:NonEmptyOptComma<PortBindStmt>> "}" <a:";"?> <end: @R> =>
+	<start: @L> <mc :MetadataComments?> <module_name:SingleImportPath> <instance_name:"Id"> "{" <port_bind:NonEmptyOptComma<PortBindStmt>> "}" <a:";"?> <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
