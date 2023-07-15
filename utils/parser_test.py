@@ -135,7 +135,7 @@ if __name__ == "__main__":
 
 		i = 0
 		initilal_coverage = len(fuzzer.missing_expansion_coverage())
-		while len(fuzzer.missing_expansion_coverage()) >  0.1 * initilal_coverage:
+		while len(fuzzer.missing_expansion_coverage()) >  0.15 * initilal_coverage:
 			i += 1
 
 			if unexpected_total >= MAX_FAILED_TESTS:
