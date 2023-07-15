@@ -69,7 +69,7 @@ TopDef: TopDefinition={
 
 		},
 }
-ImportPath: ImportPath={
+pub ImportPath: ImportPath={
 	SingleImportPath,
 	MultipleImportPath,
 }
@@ -121,6 +121,14 @@ MultipleImportPath: ImportPath={
 		}
 	},
 	<start: @L> "root" "::" <path:DoubleColon<"Id">> <modules:MultipleModules> <end: @R> =>{
+		ImportPath{
+			start:Start::Root,
+			path,
+			modules,
+			location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start: @L> "::" <path:DoubleColon<"Id">> <modules:MultipleModules> <end: @R> =>{
 		ImportPath{
 			start:Start::Root,
 			path,
