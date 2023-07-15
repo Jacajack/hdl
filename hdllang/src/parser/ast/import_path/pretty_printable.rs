@@ -22,7 +22,7 @@ impl PrettyPrintable for ImportPath {
 				ctx.write("::")?;
 			}
 		}
-		if !self.path.is_empty(){
+		if !self.path.is_empty() {
 			ctx.write("::")?;
 		}
 		self.modules.pretty_print(ctx)?;

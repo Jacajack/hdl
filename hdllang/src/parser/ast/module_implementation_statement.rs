@@ -1,8 +1,8 @@
 mod pretty_printable;
 
 use crate::parser::ast::{
-	AssignmentOpcode, Expression, PortBindStatement, RangeExpression, SourceLocation, VariableBlock,
-	VariableDeclaration, VariableDefinition, ImportPath,
+	AssignmentOpcode, Expression, ImportPath, PortBindStatement, RangeExpression, SourceLocation, VariableBlock,
+	VariableDeclaration, VariableDefinition,
 };
 use crate::{
 	lexer::{CommentTableKey, IdTableKey},
