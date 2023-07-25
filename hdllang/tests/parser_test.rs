@@ -144,14 +144,14 @@ mod root_parser_test{
 	use std::fs;
 	#[test]
 	fn pipelined_is_prime(){
-    	let d = "tests_files\\pipelined_is_prime.hirl";
+    	let d = "tests_files/pipelined_is_prime.hirl";
 		let s = fs::read_to_string(d.clone()).expect(format!("file {:?} could not be opened",d).as_str());
     	parse_izulu_pass(s.as_str());
 	}
 
 	#[test]
 	fn pipelined_division(){
-		let d = "tests_files\\pipelined_division.hirl";
+		let d = "tests_files/pipelined_division.hirl";
 		let s = fs::read_to_string(d.clone()).expect(d);
     	parse_izulu_pass(s.as_str());
 	}
