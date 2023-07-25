@@ -10,7 +10,7 @@ use crate::SourceSpan;
 grammar<'source>(ctx: & mut ParserContext<'source>, source: Option<&'source String>);
 MetadataComments = NonEmptySpace<"MC">;
 pub Izulu: Root={
-	<start: @L> <definitions:NonEmptySpace<TopDefinition>> <end: @R> =>
+	<start: @L> <definitions:Space<TopDefinition>> <end: @R> =>
 		Root{
 			definitions,
 			location:SourceSpan::new_between(start,end),

@@ -1,0 +1,112 @@
+module full_adder {
+	input a;
+	input b;
+	input cin;
+	output cout;
+	output q;
+}
+
+
+impl full_adder {
+	cout = (a & b) | (cin & (a ^ b));
+	q = a ^ b ^ cin;
+}
+
+module div_cell {
+	input a;
+	input b;
+	input s;
+	input cin;
+	output cout;
+	output r;
+}
+
+impl div_cell {
+	full_adder u_fa{
+		a,
+		b: !b,
+		cin,
+		cout,
+		q: auto fa_out
+	};
+
+	r = s ? fa_out : a;
+}
+
+module div_comb_stage {
+	int WIDTH;
+	input bus<WIDTH> a;
+	input bus<WIDTH> b;
+	input cin;
+	output cout;
+	output bus<WIDTH> r;
+}
+
+impl div_comb_stage {
+	bus<WIDTH> cin_chain;
+	bus<WIDTH> cout_chain;
+
+	cin_chain[0] = cin;
+	cout = cout_chain[WIDTH - 1];
+	cin_chain[(WIDTH-1):1] = cout_chain[WIDTH-2:0];
+	
+	for (i in [0:WIDTH-1]) {
+		div_cell u_cell{
+			a: a[i],
+			b: b[i],
+			s: cout_chain[WIDTH - 1],
+			r: r[i],
+			cin: cin_chain[i],
+			cout: cout_chain[i],
+		}
+	}
+}
+
+module comb_division {
+	int A_WIDTH;
+	int B_WIDTH;
+	input<A_WIDTH> a;
+	input<B_WIDTH> b;
+	input<A_WIDTH> q;
+	input<(B_WIDTH - 1)> r;
+}
+
+impl comb_division {
+	auto STAGE_WIDTH = B_WIDTH + 1;
+	bus<STAGE_WIDTH> stage_as[A_WIDTH];
+	bus<STAGE_WIDTH> stage_b = zext(b);
+	bus<STAGE_WIDTH> stage_outputs[A_WIDTH];
+
+	stage_as[0] = zext(a[A_WIDTH - 1]);
+	r = stage_outputs[A_WIDTH - 1][STAGE_WIDTH - 2:0];
+
+	// Narrow stages
+	for (i in [0:B_WIDTH - 1]) {
+		div_comb_stage u_stage{
+			WIDTH: B_WIDTH,
+			a: trunc(stage_as[i]),
+			b: trunc(stage_b),
+			cin: true,
+			cout: q[A_WIDTH - 1 - i],
+			r: stage_outputs[i][STAGE_WIDTH - 2:0],
+		}
+	}
+
+	// Wide stages
+	for (i in [B_WIDTH:A_WIDTH - 1]) {
+		div_comb_stage u_stage{
+			WIDTH: B_WIDTH + 1,
+			a: stage_as[i],
+			b: stage_b,
+			cin: true,
+			cout: q[A_WIDTH - 1 - i],
+			r: stage_outputs[i],
+		}
+	}
+
+	// Conns
+	for (i in [1:A_WIDTH - 1]) {
+		stage_as[i][0] = a[A_WIDTH - 1 - i];
+		stage_as[i][STAGE_WIDTH - 1:1] = stage_outputs[i - 1][STAGE_WIDTH - 2:0];
+	}
+}

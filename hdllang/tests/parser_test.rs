@@ -141,171 +141,25 @@ mod root_parser_test{
 
 	use paste::paste;
 	parse_func!(izulu,IzuluParser);
-
+	use std::fs;
 	#[test]
 	fn pipelined_is_prime(){
-		let s = "module pipelined_is_prime {
-			input clock clk;
-			input nreset;
-		
-			input in_valid;
-			output in_ready;
-			input bus<4> number;
-		
-			input out_ready;
-			output sync(clk) {
-				wire is_prime;
-				wire out_valid;
-			};
-		}
-		
-		impl pipelined_is_prime {
-			in_ready = out_ready; // comb passthrough - should warn
-		
-			register out_valid_r {
-				clk, // must be a clock signal
-				nreset,
-				en: true,
-				data: out_valid,
-				next: in_valid,
-			};
-		
-			register is_prime_r {
-				clk,    // auto connected
-				nreset, // auto connected
-				en: out_ready,
-				data: is_prime, // type deduced from input, connects to 'output sync(clk)'
-				next: match(number) {
-					2_u4, 3_u4, 5_u4, 7_u4, 11_u4, 13_u4 => true, // or 1u1
-					default => false,
-				},
-			};
-		}";
-		parse_izulu_pass(s);
+    	let d = "tests_files\\pipelined_is_prime.hirl";
+		let s = fs::read_to_string(d.clone()).expect(format!("file {:?} could not be opened",d).as_str());
+    	parse_izulu_pass(s.as_str());
 	}
 
 	#[test]
 	fn pipelined_division(){
-		let s = "module full_adder {
-			input a;
-			input b;
-			input cin;
-			output cout;
-			output q;
-		}
-		
-		
-		impl full_adder {
-			cout = (a & b) | (cin & (a ^ b));
-			q = a ^ b ^ cin;
-		}
-		
-		module div_cell {
-			input a;
-			input b;
-			input s;
-			input cin;
-			output cout;
-			output r;
-		}
-		
-		impl div_cell {
-			full_adder u_fa{
-				a,
-				b: !b,
-				cin,
-				cout,
-				q: auto fa_out
-			};
-		
-			r = s ? fa_out : a;
-		}
-		
-		module div_comb_stage {
-			int WIDTH;
-			input bus<WIDTH> a;
-			input bus<WIDTH> b;
-			input cin;
-			output cout;
-			output bus<WIDTH> r;
-		}
-		
-		impl div_comb_stage {
-			bus<WIDTH> cin_chain;
-			bus<WIDTH> cout_chain;
-		
-			cin_chain[0] = cin;
-			cout = cout_chain[WIDTH - 1];
-			cin_chain[(WIDTH-1):1] = cout_chain[WIDTH-2:0];
-			
-			for (i in [0:WIDTH-1]) {
-				div_cell u_cell{
-					a: a[i],
-					b: b[i],
-					s: cout_chain[WIDTH - 1],
-					r: r[i],
-					cin: cin_chain[i],
-					cout: cout_chain[i],
-				}
-			}
-		}
-		
-		module comb_division {
-			int A_WIDTH;
-			int B_WIDTH;
-			input<A_WIDTH> a;
-			input<B_WIDTH> b;
-			input<A_WIDTH> q;
-			input<(B_WIDTH - 1)> r;
-		}
-		
-		impl comb_division {
-			auto STAGE_WIDTH = B_WIDTH + 1;
-			bus<STAGE_WIDTH> stage_as[A_WIDTH];
-			bus<STAGE_WIDTH> stage_b = zext(b);
-			bus<STAGE_WIDTH> stage_outputs[A_WIDTH];
-		
-			stage_as[0] = zext(a[A_WIDTH - 1]);
-			r = stage_outputs[A_WIDTH - 1][STAGE_WIDTH - 2:0];
-		
-			// Narrow stages
-			for (i in [0:B_WIDTH - 1]) {
-				div_comb_stage u_stage{
-					WIDTH: B_WIDTH,
-					a: trunc(stage_as[i]),
-					b: trunc(stage_b),
-					cin: true,
-					cout: q[A_WIDTH - 1 - i],
-					r: stage_outputs[i][STAGE_WIDTH - 2:0],
-				}
-			}
-		
-			// Wide stages
-			for (i in [B_WIDTH:A_WIDTH - 1]) {
-				div_comb_stage u_stage{
-					WIDTH: B_WIDTH + 1,
-					a: stage_as[i],
-					b: stage_b,
-					cin: true,
-					cout: q[A_WIDTH - 1 - i],
-					r: stage_outputs[i],
-				}
-			}
-		
-			// Conns
-			for (i in [1:A_WIDTH - 1]) {
-				stage_as[i][0] = a[A_WIDTH - 1 - i];
-				stage_as[i][STAGE_WIDTH - 1:1] = stage_outputs[i - 1][STAGE_WIDTH - 2:0];
-			}
-		}";
-		parse_izulu_pass(s);
+		let d = "tests_files\\pipelined_division.hirl";
+		let s = fs::read_to_string(d.clone()).expect(d);
+    	parse_izulu_pass(s.as_str());
 	}
 
-	// should we accept empty file?
 	#[test]
 	fn empty_file(){
 		let s = "";
-		parse_izulu_fail(s);
+		parse_izulu_pass(s);
 	}
 
 	#[test]
