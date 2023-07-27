@@ -10,13 +10,13 @@ use crate::SourceSpan;
 grammar<'source>(ctx: & mut ParserContext<'source>, source: Option<&'source String>);
 MetadataComments = NonEmptySpace<"MC">;
 pub Izulu: Root={
-	<start: @L> <definitions:NonEmptySpace<TopDef>> <end: @R> =>
+	<start: @L> <definitions:Space<TopDefinition>> <end: @R> =>
 		Root{
 			definitions,
 			location:SourceSpan::new_between(start,end),
 		}
 }
-TopDef: TopDefinition={
+pub TopDefinition: TopDefinition={
 	<start: @L> <mc:MetadataComments ?> "module" <id:"Id"> "{" <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
 		{
 			let metadata = match mc{
@@ -69,7 +69,7 @@ TopDef: TopDefinition={
 
 		},
 }
-ImportPath: ImportPath={
+pub ImportPath: ImportPath={
 	SingleImportPath,
 	MultipleImportPath,
 }
@@ -128,6 +128,14 @@ MultipleImportPath: ImportPath={
 			location:SourceSpan::new_between(start,end),
 		}
 	},
+	<start: @L> "::" <path:DoubleColon<"Id">> <modules:MultipleModules> <end: @R> =>{
+		ImportPath{
+			start:Start::Root,
+			path,
+			modules,
+			location:SourceSpan::new_between(start,end),
+		}
+	},
 	<start: @L> <path:DoubleColon<"Id">> <modules:MultipleModules> <end: @R> =>{
 		ImportPath{
 			start:Start::Local,
@@ -144,7 +152,7 @@ MultipleModules :Modules = {
 	"{" <modules:NonEmptyOptComma<"Id">> "}" => Modules::Specific{modules},
 	"*" => Modules::All,
 }
-ModuleImplStmt: ModuleImplementationStatement = {
+pub ModuleImplStmt: ModuleImplementationStatement = {
 	<start: @L>  <block:VarBlock> <end: @R> =>
 		ModuleImplementationStatement::VariableBlock{
 			block,
