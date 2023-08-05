@@ -1,5 +1,5 @@
 extern crate hdllang;
-use clap::{arg, command, Arg};
+use clap::{arg, command, Arg, ArgGroup};
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
 use hdllang::core::DiagnosticBuffer;
 use hdllang::lexer::{Lexer, LogosLexer};
@@ -158,8 +158,7 @@ fn init_logging() {
 			.init();
 
 		info!("Logging to file '{}'", logfile);
-	}
-	else {
+	} else {
 		env_logger::init();
 		info!("Hello! Logging to stderr...");
 	}
@@ -169,8 +168,9 @@ fn main() -> miette::Result<()> {
 	init_logging();
 
 	let matches = command!()
-		.arg(Arg::new("source").required(true))
+		.arg(Arg::new("source"))
 		.arg(Arg::new("output").short('o').long("output"))
+		.arg(arg!(-c --clean "Clean build files"))
 		.arg(
 			arg!(<MODE>)
 				.help("Specify which action should be performed")
@@ -188,11 +188,25 @@ fn main() -> miette::Result<()> {
 				.short('m')
 				.long("mode"),
 		)
+		.group(
+			ArgGroup::new("clean_or_source")
+				.args(["source", "clean"])
+				.required(true),
+		)
+		.group(ArgGroup::new("mode_or_clean").args(["MODE", "clean"]).required(false))
 		.get_matches();
 
-	let mode = match matches.get_one::<String>("MODE") {
+	let mut mode = match matches.get_one::<String>("MODE") {
 		None => "compile",
 		Some(x) => x,
+	};
+	match matches.get_one::<bool>("clean") {
+	Some(x) => {
+			if *x {
+				mode = "clean";
+			}
+		},
+		None => (),
 	};
 	let output: Box<dyn Write> = match matches.get_one::<String>("output") {
 		None => Box::new(io::stdout()),
@@ -203,11 +217,14 @@ fn main() -> miette::Result<()> {
 			},
 		},
 	};
-	let name = match matches.get_one::<String>("source") {
+	let file_name = match matches.get_one::<String>("source") {
 		Some(x) => x,
 		None => "",
 	};
-	let code = read_input_from_file(String::from(name))?;
+	let code = match mode {
+		"clean" | "combine" => "".to_string(),
+		_ => read_input_from_file(&String::from(file_name))?,
+	};
 	match mode {
 		"tokenize" => {
 			tokenize(code, output)?;
@@ -217,6 +234,9 @@ fn main() -> miette::Result<()> {
 		},
 		"analyse" | "analyze" => {
 			analyze(code, output)?;
+		},
+		"combine" => {
+			combine(String::from(file_name), output)?;
 		},
 		"pretty-print" => {
 			pretty_print(code, output)?;
@@ -231,7 +251,11 @@ fn main() -> miette::Result<()> {
 			println!("Not implemented!");
 			lexer_example()?;
 		},
-		_ => unreachable!(),
+		"clean" => {
+			println!("Not implemented!");
+			println!("Cleaning of build files was requested!")
+		},
+		_ => lexer_example()?,
 	};
 	Ok(())
 }
