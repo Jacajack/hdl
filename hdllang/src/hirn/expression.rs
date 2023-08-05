@@ -1,10 +1,19 @@
 use super::signal::{SignalRef, SignalClass, SignalType};
-use super::module::{GenericRef};
 
 pub struct NumericConstant {
 	pub width: u32,
 	pub class: SignalClass,
 	pub value: Vec<u8>,
+}
+
+impl NumericConstant {
+	pub fn zero() -> NumericConstant {
+		NumericConstant {
+			width: 1,
+			class: SignalClass::Unsigned,
+			value: vec![0],
+		}
+	}
 }
 
 // TODO check if we have all 
@@ -57,7 +66,6 @@ pub struct ConditionalExpression {
 pub enum Expression {
 	Conditional(ConditionalExpression),
 	Constant(NumericConstant),
-	Generic(GenericRef),
 	Signal(SignalRef),
 	Binary{op: BinaryOp, lhs: Box<Expression>, rhs: Box<Expression>},
 	Unary{op: UnaryOp, operand: Box<Expression>},
@@ -115,7 +123,6 @@ impl IsCompileTimeConst for Expression {
 		match self {
 			Conditional(cond) => cond.is_compile_time_const(),
 			Constant{..} => true,
-			Generic{..} => true,
 			_ => false,
 		}
 	}

@@ -6,18 +6,11 @@ pub mod signal;
 pub mod module;
 pub mod backend;
 pub mod sv_backend;
+pub mod scope;
+pub mod design;
+// pub mod container;
 
 pub use module::{Module};
 pub use expression::{Expression, BinaryOp, UnaryOp};
 use signal::{SignalRef};
-
-#[cfg(test)]
-mod test {
-	use super::*;
-
-	#[test]
-	fn basic_test() {
-		// let m = Module::new("test".into());
-
-	}
-}
+pub use scope::{Scope};

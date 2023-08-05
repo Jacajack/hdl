@@ -1,5 +1,4 @@
 use super::SignalRef;
-use super::module::ModuleInstance;
 
 pub struct Register {
 	pub input_nreset: Option<SignalRef>,
@@ -35,5 +34,5 @@ pub enum BlockInstance {
 	TristateBuffer(TristateBuffer),
 	ClockGate(ClockGate),
 	FfSync(FfSync),
-	Module(ModuleInstance),
+	// Module(ModuleInstance), // FIXME
 }

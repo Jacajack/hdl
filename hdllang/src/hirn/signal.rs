@@ -1,3 +1,5 @@
+use super::Expression;
+
 pub enum SignalClass {
 	Logic,
 	Signed,
@@ -22,26 +24,36 @@ pub enum SignalSensitivity {
 }
 
 pub enum ArraySlice {
-	Range(usize, usize), // TODO const_expression
-	Index(usize), // TODO const_expression
+	Range(Box<Expression>, Box<Expression>),
+	Index(Box<Expression>),
 }
 
 pub struct SignalType {
-	pub width: u32,  // TODO const_expression
+	pub width: Box<Expression>, 
 	pub class: SignalClass,
 	pub senitivity: SignalSensitivity,
 }
 
 pub struct SignalRef {
-	pub signal_id: usize,  // TODO const_expression
-	pub slices: Vec<ArraySlice>,  // TODO const_expression
-	pub bit_range: (usize, usize),  // TODO const_expression
+	pub signal_id: usize,
+	pub slices: Vec<ArraySlice>,
+	pub bit_range: (Box<Expression>, Box<Expression>),
+}
+
+pub struct SignalSlice {
+	
+}
+
+impl SignalRef {
+	pub fn from_signal(id: usize, sig: &Signal) -> Self {
+		todo!();
+	}
 }
 
 pub struct Signal {
 	name: String,
-	dimensions: Vec<u32>,  // TODO const_expression
-	bit_width: u32,  // TODO const_expression
+	dimensions: Vec<Expression>,
+	bit_width: Box<Expression>,
 	class: SignalClass,
 	sensitivity: SignalSensitivity,
 }
@@ -52,7 +64,17 @@ pub enum SignalDirection {
 	Tristate,
 }
 
+// TODO look at this
 pub struct InterfaceSignal {
 	signal: Signal,
 	direction: SignalDirection,
+}
+
+// TODO
+impl std::ops::Index<Expression> for SignalRef {
+	type Output = SignalRef;
+
+	fn index(&self, index: Expression) -> &Self::Output {
+		todo!();
+	}
 }
