@@ -1,21 +1,19 @@
+use std::collections::HashMap;
+use super::{ModuleRef};
 use super::signal::{SignalRef, SignalDirection};
-use super::scope::{Scope};
+use super::scope::{Scope, ScopeRef};
 
 pub struct Module {
 	namespace_path: Vec<String>,
 	name: String,
-	main_scope: Scope,
+	main_scope: ScopeRef,
 	interface: Vec<(SignalRef, SignalDirection)>,
 }
 
+
 impl Module {
-	pub fn new(name: String, namespace_path: Vec<String>, main_scope: Scope) -> Self {
-		Self {
-			namespace_path,
-			name,	
-			interface: Vec::new(),
-			main_scope: main_scope,
-		}
+	pub fn new(anme: String, namespace_path: Vec<String>, main_scope: ScopeRef) -> Self {
+		todo!();
 	}
 
 	/// Exposes a signal to the module interface.
@@ -23,3 +21,4 @@ impl Module {
 		todo!();
 	}
 }
+

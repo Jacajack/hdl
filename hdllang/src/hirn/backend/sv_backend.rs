@@ -14,13 +14,13 @@ impl<'stream> SystemVerilogBackend<'stream> {
 		}
 	}
 
-	fn format_signal_ref(&self, signal: &SignalRef) -> String {
-		"signal_name[1][2][3:4]".into() // FIXME
-	}
+	// fn format_signal_ref(&self, signal: &SignalRef) -> String {
+	// 	"signal_name[1][2][3:4]".into() // FIXME
+	// }
 
-	fn mangle_module_name(&self, module: &Module) -> String {
-		"MODULE_NAME".into() // FIXME
-	}
+	// fn mangle_module_name(&self, module: &Module) -> String {
+	// 	"MODULE_NAME".into() // FIXME
+	// }
 	
 	// fn emit_register(&self, r: &Register) -> String {
 	// 	"// register".into() // FIXME

@@ -1,15 +1,28 @@
+pub mod expression;
+pub mod expression_ops;
+pub mod functional_blocks;
+pub mod module;
+pub mod signal;
+pub mod scope;
 
 use std::mem;
+use std::rc::Rc;
 use std::collections::HashMap;
+pub use scope::{Scope, ScopeRef};
+pub use signal::{Signal, SignalRef};
+pub use module::Module;
 
-use super::module::Module;
+pub use expression::{Expression, BinaryOp, UnaryOp};
 
 pub type SignalId = usize;
 pub type ModuleId = usize;
 pub type ScopeId = usize;
 
 pub struct Design {
-	modules: HashMap<ModuleId, Module>,
+	// TODO use slotmaps here
+	modules: HashMap<ModuleId, Rc<Module>>,
+	scopes: HashMap<ScopeRef, Scope>,
+	signals: HashMap<SignalRef, Signal>,
 	next_signal_id: usize,
 	next_module_id: usize,
 	next_scope_id: usize,
@@ -22,14 +35,15 @@ pub struct ModuleRef {
 
 impl Design {
 	pub fn get_module(&self, mr: ModuleRef) -> Option<&Module> {
-		self.modules.get(&mr.id)
+		todo!();
+		// self.modules.get(&mr.id)
 	}
 
-	pub fn add_module(&mut self, module: Module) -> ModuleRef {
-		let id = self.new_module_id();
-		self.modules.insert(id, module);
-		ModuleRef {id}
-	}
+	// pub fn add_module(&mut self, module: Module) -> ModuleRef {
+	// 	let id = self.new_module_id();
+	// 	self.modules.insert(id, module);
+	// 	ModuleRef {id}
+	// }
 
 	pub fn new_signal_id(&mut self) -> SignalId {
 		let id = self.next_signal_id;
@@ -43,6 +57,11 @@ impl Design {
 		id
 	}
 
+	pub fn new_root_scope(&mut self) -> &mut Scope {
+		todo!();
+	}
+
+	// pub fn new_scope(&mut self, ScopeRef) 
 
 
 }

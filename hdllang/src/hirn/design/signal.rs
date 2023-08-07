@@ -1,4 +1,5 @@
 use super::Expression;
+use super::scope::ScopeRef;
 
 pub enum SignalClass {
 	Logic,
@@ -34,20 +35,15 @@ pub struct SignalType {
 	pub senitivity: SignalSensitivity,
 }
 
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct SignalRef {
-	pub signal_id: usize,
-	pub slices: Vec<ArraySlice>,
-	pub bit_range: (Box<Expression>, Box<Expression>),
+	scope: ScopeRef,
+	signal_id: usize,
 }
 
 pub struct SignalSlice {
-	
-}
-
-impl SignalRef {
-	pub fn from_signal(id: usize, sig: &Signal) -> Self {
-		todo!();
-	}
+	signal: SignalRef,
+	slices: Vec<ArraySlice>,
 }
 
 pub struct Signal {
@@ -78,3 +74,5 @@ impl std::ops::Index<Expression> for SignalRef {
 		todo!();
 	}
 }
+
+// TODO index op on SignalSlice
