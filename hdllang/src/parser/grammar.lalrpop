@@ -55,7 +55,7 @@ pub TopDefinition: TopDefinition={
 			}
 
 		},
-		<start: @L> <mc:MetadataComments ?> "use" <path:ImportPath> ";"  <end: @R> =>
+		<start: @L> <mc:MetadataComments ?> "use" <path:SingleImportPath> ";"  <end: @R> =>
 		{
 			let metadata = match mc{
 				Some(mc) => mc,
@@ -74,7 +74,11 @@ pub ImportPath: ImportPath={
 	MultipleImportPath,
 }
 SingleImportPath: ImportPath={
-	<start: @L> <quantity: ("super" "::")+> <path:DoubleColon<"Id">> <modules:SingleModule> <end: @R> =>{
+	<start: @L> <quantity: ("super" "::")+> <p:DoubleColon<"Id">?> <modules:SingleModule> <end: @R> =>{
+		let path = match p{
+			Some(path) => path,
+			None => vec![],
+		};
 		ImportPath{
 			start:Start::Super{
 				number: quantity.len()
@@ -110,7 +114,11 @@ SingleImportPath: ImportPath={
 	},
 }
 MultipleImportPath: ImportPath={
-	<start: @L> <quantity: ("super" "::")+> <path:DoubleColon<"Id">> <modules:MultipleModules> <end: @R> =>{
+	<start: @L> <quantity: ("super" "::")+> <p:DoubleColon<"Id">?> <modules:MultipleModules> <end: @R> =>{
+		let path = match p{
+			Some(path) => path,
+			None => vec![],
+		};
 		ImportPath{
 			start:Start::Super{
 				number: quantity.len()
@@ -282,16 +290,48 @@ DirectInitializer: DirectInitializer = {
 },
 }
 ModuleDeclStmt: ModuleDeclarationStatement={
-	<start: @L>  <declaration:VarDecl> ";" <end: @R> =>
- 		ModuleDeclarationStatement::VariableDeclarationStatement{
-			declaration,
+	<start: @L> <mc: MetadataComments?> <type_declarator:TypeDeclarator> <direct_declarators:NonEmptyComma<DirectDecl>> ";" <end: @R>=>
+	{
+		let metadata = match mc{
+		Some(mc) => mc,
+		None => vec![],
+		};		
+		ModuleDeclarationStatement::VariableDeclarationStatement{
+			metadata,
+			type_declarator,
+			direct_declarators,
 			location:SourceSpan::new_between(start,end),
-		},
-	<start: @L>  <block:VarBlock> <end: @R> =>
- 		ModuleDeclarationStatement::VariableBlock{
-			block,
+		}
+	},
+	<start: @L> <mc: MetadataComments ?> <dir:Direction?> <mut types:NonEmptySpace<Qualifier>> "{" <statements:Space<ModuleDeclStmt>> "}" ";"? <end: @R> =>
+		{
+			let metadata = match mc{
+			Some(mc) => mc,
+			None => vec![],
+		};	
+		if let Some(d)=dir{
+			types.splice(0..0, [d]);
+		};
+		ModuleDeclarationStatement::VariableBlock{
+			metadata,
+			types,
+			statements,
 			location:SourceSpan::new_between(start,end),
-		},
+		}
+	},
+	<start: @L> <mc: MetadataComments ?> <dir:Direction>  "{" <statements:Space<ModuleDeclStmt>> "}" ";"? <end: @R> =>
+	{
+		let metadata = match mc{
+		Some(mc) => mc,
+		None => vec![],
+	};
+	ModuleDeclarationStatement::VariableBlock{
+		metadata,
+		types: vec![dir],
+		statements,
+		location:SourceSpan::new_between(start,end),
+	}
+	},
 	
 }
 VarBlock: Box<VariableBlock>={
@@ -323,7 +363,7 @@ VarBlock: Box<VariableBlock>={
 		statements,
 		location:SourceSpan::new_between(start,end),
 	})
-},
+	},
 }
 VarBlockStmt: VariableBlockStatement={
 	<start: @L>  <block:VarBlock> <end: @R> =>

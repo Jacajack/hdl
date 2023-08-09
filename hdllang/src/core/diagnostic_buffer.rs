@@ -2,7 +2,7 @@ use crate::compiler_diagnostic::CompilerDiagnostic;
 use std::fmt::Display;
 
 pub struct DiagnosticBuffer<'source> {
-	buffer: Vec<(CompilerDiagnostic, Option<&'source String>)>,
+	pub buffer: Vec<(CompilerDiagnostic, Option<&'source String>)>,
 }
 
 impl<'source> DiagnosticBuffer<'source> {

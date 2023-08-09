@@ -1,0 +1,11 @@
+package examples::pipelined_is_prime;  module BAR {  
+    signed unsigned dupa;
+}  
+ impl FOO {     
+    super::super::Bar::m dd{         aa:b,     }
+    root::Bar::dupa::m dd{
+        aa:b,     }
+    dupa::m dd{
+        aa:b,
+    }    m dd{
+        aa:b,    } }

@@ -1,4 +1,5 @@
 extern crate hdllang;
+extern crate sha256;
 use clap::{arg, command, Arg, ArgGroup};
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
 use hdllang::core::DiagnosticBuffer;
@@ -9,7 +10,8 @@ use hdllang::serializer::SerializerContext;
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
 use hdllang::{analyzer, parser};
-use log::info;
+use log::{info, debug};
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io;
@@ -33,10 +35,10 @@ fn lexer_example() -> miette::Result<()> {
 
 	Ok(())
 }
-fn read_input_from_file(filename: String) -> miette::Result<String> {
-	match fs::read_to_string(filename) {
+fn read_input_from_file(filename: &String) -> miette::Result<String> {
+	match fs::read_to_string(&filename) {
 		Ok(file) => Ok(file),
-		Err(err) => Err(CompilerError::IoError(err).to_miette_report()),
+		Err(_) => Err(CompilerError::FileNotFound(filename.to_string()).to_miette_report()),
 	}
 }
 fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
@@ -72,6 +74,27 @@ fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	Ok(())
 }
 
+fn parse_file(code: String) -> miette::Result<(SerializerContext, String)> {
+	let mut lexer = LogosLexer::new(&code);
+	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
+	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
+	let parser = parser::IzuluParser::new();
+	let ast = parser.parse(&mut ctx, Some(&code), &mut lexer).map_err(|e| {
+		ParserError::new_form_lalrpop_error(e)
+			.to_miette_report()
+			.with_source_code(code.clone())
+	})?;
+	Ok((
+		SerializerContext {
+			ast_root: ast,
+			id_table: lexer.id_table().clone(),
+			comment_table: lexer.comment_table().clone(),
+			nc_table: lexer.numeric_constant_table().clone(),
+		},
+		code,
+	))
+}
+
 fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
 	let buf = Box::new(DiagnosticBuffer::new());
@@ -87,11 +110,11 @@ fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	println!("Comments: {:?}", lexer.comment_table());
 	let id_table = lexer.id_table().clone();
 	let comment_table = lexer.comment_table().clone();
-
-	let mut analyzer = analyzer::SemanticAnalyzer::new(&id_table, &comment_table);
+	let mut buffer = DiagnosticBuffer::new();
+	let mut analyzer = analyzer::SemanticAnalyzer::new(&id_table, &comment_table, &mut buffer);
 
 	writeln!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
-	analyzer.process(&ast);
+	analyzer.process(&ast)?;
 	Ok(())
 }
 fn serialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
@@ -163,8 +186,47 @@ fn init_logging() {
 		info!("Hello! Logging to stderr...");
 	}
 }
+fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result<()> {
+	use std::path::Path;
+	let target_directory = "hirn_target/intermidiate";
+	match Path::new(target_directory).exists() {
+		true => (),
+		false => fs::create_dir_all(target_directory).map_err(|err| CompilerError::IoError(err).to_miette_report())?,
+	};
+	use std::collections::VecDeque;
+	let mut file_queue: VecDeque<String> = VecDeque::from([root_file_name.clone()]);
+	debug!("File queue: {:?}", file_queue);
+	use sha256::try_digest;
+	let hash = try_digest(root_file_name.clone()).unwrap();
+	let mut map = HashMap::new();
+	map.insert(hash, String::from("root"));
+	
 
+	while let Some(file_name) = file_queue.pop_front() {
+		let current_directory  = Path::new(&file_name).parent().unwrap().to_str().unwrap();
+		let _ast: () = match Path::new(format!("{}/{}", target_directory, file_name).as_str()).exists() {
+			true => todo!(),
+			false => {
+				let code: String = read_input_from_file(&file_name)?;
+				// tokenize and parse
+				let (parsed, code) = parse_file(code)?;
+				let paths = hdllang::analyzer::combine(&parsed.id_table, &parsed.ast_root, code, String::from(current_directory),&mut map)?;
+				for path in paths {
+					file_queue.push_back(path);
+				}
+			},
+		};
+		// collect all packages
+
+		// store the tmp file
+		println!("File queue: {:?}", file_queue);
+
+	}
+	writeln!(output, "{}", "done").map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
+	Ok(())
+}
 fn main() -> miette::Result<()> {
+	std::env::set_var("RUST_LOG", "debug");
 	init_logging();
 
 	let matches = command!()
@@ -182,6 +244,7 @@ fn main() -> miette::Result<()> {
 					"deserialize",
 					"analyse",
 					"analyze",
+					"combine", // for development only
 					"compile",
 				])
 				.required(false)

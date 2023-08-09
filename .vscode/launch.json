@@ -20,7 +20,7 @@
 					"kind": "bin"
 				}
 			},
-			"args": ["-m", "analyze", "${file}"], // Needs to be updated for new stages
+			"args": ["-m", "combine", "ex.hirl"], // Needs to be updated for new stages
 			"cwd": "${workspaceFolder}",
 			"env": {
 				"RUST_BACKTRACE": "1",

@@ -18,6 +18,9 @@ pub enum CompilerError {
 	#[error(transparent)]
 	IoError(#[from] std::io::Error),
 
+	#[error("File not found")]
+	FileNotFound(String),
+
 	#[error(transparent)]
 	JsonError(#[from] serde_json::Error),
 	#[error(transparent)]
@@ -39,6 +42,9 @@ impl ProvidesCompilerDiagnostic for CompilerError {
 				.build(),
 			JsonError(serde_error) => CompilerDiagnosticBuilder::from_error(&self)
 				.help(&serde_error.to_string())
+				.build(),
+    		FileNotFound(file_name) => CompilerDiagnosticBuilder::from_error(&self)
+				.help(&format!("Make sure this file exists: {}", file_name))
 				.build(),
 		}
 	}
