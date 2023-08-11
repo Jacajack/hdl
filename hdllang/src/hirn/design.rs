@@ -5,8 +5,9 @@ pub mod module;
 pub mod signal;
 pub mod scope;
 
-pub use scope::Scope;
-pub use signal::Signal;
+use log::debug;
+pub use scope::{Scope, ScopeHandle};
+pub use signal::{Signal, SignalClass};
 pub use module::Module;
 pub use expression::{Expression, BinaryOp, UnaryOp};
 
@@ -15,11 +16,12 @@ use std::cell::RefCell;
 
 use thiserror::Error;
 
+use self::module::ModuleHandle;
 use self::signal::SignalBuilder;
 
 
 /// References a module in a design
-#[derive(Clone)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq)]
 pub struct ModuleRef {
 	id: usize,
 }
@@ -54,6 +56,8 @@ impl ScopeRef {
 	}
 }
 
+
+
 pub struct DesignCore {
 	weak: WeakDesignHandle,
 	modules: Vec<Module>,
@@ -77,37 +81,53 @@ impl DesignCore {
 		}
 	}
 
-	pub fn add_scope(&mut self, scope: Scope) -> ScopeRef {
+	fn new_scope(&mut self) -> ScopeHandle {
+		self.add_scope(Scope::new())
+	}
+
+	fn add_scope(&mut self, scope: Scope) -> ScopeHandle {
 		let id = self.next_scope_id;
 		self.next_scope_id += 1;
 		self.scopes.push(scope);
-		self.scopes.last_mut().unwrap().set_design(self.weak.clone(), id);
-		ScopeRef{id}
+		self.scopes.last_mut().unwrap().id = ScopeRef{id};
+		ScopeHandle::new(self.weak.upgrade().unwrap(), ScopeRef{id})
 	}
 
-	pub fn add_signal(&mut self, signal: Signal) -> SignalRef {
+	fn add_signal(&mut self, signal: Signal) -> SignalRef {
 		let id = self.next_signal_id;
 		self.next_signal_id += 1;
 		self.signals.push(signal);
-		self.signals.last_mut().unwrap().set_design(self.weak.clone(), id);
+		self.signals.last_mut().unwrap().id = SignalRef{id};
+		// TODO assert scope collisions
 		SignalRef{id}
 	}
 
-	pub fn add_module(&mut self, module: Module) -> ModuleRef {
+	fn add_module(&mut self, module: Module) -> ModuleHandle {
 		let id = self.next_module_id;
 		self.next_module_id += 1;
 		self.modules.push(module);
-		self.modules.last_mut().unwrap().set_design(self.weak.clone(), id);
-		ModuleRef{id}
+		self.modules.last_mut().unwrap().id = ModuleRef{id};
+		// TODO assert name conflicts
+		debug!("Added module with ID {}", id);
+		ModuleHandle::new(self.weak.upgrade().unwrap(), ModuleRef{id})
 	}
 
-	pub fn get_scope_mut(&mut self, scope: ScopeRef) -> Option<&mut Scope> {
-		self.scopes.get_mut(scope.id)
+	fn get_scope_mut(&mut self, scope: ScopeRef) -> Option<&mut Scope> {
+		self.scopes.get_mut(scope.id - 1)
 	}
 
-	pub fn new_signal(&mut self, scope: ScopeRef) -> SignalBuilder {
-		SignalBuilder::new(self.weak.upgrade().unwrap(), scope)
+	fn get_module_mut(&mut self, module: ModuleRef) -> Option<&mut Module> {
+		self.modules.get_mut(module.id - 1)
 	}
+
+	pub fn new_module(&mut self, name: String) -> Result<ModuleHandle, DesignError> {
+		let main_scope = self.new_scope();
+		let module = Module::new(name, vec![], main_scope.id());
+		debug!("Creating module with scope ID {}", main_scope.id().id);
+		Ok(self.add_module(module))
+	}
+
+
 }
 
 pub type WeakDesignHandle = Weak<RefCell<DesignCore>>;
@@ -128,16 +148,8 @@ impl Design {
 		d
 	}
 
-	pub fn add_scope(&mut self, scope: Scope) -> ScopeRef {
-		self.handle.borrow_mut().add_scope(scope)
-	}
-
-	pub fn add_signal(&mut self, signal: Signal) -> SignalRef {
-		self.handle.borrow_mut().add_signal(signal)
-	}
-
-	pub fn add_module(&mut self, module: Module) -> ModuleRef {
-		self.handle.borrow_mut().add_module(module)
+	pub fn new_module(&mut self, name: String) -> Result<ModuleHandle, DesignError> {
+		self.handle.borrow_mut().new_module(name)
 	}
 
 }
@@ -170,21 +182,31 @@ pub enum DesignError {
 mod test {
 	use super::*;
 
+	// fn init() {
+    //     let _ = env_logger::builder().is_test(true).try_init();
+    // }
+
 	#[test]
 	pub fn design_basic_test() -> Result<(), DesignError> {
+		// init();
 		let mut d = Design::new();
-		let sub_scope = d.add_scope(Scope::new());
-		let mut main_scope = Scope::new();
+		let mut m = d.new_module("test".to_string())?;
 
-		let sig = main_scope.new_signal()?
-			.name("super_duper_signal")
+		let sig = m.scope().new_signal()?
+			.name("test_signal")
 			.width(Expression::new_zero())
+			.class(SignalClass::Logic)
 			.constant()
 			.build()?;
 
-		let cond = main_scope.add_conditional_scope(
-			Expression::new_zero(),
-			d.add_scope(Scope::new()))?;
+		let sig2 = m.scope().new_signal()?
+			.name("test_signal")
+			.width(sig.into())
+			.class(SignalClass::Logic)
+			.constant()
+			.build()?;
+
+		let mut scope2 = m.scope().if_scope(Expression::new_zero())?;
 
 		Ok(())
 	}

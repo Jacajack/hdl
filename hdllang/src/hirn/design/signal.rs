@@ -46,7 +46,6 @@ pub struct SignalSlice {
 }
 
 pub struct Signal {
-	pub(super) design: WeakDesignHandle,
 	pub(super) id: SignalRef,
 	pub parent_scope: ScopeRef,
 	pub name: String,
@@ -71,11 +70,7 @@ pub struct InterfaceSignal {
 // TODO index op on SignalSlice
 
 impl Signal {
-	pub(super) fn set_design(&mut self, design: WeakDesignHandle, id: usize) {
-		assert!(self.id.is_null());
-		self.design = design;
-		self.id = SignalRef{id};
-	}
+
 }
 
 pub struct SignalBuilder {
@@ -140,7 +135,6 @@ impl SignalBuilder {
 		// TODO assert clocking lists valid
 
 		Ok(self.design.borrow_mut().add_signal(Signal{
-			design: WeakDesignHandle::new(),
 			id: SignalRef{id: 0},
 			parent_scope: self.scope,
 			name: self.name.ok_or(DesignError::InvalidName)?,

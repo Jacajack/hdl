@@ -1,7 +1,6 @@
-use super::{ModuleRef, signal::SignalDirection, ScopeRef, SignalRef, WeakDesignHandle};
+use super::{ModuleRef, signal::SignalDirection, ScopeRef, SignalRef, WeakDesignHandle, DesignHandle, ScopeHandle};
 
 pub struct Module {
-	pub(super) design: WeakDesignHandle,
 	pub(super) id: ModuleRef,
 	namespace_path: Vec<String>,
 	name: String,
@@ -10,18 +9,44 @@ pub struct Module {
 }
 
 impl Module {
-	pub fn new(anme: String, namespace_path: Vec<String>, main_scope: ScopeRef) -> Self {
-		todo!();
-	}
-
-	pub(super) fn set_design(&mut self, design: WeakDesignHandle, id: usize) {
-		assert!(self.id.is_null());
-		self.design = design;
-		self.id = ModuleRef{id};
+	pub fn new(name: String, namespace_path: Vec<String>, main_scope: ScopeRef) -> Self {
+		// FIXME
+		Self {
+			id: ModuleRef{id: 0},
+			namespace_path,
+			name,
+			main_scope,
+			interface: vec![],
+		}
 	}
 
 	/// Exposes a signal to the module interface.
 	pub fn expose(&mut self, signal: SignalRef, direction: SignalDirection) {
 		todo!();
+	}
+}
+
+
+macro_rules! this_module {
+	($self:ident) => {
+		$self.design.borrow_mut().get_module_mut($self.id).unwrap()
+	}
+}
+
+pub struct ModuleHandle {
+	design: DesignHandle,
+	id: ModuleRef,
+}
+
+impl ModuleHandle {
+	pub(super) fn new(design: DesignHandle, id: ModuleRef) -> Self {
+		Self {
+			design,
+			id,
+		}
+	}
+
+	pub fn scope(&mut self) -> ScopeHandle {
+		ScopeHandle::new(self.design.clone(), this_module!(self).main_scope)
 	}
 }

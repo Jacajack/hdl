@@ -139,3 +139,9 @@ impl IsCompileTimeConst for Expression {
 		}
 	}
 }
+
+impl From<SignalRef> for Expression {
+	fn from(signal: SignalRef) -> Self {
+		Self::Signal(signal)
+	}
+}

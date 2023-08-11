@@ -1,9 +1,11 @@
 use std::collections::HashMap;
+use log::debug;
+
 use super::signal::{SignalType, Signal, SignalDirection, SignalBuilder};
 use super::functional_blocks::BlockInstance;
 use super::Expression;
 use super::expression::NumericConstant;
-use super::{ScopeRef, SignalRef, DesignError};
+use super::{ScopeRef, SignalRef, DesignError, DesignHandle};
 use super::WeakDesignHandle;
 
 pub struct ConditionalScope {
@@ -24,7 +26,6 @@ pub struct Assignment {
 }
 
 pub struct Scope {
-	pub(super) design: WeakDesignHandle,
 	pub(super) id: ScopeRef,
 	parent: Option<ScopeRef>,
 	assignments: Vec<Assignment>,
@@ -38,7 +39,6 @@ pub struct Scope {
 impl Scope {
 	pub fn new() -> Self {
 		Self {
-			design: WeakDesignHandle::new(),
 			id: ScopeRef{id: 0},
 			parent: None,
 			assignments: vec![],
@@ -47,13 +47,7 @@ impl Scope {
 			blocks: vec![],
 		}
 	}
-
-	pub(super) fn set_design(&mut self, design: WeakDesignHandle, id: usize) {
-		assert!(self.id.is_null());
-		self.design = design;
-		self.id = ScopeRef{id};
-	}
-
+	
 	fn set_parent(&mut self, parent: ScopeRef) -> Result<(), DesignError> {
 		self.check_in_design()?;
 
@@ -71,19 +65,9 @@ impl Scope {
 		}
 		Ok(())
 	}
-
-	pub fn add_subscope(&mut self, child_ref: ScopeRef) -> Result<(), DesignError> {
-		self.check_in_design()?;
 	
-		let design_rc = self.design.upgrade().unwrap();
-		let mut design = design_rc.borrow_mut();
-		let child = design.get_scope_mut(child_ref).unwrap(); // TODO fix unwrap
-		child.set_parent(self.id)?;
-		Ok(())
-	}
-
-	pub fn add_conditional_scope(&mut self, condition: Expression, child: ScopeRef) -> Result<ScopeRef, DesignError> {
-		self.add_subscope(child)?;
+	fn add_conditional_scope(&mut self, condition: Expression, child: ScopeRef) -> Result<ScopeRef, DesignError> {
+		// self.add_subscope(child)?;
 		self.conditionals.push(ConditionalScope{condition, scope: child});
 		Ok(child)
 
@@ -91,8 +75,8 @@ impl Scope {
 		// TODO assert condition is compile-time constant
 	}
 
-	pub fn add_loop_scope(&mut self, iterator_var: SignalRef, iterator_begin: Expression, iterator_end: Expression, child: ScopeRef) -> Result<ScopeRef, DesignError> {
-		self.add_subscope(child)?;
+	fn add_loop_scope(&mut self, iterator_var: SignalRef, iterator_begin: Expression, iterator_end: Expression, child: ScopeRef) -> Result<ScopeRef, DesignError> {
+		// self.add_subscope(child)?;
 		self.loops.push(RangeScope{iterator_var, iterator_begin, iterator_end, scope: child});
 		Ok(child)
 
@@ -103,7 +87,7 @@ impl Scope {
 		// TODO assert iterator_end is compile-time constant
 	}
 
-	pub fn assign_signal(&mut self, signal: SignalRef, expr: Expression) -> Result<(), DesignError> {
+	fn assign_signal(&mut self, signal: SignalRef, expr: Expression) -> Result<(), DesignError> {
 		self.assignments.push(Assignment{lhs: signal, rhs: expr});
 		Ok(())
 
@@ -111,11 +95,53 @@ impl Scope {
 		// TODO expression valid in this scope
 	}
 
-	pub fn new_signal(&mut self) -> Result<SignalBuilder, DesignError> {
-		self.check_in_design()?;
-		let design_rc = self.design.upgrade().unwrap();
-		let mut design = design_rc.borrow_mut();
-		Ok(design.new_signal(self.id))
+	
+
+}
+
+pub struct ScopeHandle {
+	design: DesignHandle,
+	scope: ScopeRef,
+}
+
+
+macro_rules! this_scope {
+	($self:ident) => {
+		$self.design.borrow_mut().get_scope_mut($self.scope).unwrap()
+	}
+}
+
+impl ScopeHandle {
+	pub fn id(&self) -> ScopeRef {
+		self.scope
 	}
 
+	pub fn new(design: DesignHandle, scope: ScopeRef) -> Self {
+		Self {
+			design,
+			scope,
+		}
+	}
+
+	fn new_child_scope(&mut self) -> ScopeHandle {
+		let mut design = self.design.borrow_mut();
+		let child = design.new_scope();
+		design.get_scope_mut(child.id()).unwrap().set_parent(self.scope).unwrap();
+		child
+	}
+
+	pub fn new_subscope(&mut self) -> ScopeHandle {
+		self.new_child_scope()
+	}
+
+	pub fn if_scope(&mut self, condition: Expression) -> Result<ScopeHandle, DesignError> {
+		let child = self.new_child_scope();
+		self.design.borrow_mut().get_scope_mut(self.scope).unwrap().add_conditional_scope(condition, child.id()).unwrap();
+		Ok(child)
+	}
+
+	pub fn new_signal(&mut self) -> Result<SignalBuilder, DesignError> {
+		debug!("Creating signal in scope {}", self.scope.id);
+		Ok(SignalBuilder::new(self.design.clone(), self.scope))
+	}
 }
