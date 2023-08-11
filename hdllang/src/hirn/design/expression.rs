@@ -1,4 +1,5 @@
-use super::signal::{SignalRef, SignalClass, SignalType};
+use super::signal::{SignalClass, SignalType};
+use super::SignalRef;
 
 pub struct NumericConstant {
 	pub width: u32,
@@ -74,6 +75,10 @@ pub enum Expression {
 
 impl Expression {
 
+	pub fn new_zero() -> Self {
+		Self::Constant(NumericConstant::zero())
+	}
+
 	pub fn cast(self, dest_type: SignalType) -> Self {
 		Self::Cast{dest_type, src: Box::new(self)}
 	}
@@ -99,6 +104,13 @@ impl Expression {
 	// TODO from signal ref
 	// TODO from generic ref
 	// TODO remaining binary ops
+	
+
+	// Casts:
+	// TODO from i32
+	// TODO from bool
+	// TODO from Signal, SignalRef
+	
 }
 
 pub trait IsCompileTimeConst {

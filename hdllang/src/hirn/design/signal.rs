@@ -1,5 +1,9 @@
+use super::DesignError;
+use super::DesignHandle;
 use super::Expression;
-use super::scope::ScopeRef;
+use super::ScopeRef;
+use super::SignalRef;
+use super::WeakDesignHandle;
 
 pub enum SignalClass {
 	Logic,
@@ -35,23 +39,21 @@ pub struct SignalType {
 	pub senitivity: SignalSensitivity,
 }
 
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct SignalRef {
-	scope: ScopeRef,
-	signal_id: usize,
-}
-
 pub struct SignalSlice {
-	signal: SignalRef,
-	slices: Vec<ArraySlice>,
+	pub signal: SignalRef,
+	pub slices: Vec<ArraySlice>,
+	// TODO bit slice?
 }
 
 pub struct Signal {
-	name: String,
-	dimensions: Vec<Expression>,
-	bit_width: Box<Expression>,
-	class: SignalClass,
-	sensitivity: SignalSensitivity,
+	pub(super) design: WeakDesignHandle,
+	pub(super) id: SignalRef,
+	pub parent_scope: ScopeRef,
+	pub name: String,
+	pub dimensions: Vec<Expression>,
+	pub bit_width: Expression,
+	pub class: SignalClass,
+	pub sensitivity: SignalSensitivity,
 }
 
 pub enum SignalDirection {
@@ -60,19 +62,92 @@ pub enum SignalDirection {
 	Tristate,
 }
 
-// TODO look at this
 pub struct InterfaceSignal {
-	signal: Signal,
-	direction: SignalDirection,
+	pub signal: Signal,
+	pub direction: SignalDirection,
 }
 
-// TODO
-impl std::ops::Index<Expression> for SignalRef {
-	type Output = SignalRef;
+// TODO index op on SignalRef
+// TODO index op on SignalSlice
 
-	fn index(&self, index: Expression) -> &Self::Output {
-		todo!();
+impl Signal {
+	pub(super) fn set_design(&mut self, design: WeakDesignHandle, id: usize) {
+		assert!(self.id.is_null());
+		self.design = design;
+		self.id = SignalRef{id};
 	}
 }
 
-// TODO index op on SignalSlice
+pub struct SignalBuilder {
+	design: DesignHandle,
+	scope: ScopeRef,
+	name: Option<String>,
+	dimensions: Vec<Expression>,
+	bit_width: Option<Expression>,
+	class: Option<SignalClass>,
+	sensitivity: Option<SignalSensitivity>,
+}
+
+impl SignalBuilder {
+	pub fn new(design: DesignHandle, scope: ScopeRef) -> Self {
+		Self {
+			design,
+			scope,
+			name: None,
+			dimensions: vec![],
+			bit_width: None,
+			class: None,
+			sensitivity: None,
+		}
+	}
+
+	pub fn name(mut self, name: &str) -> Self {
+		// TODO check name constraints
+		self.name = Some(name.to_string());
+		self
+	}
+
+	pub fn width(mut self, width: Expression) -> Self {
+		// TODO assert bit width constant
+		self.bit_width = Some(width);
+		self
+	}
+
+	pub fn class(mut self, class: SignalClass) -> Self {
+		self.class = Some(class);
+		self
+	}
+
+	pub fn constant(self) -> Self {
+		self.sensitivity(SignalSensitivity::Const)
+	}
+
+	pub fn asynchronous(self) -> Self {
+		self.sensitivity(SignalSensitivity::Async)
+	}
+
+	pub fn clock(self) -> Self {
+		self.sensitivity(SignalSensitivity::Clock)
+	}
+
+	pub fn sensitivity(mut self, sensitivity: SignalSensitivity) -> Self {
+		self.sensitivity = Some(sensitivity);
+		self
+	}
+
+	pub fn build(self) -> Result<SignalRef, DesignError> {
+		// TODO assert dimensions constant
+		// TODO assert clocking lists valid
+
+		Ok(self.design.borrow_mut().add_signal(Signal{
+			design: WeakDesignHandle::new(),
+			id: SignalRef{id: 0},
+			parent_scope: self.scope,
+			name: self.name.ok_or(DesignError::InvalidName)?,
+			dimensions: self.dimensions,
+			bit_width: self.bit_width.ok_or(DesignError::SignalWidthNotSpecified)?,
+			class: self.class.ok_or(DesignError::SignalClassNotSpecified)?,
+			sensitivity: self.sensitivity.ok_or(DesignError::SignalSensitivityNotSpecified)?,
+		}))
+	}
+}
