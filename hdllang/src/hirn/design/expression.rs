@@ -1,17 +1,15 @@
-use super::signal::{SignalClass, SignalType};
+use super::signal::SignalType;
 use super::SignalRef;
 
 pub struct NumericConstant {
-	pub width: u32,
-	pub class: SignalClass,
+	// pub class: SignalClass,
 	pub value: Vec<u8>,
 }
 
 impl NumericConstant {
 	pub fn zero() -> NumericConstant {
 		NumericConstant {
-			width: 1,
-			class: SignalClass::Unsigned,
+			// class: SignalClass::Unsigned(),
 			value: vec![0],
 		}
 	}

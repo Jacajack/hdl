@@ -65,7 +65,7 @@ impl Scope {
 		}
 		Ok(())
 	}
-	
+
 	fn add_conditional_scope(&mut self, condition: Expression, child: ScopeRef) -> Result<ScopeRef, DesignError> {
 		// self.add_subscope(child)?;
 		self.conditionals.push(ConditionalScope{condition, scope: child});
@@ -124,9 +124,8 @@ impl ScopeHandle {
 	}
 
 	fn new_child_scope(&mut self) -> ScopeHandle {
-		let mut design = self.design.borrow_mut();
-		let child = design.new_scope();
-		design.get_scope_mut(child.id()).unwrap().set_parent(self.scope).unwrap();
+		let child = self.design.borrow_mut().new_scope();
+		this_scope!(self).set_parent(self.scope).unwrap();
 		child
 	}
 
@@ -136,12 +135,11 @@ impl ScopeHandle {
 
 	pub fn if_scope(&mut self, condition: Expression) -> Result<ScopeHandle, DesignError> {
 		let child = self.new_child_scope();
-		self.design.borrow_mut().get_scope_mut(self.scope).unwrap().add_conditional_scope(condition, child.id()).unwrap();
+		this_scope!(self).add_conditional_scope(condition, child.id()).unwrap();
 		Ok(child)
 	}
 
 	pub fn new_signal(&mut self) -> Result<SignalBuilder, DesignError> {
-		debug!("Creating signal in scope {}", self.scope.id);
 		Ok(SignalBuilder::new(self.design.clone(), self.scope))
 	}
 }

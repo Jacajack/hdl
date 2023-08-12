@@ -6,9 +6,10 @@ use super::SignalRef;
 use super::WeakDesignHandle;
 
 pub enum SignalClass {
-	Logic,
-	Signed,
-	Unsigned,
+	Logic(Box<Expression>),
+	Signed(Box<Expression>),
+	Unsigned(Box<Expression>),
+	Generic
 }
 
 pub struct EdgeSensitivity {
@@ -50,7 +51,6 @@ pub struct Signal {
 	pub parent_scope: ScopeRef,
 	pub name: String,
 	pub dimensions: Vec<Expression>,
-	pub bit_width: Expression,
 	pub class: SignalClass,
 	pub sensitivity: SignalSensitivity,
 }
@@ -78,7 +78,6 @@ pub struct SignalBuilder {
 	scope: ScopeRef,
 	name: Option<String>,
 	dimensions: Vec<Expression>,
-	bit_width: Option<Expression>,
 	class: Option<SignalClass>,
 	sensitivity: Option<SignalSensitivity>,
 }
@@ -90,7 +89,6 @@ impl SignalBuilder {
 			scope,
 			name: None,
 			dimensions: vec![],
-			bit_width: None,
 			class: None,
 			sensitivity: None,
 		}
@@ -102,14 +100,26 @@ impl SignalBuilder {
 		self
 	}
 
-	pub fn width(mut self, width: Expression) -> Self {
+	pub fn unsigned(mut self, width: Expression) -> Self {
 		// TODO assert bit width constant
-		self.bit_width = Some(width);
+		self.class = Some(SignalClass::Unsigned(Box::new(width)));
 		self
 	}
 
-	pub fn class(mut self, class: SignalClass) -> Self {
-		self.class = Some(class);
+	pub fn signed(mut self, width: Expression) -> Self {
+		// TODO assert bit width constant
+		self.class = Some(SignalClass::Signed(Box::new(width)));
+		self
+	}
+
+	pub fn logic(mut self, width: Expression) -> Self {
+		// TODO assert bit width constant
+		self.class = Some(SignalClass::Logic(Box::new(width)));
+		self
+	}
+
+	pub fn generic(mut self) -> Self {
+		self.class = Some(SignalClass::Generic);
 		self
 	}
 
@@ -139,7 +149,6 @@ impl SignalBuilder {
 			parent_scope: self.scope,
 			name: self.name.ok_or(DesignError::InvalidName)?,
 			dimensions: self.dimensions,
-			bit_width: self.bit_width.ok_or(DesignError::SignalWidthNotSpecified)?,
 			class: self.class.ok_or(DesignError::SignalClassNotSpecified)?,
 			sensitivity: self.sensitivity.ok_or(DesignError::SignalSensitivityNotSpecified)?,
 		}))

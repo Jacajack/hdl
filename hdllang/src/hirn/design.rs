@@ -194,15 +194,15 @@ mod test {
 
 		let sig = m.scope().new_signal()?
 			.name("test_signal")
-			.width(Expression::new_zero())
-			.class(SignalClass::Logic)
+			.unsigned(Expression::new_zero())
 			.constant()
 			.build()?;
 
+		let expr = Expression::from(sig) + sig.into();
+
 		let sig2 = m.scope().new_signal()?
 			.name("test_signal")
-			.width(sig.into())
-			.class(SignalClass::Logic)
+			.logic(expr)
 			.constant()
 			.build()?;
 
