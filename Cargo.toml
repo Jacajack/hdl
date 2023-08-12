@@ -5,6 +5,7 @@ edition = "2021"
 
 [dependencies]
 "hdllang" = {path = "hdllang"}
+"hirn" = {path = "hirn"}
 "miette" = {version = ">=5.5", features = ["fancy"]}
 "thiserror" = "1.0"
 "clap" = {version = "4.1.8", features=["cargo"]}
