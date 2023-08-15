@@ -1,11 +1,23 @@
 package examples::pipelined_is_prime;  
+impl FOO {
+     input   {  
+        int FOO; 
+        }
+    } 
+impl FOO { }
+impl BAR { } 
 
+module BAR {  } 
+module BAR { 
+        bool FOO; 
+   }
+   
 module BAR {  
     const {
         int dupa;
         input async d;
         input {
-            wires a;
+            wire a;
             wire b;
             wire c;
         }

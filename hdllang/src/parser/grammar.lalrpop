@@ -355,7 +355,7 @@ VarBlock: VariableBlock ={
 }
 VarBlockStmt: VariableBlockStatement={
 	<block:VarBlock> =>	VariableBlockStatement::VariableBlock(block),
-	<definition:VarDef> ";" => VariableBlockStatement::VariableDefinition(definition),
+	<definition:VarDef> => VariableBlockStatement::VariableDefinition(definition),
 }
 
 //VarDecl: VariableDeclaration = {
@@ -410,32 +410,31 @@ MatchExpressionAntecendent: MatchExpressionAntecendent = {
 }
 PrimaryExpression : Expression = {
 	<start:@L> <key:"NumericConstant"> <end:@R> => 
-		Expression::Number{
+		Expression::Number(Number{
 			key,
 			location:SourceSpan::new_between(start,end)
-		},
+		}),
 	<start:@L> <id:"Id"> <end:@R> => 
-		Expression::Identifier{
+		Expression::Identifier(Identifier{
 			id,
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
 	<start:@L> "(" <expression:Expr> ")" <end:@R> => 
-		Expression::ParenthesizedExpression{
+		Expression::ParenthesizedExpression(ParenthesizedExpression{
 			expression: Box::new(expression),
 			location:SourceSpan::new_between(start,end)
-		},
-	
+		}),	
 	<start:@L> "match" "(" <value:Expr> ")" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
-		Expression::MatchExpression{
+		Expression::MatchExpression(MatchExpression{
 			value: Box::new(value),
 			statements,
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
 	<start:@L> "conditional" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
-		Expression::ConditionalExpression{
+		Expression::ConditionalExpression(ConditionalExpression{
 			statements,
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
 }
 ExprWithTuple : Expression={
 	TupleExpr,
@@ -443,10 +442,10 @@ ExprWithTuple : Expression={
 }
 TupleExpr : Expression ={
 	<start:@L> "{" <expressions:OptComma<Expr>> "}" <end:@R> =>
-		Expression::Tuple{
-				expressions,
-				location:SourceSpan::new_between(start,end)
-		},
+		Expression::Tuple(Tuple{
+			expressions,
+			location:SourceSpan::new_between(start,end)
+		}),
 }
 pub RangeExpr :  RangeExpression = {
 	<start:@L> "[" <lhs:Expr> <code:RangeOp> <rhs:Expr> "]" <end:@R> =>
@@ -462,55 +461,55 @@ IndexExpr : Expression ={
 }
 PostfixExpr : Expression = {
 	<start:@L> <expression:PostfixExpr> "." <id:"Id"> <end:@R> =>
-		Expression::PostfixWithId{
+		Expression::PostfixWithId(PostfixWithId{
 			expression: Box::new(expression),
 			id,
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
 	<start:@L> <expression:PostfixExpr> <index:IndexExpr> <end:@R> =>
-		Expression::PostfixWithIndex{
+		Expression::PostfixWithIndex(PostfixWithIndex{
 			expression: Box::new(expression),
 			index: Box::new(index),
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
 	<start:@L> <expression:PostfixExpr> <range:RangeExpr> <end:@R> =>
-		Expression::PostfixWithRange{
+		Expression::PostfixWithRange(PostfixWithRange{
 			expression: Box::new(expression),
 			range,
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
 	<start:@L> <expression:PostfixExpr> "(" <args:ArgumentList ?> ")" <end:@R> =>
 		match args{
 			None => {
 				let argument_list= vec![];
-					Expression::PostfixWithArgs{
+					Expression::PostfixWithArgs(PostfixWithArgs{
 					expression : Box::new(expression),
 					argument_list,
 					location:SourceSpan::new_between(start,end),
-				}
+				})
 			},
 			Some(argument_list) =>
-				Expression::PostfixWithArgs{
+				Expression::PostfixWithArgs(PostfixWithArgs{
 					expression : Box::new(expression),
 					argument_list,
 					location:SourceSpan::new_between(start,end),
-				},
+				}),
 		},		
 	PrimaryExpression,
 }
 UnaryExpr : Expression ={
 	<start:@L> <code:UnaryExprOP> <expression:UnaryExpr>  <end:@R> => 
-		Expression::UnaryOperatorExpression{
+		Expression::UnaryOperatorExpression(UnaryOperatorExpression{
 			expression : Box::new(expression),
 			code,
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
 	<start:@L> "(" <type_name:TypeName> ")" <expression:UnaryExpr>  <end:@R> => 
-		Expression::UnaryCastExpression{
+		Expression::UnaryCastExpression(UnaryCastExpression{
 			type_name,
 			expression : Box::new(expression),
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
 	PostfixExpr,
 }
 Factor = Tier<FactorOp, UnaryExpr>;
@@ -525,24 +524,24 @@ LogicalAnd = Tier<LAandOP,Equality>;
 LogicalOr = Tier<LOrOp,LogicalAnd>;
 TernaryExpression : Expression = {
 	<start:@L> <condition:LogicalOr> "?" <true_branch:TernaryExpression>  ":" <false_branch:TernaryExpression> <end:@R> => 
-		Expression::TernaryExpression{
+		Expression::TernaryExpression(TernaryExpression{
 			condition: Box::new(condition),
 			true_branch: Box::new(true_branch),
 			false_branch: Box::new(false_branch),
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
 		LogicalOr
 }
 
 pub Expr=TernaryExpression;
 Tier<Op,NextTier> : Expression = {
     <start:@L> <lhs:Tier<Op,NextTier>> <code:Op> <rhs:NextTier> <end:@R> => 
-		Expression::BinaryExpression{
+		Expression::BinaryExpression(BinaryExpression{
 			lhs : Box::new(lhs),
 			rhs : Box::new(rhs),
 			code,
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
     	NextTier
 };
 ArgumentList=NonEmptyComma<Expr>;
