@@ -6,7 +6,7 @@ use crate::{lexer::IdTableKey, SourceSpan};
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
 pub enum Expression {
 	Number {
 		key: NumericConstantTableKey,
@@ -96,9 +96,6 @@ impl Debug for Expression {
 			} => {
 				write!(fmt, "({:?} ? {:?} : {:?})", condition, true_branch, false_branch)
 			},
-			// RangeExpression { lhs, rhs, code, .. } => {
-			// 	write!(fmt, "([{:?}{:?}{:?}])", lhs, code, rhs)
-			// },
 			UnaryOperatorExpression { expression, code, .. } => write!(fmt, "{:?}{:?}", code, expression),
 			PostfixWithId { expression, id, .. } => write!(fmt, "({:?}.{:?})", expression, id),
 			PostfixWithIndex { expression, index, .. } => write!(fmt, "({:?}[{:?}])", expression, index),

@@ -1,8 +1,4 @@
-use crate::parser::ast::{ Expression, BinaryOpcode, RangeOpcode, UnaryOpcode,
-	 TypeSpecifier, TypeQualifier, TypeDeclarator, TypeName, MatchExpressionStatement,
-	 MatchExpressionAntecendent,TopDefinition,ModuleDeclarationStatement,VariableBlock,
-	 VariableBlockStatement, VariableDeclaration, DirectDeclarator,ModuleImplementationStatement,
-	 PortBindStatement,DirectInitializer,VariableDefinition,AssignmentOpcode,Root, RangeExpression, SourceLocation, ImportPath, Start, Modules};
+use crate::parser::ast::*;
 use crate::lexer::*;
 use crate::parser::*;
 use crate::core::CompilerError;
@@ -17,18 +13,18 @@ pub Izulu: Root={
 		}
 }
 pub TopDefinition: TopDefinition={
-	<start: @L> <mc:MetadataComments ?> "module" <id:"Id"> "{" <statements:Space<ModuleDeclStmt>> "}" <end: @R> =>
+	<start: @L> <mc:MetadataComments ?> "module" <id:"Id"> <end: @R> "{" <statements:Space<ModuleDeclStmt>> "}"  =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
 			None => vec![],
 		};
-		TopDefinition::ModuleDeclaration{
+		TopDefinition::ModuleDeclaration(ModuleDeclaration{
 			metadata,
 			id,
 			statements,
 			location:SourceSpan::new_between(start,end),
-		}
+		})
 	},
 	<start: @L> <mc:MetadataComments ?> "impl" <id:"Id">  <statement:ModuleImplBlockStmt>  <end: @R> =>
 	{
@@ -36,24 +32,23 @@ pub TopDefinition: TopDefinition={
 		Some(mc) => mc,
 		None => vec![],
 	};	
-	TopDefinition::ModuleImplementation{
+	TopDefinition::ModuleImplementation(ModuleImplementation{
 			metadata,
 			id,
 			statement,
 			location:SourceSpan::new_between(start,end),
-		}},
+		})},
 	<start: @L> <mc:MetadataComments ?> "package" <path:ImportPath> ";"  <end: @R> =>
 		{
 			let metadata = match mc{
 				Some(mc) => mc,
 				None => vec![],
 			};
-			TopDefinition::PackageDeclaration{
+			TopDefinition::PackageDeclaration(PackageDeclaration{
 				metadata,
 				path,
 				location:SourceSpan::new_between(start,end),
-			}
-
+			})
 		},
 		<start: @L> <mc:MetadataComments ?> "use" <path:SingleImportPath> ";"  <end: @R> =>
 		{
@@ -61,12 +56,11 @@ pub TopDefinition: TopDefinition={
 				Some(mc) => mc,
 				None => vec![],
 			};
-			TopDefinition::UseStatement{
+			TopDefinition::UseStatement(UseStatement{
 				metadata,
 				path,
 				location:SourceSpan::new_between(start,end),
-			}
-
+			})
 		},
 }
 pub ImportPath: ImportPath={
@@ -161,103 +155,97 @@ MultipleModules :Modules = {
 	"*" => Modules::All,
 }
 pub ModuleImplStmt: ModuleImplementationStatement = {
-	<start: @L>  <block:VarBlock> <end: @R> =>
-		ModuleImplementationStatement::VariableBlock{
-			block,
-			location:SourceSpan::new_between(start,end),
-		},
-	<start: @L>  <definition:VarDef> ";" <end: @R> =>
-		ModuleImplementationStatement::VariableDefinitionStatement{
-			definition,
-			location:SourceSpan::new_between(start,end),
-	    },
+	<block:VarBlock> =>
+		ModuleImplementationStatement::VariableBlock(block),
+	<definition:VarDef> =>
+		ModuleImplementationStatement::VariableDefinition(definition),
 	<start: @L>  <lhs:PostfixExpr> <assignment_opcode:AssignmentOP> <rhs:ExprWithTuple> ";" <end: @R> =>
-		ModuleImplementationStatement::AssignmentStatement{
+		ModuleImplementationStatement::AssignmentStatement(AssignmentStatement{
 			lhs,
 			assignment_opcode,
 			rhs,
 			location:SourceSpan::new_between(start,end),
-	    },
-	
+	    }),	
 	<start: @L> "for" "(" <id:"Id">"in"<range:RangeExpr> ")" <statement:ModuleImplBlockStmt> <end: @R> =>
-		ModuleImplementationStatement::IterationStatement{
+		ModuleImplementationStatement::IterationStatement(IterationStatement{
 			id,
 			range,
 			statement: Box::new(statement),
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
 	<start: @L> <mc :MetadataComments?> <module_name:SingleImportPath> <instance_name:"Id"> "{" <port_bind:NonEmptyOptComma<PortBindStmt>> "}" <a:";"?> <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
 			None => vec![],
 		};		
-		ModuleImplementationStatement::InstantiationStatement{
+		ModuleImplementationStatement::InstantiationStatement(InstantiationStatement{
 				metadata,
 				module_name,
 				instance_name,
 				port_bind,
 				location:SourceSpan::new_between(start,end),
-		}
+		})
 		},
 		ModuleImplBlockStmt,	
 		IfStmt,			
 }
 ModuleImplBlockStmt: ModuleImplementationStatement ={
 	<start: @L>  "{" <statements:NonEmptySpace<ModuleImplStmt>> "}" <end: @R> =>
-		ModuleImplementationStatement::ModuleImplementationBlockStatement{
+		ModuleImplementationStatement::ModuleImplementationBlockStatement(ModuleImplementationBlockStatement{
 			statements,
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
 	<start: @L>  "{"  "}" <end: @R> =>
-		ModuleImplementationStatement::ModuleImplementationBlockStatement{
+		ModuleImplementationStatement::ModuleImplementationBlockStatement(ModuleImplementationBlockStatement{
 			statements:vec![],
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
 }
 IfStmt: ModuleImplementationStatement ={
 	<start: @L> "if"  "(" <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:ModuleImplBlockStmt> <end: @R> =>
-		ModuleImplementationStatement::IfElseStatement{
+		ModuleImplementationStatement::IfElseStatement(IfElseStatement{
 			condition,
 			if_statement: Box::new(if_statement),
-			else_statement: Box::new(else_statement),
+			else_statement: Some(Box::new(else_statement)),
 			location:SourceSpan::new_between(start,end),
-	    },
+	    }),
 	<start: @L> "if"  "(" <condition:Expr> ")" <if_statement:ModuleImplBlockStmt> "else" <else_statement:IfStmt> <end: @R> =>
-		ModuleImplementationStatement::IfElseStatement{
+		ModuleImplementationStatement::IfElseStatement(IfElseStatement{
 			condition,
 			if_statement: Box::new(if_statement),
-			else_statement: Box::new(else_statement),
+			else_statement: Some(Box::new(else_statement)),
 			location:SourceSpan::new_between(start,end),
-	    },
+	    }),
 	<start: @L> "if" "(" <condition:Expr> ")"  <if_statement:ModuleImplBlockStmt> <end: @R> =>
-		ModuleImplementationStatement::IfStatement{
+		ModuleImplementationStatement::IfElseStatement(IfElseStatement{
 				condition,
 				if_statement: Box::new(if_statement),
+				else_statement: None,
 				location:SourceSpan::new_between(start,end),
-	    	},
+	    	}),
 }
 pub PortBindStmt: PortBindStatement={
 	<start:@L> <id:"Id"> <end:@R> =>
-		PortBindStatement::OnlyId{
+		PortBindStatement::OnlyId(OnlyId{
 			id,
 			location:SourceSpan::new_between(start,end),
-		},
+		}),
 	<start:@L> <id:"Id"> ":" <expression:ExprWithTuple> <end:@R> =>
-		PortBindStatement::IdWithExpression{
+		PortBindStatement::IdWithExpression(IdWithExpression{
 			id,
 			expression,
-			location:SourceSpan::new_between(start,end),
-		},
+			location:SourceSpan::new_between(start, end),
+		}),
 	<start:@L> <id:"Id"> ":" <declaration:SingleVarDecl> <end:@R> =>
-		PortBindStatement::IdWithDeclaration{
+		PortBindStatement::IdWithDeclaration(IdWithDeclaration{
 			id,
 			declaration,
-			location:SourceSpan::new_between(start,end),
-		},
+			location:SourceSpan::new_between(start, end),
+		}),
 }
 VarDef: VariableDefinition={
-	<start: @L> <mc: MetadataComments ?> <type_declarator:TypeDeclarator> <initializer_list:NonEmptyComma<DirectInitializer>> <end: @R> =>
+	<start: @L> <mc: MetadataComments ?> <type_declarator:TypeDeclarator> <initializer_list:NonEmptyComma<DirectInitializer>>  ";" <end: @R> =>
 	{
 		let metadata = match mc{
 		Some(mc) => mc,
@@ -296,12 +284,12 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 		Some(mc) => mc,
 		None => vec![],
 		};		
-		ModuleDeclarationStatement::VariableDeclarationStatement{
+		ModuleDeclarationStatement::VariableDeclarationStatement(VariableDeclarationStatement{
 			metadata,
 			type_declarator,
 			direct_declarators,
 			location:SourceSpan::new_between(start,end),
-		}
+		})
 	},
 	<start: @L> <mc: MetadataComments ?> <dir:Direction?> <mut types:NonEmptySpace<Qualifier>> "{" <statements:Space<ModuleDeclStmt>> "}" ";"? <end: @R> =>
 		{
@@ -312,12 +300,12 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 		if let Some(d)=dir{
 			types.splice(0..0, [d]);
 		};
-		ModuleDeclarationStatement::VariableBlock{
+		ModuleDeclarationStatement::VariableBlock(ModuleDeclarationVariableBlock{
 			metadata,
 			types,
 			statements,
 			location:SourceSpan::new_between(start,end),
-		}
+		})
 	},
 	<start: @L> <mc: MetadataComments ?> <dir:Direction>  "{" <statements:Space<ModuleDeclStmt>> "}" ";"? <end: @R> =>
 	{
@@ -325,16 +313,16 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 		Some(mc) => mc,
 		None => vec![],
 	};
-	ModuleDeclarationStatement::VariableBlock{
+	ModuleDeclarationStatement::VariableBlock(ModuleDeclarationVariableBlock{
 		metadata,
 		types: vec![dir],
 		statements,
 		location:SourceSpan::new_between(start,end),
-	}
+	})
 	},
 	
 }
-VarBlock: Box<VariableBlock>={
+VarBlock: VariableBlock ={
 	<start: @L> <mc: MetadataComments ?> <dir:Direction?> <mut types:NonEmptySpace<Qualifier>> "{" <statements:Space<VarBlockStmt>> "}" ";"? <end: @R> =>
 		{
 			let metadata = match mc{
@@ -344,12 +332,12 @@ VarBlock: Box<VariableBlock>={
 		if let Some(d)=dir{
 			types.splice(0..0, [d]);
 		};
-		Box::new(VariableBlock{
+		VariableBlock{
 			metadata,
 			types,
 			statements,
 			location:SourceSpan::new_between(start,end),
-		})
+		}
 	},
 	<start: @L> <mc: MetadataComments ?> <dir:Direction>  "{" <statements:Space<VarBlockStmt>> "}" ";"? <end: @R> =>
 	{
@@ -357,42 +345,34 @@ VarBlock: Box<VariableBlock>={
 		Some(mc) => mc,
 		None => vec![],
 	};
-	Box::new(VariableBlock{
+	VariableBlock{
 		metadata,
 		types: vec![dir],
 		statements,
 		location:SourceSpan::new_between(start,end),
-	})
+	}
 	},
 }
 VarBlockStmt: VariableBlockStatement={
-	<start: @L>  <block:VarBlock> <end: @R> =>
-		VariableBlockStatement::VariableBlock{
-	   		block,
-	   		location:SourceSpan::new_between(start,end),
-		},
-	<start: @L>  <declaration:VarDecl> ";" <end: @R> =>
-		VariableBlockStatement::VariableDeclarationStatement{
-			declaration,
-	   		location:SourceSpan::new_between(start,end),
-		},
+	<block:VarBlock> =>	VariableBlockStatement::VariableBlock(block),
+	<definition:VarDef> ";" => VariableBlockStatement::VariableDefinition(definition),
 }
 
-VarDecl: VariableDeclaration = {
-	<start: @L> <mc: MetadataComments?> <type_declarator:TypeDeclarator> <direct_declarators:NonEmptyComma<DirectDecl>> <end: @R>=>
-	{
-		let metadata = match mc{
-		Some(mc) => mc,
-		None => vec![],
-		};		
-		VariableDeclaration{
-			metadata,
-			type_declarator,
-			direct_declarators,
-			location:SourceSpan::new_between(start,end),
-		}
-	},
-}
+//VarDecl: VariableDeclaration = {
+//	<start: @L> <mc: MetadataComments?> <type_declarator:TypeDeclarator> <direct_declarators:NonEmptyComma<DirectDecl>> <end: @R>=>
+//	{
+//		let metadata = match mc{
+//		Some(mc) => mc,
+//		None => vec![],
+//		};		
+//		VariableDeclaration{
+//			metadata,
+//			type_declarator,
+//			direct_declarators,
+//			location:SourceSpan::new_between(start,end),
+//		}
+//	},
+//}
 SingleVarDecl: VariableDeclaration = {
 	<start: @L>  <type_declarator:TypeDeclarator> <direct_declarator:DirectDecl> <end: @R>=>
 		VariableDeclaration{
@@ -669,10 +649,10 @@ SynType: TypeSpecifier ={
 	<start:@L> "wire" <end:@R> => TypeSpecifier::Wire{
 		location:SourceSpan::new_between(start,end),
 	},
-	<start:@L> "bus" <width:VecDecl> <end:@R> => TypeSpecifier::Bus{
+	<start:@L> "bus" <width:VecDecl> <end:@R> => TypeSpecifier::Bus(Bus{
 		width: Box::new(width),
 		location:SourceSpan::new_between(start,end),
-	},
+	}),
 }
 CompType: TypeSpecifier = {
 	<start:@L> "int" <end:@R> => TypeSpecifier::Int{
@@ -713,14 +693,14 @@ Qualifier: TypeQualifier = {
 	<start:@L> "async" <end:@R> => TypeQualifier::Async{
 		location:SourceSpan::new_between(start,end),
 	},
-	<start:@L> "comb" "(" <expression:Expr> ")" <end:@R> => TypeQualifier::Comb{
+	<start:@L> "comb" "(" <expression:Expr> ")" <end:@R> => TypeQualifier::Comb(Comb{
 		expression,
 		location:SourceSpan::new_between(start,end),
-	},
-	<start:@L> "sync" "(" <expressions:NonEmptyComma<Expr>> ")" <end:@R> => TypeQualifier::Sync{
+	}),
+	<start:@L> "sync" "(" <expressions:NonEmptyComma<Expr>> ")" <end:@R> => TypeQualifier::Sync(Sync{
 		expressions,
 		location:SourceSpan::new_between(start,end),
-	},
+	}),
 	<start:@L> "clock" <end:@R> => TypeQualifier::Clock{
 		location:SourceSpan::new_between(start,end),
 	},
@@ -750,10 +730,10 @@ TypeDeclarator: TypeDeclarator ={
 			qualifiers.splice(0..0, [d]);
 		};
 		let specifier = match bus_expr{
-			Some(expr) => TypeSpecifier::Bus{
+			Some(expr) => TypeSpecifier::Bus(Bus{
 				location: expr.get_location(),
 				width: Box::new(expr),
-			},
+			}),
 			None => TypeSpecifier::Wire{
 				location:SourceSpan::new_between(start,end),
 			},
@@ -767,10 +747,10 @@ TypeDeclarator: TypeDeclarator ={
 	<start:@L> <dir:Direction> <bus_expr:VecDecl?> <end:@R> =>{
 		let qualifiers = vec![dir];
 		let specifier = match bus_expr{
-			Some(expr) => TypeSpecifier::Bus{
+			Some(expr) => TypeSpecifier::Bus(Bus{
 				location: expr.get_location(),
 				width: Box::new(expr),
-			},
+			}),
 			None => TypeSpecifier::Wire{
 				location:SourceSpan::new_between(start,end),
 			},

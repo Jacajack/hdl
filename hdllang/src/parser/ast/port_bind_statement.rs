@@ -3,50 +3,41 @@ mod pretty_printable;
 use crate::parser::ast::{Expression, SourceLocation, VariableDeclaration};
 use crate::{lexer::IdTableKey, SourceSpan};
 use serde::{Deserialize, Serialize};
-use std::fmt::{Debug, Error, Formatter};
 
-#[derive(Serialize, Deserialize)]
-pub enum PortBindStatement {
-	OnlyId {
-		id: IdTableKey,
-		location: SourceSpan,
-	},
-	IdWithExpression {
-		id: IdTableKey,
-		expression: Expression,
-		location: SourceSpan,
-	},
-	IdWithDeclaration {
-		id: IdTableKey,
-		declaration: VariableDeclaration,
-		location: SourceSpan,
-	},
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IdWithDeclaration {
+	pub id: IdTableKey,
+	pub declaration: VariableDeclaration,
+	pub location: SourceSpan,
 }
-impl Debug for PortBindStatement {
-	fn fmt(&self, fmt: &mut Formatter<'_>) -> Result<(), Error> {
-		use self::PortBindStatement::*;
-		match &self {
-			OnlyId { id: _, location: _ } => write!(fmt, "foo"),
-			IdWithExpression {
-				id: _,
-				expression,
-				location: _,
-			} => write!(fmt, "foo: {:?}", expression),
-			IdWithDeclaration {
-				id: _,
-				declaration,
-				location: _,
-			} => write!(fmt, "foo: {:?}", declaration),
-		}
-	}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct IdWithExpression {
+	pub id: IdTableKey,
+	pub expression: Expression,
+	pub location: SourceSpan,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct OnlyId {
+	pub id: IdTableKey,
+	pub location: SourceSpan,
 }
 impl SourceLocation for PortBindStatement {
 	fn get_location(&self) -> SourceSpan {
 		use self::PortBindStatement::*;
-		match *self {
-			OnlyId { location, .. } => location,
-			IdWithExpression { location, .. } => location,
-			IdWithDeclaration { location, .. } => location,
+		match self {
+			OnlyId (only_id) => only_id.location,
+			IdWithExpression (id_with_expression) => id_with_expression.location,
+			IdWithDeclaration (id_with_declaration) => id_with_declaration.location,
 		}
 	}
 }
+
+#[derive(Serialize, Deserialize, Debug)]
+pub enum PortBindStatement {
+	OnlyId (OnlyId),
+	IdWithExpression (IdWithExpression),
+	IdWithDeclaration (IdWithDeclaration),
+}
+

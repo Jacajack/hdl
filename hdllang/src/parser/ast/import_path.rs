@@ -65,7 +65,7 @@ pub enum Start {
 	Root,
 	Local,
 }
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, PartialEq)]
 pub enum Modules {
 	All,
 	Specific { modules: Vec<IdTableKey> },

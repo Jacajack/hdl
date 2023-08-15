@@ -5,8 +5,12 @@ use crate::parser::ast::SourceLocation;
 use crate::SourceSpan;
 use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
-
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, Clone)]
+pub struct Bus {
+	pub width: Box<Expression>,
+	pub location: SourceSpan,
+}
+#[derive(Serialize, Deserialize, Clone)]
 pub enum TypeSpecifier {
 	Auto {
 		location: SourceSpan,
@@ -20,10 +24,7 @@ pub enum TypeSpecifier {
 	Bool {
 		location: SourceSpan,
 	},
-	Bus {
-		width: Box<Expression>,
-		location: SourceSpan,
-	},
+	Bus (Bus),
 }
 impl Debug for TypeSpecifier {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
@@ -33,19 +34,19 @@ impl Debug for TypeSpecifier {
 			Int { location: _ } => write!(fmt, "int"),
 			Bool { location: _ } => write!(fmt, "bool"),
 			Wire { location: _ } => write!(fmt, "wire"),
-			Bus { width, location: _ } => write!(fmt, "bus<{:?}>", width),
+			Bus (bus) => write!(fmt, "bus<{:?}>", bus.width),
 		}
 	}
 }
 impl SourceLocation for TypeSpecifier {
 	fn get_location(&self) -> SourceSpan {
 		use self::TypeSpecifier::*;
-		match *self {
-			Auto { location } => location,
-			Int { location } => location,
-			Wire { location } => location,
-			Bool { location } => location,
-			Bus { location, .. } => location,
+		match self {
+			Auto { location } => *location,
+			Int { location } => *location,
+			Wire { location } => *location,
+			Bool { location } => *location,
+			Bus (bus) => bus.location,
 		}
 	}
 }

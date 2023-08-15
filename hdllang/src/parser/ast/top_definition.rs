@@ -1,43 +1,192 @@
 mod pretty_printable;
 
-use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
+use crate::ProvidesCompilerDiagnostic;
+use crate::analyzer::{SemanticError, ModuleDeclared, Scope, CombinedQualifiers};
+use crate::core::SourceWithName;
+use crate::lexer::IdTable;
+use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation, TypeSpecifier};
 use crate::{lexer::CommentTableKey, lexer::IdTableKey, SourceSpan};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 use std::fmt::Debug;
 
 #[derive(Serialize, Deserialize, Debug)]
+pub struct ModuleDeclaration {
+	pub metadata: Vec<CommentTableKey>,
+	pub id: IdTableKey,
+	pub statements: Vec<ModuleDeclarationStatement>,
+	pub location: SourceSpan,
+}
+
+impl ModuleDeclaration {
+	pub fn analyze(
+		&self,
+		id_table: &IdTable,
+		source_code: &SourceWithName,
+		modules_declared: &mut HashMap<IdTableKey, (ModuleDeclared, SourceSpan)>,
+	) -> miette::Result<()> {
+		use log::debug;
+
+		debug!(
+			"Found module declaration for {:?}",
+			id_table.get_by_key(&self.id).unwrap()
+		);
+		if let Some(location1) = modules_declared.get(&self.id) {
+			return Err(miette::Report::new(
+				SemanticError::MultipleModuleDeclaration.to_diagnostic_builder()
+					.label(location1.1, "Module with this name is already declared here.")
+					.label(self.location, "Module with this name is already declared.")
+					.build(),
+			)
+			.with_source_code(source_code.clone().into_named_source()));
+		}
+		let mut scope = Scope::new();
+		for statement in &self.statements {
+			statement.analyze(CombinedQualifiers::new(), &mut scope, id_table, &source_code)?;
+		}
+		let mut is_generic = false;
+		for (var, _loc) in scope.variables.values() {
+			match var.specifier {
+				TypeSpecifier::Int { .. } | TypeSpecifier::Bool { .. } => is_generic = true,
+				_ => continue,
+			};
+		}
+		let m = ModuleDeclared {
+			name: self.id,
+			scope,
+			is_generic,
+		};
+		if is_generic {
+			debug!(
+				"Found generic module declaration for {:?}",
+				id_table.get_by_key(&self.id).unwrap()
+			);
+		} else {
+			debug!(
+				"Found module declaration for {:?}",
+				id_table.get_by_key(&self.id).unwrap()
+			);
+		}
+		modules_declared.insert(self.id, (m, self.location));
+		Ok(())
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ModuleImplementation {
+	pub metadata: Vec<CommentTableKey>,
+	pub id: IdTableKey,
+	pub statement: ModuleImplementationStatement,
+	pub location: SourceSpan,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct PackageDeclaration {
+	pub metadata: Vec<CommentTableKey>,
+	pub path: ImportPath,
+	pub location: SourceSpan,
+}
+impl PackageDeclaration {
+	pub fn analyze(&self, id_table: &IdTable,
+		source_code: &SourceWithName,
+		path_from_root: &String,
+		present_files: &mut HashMap<String, String>,
+		) -> miette::Result<String> {
+		use log::debug;
+		use std::path::Path;
+		use sha256::try_digest;
+		use crate::CompilerError;
+		use crate::parser::ast::Modules::*;
+		match &self.path.modules {
+			All => {
+				return Err(miette::Report::new(
+					SemanticError::MultiplePackageDeclaration.to_diagnostic_builder()
+						.label(self.location, "You should declare only one package at a time.")
+						.build(),
+				)
+				.with_source_code(source_code.clone().into_named_source()))
+			},
+			Specific { modules } => {
+				if modules.len() != 1 {
+					return Err(miette::Report::new(
+						SemanticError::MultiplePackageDeclaration.to_diagnostic_builder()
+							.label(self.location, "You should declare only one package at a time.")
+							.build(),
+					)
+					.with_source_code(source_code.clone().into_named_source()));
+				}
+
+				let path = self
+					.path
+					.into_paths(id_table, &path_from_root)
+					.get(0)
+					.unwrap()
+					.clone();
+
+				if !Path::new(&path).exists() {
+					return Err(miette::Report::new(
+						CompilerError::FileNotFound(path.clone()).to_diagnostic_builder()
+							.label(self.location, &format!("Package not found: {}", path))
+							.build(),
+					)
+					.with_source_code(source_code.clone().into_named_source()));
+				}
+
+				let hash = try_digest(&path).unwrap();
+				debug!("File path: {}", path);
+				debug!("Hash: {}", hash);
+				debug!("Present files: {:?}", present_files);
+
+				if let Some(file_name) = present_files.get(&hash) {
+					debug!("File already packaged: {}", file_name);
+					return Err(miette::Report::new(
+						SemanticError::FilePackagedMultipleTimes.to_diagnostic_builder()
+							.label(self.location, create_label_message(file_name).as_str())
+							.build(),
+					)
+					.with_source_code(source_code.clone().into_named_source()));
+				}
+
+				debug!("File not packaged yet");
+				present_files.insert(hash, path.clone());
+				Ok(path.clone())
+			},
+		}
+	}
+}
+
+fn create_label_message(file_name: &String) -> String {
+	match file_name.as_str() {
+		"root" => String::from("File already explicitly included via compiler command line argument"),
+		_ => format!("File already packaged in {}", file_name),
+	}
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct UseStatement {
+	pub metadata: Vec<CommentTableKey>,
+	pub path: ImportPath,
+	pub location: SourceSpan,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
 pub enum TopDefinition {
-	ModuleDeclaration {
-		metadata: Vec<CommentTableKey>,
-		id: IdTableKey,
-		statements: Vec<ModuleDeclarationStatement>,
-		location: SourceSpan,
-	},
-	ModuleImplementation {
-		metadata: Vec<CommentTableKey>,
-		id: IdTableKey,
-		statement: ModuleImplementationStatement,
-		location: SourceSpan,
-	},
-	PackageDeclaration {
-		metadata: Vec<CommentTableKey>,
-		path: ImportPath,
-		location: SourceSpan,
-	},
-	UseStatement {
-		metadata: Vec<CommentTableKey>,
-		path: ImportPath,
-		location: SourceSpan,
-	},
+	ModuleDeclaration (ModuleDeclaration),
+	ModuleImplementation (ModuleImplementation),
+	PackageDeclaration (PackageDeclaration),
+	UseStatement (UseStatement),
 }
 impl SourceLocation for TopDefinition {
 	fn get_location(&self) -> SourceSpan {
 		use self::TopDefinition::*;
-		match *self {
-			ModuleImplementation { location, .. } => location,
-			ModuleDeclaration { location, .. } => location,
-			PackageDeclaration { location, .. } => location,
-			UseStatement { location, .. } => location,
+		match self {
+			ModuleImplementation (implementation) => implementation.location,
+			PackageDeclaration (package) => package.location,
+			UseStatement (use_statement) => use_statement.location,
+    		ModuleDeclaration(declaration) => declaration.location,
 		}
 	}
 }
+
+
+

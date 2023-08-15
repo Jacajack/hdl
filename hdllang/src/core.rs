@@ -7,6 +7,9 @@ pub mod id_table;
 pub mod numeric_constant_table;
 pub mod source_span;
 mod wide_int;
+pub mod source_with_name;
+
+pub use source_with_name::*;
 pub use diagnostic_buffer::DiagnosticBuffer;
 pub use hdl_type::HdlType;
 pub use hdl_type::Sensitivity;

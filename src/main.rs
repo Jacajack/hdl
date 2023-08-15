@@ -186,6 +186,7 @@ fn init_logging() {
 		info!("Hello! Logging to stderr...");
 	}
 }
+
 fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	use std::path::Path;
 	let target_directory = "hirn_target/intermidiate";
@@ -204,13 +205,18 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 
 	while let Some(file_name) = file_queue.pop_front() {
 		let current_directory  = Path::new(&file_name).parent().unwrap().to_str().unwrap();
+		debug!("Current directory: {}", current_directory);
 		let _ast: () = match Path::new(format!("{}/{}", target_directory, file_name).as_str()).exists() {
 			true => todo!(),
 			false => {
 				let code: String = read_input_from_file(&file_name)?;
 				// tokenize and parse
-				let (parsed, code) = parse_file(code)?;
-				let paths = hdllang::analyzer::combine(&parsed.id_table, &parsed.ast_root, code, String::from(current_directory),&mut map)?;
+				let (parsed, source) = parse_file(code)?;
+				let name = Path::new(&file_name).to_str().unwrap().to_string();
+				let named = hdllang::core::SourceWithName::new(
+					name,
+					source);
+				let paths = hdllang::analyzer::combine(&parsed.id_table, &parsed.ast_root, named, String::from(current_directory),&mut map)?;
 				for path in paths {
 					file_queue.push_back(path);
 				}
