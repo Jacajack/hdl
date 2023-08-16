@@ -1,6 +1,8 @@
-use super::signal::SignalType;
-use super::SignalRef;
+use super::signal::{SignalSensitivity, SignalSlice, SignalClass};
+use super::{Design, SignalId, DesignError};
 
+// TODO bigint
+/// Represents a numeric constant value
 pub struct NumericConstant {
 	// pub class: SignalClass,
 	pub value: Vec<u8>,
@@ -15,7 +17,8 @@ impl NumericConstant {
 	}
 }
 
-// TODO check if we have all 
+/// Binary operators
+/// TODO check if we have all 
 pub enum BinaryOp {
 	Add,
 	Subtract,
@@ -38,7 +41,8 @@ pub enum BinaryOp {
 	GreaterEqual,
 }
 
-// TODO check if we have all
+/// Unary operators
+/// TODO check if we have all
 pub enum UnaryOp {
 	Negate,
 	LogicalNot,
@@ -51,47 +55,120 @@ pub enum UnaryOp {
 	ReductionXor,
 }
 
+/// Represents a conditional expression branch
 pub struct ConditionalExpressionBranch {
+	/// Condition expression
 	pub condition: Expression,
+
+	/// Value when condition is true
 	pub value: Expression,
 }
 
+/// Conditional expression
+/// Evaluates to the first branch where the condition is true
 pub struct ConditionalExpression {
+	/// Branches
 	pub branches: Vec<ConditionalExpressionBranch>,
+
+	/// Default value if all conditions are false
 	pub default: Box<Expression>,
 }
 
+/// Assumption list used when evaluating an expression
+pub struct Assumptions {
+	pub assumptions: Vec<(SignalId, NumericConstant)>
+}
+
+/// Cast expression
+pub struct CastExpression {
+	/// Destination signal class
+	pub dest_class: Option<SignalClass>,
+
+	/// Destination signal sensitivity
+	pub dest_sensitivity: Option<SignalSensitivity>,
+
+	/// Source expression
+	pub src: Box<Expression>,
+}
+
+/// A binary expression
+pub struct BinaryExpression {
+	/// Binary operator type
+	pub op: BinaryOp,
+
+	/// Left hand side expression
+	pub lhs: Box<Expression>,
+
+	/// Right hand side expression
+	pub rhs: Box<Expression>,
+}
+
+/// A unary expression
+pub struct UnaryExpression {
+	/// Unary operator type
+	pub op: UnaryOp,
+
+	/// Operand expression
+	pub operand: Box<Expression>,
+}
+
 // TODO implement Rust operator overloads
+/// Language expression
 pub enum Expression {
 	Conditional(ConditionalExpression),
 	Constant(NumericConstant),
-	Signal(SignalRef),
-	Binary{op: BinaryOp, lhs: Box<Expression>, rhs: Box<Expression>},
-	Unary{op: UnaryOp, operand: Box<Expression>},
-	Cast{dest_type: SignalType, src: Box<Expression>},
+	Signal(SignalId),
+	Slice(SignalSlice),
+	Binary(BinaryExpression),
+	Unary(UnaryExpression),
+	Cast(CastExpression),
 }
 
 impl Expression {
-
+	/// Returns a new zero-valued expression
 	pub fn new_zero() -> Self {
 		Self::Constant(NumericConstant::zero())
 	}
 
-	pub fn cast(self, dest_type: SignalType) -> Self {
-		Self::Cast{dest_type, src: Box::new(self)}
+	/// Cassts expression to a different type
+	pub fn cast(self, dest_class: Option<SignalClass>, dest_sensitivity: Option<SignalSensitivity>) -> Self {
+		Self::Cast(CastExpression {
+			dest_class,
+			dest_sensitivity,
+			src: Box::new(self)
+		})
 	}
 
+	/// Performs zero extension
 	pub fn zero_extend(self, width: u32) -> Self {
-		Self::Unary{op: UnaryOp::ZeroExtend{width}, operand: Box::new(self)}
+		todo!();
 	}
 
+	/// Performs sign extension
 	pub fn sign_extend(self, width: u32) -> Self {
-		Self::Unary{op: UnaryOp::SignExtend{width}, operand: Box::new(self)}
+		todo!();
 	}
 
+	/// Selects range of bits from the expression
 	pub fn bit_select(self, msb: u32, lsb: u32) -> Self {
 		assert!(msb >= lsb);
-		Self::Unary{op: UnaryOp::BitSelect(msb, lsb), operand: Box::new(self)}
+		todo!();
+	}
+
+	/// Returns sensitivity of this expression
+	pub fn sensitivity(&self, design: &Design) -> SignalSensitivity {
+		todo!();
+	}
+
+	/// Returns width of this expression
+	pub fn width(&self, design: &Design) -> Expression {
+		// TODO does this require the assumption list
+		todo!();		
+	}
+
+	/// Attempts to evaluate the expression 
+	pub fn eval(&self, design: &Design, assumptions: &Assumptions) -> Result<NumericConstant, DesignError> {
+		todo!();
 	}
 
 	// TODO reduction AND/OR/XOR
@@ -111,35 +188,9 @@ impl Expression {
 	
 }
 
-pub trait IsCompileTimeConst {
-	fn is_compile_time_const(&self) -> bool;
-}
-
-pub trait HasBitWidth {
-	fn get_bit_width(&self) -> u32;
-}
-
-impl IsCompileTimeConst for ConditionalExpression {
-	fn is_compile_time_const(&self) -> bool {
-		self.default.is_compile_time_const() && self.branches.iter().all(|branch| {
-			branch.condition.is_compile_time_const() && branch.value.is_compile_time_const()
-		})
-	}
-}
-
-impl IsCompileTimeConst for Expression {
-	fn is_compile_time_const(&self) -> bool {
-		use Expression::*;
-		match self {
-			Conditional(cond) => cond.is_compile_time_const(),
-			Constant{..} => true,
-			_ => false,
-		}
-	}
-}
-
-impl From<SignalRef> for Expression {
-	fn from(signal: SignalRef) -> Self {
+/// Implements a conversion from signal ID to an expression
+impl From<SignalId> for Expression {
+	fn from(signal: SignalId) -> Self {
 		Self::Signal(signal)
 	}
 }

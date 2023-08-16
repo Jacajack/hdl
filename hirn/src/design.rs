@@ -5,28 +5,24 @@ pub mod module;
 pub mod signal;
 pub mod scope;
 
-use log::debug;
 pub use scope::{Scope, ScopeHandle};
-pub use signal::{Signal, SignalClass};
-pub use module::Module;
+pub use signal::{Signal, SignalClass, SignalSlice};
+pub use module::{Module, ModuleHandle};
 pub use expression::{Expression, BinaryOp, UnaryOp};
 
+use log::debug;
 use std::rc::{Weak, Rc};
 use std::cell::RefCell;
-
 use thiserror::Error;
-
-use self::module::ModuleHandle;
-use self::signal::SignalBuilder;
-
 
 /// References a module in a design
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct ModuleRef {
+pub struct ModuleId {
 	id: usize,
 }
 
-impl ModuleRef {
+impl ModuleId {
+	/// Checks if the reference is valid
 	pub fn is_null(&self) -> bool {
 		self.id == 0
 	}
@@ -34,11 +30,13 @@ impl ModuleRef {
 
 /// References a signal in a design
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct SignalRef {
+pub struct SignalId {
 	id: usize,
 }
 
-impl SignalRef {
+/// References a signal in a design
+impl SignalId {
+	/// Checks if the reference is valid
 	pub fn is_null(&self) -> bool {
 		self.id == 0
 	}
@@ -46,18 +44,20 @@ impl SignalRef {
 
 /// References a scope in a design
 #[derive(Clone, Copy, Hash, PartialEq, Eq)]
-pub struct ScopeRef {
+pub struct ScopeId {
 	id: usize,
 }
 
-impl ScopeRef {
+impl ScopeId {
+	/// Checks if the reference is valid
 	pub fn is_null(&self) -> bool {
 		self.id == 0
 	}
 }
 
-
-
+/// Core part of the generic design representation
+/// Refferred to via multiple handles with reference
+/// counting.
 pub struct DesignCore {
 	weak: WeakDesignHandle,
 	modules: Vec<Module>,
@@ -69,6 +69,7 @@ pub struct DesignCore {
 }
 
 impl DesignCore {
+	/// Creates a new empty design
 	pub fn new() -> Self {
 		Self {
 			weak: WeakDesignHandle::new(),
@@ -81,45 +82,52 @@ impl DesignCore {
 		}
 	}
 
+	/// Creates a new scope and adds it to the design
 	fn new_scope(&mut self) -> ScopeHandle {
 		self.add_scope(Scope::new())
 	}
 
+	/// Adds an existing scope to the design
 	fn add_scope(&mut self, scope: Scope) -> ScopeHandle {
 		let id = self.next_scope_id;
 		self.next_scope_id += 1;
 		self.scopes.push(scope);
-		self.scopes.last_mut().unwrap().id = ScopeRef{id};
-		ScopeHandle::new(self.weak.upgrade().unwrap(), ScopeRef{id})
+		self.scopes.last_mut().unwrap().id = ScopeId{id};
+		ScopeHandle::new(self.weak.upgrade().unwrap(), ScopeId{id})
 	}
 
-	fn add_signal(&mut self, signal: Signal) -> SignalRef {
+	/// Adds an existing signal to the design
+	fn add_signal(&mut self, signal: Signal) -> SignalId {
 		let id = self.next_signal_id;
 		self.next_signal_id += 1;
 		self.signals.push(signal);
-		self.signals.last_mut().unwrap().id = SignalRef{id};
+		self.signals.last_mut().unwrap().id = SignalId{id};
 		// TODO assert scope collisions
-		SignalRef{id}
+		SignalId{id}
 	}
 
+	/// Adds an existing module to the design
 	fn add_module(&mut self, module: Module) -> ModuleHandle {
 		let id = self.next_module_id;
 		self.next_module_id += 1;
 		self.modules.push(module);
-		self.modules.last_mut().unwrap().id = ModuleRef{id};
+		self.modules.last_mut().unwrap().id = ModuleId{id};
 		// TODO assert name conflicts
 		debug!("Added module with ID {}", id);
-		ModuleHandle::new(self.weak.upgrade().unwrap(), ModuleRef{id})
+		ModuleHandle::new(self.weak.upgrade().unwrap(), ModuleId{id})
 	}
 
-	fn get_scope_mut(&mut self, scope: ScopeRef) -> Option<&mut Scope> {
+	/// Returns a mutable reference to the signal with the given ID
+	fn get_scope_mut(&mut self, scope: ScopeId) -> Option<&mut Scope> {
 		self.scopes.get_mut(scope.id - 1)
 	}
 
-	fn get_module_mut(&mut self, module: ModuleRef) -> Option<&mut Module> {
+	/// Returns a mutable reference to the module with the given ID
+	fn get_module_mut(&mut self, module: ModuleId) -> Option<&mut Module> {
 		self.modules.get_mut(module.id - 1)
 	}
 
+	/// Creates a new module in the design
 	pub fn new_module(&mut self, name: String) -> Result<ModuleHandle, DesignError> {
 		let main_scope = self.new_scope();
 		let module = Module::new(name, vec![], main_scope.id());
@@ -130,15 +138,19 @@ impl DesignCore {
 
 }
 
+/// Weak reference to a design
 pub type WeakDesignHandle = Weak<RefCell<DesignCore>>;
+
+/// Strong reference to a design
 pub type DesignHandle = Rc<RefCell<DesignCore>>;
 
-
+/// Represents a hardware design
 pub struct Design {
 	handle: DesignHandle
 }
 
 impl Design {
+	/// Creates a new HIRN design
 	pub fn new() -> Self {
 		let d = Self {
 			handle: Rc::new(RefCell::new(DesignCore::new()))
@@ -148,12 +160,15 @@ impl Design {
 		d
 	}
 
+	/// Creates a new module with provided name and returns a handle to it
 	pub fn new_module(&mut self, name: String) -> Result<ModuleHandle, DesignError> {
 		self.handle.borrow_mut().new_module(name)
 	}
-
 }
 
+
+/// Represents an error that can occur during design construction.
+/// Elaboration errors are not accounted for here.
 #[derive(Clone, Copy, Debug, Error)]
 pub enum DesignError {
 	#[error("This object is not part of any HIRN Design.")]
@@ -176,15 +191,14 @@ pub enum DesignError {
 
 	#[error("Signal sensitivity not specified")]
 	SignalSensitivityNotSpecified,
+
+	#[error("Conflicting signal sensitivity")]
+	ConflictingSignalSensitivity,
 }
 
 #[cfg(test)]
 mod test {
 	use super::*;
-
-	// fn init() {
-    //     let _ = env_logger::builder().is_test(true).try_init();
-    // }
 
 	#[test]
 	pub fn design_basic_test() -> Result<(), DesignError> {

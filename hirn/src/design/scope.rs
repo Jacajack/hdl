@@ -1,45 +1,69 @@
-use std::collections::HashMap;
-use log::debug;
-
-use super::signal::{SignalType, Signal, SignalDirection, SignalBuilder};
+use super::signal::SignalBuilder;
 use super::functional_blocks::BlockInstance;
 use super::Expression;
-use super::expression::NumericConstant;
-use super::{ScopeRef, SignalRef, DesignError, DesignHandle};
-use super::WeakDesignHandle;
+use super::{ScopeId, SignalId, SignalSlice, DesignError, DesignHandle};
 
+/// Scope associated with an if statement
 pub struct ConditionalScope {
+	/// Condition expression
 	pub condition: Expression,
-	pub scope: ScopeRef,
+
+	/// Child scope
+	pub scope: ScopeId,
 }
 
+
+/// Scope associated with a loop statement
 pub struct RangeScope {
-	pub iterator_var: SignalRef,
+	/// Iterator variable
+	pub iterator_var: SignalId,
+
+	/// Iterator begin expression
 	pub iterator_begin: Expression,
+
+	/// Iterator end expression
 	pub iterator_end: Expression,
-	pub scope: ScopeRef,
+
+	/// Child scope
+	pub scope: ScopeId,
 }
 
+
+/// Assignment of signals
 pub struct Assignment {
-	pub lhs: SignalRef,
+	/// Left-hand side of the assignment
+	pub lhs: SignalSlice,
+
+	/// Right-hand side of the assignment (an expression)
 	pub rhs: Expression,
 }
 
+/// Scope representation
 pub struct Scope {
-	pub(super) id: ScopeRef,
-	parent: Option<ScopeRef>,
+	/// Self-reference
+	pub(super) id: ScopeId,
+
+	/// Parent scope (optional)
+	parent: Option<ScopeId>,
+
+	/// Assignments made inside this scope
 	assignments: Vec<Assignment>,
+
+	/// Loops inside this scope
 	loops: Vec<RangeScope>,
+
+	/// Conditionals inside this scope
 	conditionals: Vec<ConditionalScope>,
+
+	/// Blocks instantiated inside this scope
 	blocks: Vec<BlockInstance>,
 }
 
-
-
 impl Scope {
+	/// Creates a new scope
 	pub fn new() -> Self {
 		Self {
-			id: ScopeRef{id: 0},
+			id: ScopeId{id: 0},
 			parent: None,
 			assignments: vec![],
 			loops: vec![],
@@ -48,7 +72,9 @@ impl Scope {
 		}
 	}
 	
-	fn set_parent(&mut self, parent: ScopeRef) -> Result<(), DesignError> {
+	/// Sets parent for this scope
+	/// Returns an error if the parent is already set
+	fn set_parent(&mut self, parent: ScopeId) -> Result<(), DesignError> {
 		self.check_in_design()?;
 
 		if self.parent.is_some() {
@@ -59,6 +85,7 @@ impl Scope {
 		Ok(())
 	}
 
+	/// Checks if this scope is in a design
 	fn check_in_design(&self) -> Result<(), DesignError> {
 		if self.id.is_null() {
 			return Err(DesignError::NotInDesign)
@@ -66,7 +93,8 @@ impl Scope {
 		Ok(())
 	}
 
-	fn add_conditional_scope(&mut self, condition: Expression, child: ScopeRef) -> Result<ScopeRef, DesignError> {
+	/// Adds a new conditional sub-scope
+	fn add_conditional_scope(&mut self, condition: Expression, child: ScopeId) -> Result<ScopeId, DesignError> {
 		// self.add_subscope(child)?;
 		self.conditionals.push(ConditionalScope{condition, scope: child});
 		Ok(child)
@@ -75,7 +103,8 @@ impl Scope {
 		// TODO assert condition is compile-time constant
 	}
 
-	fn add_loop_scope(&mut self, iterator_var: SignalRef, iterator_begin: Expression, iterator_end: Expression, child: ScopeRef) -> Result<ScopeRef, DesignError> {
+	/// Adds a new loop sub-scope
+	fn add_loop_scope(&mut self, iterator_var: SignalId, iterator_begin: Expression, iterator_end: Expression, child: ScopeId) -> Result<ScopeId, DesignError> {
 		// self.add_subscope(child)?;
 		self.loops.push(RangeScope{iterator_var, iterator_begin, iterator_end, scope: child});
 		Ok(child)
@@ -87,24 +116,27 @@ impl Scope {
 		// TODO assert iterator_end is compile-time constant
 	}
 
-	fn assign_signal(&mut self, signal: SignalRef, expr: Expression) -> Result<(), DesignError> {
+	/// Assigns to a signal in this scope
+	fn assign_signal(&mut self, signal: SignalSlice, expr: Expression) -> Result<(), DesignError> {
 		self.assignments.push(Assignment{lhs: signal, rhs: expr});
 		Ok(())
 
 		// TODO assert signal accessible from this scope
 		// TODO expression valid in this scope
 	}
-
-	
-
 }
 
+
+/// Handle used for manipulating scopes outside of the design
 pub struct ScopeHandle {
+	/// Handle to the design
 	design: DesignHandle,
-	scope: ScopeRef,
+
+	/// ID of the scope
+	scope: ScopeId,
 }
 
-
+/// A helper macro for getting a mutable reference to the scope in the ScopeHandle
 macro_rules! this_scope {
 	($self:ident) => {
 		$self.design.borrow_mut().get_scope_mut($self.scope).unwrap()
@@ -112,33 +144,56 @@ macro_rules! this_scope {
 }
 
 impl ScopeHandle {
-	pub fn id(&self) -> ScopeRef {
+	/// Returns the ID of the scope
+	pub fn id(&self) -> ScopeId {
 		self.scope
 	}
 
-	pub fn new(design: DesignHandle, scope: ScopeRef) -> Self {
+	/// Creates a new scope handle
+	pub fn new(design: DesignHandle, scope: ScopeId) -> Self {
 		Self {
 			design,
 			scope,
 		}
 	}
 
-	fn new_child_scope(&mut self) -> ScopeHandle {
+	/// Creates a scope and sets its parent to this scope
+	fn new_subscope(&mut self) -> ScopeHandle {
 		let child = self.design.borrow_mut().new_scope();
 		this_scope!(self).set_parent(self.scope).unwrap();
 		child
 	}
 
-	pub fn new_subscope(&mut self) -> ScopeHandle {
-		self.new_child_scope()
-	}
-
+	/// Creates a new if statement in this scope
 	pub fn if_scope(&mut self, condition: Expression) -> Result<ScopeHandle, DesignError> {
-		let child = self.new_child_scope();
+		let child = self.new_subscope();
 		this_scope!(self).add_conditional_scope(condition, child.id()).unwrap();
 		Ok(child)
 	}
 
+	/// Creates a new loop statement in this scope
+	/// The iterator variable is automatically defined and returned
+	pub fn loop_scope(&mut self, iter_name: &str, from: Expression, to: Expression) -> Result<(ScopeHandle, SignalId), DesignError> {
+		let mut child = self.new_subscope();
+
+		// TODO proper signal class here
+		let iter_var = child.new_signal()?
+			.name(iter_name)
+			.generic()
+			.constant()
+			.build()?;
+
+		this_scope!(self).add_loop_scope(iter_var, from, to, child.id())?;
+
+		Ok((child, iter_var))
+	}
+
+	/// Assigns an expression to a signal
+	pub fn assign(&mut self, signal: SignalSlice, expr: Expression) -> Result<(), DesignError> {
+		this_scope!(self).assign_signal(signal, expr)
+	}
+
+	/// Creates a new signal in this scope (returns a builder)
 	pub fn new_signal(&mut self) -> Result<SignalBuilder, DesignError> {
 		Ok(SignalBuilder::new(self.design.clone(), self.scope))
 	}
