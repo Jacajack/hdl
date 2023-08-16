@@ -3,6 +3,7 @@ use super::{Design, SignalId, DesignError};
 
 // TODO bigint
 /// Represents a numeric constant value
+#[derive(Clone)]
 pub struct NumericConstant {
 	// pub class: SignalClass,
 	pub value: Vec<u8>,
@@ -12,13 +13,23 @@ impl NumericConstant {
 	pub fn zero() -> NumericConstant {
 		NumericConstant {
 			// class: SignalClass::Unsigned(),
+			// FIXME
 			value: vec![0],
+		}
+	}
+
+	pub fn one() -> NumericConstant {
+		NumericConstant {
+			// class: SignalClass::Unsigned(),
+			// FIXME
+			value: vec![1],
 		}
 	}
 }
 
 /// Binary operators
 /// TODO check if we have all 
+#[derive(Clone, Copy)]
 pub enum BinaryOp {
 	Add,
 	Subtract,
@@ -43,6 +54,7 @@ pub enum BinaryOp {
 
 /// Unary operators
 /// TODO check if we have all
+#[derive(Clone, Copy)]
 pub enum UnaryOp {
 	Negate,
 	LogicalNot,
@@ -56,6 +68,7 @@ pub enum UnaryOp {
 }
 
 /// Represents a conditional expression branch
+#[derive(Clone)]
 pub struct ConditionalExpressionBranch {
 	/// Condition expression
 	pub condition: Expression,
@@ -66,6 +79,7 @@ pub struct ConditionalExpressionBranch {
 
 /// Conditional expression
 /// Evaluates to the first branch where the condition is true
+#[derive(Clone)]
 pub struct ConditionalExpression {
 	/// Branches
 	pub branches: Vec<ConditionalExpressionBranch>,
@@ -80,6 +94,7 @@ pub struct Assumptions {
 }
 
 /// Cast expression
+#[derive(Clone)]
 pub struct CastExpression {
 	/// Destination signal class
 	pub dest_class: Option<SignalClass>,
@@ -92,6 +107,7 @@ pub struct CastExpression {
 }
 
 /// A binary expression
+#[derive(Clone)]
 pub struct BinaryExpression {
 	/// Binary operator type
 	pub op: BinaryOp,
@@ -104,6 +120,7 @@ pub struct BinaryExpression {
 }
 
 /// A unary expression
+#[derive(Clone)]
 pub struct UnaryExpression {
 	/// Unary operator type
 	pub op: UnaryOp,
@@ -114,6 +131,7 @@ pub struct UnaryExpression {
 
 // TODO implement Rust operator overloads
 /// Language expression
+#[derive(Clone)]
 pub enum Expression {
 	Conditional(ConditionalExpression),
 	Constant(NumericConstant),
@@ -128,6 +146,11 @@ impl Expression {
 	/// Returns a new zero-valued expression
 	pub fn new_zero() -> Self {
 		Self::Constant(NumericConstant::zero())
+	}
+
+	/// Returns a new one-valued expression
+	pub fn new_one() -> Self {
+		Self::Constant(NumericConstant::one())
 	}
 
 	/// Cassts expression to a different type

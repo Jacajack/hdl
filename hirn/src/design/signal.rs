@@ -5,6 +5,7 @@ use super::ScopeId;
 use super::SignalId;
 
 /// Determines representation of a signal
+#[derive(Clone)]
 pub enum SignalClass {
 	/// Logic signal with given bit width (cannot be used in arithmetic)
 	Logic(Box<Expression>), 
@@ -20,6 +21,7 @@ pub enum SignalClass {
 }
 
 /// Determines sensitivity of a signal to certain clock edges
+#[derive(Clone, Copy)]
 pub struct EdgeSensitivity {
 	pub clock_signal: SignalId,
 	pub on_rising: bool,
@@ -29,6 +31,7 @@ pub struct EdgeSensitivity {
 pub type ClockSensitivityList = Vec<EdgeSensitivity>;
 
 /// Determines 'sensitivity' of a signal - i.e. how constant it is
+#[derive(Clone)]
 pub enum SignalSensitivity {
 	/// Completely asynchronous signal. Latching with any clock can lead to metastability
 	Async,
@@ -47,6 +50,7 @@ pub enum SignalSensitivity {
 }
 
 /// Specifies a slice of a signal array
+#[derive(Clone)]
 pub enum ArraySlice {
 	/// Range of indices (both ends inclusive)
 	Range(Box<Expression>, Box<Expression>),
@@ -56,12 +60,22 @@ pub enum ArraySlice {
 }
 
 /// Determines which part of a signal (or signal array) is accessed
+#[derive(Clone)]
 pub struct SignalSlice {
 	/// Signal being accessed
 	pub signal: SignalId,
 
 	/// Array of slices, one per signal dimension and lastly for signal width
 	pub slices: Vec<ArraySlice>,
+}
+
+impl From<SignalId> for SignalSlice {
+	fn from(signal: SignalId) -> Self {
+		Self {
+			signal,
+			slices: vec![],
+		}
+	}
 }
 
 /// Physical signal representation

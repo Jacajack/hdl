@@ -9,6 +9,7 @@ pub use scope::{Scope, ScopeHandle};
 pub use signal::{Signal, SignalClass, SignalSlice};
 pub use module::{Module, ModuleHandle};
 pub use expression::{Expression, BinaryOp, UnaryOp};
+pub use functional_blocks::{Register, RegisterBuilder};
 
 use log::debug;
 use std::rc::{Weak, Rc};
@@ -166,7 +167,6 @@ impl Design {
 	}
 }
 
-
 /// Represents an error that can occur during design construction.
 /// Elaboration errors are not accounted for here.
 #[derive(Clone, Copy, Debug, Error)]
@@ -194,6 +194,9 @@ pub enum DesignError {
 
 	#[error("Conflicting signal sensitivity")]
 	ConflictingSignalSensitivity,
+
+	#[error("Required register signal is not connected")]
+	RequiredRegisterSignalNotConnected(functional_blocks::ReqiuredRegisterSignal),
 }
 
 #[cfg(test)]
@@ -216,11 +219,18 @@ mod test {
 
 		let sig2 = m.scope().new_signal()?
 			.name("test_signal")
-			.logic(expr)
+			.logic(expr.clone())
 			.constant()
 			.build()?;
 
 		let mut scope2 = m.scope().if_scope(Expression::new_zero())?;
+
+		scope2.new_register()?
+			.clk(sig.into())
+			.nreset(expr)
+			.next(Expression::new_zero())
+			.output(sig2.into())
+			.build()?;
 
 		Ok(())
 	}

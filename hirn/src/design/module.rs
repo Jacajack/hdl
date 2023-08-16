@@ -52,6 +52,7 @@ macro_rules! this_module {
 }
 
 /// References a module in the design
+#[derive(Clone)]
 pub struct ModuleHandle {
 	/// Handle to the design
 	design: DesignHandle,

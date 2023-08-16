@@ -1,7 +1,7 @@
 use super::signal::SignalBuilder;
 use super::functional_blocks::BlockInstance;
 use super::Expression;
-use super::{ScopeId, SignalId, SignalSlice, DesignError, DesignHandle};
+use super::{ScopeId, SignalId, SignalSlice, DesignError, DesignHandle, RegisterBuilder};
 
 /// Scope associated with an if statement
 pub struct ConditionalScope {
@@ -124,10 +124,17 @@ impl Scope {
 		// TODO assert signal accessible from this scope
 		// TODO expression valid in this scope
 	}
+
+	/// Adds a block instance in this scope
+	fn add_block(&mut self, block: BlockInstance) -> Result<(), DesignError> {
+		self.blocks.push(block);
+		Ok(())
+	}
 }
 
 
 /// Handle used for manipulating scopes outside of the design
+#[derive(Clone)]
 pub struct ScopeHandle {
 	/// Handle to the design
 	design: DesignHandle,
@@ -186,6 +193,16 @@ impl ScopeHandle {
 		this_scope!(self).add_loop_scope(iter_var, from, to, child.id())?;
 
 		Ok((child, iter_var))
+	}
+
+	/// Returns a new register builder
+	pub fn new_register(&mut self) -> Result<RegisterBuilder, DesignError> {
+		Ok(RegisterBuilder::new(self.clone()))
+	}
+
+	/// Adds a functional block
+	pub(super) fn add_block(&mut self, block: BlockInstance) -> Result<(), DesignError> {
+		this_scope!(self).add_block(block)
 	}
 
 	/// Assigns an expression to a signal
