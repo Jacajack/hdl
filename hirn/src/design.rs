@@ -4,6 +4,7 @@ pub mod functional_blocks;
 pub mod module;
 pub mod signal;
 pub mod scope;
+pub mod utils;
 
 pub use scope::{Scope, ScopeHandle};
 pub use signal::{Signal, SignalClass, SignalSlice};
@@ -11,13 +12,13 @@ pub use module::{Module, ModuleHandle};
 pub use expression::{Expression, BinaryOp, UnaryOp};
 pub use functional_blocks::{Register, RegisterBuilder};
 
-use log::debug;
+use std::collections::HashMap;
 use std::rc::{Weak, Rc};
 use std::cell::RefCell;
 use thiserror::Error;
 
 /// References a module in a design
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 pub struct ModuleId {
 	id: usize,
 }
@@ -30,7 +31,7 @@ impl ModuleId {
 }
 
 /// References a signal in a design
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 pub struct SignalId {
 	id: usize,
 }
@@ -44,7 +45,7 @@ impl SignalId {
 }
 
 /// References a scope in a design
-#[derive(Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 pub struct ScopeId {
 	id: usize,
 }
@@ -67,6 +68,8 @@ pub struct DesignCore {
 	next_module_id: usize,
 	next_scope_id: usize,
 	next_signal_id: usize,
+	scope_signals: HashMap<ScopeId, Vec<SignalId>>,
+	module_scopes: HashMap<ModuleId, Vec<ScopeId>>,
 }
 
 impl DesignCore {
@@ -80,42 +83,69 @@ impl DesignCore {
 			next_module_id: 1,
 			next_scope_id: 1,
 			next_signal_id: 1,
+			scope_signals: HashMap::new(),
+			module_scopes: HashMap::new(),
 		}
 	}
 
 	/// Creates a new scope and adds it to the design
-	fn new_scope(&mut self) -> ScopeHandle {
-		self.add_scope(Scope::new())
-	}
-
-	/// Adds an existing scope to the design
-	fn add_scope(&mut self, scope: Scope) -> ScopeHandle {
-		let id = self.next_scope_id;
+	fn new_scope(&mut self, module: ModuleId) -> Result<ScopeHandle, DesignError> {
+		let id = ScopeId{id: self.next_scope_id};
 		self.next_scope_id += 1;
+		
+		let scope = Scope::new(id, module);
 		self.scopes.push(scope);
-		self.scopes.last_mut().unwrap().id = ScopeId{id};
-		ScopeHandle::new(self.weak.upgrade().unwrap(), ScopeId{id})
+		self.module_scopes.entry(module).or_insert(vec![]).push(id);
+		Ok(ScopeHandle::new(self.weak.upgrade().unwrap(), id))
 	}
 
 	/// Adds an existing signal to the design
-	fn add_signal(&mut self, signal: Signal) -> SignalId {
+	/// 
+	/// Performs check for conflicting signal names.
+	fn add_signal(&mut self, signal: Signal) -> Result<SignalId, DesignError> {
 		let id = self.next_signal_id;
 		self.next_signal_id += 1;
-		self.signals.push(signal);
-		self.signals.last_mut().unwrap().id = SignalId{id};
-		// TODO assert scope collisions
-		SignalId{id}
+
+		let mut sig = signal;
+		sig.id = SignalId{id};
+		
+		// Check for name collisions
+		for id in self.get_scope_signals(sig.parent_scope).unwrap_or(&vec![]) {
+			let other = self.get_signal(*id).unwrap();
+			if other.name == sig.name {
+				return Err(DesignError::SignalNameConflict {
+					scope: sig.parent_scope,
+					first: other.id,
+					second: sig.id,
+				})
+			}
+		}
+		
+		// Add to design
+		self.scope_signals.entry(sig.parent_scope).or_insert(vec![]).push(SignalId{id});
+		self.signals.push(sig);
+		Ok(SignalId{id})
 	}
 
 	/// Adds an existing module to the design
-	fn add_module(&mut self, module: Module) -> ModuleHandle {
+	fn add_module(&mut self, module: Module) -> Result<ModuleHandle, DesignError> {
 		let id = self.next_module_id;
 		self.next_module_id += 1;
-		self.modules.push(module);
-		self.modules.last_mut().unwrap().id = ModuleId{id};
-		// TODO assert name conflicts
-		debug!("Added module with ID {}", id);
-		ModuleHandle::new(self.weak.upgrade().unwrap(), ModuleId{id})
+
+		let mut m = module;
+		m.id = ModuleId{id};
+
+		// Check name conflicts
+		// FIXME this ignores namespaces for now
+		for other in &self.modules {
+			if other.name == m.name {
+				return Err(DesignError::ModuleNameConflict { first: other.id, second: m.id })
+			}
+		}
+
+		
+		self.modules.push(m);
+		Ok(ModuleHandle::new(self.weak.upgrade().unwrap(), ModuleId{id}))
 	}
 
 	/// Returns a mutable reference to the signal with the given ID
@@ -128,12 +158,23 @@ impl DesignCore {
 		self.modules.get_mut(module.id - 1)
 	}
 
+	/// Returns a reference to the signal with the given ID
+	fn get_signal(&self, signal: SignalId) -> Option<&Signal> {
+		self.signals.get(signal.id - 1)
+	}
+
+	/// Returns a list of signals in the given scope
+	fn get_scope_signals(&self, scope: ScopeId) -> Option<&Vec<SignalId>> {
+		self.scope_signals.get(&scope)
+	}
+
 	/// Creates a new module in the design
-	pub fn new_module(&mut self, name: String) -> Result<ModuleHandle, DesignError> {
-		let main_scope = self.new_scope();
-		let module = Module::new(name, vec![], main_scope.id());
-		debug!("Creating module with scope ID {}", main_scope.id().id);
-		Ok(self.add_module(module))
+	pub fn new_module(&mut self, name: &str) -> Result<ModuleHandle, DesignError> {
+		let module = Module::new(name, vec![])?;
+		let handle = self.add_module(module)?;
+		let main_scope = self.new_scope(handle.id())?;
+		self.get_module_mut(handle.id()).unwrap().main_scope = main_scope.id();
+		Ok(handle)
 	}
 
 
@@ -161,8 +202,16 @@ impl Design {
 		d
 	}
 
+	fn borrow_mut(&mut self) -> std::cell::RefMut<DesignCore> {
+		self.handle.borrow_mut()
+	}
+
+	fn borrow(&self) -> std::cell::Ref<DesignCore> {
+		self.handle.borrow()
+	}
+
 	/// Creates a new module with provided name and returns a handle to it
-	pub fn new_module(&mut self, name: String) -> Result<ModuleHandle, DesignError> {
+	pub fn new_module(&mut self, name: &str) -> Result<ModuleHandle, DesignError> {
 		self.handle.borrow_mut().new_module(name)
 	}
 }
@@ -197,6 +246,19 @@ pub enum DesignError {
 
 	#[error("Required register signal is not connected")]
 	RequiredRegisterSignalNotConnected(functional_blocks::ReqiuredRegisterSignal),
+
+	#[error("Signal name conflict in scope")]
+	SignalNameConflict{
+		scope: ScopeId,
+		first: SignalId,
+		second: SignalId,
+	},
+
+	#[error("Module name conflict")]
+	ModuleNameConflict{
+		first: ModuleId,
+		second: ModuleId,
+	},
 }
 
 #[cfg(test)]
@@ -207,7 +269,7 @@ mod test {
 	pub fn design_basic_test() -> Result<(), DesignError> {
 		// init();
 		let mut d = Design::new();
-		let mut m = d.new_module("test".to_string())?;
+		let mut m = d.new_module("test")?;
 
 		let sig = m.scope().new_signal()?
 			.name("test_signal")
@@ -218,7 +280,7 @@ mod test {
 		let expr = Expression::from(sig) + sig.into();
 
 		let sig2 = m.scope().new_signal()?
-			.name("test_signal")
+			.name("test_signal_2")
 			.logic(expr.clone())
 			.constant()
 			.build()?;
@@ -227,11 +289,68 @@ mod test {
 
 		scope2.new_register()?
 			.clk(sig.into())
-			.nreset(expr)
+			.nreset(expr.clone())
 			.next(Expression::new_zero())
 			.output(sig2.into())
 			.build()?;
 
+		scope2.assign(sig2.into(), expr)?;
+
 		Ok(())
 	}
+
+	/// Verifies if the design correctly detects signal name conflicts
+	#[test]
+	fn test_unique_signal_names() -> Result<(), DesignError> {
+		let mut d = Design::new();
+		let mut m = d.new_module("test")?;
+
+		let _sig = m.scope().new_signal()?
+			.name("name")
+			.generic()
+			.constant()
+			.build()?;
+
+		let sig2 = m.scope().new_signal()?
+			.name("name")
+			.generic()
+			.constant()
+			.build();
+
+		assert!(matches!(sig2, Err(DesignError::SignalNameConflict{..})));
+		Ok(())
+	}
+
+	/// Verifies if the design enforces unique module names
+	#[test]
+	fn test_unique_module_names() -> Result<(), DesignError> {
+		let mut d = Design::new();
+		let _m = d.new_module("name")?;
+		let m2 = d.new_module("name");
+
+		assert!(matches!(m2, Err(DesignError::ModuleNameConflict{..})));
+		Ok(())
+	}
+
+	/// Verify module naming rules
+	#[test]
+	fn test_module_naming_rules() -> Result<(), DesignError> {
+		let mut d = Design::new();
+		assert!(matches!(d.new_module("asdf"), Ok(..)));
+		assert!(matches!(d.new_module("_asdf1131"), Ok(..)));
+		assert!(matches!(d.new_module("_asd_____f1131fafa_222"), Ok(..)));
+		
+		assert!(matches!(d.new_module("$wongo_bongo"), Err(DesignError::InvalidName)));
+		assert!(matches!(d.new_module("1love5ystemVerilog"), Err(DesignError::InvalidName)));
+		assert!(matches!(d.new_module("spaces are not allowed"), Err(DesignError::InvalidName)));
+		Ok(())
+	}
+
+	/// Verify signal naming rules
+	#[test]
+	fn test_signal_naming_rules() {
+
+	}
+
+
 }

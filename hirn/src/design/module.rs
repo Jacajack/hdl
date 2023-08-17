@@ -1,4 +1,4 @@
-use super::{ModuleId, signal::SignalDirection, ScopeId, SignalId, DesignHandle, ScopeHandle, DesignError};
+use super::{ModuleId, signal::SignalDirection, ScopeId, SignalId, DesignHandle, ScopeHandle, DesignError, Design};
 
 /// Represents a signal exposed to a module interface
 pub struct InterfaceSignal {
@@ -26,20 +26,34 @@ pub struct Module {
 
 impl Module {
 	/// Creates a new module
-	pub fn new(name: String, namespace_path: Vec<String>, main_scope: ScopeId) -> Self {
-		// FIXME
-		Self {
+	pub fn new(name: &str, namespace_path: Vec<String>) -> Result<Self, DesignError> {
+		if !super::utils::is_name_valid(name) {
+			return Err(DesignError::InvalidName);
+		}
+		
+		Ok(Self {
 			id: ModuleId{id: 0},
 			namespace_path,
-			name,
-			main_scope,
+			name: name.into(),
+			main_scope: ScopeId{id: 0},
 			interface: vec![],
-		}
+		})
 	}
 
 	/// Exposes a signal to the module interface.
-	pub fn expose(&mut self, signal: SignalId, direction: SignalDirection) -> Result<usize, DesignError> {
+	fn expose(&mut self, _signal: SignalId, _direction: SignalDirection) -> Result<usize, DesignError> {
+		// TODO assert signal in main scope
 		todo!();
+	}
+
+	fn get_interface_signal_by_name(&self, design: &Design, name: &str) -> Option<&InterfaceSignal> {
+		for sig in &self.interface {
+			if design.borrow().get_signal(sig.signal).unwrap().name == name {
+				return Some(sig);
+			}
+		}
+
+		None
 	}
 }
 
@@ -73,5 +87,10 @@ impl ModuleHandle {
 	/// Returns a handle to the module's main scope
 	pub fn scope(&mut self) -> ScopeHandle {
 		ScopeHandle::new(self.design.clone(), this_module!(self).main_scope)
+	}
+
+	/// Returns the ID of the scope
+	pub fn id(&self) -> ModuleId {
+		self.id
 	}
 }

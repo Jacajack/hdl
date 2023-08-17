@@ -163,12 +163,12 @@ impl Expression {
 	}
 
 	/// Performs zero extension
-	pub fn zero_extend(self, width: u32) -> Self {
+	pub fn zero_extend(self, _width: u32) -> Self {
 		todo!();
 	}
 
 	/// Performs sign extension
-	pub fn sign_extend(self, width: u32) -> Self {
+	pub fn sign_extend(self, _width: u32) -> Self {
 		todo!();
 	}
 
@@ -179,18 +179,18 @@ impl Expression {
 	}
 
 	/// Returns sensitivity of this expression
-	pub fn sensitivity(&self, design: &Design) -> SignalSensitivity {
+	pub fn sensitivity(&self, _design: &Design) -> SignalSensitivity {
 		todo!();
 	}
 
 	/// Returns width of this expression
-	pub fn width(&self, design: &Design) -> Expression {
+	pub fn width(&self, _design: &Design) -> Expression {
 		// TODO does this require the assumption list
 		todo!();		
 	}
 
 	/// Attempts to evaluate the expression 
-	pub fn eval(&self, design: &Design, assumptions: &Assumptions) -> Result<NumericConstant, DesignError> {
+	pub fn eval(&self, _design: &Design, _assumptions: &Assumptions) -> Result<NumericConstant, DesignError> {
 		todo!();
 	}
 

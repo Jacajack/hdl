@@ -99,6 +99,37 @@ pub struct Signal {
 	pub sensitivity: SignalSensitivity,
 }
 
+impl Signal {
+	fn new(
+		id: SignalId,
+		scope: ScopeId,
+		name: &str,
+		dimensions: Vec<Expression>,
+		class: SignalClass,
+		sensitivity: SignalSensitivity)
+		-> Result<Self, DesignError>
+	{
+		// Check name valid
+		if !super::utils::is_name_valid(name) {
+			return Err(DesignError::InvalidName);
+		}
+
+		// TODO assert dimensions constant
+		// TODO assert clocking lists valid
+		// TODO assert class width valid if applicable
+
+		Ok(Self {
+			id,
+			parent_scope: scope,
+			name: name.into(),
+			dimensions,
+			class,
+			sensitivity
+		})
+	}
+
+}
+
 /// Specifies direction for signals in module interface
 pub enum SignalDirection {
 	/// Input signal (from the perspective of the module)
@@ -155,14 +186,12 @@ impl SignalBuilder {
 
 	/// Sets name of the signal (required)
 	pub fn name(mut self, name: &str) -> Self {
-		// TODO check name constraints
 		self.name = Some(name.to_string());
 		self
 	}
 
 	/// Sets type to unsigned and specifies width
 	pub fn unsigned(mut self, width: Expression) -> Self {
-		// TODO assert bit width constant
 		assert!(self.class.is_none());
 		self.class = Some(SignalClass::Unsigned(Box::new(width)));
 		self
@@ -170,7 +199,6 @@ impl SignalBuilder {
 
 	/// Sets type to signed and specifies width
 	pub fn signed(mut self, width: Expression) -> Self {
-		// TODO assert bit width constant
 		assert!(self.class.is_none());
 		self.class = Some(SignalClass::Signed(Box::new(width)));
 		self
@@ -178,7 +206,6 @@ impl SignalBuilder {
 
 	/// Sets type to logic and specifies width
 	pub fn logic(mut self, width: Expression) -> Self {
-		// TODO assert bit width constant
 		assert!(self.class.is_none());
 		self.class = Some(SignalClass::Logic(Box::new(width)));
 		self
@@ -255,9 +282,6 @@ impl SignalBuilder {
 
 	/// Creates the signal and adds it to the design. Returns the signal ID.
 	pub fn build(self) -> Result<SignalId, DesignError> {
-		// TODO assert dimensions constant
-		// TODO assert clocking lists valid
-
 		let sensitivity = match (self.sensitivity, self.comb_clocking, self.sync_clocking) {
 			(Some(s), None, None) => s,
 			(None, Some(c), None) => SignalSensitivity::Comb(c),
@@ -266,13 +290,13 @@ impl SignalBuilder {
 			_ => return Err(DesignError::ConflictingSignalSensitivity),
 		};
 
-		Ok(self.design.borrow_mut().add_signal(Signal{
-			id: SignalId{id: 0},
-			parent_scope: self.scope,
-			name: self.name.ok_or(DesignError::InvalidName)?,
-			dimensions: self.dimensions,
-			class: self.class.ok_or(DesignError::SignalClassNotSpecified)?,
-			sensitivity: sensitivity,
-		}))
+		self.design.borrow_mut().add_signal(Signal::new(
+			SignalId{id: 0},
+			self.scope,
+			self.name.ok_or(DesignError::InvalidName)?.as_str(),
+			self.dimensions,
+			self.class.ok_or(DesignError::SignalClassNotSpecified)?,
+			sensitivity,
+		)?)
 	}
 }

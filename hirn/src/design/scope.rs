@@ -1,7 +1,7 @@
 use super::signal::SignalBuilder;
 use super::functional_blocks::BlockInstance;
 use super::Expression;
-use super::{ScopeId, SignalId, SignalSlice, DesignError, DesignHandle, RegisterBuilder};
+use super::{ScopeId, SignalId, SignalSlice, DesignError, DesignHandle, RegisterBuilder, ModuleId};
 
 /// Scope associated with an if statement
 pub struct ConditionalScope {
@@ -46,6 +46,9 @@ pub struct Scope {
 	/// Parent scope (optional)
 	parent: Option<ScopeId>,
 
+	/// Parent module
+	module: ModuleId,
+
 	/// Assignments made inside this scope
 	assignments: Vec<Assignment>,
 
@@ -61,9 +64,10 @@ pub struct Scope {
 
 impl Scope {
 	/// Creates a new scope
-	pub fn new() -> Self {
+	pub(super) fn new(id: ScopeId, module: ModuleId) -> Self {
 		Self {
-			id: ScopeId{id: 0},
+			id,
+			module,
 			parent: None,
 			assignments: vec![],
 			loops: vec![],
@@ -165,15 +169,16 @@ impl ScopeHandle {
 	}
 
 	/// Creates a scope and sets its parent to this scope
-	fn new_subscope(&mut self) -> ScopeHandle {
-		let child = self.design.borrow_mut().new_scope();
+	fn new_subscope(&mut self) -> Result<ScopeHandle, DesignError> {
+		let module = this_scope!(self).module;
+		let child = self.design.borrow_mut().new_scope(module);
 		this_scope!(self).set_parent(self.scope).unwrap();
 		child
 	}
 
 	/// Creates a new if statement in this scope
 	pub fn if_scope(&mut self, condition: Expression) -> Result<ScopeHandle, DesignError> {
-		let child = self.new_subscope();
+		let child = self.new_subscope()?;
 		this_scope!(self).add_conditional_scope(condition, child.id()).unwrap();
 		Ok(child)
 	}
@@ -181,7 +186,7 @@ impl ScopeHandle {
 	/// Creates a new loop statement in this scope
 	/// The iterator variable is automatically defined and returned
 	pub fn loop_scope(&mut self, iter_name: &str, from: Expression, to: Expression) -> Result<(ScopeHandle, SignalId), DesignError> {
-		let mut child = self.new_subscope();
+		let mut child = self.new_subscope()?;
 
 		// TODO proper signal class here
 		let iter_var = child.new_signal()?

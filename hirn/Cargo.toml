@@ -8,3 +8,5 @@ edition = "2021"
 [dependencies]
 "thiserror" = "1.0"
 log = "0.4.17"
+regex = "1.7.3"
+lazy_static = "1.4.0"
