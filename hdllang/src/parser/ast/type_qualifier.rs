@@ -10,7 +10,7 @@ pub struct 	Sync {
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Comb {
-	pub expression: Expression,
+	pub expressions: Vec<Expression>,
 	pub location: SourceSpan,
 }
 #[derive(Serialize, Deserialize, Debug, Clone)]

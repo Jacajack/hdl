@@ -1,5 +1,6 @@
 use crate::{compiler_diagnostic::*, lexer::numeric_constant::NumericConstantBase};
 use std::fmt;
+use num_bigint::BigInt;
 use thiserror::Error;
 
 use super::NumericConstant;
@@ -58,6 +59,7 @@ impl ProvidesCompilerDiagnostic for NumberParseError {
 
 /// Parses a pure decimal number
 fn parse_pure_decimal(s: &str) -> Result<u64, NumberParseError> {
+	println!("dec: {:?}, bigint: {:?}",s, BigInt::parse_bytes(s.as_bytes(), 10).unwrap());
 	u64::from_str_radix(s, 10).map_err(|_| NumberParseError {
 		kind: NumericConstantParseErrorKind::BadDecimalDigit,
 		range: (0, s.len()),
@@ -66,6 +68,7 @@ fn parse_pure_decimal(s: &str) -> Result<u64, NumberParseError> {
 
 /// Parses a pure hex number
 fn parse_pure_hex(s: &str) -> Result<u64, NumberParseError> {
+	println!("hex: {:?}, bigint: {:?}",s, BigInt::parse_bytes(s.as_bytes(), 16).unwrap());
 	u64::from_str_radix(s, 16).map_err(|_| NumberParseError {
 		kind: NumericConstantParseErrorKind::BadHexDigit,
 		range: (0, s.len()),
@@ -74,6 +77,8 @@ fn parse_pure_hex(s: &str) -> Result<u64, NumberParseError> {
 
 /// Parses a pure binary number
 fn parse_pure_binary(s: &str) -> Result<u64, NumberParseError> {
+	
+	println!("bin: {:?}, bigint: {:?}",s, BigInt::parse_bytes(s.as_bytes(), 2).unwrap());
 	u64::from_str_radix(s, 2).map_err(|_| NumberParseError {
 		kind: NumericConstantParseErrorKind::BadBinaryDigit,
 		range: (0, s.len()),

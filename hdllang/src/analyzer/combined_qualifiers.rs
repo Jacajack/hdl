@@ -1,4 +1,4 @@
-use crate::{SourceSpan, parser::ast::Expression, core::SourceWithName, ProvidesCompilerDiagnostic};
+use crate::{parser::ast::Expression, ProvidesCompilerDiagnostic, SourceSpan};
 
 use super::SemanticError;
 
@@ -8,7 +8,7 @@ pub struct CombinedQualifiers {
 	pub unsigned: Option<SourceSpan>,
 	pub tristate: Option<SourceSpan>,
 	pub constant: Option<SourceSpan>,
-	pub comb: Option<(Expression, SourceSpan)>,
+	pub comb: Option<(Vec<Expression>, SourceSpan)>,
 	pub input: Option<SourceSpan>,
 	pub output: Option<SourceSpan>,
 	pub clock: Option<SourceSpan>,
@@ -31,105 +31,105 @@ impl CombinedQualifiers {
 			synchronous: None,
 		}
 	}
-	pub fn check_for_contradicting(&self, code: &SourceWithName)->miette::Result<()>{
+	pub fn check_for_contradicting(&self) -> miette::Result<()> {
 		match self {
 			CombinedQualifiers {
 				signed: Some(x),
 				unsigned: Some(y),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "signed", "unsigned", code)?;
+				report_contradicting_qualifier(x, y, "signed", "unsigned")?;
 			},
 			CombinedQualifiers {
 				input: Some(x),
 				tristate: Some(y),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "input", "tristate", code)?;
+				report_contradicting_qualifier(x, y, "input", "tristate")?;
 			},
 			CombinedQualifiers {
 				input: Some(x),
 				output: Some(y),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "input", "output", code)?;
+				report_contradicting_qualifier(x, y, "input", "output")?;
 			},
 			CombinedQualifiers {
 				output: Some(x),
 				tristate: Some(y),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "output", "tristate", code)?;
+				report_contradicting_qualifier(x, y, "output", "tristate")?;
 			},
 			CombinedQualifiers {
 				constant: Some(x),
 				comb: Some((_, y)),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "const", "comb", code)?;
+				report_contradicting_qualifier(x, y, "const", "comb")?;
 			},
 			CombinedQualifiers {
 				constant: Some(x),
 				synchronous: Some((_, y)),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "const", "sync", code)?;
+				report_contradicting_qualifier(x, y, "const", "sync")?;
 			},
 			CombinedQualifiers {
 				constant: Some(x),
 				asynchronous: Some(y),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "const", "async", code)?;
+				report_contradicting_qualifier(x, y, "const", "async")?;
 			},
 			CombinedQualifiers {
 				constant: Some(x),
 				clock: Some(y),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "const", "clock", code)?;
+				report_contradicting_qualifier(x, y, "const", "clock")?;
 			},
 			CombinedQualifiers {
 				comb: Some((_, x)),
 				synchronous: Some((_, y)),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "comb", "sync", code)?;
+				report_contradicting_qualifier(x, y, "comb", "sync")?;
 			},
 			CombinedQualifiers {
 				comb: Some((_, x)),
 				asynchronous: Some(y),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "comb", "async", code)?;
+				report_contradicting_qualifier(x, y, "comb", "async")?;
 			},
 			CombinedQualifiers {
 				comb: Some((_, x)),
 				clock: Some(y),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "comb", "clock", code)?;
+				report_contradicting_qualifier(x, y, "comb", "clock")?;
 			},
 			CombinedQualifiers {
 				synchronous: Some((_, x)),
 				clock: Some(y),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "sync", "clock", code)?;
+				report_contradicting_qualifier(x, y, "sync", "clock")?;
 			},
 			CombinedQualifiers {
 				synchronous: Some((_, x)),
 				asynchronous: Some(y),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "sync", "async", code)?;
+				report_contradicting_qualifier(x, y, "sync", "async")?;
 			},
 			CombinedQualifiers {
 				asynchronous: Some(x),
 				clock: Some(y),
 				..
 			} => {
-				report_contradicting_qualifier(x, y, "async", "clock", code)?;
+				report_contradicting_qualifier(x, y, "async", "clock")?;
 			},
 			_ => (),
 		};
@@ -141,7 +141,6 @@ fn report_contradicting_qualifier(
 	location_second: &SourceSpan,
 	name_first: &str,
 	name_second: &str,
-	code: &SourceWithName,
 ) -> miette::Result<()> {
 	Err(miette::Report::new(
 		SemanticError::ContradictingQualifier
@@ -163,6 +162,5 @@ fn report_contradicting_qualifier(
 				.as_str(),
 			)
 			.build(),
-	)
-	.with_source_code(code.clone().into_named_source()))
+	))
 }

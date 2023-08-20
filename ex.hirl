@@ -1,27 +1,13 @@
 package examples::pipelined_is_prime;  
-impl FOO {
-     input   {  
-        int FOO; 
-        }
-    } 
-impl FOO { }
-impl BAR { } 
-
-module BAR {  } 
-module BAR { 
-        bool FOO; 
-   }
    
 module BAR {  
-    const {
-        int dupa;
-        input async d;
-        input {
+        input comb(!b,c,a) d;
+        input bus<(10 + 0b1101s)> x[0x16];
+        input clock{
             wire a;
             wire b;
             wire c;
         }
-    }
     /*"Lorem ipsum dolor sit amet, consectetur adipiscing elit,
      sed do eiusmod tempor incididunt ut labore et dolore magna ali
      qua. Ut enim ad minim veniam, quis nostrud exercitation ullamco laboris nisi ut al
@@ -29,7 +15,8 @@ module BAR {
      dolore eu fugiat nulla pariatur. Excepteur sint occaecat cupidatat non proident, sunt in culpa qui officia deserunt mollit anim 
      id est laborum."*/
 }
-module BARY {  
+module FOO { 
+    int xx; 
     const {
         input d;
         input {
@@ -39,7 +26,7 @@ module BARY {
         }
     }
 }  
- impl FOO {     
+ impl FOOL {     
     super::super::Bar::m dd{         aa:b,     }
     root::Bar::dupa::m dd{
         aa:b,     }

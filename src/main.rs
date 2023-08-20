@@ -213,10 +213,8 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 				// tokenize and parse
 				let (parsed, source) = parse_file(code)?;
 				let name = Path::new(&file_name).to_str().unwrap().to_string();
-				let named = hdllang::core::SourceWithName::new(
-					name,
-					source);
-				let paths = hdllang::analyzer::combine(&parsed.id_table, &parsed.ast_root, named, String::from(current_directory),&mut map)?;
+				let paths = hdllang::analyzer::combine(&parsed.id_table, &parsed.nc_table, &parsed.ast_root, String::from(current_directory),&mut map)
+					.map_err(|e|e.with_source_code(miette::NamedSource::new( name, source)))?;
 				for path in paths {
 					file_queue.push_back(path);
 				}

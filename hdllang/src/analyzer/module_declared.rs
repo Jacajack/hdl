@@ -1,9 +1,9 @@
 use crate::lexer::IdTableKey;
-use super::Scope;
+use super::ModuleDeclarationScope;
 
 #[derive(Debug)]
 pub struct ModuleDeclared {
 	pub name: IdTableKey,
-	pub scope: Scope,
+	pub scope: ModuleDeclarationScope,
 	pub is_generic: bool,
 }

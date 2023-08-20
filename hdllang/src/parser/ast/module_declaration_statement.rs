@@ -1,7 +1,6 @@
 mod pretty_printable;
 
-use crate::analyzer::{Scope, SemanticError, VariableDeclared};
-use crate::core::SourceWithName;
+use crate::analyzer::{ModuleDeclarationScope, SemanticError, VariableDeclared};
 use crate::lexer::IdTable;
 use crate::{lexer::CommentTableKey, analyzer::CombinedQualifiers};
 use crate::parser::ast::SourceLocation;
@@ -35,14 +34,13 @@ impl ModuleDeclarationStatement {
 	pub fn analyze(
 		&self,
 		mut already_combined: CombinedQualifiers,
-		scope: &mut Scope,
+		scope: &mut ModuleDeclarationScope,
 		id_table: &IdTable,
-		code: &SourceWithName,
 	) -> miette::Result<()> {
 		match self {
 			ModuleDeclarationStatement::VariableDeclarationStatement (declaration) => {
-				already_combined = analyze_qualifiers(&declaration.type_declarator.qualifiers, already_combined, code)?;
-				analyze_specifier(&declaration.type_declarator.specifier, &already_combined, code)?;
+				already_combined = analyze_qualifiers(&declaration.type_declarator.qualifiers, already_combined)?;
+				analyze_specifier(&declaration.type_declarator.specifier, &already_combined)?;
 
 				for direct_declarator in &declaration.direct_declarators {
 					if let Some(location) = scope.is_declared(&direct_declarator.name) {
@@ -67,7 +65,7 @@ impl ModuleDeclarationStatement {
 								)
 								.build(),
 						)
-						.with_source_code(code.clone().into_named_source()));
+						);
 					}
 					if already_combined.input.is_none()
 						&& already_combined.output.is_none()
@@ -80,7 +78,7 @@ impl ModuleDeclarationStatement {
 										SemanticError::MissingDirectionQualifier.to_diagnostic_builder()
 												.label(direct_declarator.get_location(), format!("Variable with name \"{}\" is not qualified as either output, input or tristate.", id_table.get_by_key(&direct_declarator.name).unwrap()).as_str())	
 												.build()
-												).with_source_code(code.clone().into_named_source())),
+												)),
 							};
 					}
 					let variable = VariableDeclared {
@@ -88,16 +86,15 @@ impl ModuleDeclarationStatement {
 						qualifiers: already_combined.clone(),
 						specifier: declaration.type_declarator.specifier.clone(),
 						array: direct_declarator.array_declarators.clone(),
+						array_compiled: None,
 					};
-					scope
-						.variables
-						.insert(direct_declarator.name, (variable, direct_declarator.get_location()));
+					scope.declare(direct_declarator.name, variable, direct_declarator.get_location());
 				}
 			},
 			ModuleDeclarationStatement::VariableBlock (block) => {
-				already_combined = analyze_qualifiers(&block.types, already_combined, code)?;
+				already_combined = analyze_qualifiers(&block.types, already_combined)?;
 				for statement in &block.statements {
-					statement.analyze(already_combined.clone(), scope, id_table, code)?;
+					statement.analyze(already_combined.clone(), scope, id_table)?;
 				}
 			},
 		};
@@ -108,74 +105,73 @@ impl ModuleDeclarationStatement {
 fn analyze_qualifiers(
 	type_qualifiers: &Vec<TypeQualifier>,
 	mut already_combined: CombinedQualifiers,
-	code: &SourceWithName,
 ) -> miette::Result<CombinedQualifiers> {
 	for q in type_qualifiers {
 		match q {
 			TypeQualifier::Signed { location } => {
 				if let Some(prev) = &already_combined.signed {
-					report_duplicated_qualifier(location, prev, "signed", code)?;
+					report_duplicated_qualifier(location, prev, "signed")?;
 				}
 				already_combined.signed = Some(*location);
 			},
 			TypeQualifier::Unsigned { location } => {
 				if let Some(prev) = &already_combined.unsigned {
-					report_duplicated_qualifier(location, prev, "unsigned", code)?;
+					report_duplicated_qualifier(location, prev, "unsigned")?;
 				}
 				already_combined.unsigned = Some(*location);
 			},
 			TypeQualifier::Tristate { location } => {
 				if let Some(prev) = &already_combined.tristate {
-					report_duplicated_qualifier(location, prev, "tristate", code)?;
+					report_duplicated_qualifier(location, prev, "tristate")?;
 				}
 				already_combined.tristate = Some(*location);
 			},
 			TypeQualifier::Const { location } => {
 				if let Some(prev) = &already_combined.constant {
-					report_duplicated_qualifier(location, prev, "const", code)?;
+					report_duplicated_qualifier(location, prev, "const")?;
 				}
 				already_combined.constant = Some(*location);
 			},
 			TypeQualifier::Clock { location } => {
 				if let Some(prev) = &already_combined.clock {
-					report_duplicated_qualifier(location, prev, "clock", code)?;
+					report_duplicated_qualifier(location, prev, "clock")?;
 				}
 				already_combined.clock = Some(*location);
 			},
 			TypeQualifier::Comb (comb) => {
 				if let Some(prev) = &already_combined.comb {
-					report_duplicated_qualifier(&comb.location, &prev.1, "comb", code)?;
+					report_duplicated_qualifier(&comb.location, &prev.1, "comb")?;
 				}
-				already_combined.comb = Some((comb.expression.clone(), comb.location));
+				already_combined.comb = Some((comb.expressions.clone(), comb.location));
 			},
 			TypeQualifier::Sync (sync) => {
 				if let Some(prev) = &already_combined.synchronous {
-					report_duplicated_qualifier(&sync.location, &prev.1, "sync", code)?;
+					report_duplicated_qualifier(&sync.location, &prev.1, "sync")?;
 				}
 				already_combined.synchronous = Some((sync.expressions.clone(), sync.location));
 			},
 			TypeQualifier::Input { location } => {
 				if let Some(prev) = &already_combined.input {
-					report_duplicated_qualifier(location, prev, "input", code)?;
+					report_duplicated_qualifier(location, prev, "input")?;
 				}
 				already_combined.input = Some(*location);
 			},
 			TypeQualifier::Output { location } => {
 				if let Some(prev) = &already_combined.output {
-					report_duplicated_qualifier(location, prev, "output", code)?;
+					report_duplicated_qualifier(location, prev, "output")?;
 				}
 				already_combined.output = Some(*location);
 			},
 			TypeQualifier::Async { location } => {
 				if let Some(prev) = &already_combined.asynchronous {
-					report_duplicated_qualifier(location, prev, "async", code)?;
+					report_duplicated_qualifier(location, prev, "async")?;
 				}
 				already_combined.asynchronous = Some(*location);
 			},
 		};
 
 	}
-	already_combined.check_for_contradicting(code)?;
+	already_combined.check_for_contradicting()?;
 	Ok(already_combined)
 }
 
@@ -183,7 +179,6 @@ fn report_duplicated_qualifier(
 	location: &SourceSpan,
 	first_occurence: &SourceSpan,
 	name: &str,
-	code: &SourceWithName,
 ) -> miette::Result<()> {
 	Err(miette::Report::new(
 		SemanticError::DuplicateQualifier
@@ -198,13 +193,12 @@ fn report_duplicated_qualifier(
 			)
 			.build(),
 	)
-	.with_source_code(code.clone().into_named_source()))
+	)
 }
 
 fn analyze_specifier(
 	type_specifier: &TypeSpecifier,
 	already_combined: &CombinedQualifiers,
-	code: &SourceWithName,
 ) -> miette::Result<()> {
 	match type_specifier {
 		TypeSpecifier::Auto { location } => {
@@ -214,13 +208,13 @@ fn analyze_specifier(
 					.label(*location, "This specifier is not allowed in a declaration")
 					.build(),
 			)
-			.with_source_code(code.clone().into_named_source()))
+			)
 		},
 		TypeSpecifier::Wire { location } => {
 			if let Some(location2) = &already_combined.signed {
-				report_qualifier_contradicting_specifier(location2, location, "unsigned", "wire", code)?;
+				report_qualifier_contradicting_specifier(location2, location, "unsigned", "wire")?;
 			} else if let Some(location2) = &already_combined.unsigned {
-				report_qualifier_contradicting_specifier(location2, location, "unsigned", "wire", code)?;
+				report_qualifier_contradicting_specifier(location2, location, "unsigned", "wire")?;
 			}
 			Ok(())
 		},
@@ -228,16 +222,11 @@ fn analyze_specifier(
 	}
 }
 
-
-
-
-
 fn report_qualifier_contradicting_specifier(
 	location1: &SourceSpan,
 	location2: &SourceSpan,
 	qualifier_name: &str,
 	specifier_name: &str,
-	code: &SourceWithName,
 ) -> miette::Result<()> {
 	Err(miette::Report::new(
 		SemanticError::ContradictingSpecifier
@@ -256,7 +245,7 @@ fn report_qualifier_contradicting_specifier(
 			)
 			.build(),
 	)
-	.with_source_code(code.clone().into_named_source()))
+	)
 }
 
 impl SourceLocation for ModuleDeclarationStatement {

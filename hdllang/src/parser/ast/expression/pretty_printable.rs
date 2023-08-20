@@ -64,7 +64,7 @@ impl PrettyPrintable for Expression {
 				Ok(())
 			},
 			PostfixWithArgs (postfix) => {
-				postfix.expression.pretty_print(ctx)?;
+				ctx.write(format!("{}", ctx.get_id(postfix.id)).as_str())?;
 				ctx.write("(")?;
 				for (i, expression) in postfix.argument_list.iter().enumerate() {
 					expression.pretty_print(ctx)?;

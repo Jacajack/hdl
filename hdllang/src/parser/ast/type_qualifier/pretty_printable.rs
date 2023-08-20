@@ -6,7 +6,12 @@ use super::{Comb, Sync};
 impl PrettyPrintable for Comb{
 	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
 		ctx.write("comb(")?;
-		self.expression.pretty_print(ctx)?;
+		for (i, expr) in self.expressions.iter().enumerate() {
+			if i != 0 {
+				ctx.write(", ")?;
+			}
+			expr.pretty_print(ctx)?;
+		}
 		ctx.write(")")
 	}
 }

@@ -22,7 +22,25 @@ pub enum SemanticError {
 	#[error ("It is not allowed to declare a variable with the same name as the other variable in this scope")]
 	DuplicateVariableDeclaration,
 	#[error ("It is not allowed to declare multiple modules with the same name")]
-	MultipleModuleDeclaration
+	MultipleModuleDeclaration,
+	#[error ("Every signal in mentioned in with \"sync\" qualifier must be marked as clock")]
+	NotClockSignalInSync,
+	#[error ("It is not allowed to use other expression than identifier or negated identifier in \"sync\" and \"comb\" qualifiers")]
+	ForbiddenExpressionInSyncOrComb,
+	#[error ("It is not allowed to use an identfier that does not represent any declared variable")]
+	VariableNotDeclared,
+	#[error ("It is not allowed to use a non-generic type variable in an expression")]
+	NonGenericTypeVariableInExpression,
+	#[error ("It is not allowed for variable to reference itself via qualifiers \"sync\" or \"comb\"")]
+	VariableReferencingItself,
+	#[error ("It is not allowed to shift by a negative number")]
+	ShiftByNegativeNumber,
+	#[error ("It is not allowed to divide by zero")]
+	DivisionByZero,
+	#[error ("It is not allowed to use a negative number as a bus width")]
+	NegativeBusWidth,
+	#[error ("Compiler could not find a generic module implementation for this module in the same file.")]
+	GenericModuleImplementationNotFound,
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -58,6 +76,33 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
     		MissingDirectionQualifier => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Each variable must have a direction qualifier or be marked as \"tristate\"")
+				.build(),
+    		NotClockSignalInSync => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Mark proper signal as \"clock\"")
+				.build(),
+			ForbiddenExpressionInSyncOrComb => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Use only identifier or negated identifier in \"sync\" qualifier")
+				.build(),
+    		VariableNotDeclared => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please declare this variable, or change this identfier to the one that is declared.")
+				.build(),
+    		NonGenericTypeVariableInExpression => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Use only generic type variables in expressions inside module declarations.")
+				.build(),
+    		VariableReferencingItself => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please remove this variable from its \"sync\" or \"comb\" qualifier.")
+				.build(),
+    		ShiftByNegativeNumber => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please use only positive numbers in shift expressions.")
+				.build(),
+    		DivisionByZero => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please use only non-zero numbers as a  divisors.")
+				.build(),
+    		NegativeBusWidth => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please use only positive numbers as a bus width.")
+				.build(),
+    		GenericModuleImplementationNotFound => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please provide implementation of this module in the same file.")
 				.build(),
 		}
 	}

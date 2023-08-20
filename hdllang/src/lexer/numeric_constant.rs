@@ -1,4 +1,4 @@
-use crate::core::WideUint;
+use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -11,7 +11,7 @@ pub enum NumericConstantBase {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NumericConstant {
-	pub value: WideUint,
+	pub value: BigInt,
 	pub width: Option<u32>,
 	pub signed: Option<bool>,
 	pub base: Option<NumericConstantBase>,
@@ -21,7 +21,7 @@ impl NumericConstant {
 	/// Creates a new numeric constant from u64
 	pub fn from_u64(value: u64, width: Option<u32>, signed: Option<bool>, base: Option<NumericConstantBase>) -> Self {
 		let num = Self {
-			value: WideUint::from_u64(value),
+			value: BigInt::from(value),
 			width,
 			signed,
 			base,
@@ -30,12 +30,19 @@ impl NumericConstant {
 		num
 	}
 
+	fn count_ones(&self) -> u32 {
+		let mut ones = 0;
+		for d in self.value.iter_u32_digits(){
+			ones += d.count_ones();
+		}
+		ones
+	}
 	/// Internal consistency checks
 	fn consistency_check(&self) -> bool {
 		// Boolean constants
 		if matches!(self.base, Some(NumericConstantBase::Boolean))
-			&& self.value != WideUint::from_u64(0)
-			&& self.value != WideUint::from_u64(1)
+			&& self.value != BigInt::from(0u32)
+			&& self.value != BigInt::from(1u32)
 		{
 			return false;
 		}
@@ -83,14 +90,14 @@ impl NumericConstant {
 	/// Returns if the number can be represented with the specifed
 	/// number of bits and signedness
 	pub fn is_representable_as_positive(&self) -> Option<bool> {
-		self.get_effective_bits().map(|n| self.value.bits_required() <= n)
+		self.get_effective_bits().map(|n| self.value.bits()as u32 <= n)
 	}
 
 	/// Returns if the number can be represented with the specifed
 	/// number of bits and signedness when negated
 	pub fn is_representable_as_negative(&self) -> Option<bool> {
 		self.get_effective_bits().map(|n| {
-			self.value.bits_required() <= n || (self.value.bits_required() == n + 1 && self.value.count_ones() == 1)
+			self.value.bits() as u32 <= n || (self.value.bits() as u32 == n + 1 && self.count_ones() as u32 == 1)
 		})
 	}
 
@@ -119,7 +126,7 @@ impl NumericConstant {
 
 		// Special case for boolean constants
 		if matches!(self.base, Some(Boolean)) {
-			return if self.value.count_ones() == 0 {
+			return if self.count_ones() == 0 {
 				"false".to_string()
 			}
 			else {
@@ -148,7 +155,7 @@ impl NumericConstant {
 		format!(
 			"{}{}{}{}",
 			radix_prefix,
-			self.value.to_string_radix(radix),
+			self.value.to_str_radix(radix),
 			self.signed.map_or("", |s| if s { "s" } else { "u" }),
 			self.width.map_or("".to_string(), |w| w.to_string())
 		)

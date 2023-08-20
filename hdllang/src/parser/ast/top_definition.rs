@@ -1,10 +1,9 @@
 mod pretty_printable;
 
 use crate::ProvidesCompilerDiagnostic;
-use crate::analyzer::{SemanticError, ModuleDeclared, Scope, CombinedQualifiers};
-use crate::core::SourceWithName;
+use crate::analyzer::{SemanticError, ModuleDeclared, ModuleDeclarationScope, CombinedQualifiers};
 use crate::lexer::IdTable;
-use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation, TypeSpecifier};
+use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
 use crate::{lexer::CommentTableKey, lexer::IdTableKey, SourceSpan};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -22,7 +21,7 @@ impl ModuleDeclaration {
 	pub fn analyze(
 		&self,
 		id_table: &IdTable,
-		source_code: &SourceWithName,
+		nc_table: &crate::lexer::NumericConstantTable,
 		modules_declared: &mut HashMap<IdTableKey, (ModuleDeclared, SourceSpan)>,
 	) -> miette::Result<()> {
 		use log::debug;
@@ -38,35 +37,31 @@ impl ModuleDeclaration {
 					.label(self.location, "Module with this name is already declared.")
 					.build(),
 			)
-			.with_source_code(source_code.clone().into_named_source()));
+			);
 		}
-		let mut scope = Scope::new();
+		let mut scope = ModuleDeclarationScope::new();
 		for statement in &self.statements {
-			statement.analyze(CombinedQualifiers::new(), &mut scope, id_table, &source_code)?;
+			statement.analyze(CombinedQualifiers::new(), &mut scope, id_table)?;
 		}
-		let mut is_generic = false;
-		for (var, _loc) in scope.variables.values() {
-			match var.specifier {
-				TypeSpecifier::Int { .. } | TypeSpecifier::Bool { .. } => is_generic = true,
-				_ => continue,
-			};
-		}
-		let m = ModuleDeclared {
-			name: self.id,
-			scope,
-			is_generic,
-		};
+		
+		let is_generic = scope.is_generic();
 		if is_generic {
 			debug!(
 				"Found generic module declaration for {:?}",
 				id_table.get_by_key(&self.id).unwrap()
 			);
 		} else {
+			scope.analyze(id_table, nc_table)?;
 			debug!(
 				"Found module declaration for {:?}",
 				id_table.get_by_key(&self.id).unwrap()
 			);
 		}
+		let m = ModuleDeclared {
+			name: self.id,
+			scope,
+			is_generic,
+		};
 		modules_declared.insert(self.id, (m, self.location));
 		Ok(())
 	}
@@ -88,7 +83,6 @@ pub struct PackageDeclaration {
 }
 impl PackageDeclaration {
 	pub fn analyze(&self, id_table: &IdTable,
-		source_code: &SourceWithName,
 		path_from_root: &String,
 		present_files: &mut HashMap<String, String>,
 		) -> miette::Result<String> {
@@ -104,7 +98,7 @@ impl PackageDeclaration {
 						.label(self.location, "You should declare only one package at a time.")
 						.build(),
 				)
-				.with_source_code(source_code.clone().into_named_source()))
+				)
 			},
 			Specific { modules } => {
 				if modules.len() != 1 {
@@ -113,7 +107,7 @@ impl PackageDeclaration {
 							.label(self.location, "You should declare only one package at a time.")
 							.build(),
 					)
-					.with_source_code(source_code.clone().into_named_source()));
+					);
 				}
 
 				let path = self
@@ -129,7 +123,7 @@ impl PackageDeclaration {
 							.label(self.location, &format!("Package not found: {}", path))
 							.build(),
 					)
-					.with_source_code(source_code.clone().into_named_source()));
+					);
 				}
 
 				let hash = try_digest(&path).unwrap();
@@ -144,7 +138,7 @@ impl PackageDeclaration {
 							.label(self.location, create_label_message(file_name).as_str())
 							.build(),
 					)
-					.with_source_code(source_code.clone().into_named_source()));
+					);
 				}
 
 				debug!("File not packaged yet");

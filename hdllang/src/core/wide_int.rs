@@ -7,14 +7,14 @@ use serde::{Deserialize, Serialize};
 /// Backbone of all integer operations in the compiler
 #[derive(Clone, Add, Display, Serialize, Deserialize)]
 pub struct WideInt {
-	value: BigInt,
+	pub value: BigInt,
 }
 
 /// Dynamic-wdith unsigned integer
 /// Backbone of all integer operations in the compiler
 #[derive(Clone, Display, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct WideUint {
-	value: BigUint,
+	pub value: BigUint,
 }
 
 impl WideUint {
