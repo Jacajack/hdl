@@ -2,7 +2,7 @@ package examples::pipelined_is_prime;
    
 module BAR {  
         input comb(!b,c,a) d;
-        input bus<(10 + 0b1101s)> x[0x16];
+        input bus<(10 + 0b1101s + 0b1101u)> x[0x16s];
         input clock{
             wire a;
             wire b;
@@ -26,7 +26,7 @@ module FOO {
         }
     }
 }  
- impl FOOL {     
+ impl FOO {     
     super::super::Bar::m dd{         aa:b,     }
     root::Bar::dupa::m dd{
         aa:b,     }

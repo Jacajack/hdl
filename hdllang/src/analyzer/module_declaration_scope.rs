@@ -136,26 +136,26 @@ impl ModuleDeclarationScope {
 				match &mut variable.specifier{
 					Bus(bus) =>  {
 						let val = bus.width.evaluate_in_declaration( nc_table )?;
-						debug!("Bus width is {}", val);
-						if val.is_negative(){
+						debug!("Bus width is {}", val.value);
+						if val.value.is_negative(){
 							return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder()
 							.label(bus.location, "Bus width cannot be negative")
 							.build()))
 						}
-						bus.compiled_width = Some(val);
+						bus.compiled_width = Some(val.value);
 					},
 					_ => (),
 				};
 				let mut compiled_array = Vec::new();
 				for expr in &variable.array{
 					let val = expr.evaluate_in_declaration( nc_table )?;
-					debug!("Array size is {}", val);
-					if val.is_negative(){
+					debug!("Array size is {}", val.value);
+					if val.value.is_negative(){
 						return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder()
 						.label(crate::parser::ast::SourceLocation::get_location(expr), "Array size cannot be negative")
 						.build()))
 					}
-					compiled_array.push(val);
+					compiled_array.push(val.value);
 				}
 				variable.array_compiled = Some(compiled_array);
 				variable.array=vec![];

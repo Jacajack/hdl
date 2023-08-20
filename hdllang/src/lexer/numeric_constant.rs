@@ -1,3 +1,4 @@
+use log::debug;
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 
@@ -30,6 +31,54 @@ impl NumericConstant {
 		num
 	}
 
+	pub fn new(value: BigInt, width: Option<u32>, signed: Option<bool>, base: Option<NumericConstantBase>) -> Self {
+		let num = Self {
+			value,
+			width,
+			signed,
+			base,
+		};
+		debug!("Created numeric constant: {:?}", num);
+		assert!(num.consistency_check());
+		num
+	}
+
+	pub fn new_from_unary(other: Self, operation: fn(BigInt)->BigInt) -> Self {
+		let num = Self {
+			value: operation(other.value),
+			width: other.width,
+			signed: other.signed,
+			base: other.base,
+		};
+		debug!("Created numeric constant: {:?}", num);
+		assert!(num.consistency_check());
+		num
+	}
+
+	pub fn new_from_binary(other1: Self, other2: Self, operation: fn(BigInt, BigInt)->BigInt) -> Self {
+		let num = Self {
+			value: operation(other1.value, other2.value),
+			width: other1.width,
+			signed: if let Some(s1) = other1.signed {
+				Some(s1 || other2.signed.unwrap_or(false))
+			}
+			else {
+				other2.signed
+			},
+			base: other1.base,
+		};
+		debug!("Created numeric constant: {:?}", num);
+		assert!(num.consistency_check());
+		num
+	}
+
+	pub fn new_true() -> Self {
+		Self::from_u64(1, Some(1), Some(false), Some(NumericConstantBase::Boolean))
+	}
+
+	pub fn new_false() -> Self {
+		Self::from_u64(0, Some(1), Some(false), Some(NumericConstantBase::Boolean))
+	}
 	fn count_ones(&self) -> u32 {
 		let mut ones = 0;
 		for d in self.value.iter_u32_digits(){

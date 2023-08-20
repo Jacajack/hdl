@@ -1,5 +1,6 @@
 use crate::{compiler_diagnostic::*, lexer::numeric_constant::NumericConstantBase};
 use std::fmt;
+use log::debug;
 use num_bigint::BigInt;
 use thiserror::Error;
 
@@ -58,33 +59,55 @@ impl ProvidesCompilerDiagnostic for NumberParseError {
 }
 
 /// Parses a pure decimal number
-fn parse_pure_decimal(s: &str) -> Result<u64, NumberParseError> {
-	println!("dec: {:?}, bigint: {:?}",s, BigInt::parse_bytes(s.as_bytes(), 10).unwrap());
-	u64::from_str_radix(s, 10).map_err(|_| NumberParseError {
-		kind: NumericConstantParseErrorKind::BadDecimalDigit,
-		range: (0, s.len()),
-	})
+fn parse_pure_decimal(s: &str) -> Result<BigInt, NumberParseError> {
+	BigInt::parse_bytes(s.as_bytes(), 10).map_or_else(||
+		Err(NumberParseError {
+			kind: NumericConstantParseErrorKind::BadBinaryDigit,
+			range: (0, s.len()),
+		}), |f|{
+			debug!("dec: {:?}, bigint: {:?}",s, f);
+			Ok(f)
+		})
 }
 
 /// Parses a pure hex number
-fn parse_pure_hex(s: &str) -> Result<u64, NumberParseError> {
-	println!("hex: {:?}, bigint: {:?}",s, BigInt::parse_bytes(s.as_bytes(), 16).unwrap());
-	u64::from_str_radix(s, 16).map_err(|_| NumberParseError {
-		kind: NumericConstantParseErrorKind::BadHexDigit,
-		range: (0, s.len()),
-	})
+fn parse_pure_hex(s: &str) -> Result<BigInt, NumberParseError> {
+	BigInt::parse_bytes(s.as_bytes(), 16).map_or_else(||
+		Err(NumberParseError {
+			kind: NumericConstantParseErrorKind::BadBinaryDigit,
+			range: (0, s.len()),
+		}), |f|{
+			debug!("hex: 0x{:?}, bigint: {:?}",s, f);
+			Ok(f)
+		})
 }
 
 /// Parses a pure binary number
-fn parse_pure_binary(s: &str) -> Result<u64, NumberParseError> {
-	
-	println!("bin: {:?}, bigint: {:?}",s, BigInt::parse_bytes(s.as_bytes(), 2).unwrap());
-	u64::from_str_radix(s, 2).map_err(|_| NumberParseError {
-		kind: NumericConstantParseErrorKind::BadBinaryDigit,
-		range: (0, s.len()),
-	})
+fn parse_pure_binary(s: &str) -> Result<BigInt, NumberParseError> {
+	BigInt::parse_bytes(s.as_bytes(), 2).map_or_else(||
+		Err(NumberParseError {
+			kind: NumericConstantParseErrorKind::BadBinaryDigit,
+			range: (0, s.len()),
+		}), |f|{
+			debug!("bin: 0b{:?}, bigint: {:?}",s, f);
+			Ok(f)
+		})
 }
 
+fn parse_two_complement(s: &str)-> Result<String, NumberParseError>{
+	let mut  new = String::new();
+	for char in s.chars(){
+		match char{
+			'0' => new.push('1'),
+			'1' => new.push('0'),
+			_ =>  return Err(NumberParseError {
+				kind: NumericConstantParseErrorKind::BadBinaryDigit,
+				range: (0, s.len()),
+			}),
+		}
+	}
+	Ok(new)
+}
 /// Parses numeric constant strings
 pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberParseError> {
 	// These two should be enforced by the regex in the lexer
@@ -130,6 +153,12 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 	let base;
 	let value = if s.starts_with("0x") {
 		base = NumericConstantBase::Hexadecimal;
+		//if num_bits.is_none() {
+		//	num_bits = Some(4 * (digits_end - 2) as u32);
+		//	if is_signed.is_none() {
+		//		is_signed = Some(false);
+		//	}
+		//}
 		parse_pure_hex(&s[2..digits_end]).map_err(|e| NumberParseError {
 			kind: e.kind,
 			range: (0, token_len),
@@ -137,18 +166,46 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 	}
 	else if s.starts_with("0b") {
 		base = NumericConstantBase::Binary;
-		parse_pure_binary(&s[2..digits_end]).map_err(|e| NumberParseError {
+		match is_signed {
+			Some(true) => {
+				if s.starts_with("0b1"){
+					debug!("s: {:?}", &s[2..digits_end]);
+					let mut val = parse_pure_binary(parse_two_complement(&s[3..digits_end])?.as_str()).map_err(|e| NumberParseError {
+						kind: e.kind,
+						range: (0, token_len)})?;
+					debug!("val: {:?}", val);
+					val += 1;
+					debug!("val: {:?}", val);
+					val *= -1;
+					debug!("val: {:?}", val);
+					val
+				} else {
+					parse_pure_binary(&s[3..digits_end]).map_err(|e| NumberParseError {
+						kind: e.kind,
+						range: (0, token_len)})?
+					}
+			},
+			Some(false) => parse_pure_binary(&s[2..digits_end]).map_err(|e| NumberParseError {
 			kind: e.kind,
 			range: (0, token_len),
-		})?
+		})?,
+			None => parse_pure_binary(&s[2..digits_end]).map_err(|e| NumberParseError {
+			kind: e.kind,
+			range: (0, token_len),
+		})?,
+		}
+		//parse_pure_binary(&s[2..digits_end]).map_err(|e| NumberParseError {
+		//	kind: e.kind,
+		//	range: (0, token_len),
+		//})?
 	}
 	else {
 		base = NumericConstantBase::Decimal;
 		parse_pure_decimal(&s[0..digits_end])?
 	};
-
+	debug!("value: {:?}", value);
 	// Create the constant and check if it's valid
-	let constant = NumericConstant::from_u64(value, num_bits, is_signed, Some(base));
+	let constant = NumericConstant::new(value, num_bits, is_signed, Some(base));
 
 	// Check if the number can be represented with this number of bits
 	if matches!(constant.is_representable(), Some(false)) {
@@ -164,11 +221,10 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::core::WideUint;
 
 	fn check_parse(s: &str, value: u64, num_bits: Option<u32>, is_signed: Option<bool>) {
 		let number = parse_numeric_constant_str(s).unwrap();
-		assert_eq!(number.value, WideUint::from_u64(value));
+		assert_eq!(number.value, BigInt::from(value));
 		assert_eq!(number.width, num_bits);
 		assert_eq!(number.signed, is_signed);
 	}

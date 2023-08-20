@@ -1,5 +1,3 @@
-package super::ex;
-package super::ex;
 
 module pipelined_is_prime {
 	input clock clk;

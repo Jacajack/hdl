@@ -9,10 +9,10 @@ pub enum RangeOpcode {
 }
 #[derive(Serialize, Deserialize, Copy, Clone)]
 pub enum UnaryOpcode {
-	BitwiseNot,
-	LogicalNot,
-	Minus,
-	Plus,
+	BitwiseNot, // ~
+	LogicalNot, // !
+	Minus, // -
+	Plus, // +
 }
 #[derive(Serialize, Deserialize, Copy, Clone)]
 pub enum BinaryOpcode {

@@ -14,13 +14,12 @@ mod tuple;
 mod unary_cast_expression;
 mod unary_operator_expression;
 use crate::analyzer::SemanticError;
-use crate::lexer::IdTableKey;
+use crate::lexer::{IdTableKey, NumericConstantBase};
 use crate::parser::ast::{opcodes::*, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName};
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 pub use binary_expression::BinaryExpression;
 pub use conditional_expression::ConditionalExpression;
 pub use identifier::Identifier;
-use log::debug;
 pub use match_expression::MatchExpression;
 use num_traits::Zero;
 pub use number::Number;
@@ -36,7 +35,7 @@ pub use unary_cast_expression::UnaryCastExpression;
 pub use unary_operator_expression::UnaryOperatorExpression;
 
 use num_bigint::{BigInt, Sign};
-
+use crate::lexer::NumericConstant;
 #[derive(serde::Serialize, serde::Deserialize, Clone)]
 pub enum Expression {
 	Number(Number),
@@ -165,7 +164,7 @@ impl Expression {
 			},
 		}
 	}
-	pub fn evaluate_in_declaration(&self, nc_table: &crate::lexer::NumericConstantTable) -> miette::Result<BigInt> {
+	pub fn evaluate_in_declaration(&self, nc_table: &crate::lexer::NumericConstantTable) -> miette::Result<NumericConstant> {
 		match self {
 			Expression::Number(nc_key) => {
 				let constant = nc_table.get_by_key(&nc_key.key).unwrap();
@@ -174,7 +173,7 @@ impl Expression {
 				//		return Ok(signed_big_uint_to_big_int(&constant.value));
 				//	}
 				//
-				Ok(constant.value.clone())
+				Ok(constant.clone())
 			},
 			Expression::Identifier(id) => {
 				return Err(miette::Report::new(
@@ -192,7 +191,7 @@ impl Expression {
 			Expression::ConditionalExpression(_) => todo!(),
 			Expression::Tuple(_) => unreachable!(),
 			Expression::TernaryExpression(tern) => Ok(
-				if tern.condition.evaluate_in_declaration(nc_table)? != BigInt::from(0) {
+				if tern.condition.evaluate_in_declaration(nc_table)?.value != BigInt::from(0) {
 					tern.true_branch.evaluate_in_declaration(nc_table)?
 				} else {
 					tern.false_branch.evaluate_in_declaration(nc_table)?
@@ -206,15 +205,21 @@ impl Expression {
 				use crate::parser::ast::UnaryOpcode::*;
 				match unary.code {
 					LogicalNot => Ok(
-						if unary.expression.evaluate_in_declaration(nc_table)? == BigInt::from(0) {
-							BigInt::from(1)
+						if unary.expression.evaluate_in_declaration(nc_table)?.value == BigInt::from(0) {
+							NumericConstant::new(BigInt::from(1), None, None, Some(NumericConstantBase::Boolean))
 						} else {
-							BigInt::from(0)
+							NumericConstant::new(BigInt::from(0), None, None, Some(NumericConstantBase::Boolean))
 						},
 					),
-					BitwiseNot => Ok(!unary.expression.evaluate_in_declaration(nc_table)?),
-					Minus => Ok(-unary.expression.evaluate_in_declaration(nc_table)?), // catch unsigned
-					Plus => Ok(unary.expression.evaluate_in_declaration(nc_table)?),
+					BitwiseNot => Ok(NumericConstant::new_from_unary(unary.expression.evaluate_in_declaration(nc_table)?,|e| !e)),
+					Minus => { 
+						let other = unary.expression.evaluate_in_declaration(nc_table)?;
+						if let Some(false) = other.signed{
+							// report an error
+						}
+						Ok(NumericConstant::new_from_unary(other,|e| -e))
+					}, // catch unsigned
+					Plus => Ok(NumericConstant::new_from_unary(unary.expression.evaluate_in_declaration(nc_table)?,|e| e*(-1))),
 				}
 			},
 			Expression::UnaryCastExpression(_) => todo!(), // nie bedzie
@@ -222,12 +227,15 @@ impl Expression {
 				use crate::parser::ast::BinaryOpcode::*;
 				match binop.code {
 					Multiplication => {
-						Ok(binop.lhs.evaluate_in_declaration(nc_table)?
-							* binop.rhs.evaluate_in_declaration(nc_table)?)
+						Ok(NumericConstant::new_from_binary(
+							binop.lhs.evaluate_in_declaration(nc_table)?,
+							binop.rhs.evaluate_in_declaration(nc_table)?,
+							|e1, e2| e1 * e2,
+						))
 					},
 					Division => {
 						let rhs = binop.rhs.evaluate_in_declaration(nc_table)?;
-						if rhs.is_zero() {
+						if rhs.value.is_zero() {
 							return Err(miette::Report::new(
 								SemanticError::DivisionByZero
 									.to_diagnostic_builder()
@@ -235,19 +243,25 @@ impl Expression {
 									.build(),
 							));
 						}
-						Ok(binop.lhs.evaluate_in_declaration(nc_table)? / rhs)
+						Ok(NumericConstant::new_from_binary(binop.lhs.evaluate_in_declaration(nc_table)?, rhs, |e1, e2| e1 / e2))
 					},
 					Addition => {
-						Ok(binop.lhs.evaluate_in_declaration(nc_table)?
-							+ binop.rhs.evaluate_in_declaration(nc_table)?)
+						Ok(NumericConstant::new_from_binary(
+							binop.lhs.evaluate_in_declaration(nc_table)?,
+							binop.rhs.evaluate_in_declaration(nc_table)?,
+							|e1, e2| e1 + e2,
+						))
 					},
 					Subtraction => {
-						Ok(binop.lhs.evaluate_in_declaration(nc_table)?
-							- binop.rhs.evaluate_in_declaration(nc_table)?)
+						Ok(NumericConstant::new_from_binary(
+							binop.lhs.evaluate_in_declaration(nc_table)?,
+							binop.rhs.evaluate_in_declaration(nc_table)?,
+							|e1, e2| e1 - e2,
+						))
 					},
 					Modulo => {
 						let rhs = binop.rhs.evaluate_in_declaration(nc_table)?;
-						if rhs.is_zero() {
+						if rhs.value.is_zero() {
 							return Err(miette::Report::new(
 								SemanticError::DivisionByZero
 									.to_diagnostic_builder()
@@ -255,30 +269,46 @@ impl Expression {
 									.build(),
 							));
 						}
-						Ok(binop.lhs.evaluate_in_declaration(nc_table)? % rhs)
+						Ok(NumericConstant::new_from_binary(binop.lhs.evaluate_in_declaration(nc_table)?, rhs, |e1, e2| e1 / e2))
 					},
 					Equal => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?
-							== binop.rhs.evaluate_in_declaration(nc_table)?
+						if binop.lhs.evaluate_in_declaration(nc_table)?.value
+							== binop.rhs.evaluate_in_declaration(nc_table)?.value
 						{
-							BigInt::from(1)
+							NumericConstant::from_u64(
+								1,
+								Some(1),
+								Some(false),
+								Some(NumericConstantBase::Boolean))
 						} else {
-							BigInt::from(0)
+							NumericConstant::from_u64(
+								0,
+								Some(1),
+								Some(false),
+								Some(NumericConstantBase::Boolean))
 						},
 					),
 					NotEqual => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?
-							!= binop.rhs.evaluate_in_declaration(nc_table)?
+						if binop.lhs.evaluate_in_declaration(nc_table)?.value
+							!= binop.rhs.evaluate_in_declaration(nc_table)?.value
 						{
-							BigInt::from(1)
+							NumericConstant::from_u64(
+								1,
+								Some(1),
+								Some(false),
+								Some(NumericConstantBase::Boolean))
 						} else {
-							BigInt::from(0)
+							NumericConstant::from_u64(
+								0,
+								Some(1),
+								Some(false),
+								Some(NumericConstantBase::Boolean))
 						},
 					),
 					LShift => {
 						let mut lhs = binop.lhs.evaluate_in_declaration(nc_table)?;
 						let rhs = binop.rhs.evaluate_in_declaration(nc_table)?;
-						if rhs.sign() == Sign::Minus {
+						if rhs.value.sign() == Sign::Minus {
 							return Err(miette::Report::new(
 								SemanticError::ShiftByNegativeNumber
 									.to_diagnostic_builder()
@@ -287,8 +317,8 @@ impl Expression {
 							));
 						} else {
 							let mut i = BigInt::from(0);
-							while i < rhs {
-								lhs = lhs << 1;
+							while i < rhs.value {
+								lhs.value = lhs.value << 1;
 								i += BigInt::from(1);
 							}
 							Ok(lhs)
@@ -297,7 +327,7 @@ impl Expression {
 					RShift => {
 						let mut lhs = binop.lhs.evaluate_in_declaration(nc_table)?;
 						let rhs = binop.rhs.evaluate_in_declaration(nc_table)?;
-						if rhs.sign() == Sign::Minus {
+						if rhs.value.sign() == Sign::Minus {
 							return Err(miette::Report::new(
 								SemanticError::ShiftByNegativeNumber
 									.to_diagnostic_builder()
@@ -306,73 +336,82 @@ impl Expression {
 							));
 						} else {
 							let mut i = BigInt::from(0);
-							while i < rhs {
-								lhs = lhs >> 1;
+							while i < rhs.value {
+								lhs.value = lhs.value >> 1;
 								i += BigInt::from(1);
 							}
 							Ok(lhs)
 						}
 					},
 					BitwiseAnd => {
-						Ok(binop.lhs.evaluate_in_declaration(nc_table)?
-							& binop.rhs.evaluate_in_declaration(nc_table)?)
+						Ok(NumericConstant::new_from_binary(
+							binop.lhs.evaluate_in_declaration(nc_table)?,
+							binop.rhs.evaluate_in_declaration(nc_table)?,
+							|e1, e2| e1 & e2,
+						))
 					},
 					BitwiseOr => {
-						Ok(binop.lhs.evaluate_in_declaration(nc_table)?
-							| binop.rhs.evaluate_in_declaration(nc_table)?)
+						Ok(NumericConstant::new_from_binary(
+							binop.lhs.evaluate_in_declaration(nc_table)?,
+							binop.rhs.evaluate_in_declaration(nc_table)?,
+							|e1, e2| e1 | e2,
+						))
 					},
 					BitwiseXor => {
-						Ok(binop.lhs.evaluate_in_declaration(nc_table)?
-							^ binop.rhs.evaluate_in_declaration(nc_table)?)
+						Ok(NumericConstant::new_from_binary(
+							binop.lhs.evaluate_in_declaration(nc_table)?,
+							binop.rhs.evaluate_in_declaration(nc_table)?,
+							|e1, e2| e1 ^ e2,
+						))
 					},
 					Less => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)? < binop.rhs.evaluate_in_declaration(nc_table)? {
-							BigInt::from(1)
+						if binop.lhs.evaluate_in_declaration(nc_table)?.value < binop.rhs.evaluate_in_declaration(nc_table)?.value {
+							NumericConstant::new_true()
 						} else {
-							BigInt::from(0)
+							NumericConstant::new_false()
 						},
 					),
 					Greater => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)? > binop.rhs.evaluate_in_declaration(nc_table)? {
-							BigInt::from(1)
+						if binop.lhs.evaluate_in_declaration(nc_table)?.value > binop.rhs.evaluate_in_declaration(nc_table)?.value {
+							NumericConstant::new_true()
 						} else {
-							BigInt::from(0)
+							NumericConstant::new_false()
 						},
 					),
 					LessEqual => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?
-							<= binop.rhs.evaluate_in_declaration(nc_table)?
+						if binop.lhs.evaluate_in_declaration(nc_table)?.value
+							<= binop.rhs.evaluate_in_declaration(nc_table)?.value
 						{
-							BigInt::from(1)
+							NumericConstant::new_true()
 						} else {
-							BigInt::from(0)
+							NumericConstant::new_false()
 						},
 					),
 					GreaterEqual => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?
-							>= binop.rhs.evaluate_in_declaration(nc_table)?
+						if binop.lhs.evaluate_in_declaration(nc_table)?.value
+							>= binop.rhs.evaluate_in_declaration(nc_table)?.value
 						{
-							BigInt::from(1)
+							NumericConstant::new_true()
 						} else {
-							BigInt::from(0)
+							NumericConstant::new_false()
 						},
 					),
 					LogicalAnd => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)? != BigInt::from(0)
-							&& binop.rhs.evaluate_in_declaration(nc_table)? != BigInt::from(0)
+						if binop.lhs.evaluate_in_declaration(nc_table)?.value != BigInt::from(0)
+							&& binop.rhs.evaluate_in_declaration(nc_table)?.value != BigInt::from(0)
 						{
-							BigInt::from(1)
+							NumericConstant::new_true()
 						} else {
-							BigInt::from(0)
+							NumericConstant::new_false()
 						},
 					),
 					LogicalOr => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)? != BigInt::from(0)
-							|| binop.rhs.evaluate_in_declaration(nc_table)? != BigInt::from(0)
+						if binop.lhs.evaluate_in_declaration(nc_table)?.value != BigInt::from(0)
+							|| binop.rhs.evaluate_in_declaration(nc_table)?.value != BigInt::from(0)
 						{
-							BigInt::from(1)
+							NumericConstant::new_true()
 						} else {
-							BigInt::from(0)
+							NumericConstant::new_false()
 						},
 					),
 				}
