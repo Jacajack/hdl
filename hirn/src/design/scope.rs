@@ -1,6 +1,6 @@
 use super::signal::SignalBuilder;
-use super::functional_blocks::BlockInstance;
-use super::Expression;
+use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
+use super::{Expression, ModuleHandle};
 use super::{ScopeId, SignalId, SignalSlice, DesignError, DesignHandle, RegisterBuilder, ModuleId};
 
 /// Scope associated with an if statement
@@ -132,6 +132,9 @@ impl Scope {
 	/// Adds a block instance in this scope
 	fn add_block(&mut self, block: BlockInstance) -> Result<(), DesignError> {
 		self.blocks.push(block);
+
+		// TODO check if all expressions can be evaluated inside this scope
+		
 		Ok(())
 	}
 }
@@ -158,6 +161,10 @@ impl ScopeHandle {
 	/// Returns the ID of the scope
 	pub fn id(&self) -> ScopeId {
 		self.scope
+	}
+
+	pub fn design(&self) -> DesignHandle {
+		self.design.clone()
 	}
 
 	/// Creates a new scope handle
@@ -218,5 +225,10 @@ impl ScopeHandle {
 	/// Creates a new signal in this scope (returns a builder)
 	pub fn new_signal(&mut self) -> Result<SignalBuilder, DesignError> {
 		Ok(SignalBuilder::new(self.design.clone(), self.scope))
+	}
+
+	/// Creates a new module instance in this scope (returns a builder)
+	pub fn new_module(&mut self, module: ModuleHandle) -> Result<ModuleInstanceBuilder, DesignError> {
+		Ok(ModuleInstanceBuilder::new(self.clone(), module))
 	}
 }

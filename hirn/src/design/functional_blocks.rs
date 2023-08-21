@@ -1,4 +1,6 @@
-use super::{ModuleId, Expression, SignalSlice, ScopeHandle, DesignError};
+use std::collections::HashSet;
+
+use super::{ModuleId, ScopeId, Expression, SignalSlice, ScopeHandle, DesignError, DesignHandle, DesignCore, module::SignalDirection, ModuleHandle};
 
 /// Register block
 pub struct Register {
@@ -151,8 +153,82 @@ pub struct FfSync {
 /// Represents an instantiated module
 pub struct ModuleInstance {
 	/// ID of the instantiated module
-	pub module: ModuleId,
-	// TODO binding list
+	pub module: ModuleHandle,
+
+	bindings: Vec<(String, Expression)>
+}
+
+impl ModuleInstance {
+	fn new(module: ModuleHandle, bindings: Vec<(String, Expression)>) -> Result<Self, DesignError> {
+		let new = Self {
+			module: module.clone(),
+			bindings,
+		};
+
+		new.verify_bindings()?;
+		Ok(new)
+	}
+
+	fn verify_bindings(&self) -> Result<(), DesignError> {
+		let mut names = HashSet::new();
+
+		for (name, expr) in &self.bindings {
+			self.verify_binding(name, expr)?;
+			
+			// Catch duplicate bindings
+			if names.contains(name) {
+				return Err(DesignError::DuplicateInterfaceBinding(self.module.id()));
+			}
+
+			names.insert(name);
+		}
+
+		Ok(())
+	}
+
+	fn verify_binding(&self, name: &str, expr: &Expression) -> Result<(), DesignError> {
+		let sig = self.module.get_interface_signal_by_name(name)
+			.ok_or(DesignError::InvalidInterfaceSignalName(self.module.id()))?;
+		
+		if sig.direction == SignalDirection::Output {
+			// TODO check signal classes
+			if expr.try_drive().is_none() {
+				return Err(DesignError::ExpressionNotDriveable)
+			}
+		}
+		else {
+			// TODO check signal classes
+		}
+
+		Ok(())
+	}
+}
+
+pub struct ModuleInstanceBuilder {
+	module: ModuleHandle,
+	scope: ScopeHandle,
+	bindings: Vec<(String, Expression)>
+}
+
+impl ModuleInstanceBuilder {
+	pub fn new(scope: ScopeHandle, module: ModuleHandle) -> Self {
+		Self {
+			scope,
+			module,
+			bindings: vec![],
+		}
+	}
+
+	pub fn bind(mut self, name: &str, expr: Expression) -> Self {
+		self.bindings.push((name.into(), expr));
+		self
+	}
+
+	pub fn build(mut self) -> Result<(), DesignError> {
+		self.scope.add_block(
+			BlockInstance::Module(ModuleInstance::new(self.module, self.bindings)?)
+		)
+	}
 }
 
 /// Represents a functional block instance

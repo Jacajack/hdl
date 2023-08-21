@@ -1,12 +1,28 @@
-use super::{ModuleId, signal::SignalDirection, ScopeId, SignalId, DesignHandle, ScopeHandle, DesignError, Design};
+use super::{ModuleId, ScopeId, SignalId, DesignHandle, ScopeHandle, DesignError, Design, DesignCore};
+
+/// Specifies direction for signals in module interface
+#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+pub enum SignalDirection {
+	/// Input signal (from the perspective of the module)
+	Input,
+
+	/// Output signal (from the perspective of the module)
+	Output,
+
+	/// Tristate signal (direction left unspecified, actually)
+	Tristate,
+}
+
 
 /// Represents a signal exposed to a module interface
+#[derive(Copy, Clone, Debug)]
 pub struct InterfaceSignal {
 	pub signal: SignalId,
 	pub direction: SignalDirection,
 }
 
 /// Represents a hardware module
+#[derive(Debug)]
 pub struct Module {
 	/// Self-reference
 	pub(super) id: ModuleId,
@@ -41,15 +57,22 @@ impl Module {
 	}
 
 	/// Exposes a signal to the module interface.
-	fn expose(&mut self, _signal: SignalId, _direction: SignalDirection) -> Result<usize, DesignError> {
+	fn expose(&mut self, signal: SignalId, direction: SignalDirection) -> Result<(), DesignError> {
 		// TODO assert signal in main scope
-		todo!();
+		// TODO assert exposed only once
+		
+		self.interface.push(InterfaceSignal {
+			signal,
+			direction,
+		});
+
+		Ok(())
 	}
 
-	fn get_interface_signal_by_name(&self, design: &Design, name: &str) -> Option<&InterfaceSignal> {
+	fn get_interface_signal_by_name(&self, design: &DesignCore, name: &str) -> Option<InterfaceSignal> {
 		for sig in &self.interface {
-			if design.borrow().get_signal(sig.signal).unwrap().name == name {
-				return Some(sig);
+			if design.get_signal(sig.signal).unwrap().name == name {
+				return Some(*sig);
 			}
 		}
 
@@ -59,9 +82,15 @@ impl Module {
 
 /// Helper macro to get a mutable reference to the current module
 /// in the ModuleHandle
-macro_rules! this_module {
+macro_rules! this_module_mut {
 	($self:ident) => {
 		$self.design.borrow_mut().get_module_mut($self.id).unwrap()
+	}
+}
+
+macro_rules! this_module {
+	($self:ident) => {
+		$self.design.borrow().get_module($self.id).unwrap()
 	}
 }
 
@@ -84,13 +113,33 @@ impl ModuleHandle {
 		}
 	}
 
+	pub fn design(&self) -> DesignHandle {
+		self.design.clone()
+	}
+
 	/// Returns a handle to the module's main scope
 	pub fn scope(&mut self) -> ScopeHandle {
 		ScopeHandle::new(self.design.clone(), this_module!(self).main_scope)
 	}
 
+	/// Returns interface signal's direction and ID by name
+	pub fn get_interface_signal_by_name(&self, name: &str) -> Option<InterfaceSignal> {
+		this_module!(self).get_interface_signal_by_name(&self.design.borrow(), name)
+	}
+
+	/// Exposes a signal to module's interface
+	pub fn expose(&mut self, signal: SignalId, direction: SignalDirection) -> Result<(), DesignError> {
+		this_module_mut!(self).expose(signal, direction)
+	}
+
 	/// Returns the ID of the scope
 	pub fn id(&self) -> ModuleId {
 		self.id
+	}
+}
+
+impl std::fmt::Debug for ModuleHandle {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{:?}", this_module!(self))
 	}
 }

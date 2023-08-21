@@ -8,7 +8,7 @@ pub mod utils;
 
 pub use scope::{Scope, ScopeHandle};
 pub use signal::{Signal, SignalClass, SignalSlice};
-pub use module::{Module, ModuleHandle};
+pub use module::{Module, ModuleHandle, InterfaceSignal, SignalDirection};
 pub use expression::{Expression, BinaryOp, UnaryOp};
 pub use functional_blocks::{Register, RegisterBuilder};
 
@@ -153,9 +153,29 @@ impl DesignCore {
 		self.scopes.get_mut(scope.id - 1)
 	}
 
+	/// Returns a reference to the scope with the given ID
+	fn get_scope(&self, scope: ScopeId) -> Option<&Scope> {
+		self.scopes.get(scope.id - 1)
+	}
+
+	/// Returns a handle to the scope with the given ID
+	fn get_scope_handle(&self, scope: ScopeId) -> Option<ScopeHandle> {
+		Some(ScopeHandle::new(self.weak.upgrade()?, scope))
+	}
+
 	/// Returns a mutable reference to the module with the given ID
 	fn get_module_mut(&mut self, module: ModuleId) -> Option<&mut Module> {
 		self.modules.get_mut(module.id - 1)
+	}
+
+	/// Returns a reference to the module with the given ID
+	fn get_module(&self, module: ModuleId) -> Option<&Module> {
+		self.modules.get(module.id - 1)
+	}
+
+	/// Returns a handle to the module with the given ID
+	fn get_module_handle(&self, module: ModuleId) -> Option<ModuleHandle> {
+		Some(ModuleHandle::new(self.weak.upgrade()?, module))
 	}
 
 	/// Returns a reference to the signal with the given ID
@@ -218,7 +238,7 @@ impl Design {
 
 /// Represents an error that can occur during design construction.
 /// Elaboration errors are not accounted for here.
-#[derive(Clone, Copy, Debug, Error)]
+#[derive(Clone, Debug, Error)]
 pub enum DesignError {
 	#[error("This object is not part of any HIRN Design.")]
 	NotInDesign,
@@ -232,11 +252,23 @@ pub enum DesignError {
 	#[error("Invalid name")]
 	InvalidName,
 
+	#[error("Invalid module ID")]
+	InvalidModuleId(ModuleId),
+
+	#[error("Duplicate module interface binding")]
+	DuplicateInterfaceBinding(ModuleId),
+
+	#[error("Invalid interface signal name")]
+	InvalidInterfaceSignalName(ModuleId),
+
 	#[error("Signal width not specified")]
 	SignalWidthNotSpecified,
 
 	#[error("Signal class not specified")]
 	SignalClassNotSpecified,
+
+	#[error("Expression cannot be driven - cannot bind to an output")]
+	ExpressionNotDriveable, // TODO more details
 
 	#[error("Signal sensitivity not specified")]
 	SignalSensitivityNotSpecified,
@@ -346,10 +378,73 @@ mod test {
 		Ok(())
 	}
 
-	/// Verify signal naming rules
+	/// Test register creation
 	#[test]
-	fn test_signal_naming_rules() {
+	fn test_register() -> Result<(), DesignError> {
+		let mut d = Design::new();
+		let mut m = d.new_module("foo")?;
 
+		let clk = m.scope().new_signal()?
+			.name("clk")
+			.clock()
+			.logic(Expression::new_one())
+			.build()?;
+
+		let nreset = m.scope().new_signal()?
+			.name("nreset")
+			.asynchronous()
+			.logic(Expression::new_one())
+			.build()?;
+
+		let next = m.scope().new_signal()?
+			.name("next")
+			.unsigned(Expression::new_one())
+			.comb(clk, true)
+			.build()?;
+
+		let output = m.scope().new_signal()?
+			.name("output")
+			.unsigned(Expression::new_one())
+			.sync(clk, true)
+			.build()?;
+
+		let _register = m.scope().new_register()?
+			.clk(clk.into())
+			.nreset(nreset.into())
+			.next(next.into())
+			.output(output.into())
+			.build()?;
+
+		Ok(())
+	}
+
+	/// Test module interface binding
+	#[test]
+	fn test_interfaces() -> Result<(), DesignError> {
+		let mut d = Design::new();
+		let mut m = d.new_module("foo")?;
+		let m_clk = m.scope().new_signal()?
+			.name("clk")
+			.clock()
+			.logic(Expression::new_one())
+			.build()?;
+
+		m.expose(m_clk, SignalDirection::Input)?;
+
+		let mut m_parent = d.new_module("bar")?;
+		let m_parent_clk = m_parent.scope().new_signal()?
+			.name("clk")
+			.clock()
+			.logic(Expression::new_one())
+			.build()?;
+
+		println!("mod: {:?}", m);
+
+		m_parent.scope().new_module(m)?
+			.bind("clk", m_parent_clk.into())
+			.build()?;
+
+		Ok(())
 	}
 
 

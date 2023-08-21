@@ -130,17 +130,6 @@ impl Signal {
 
 }
 
-/// Specifies direction for signals in module interface
-pub enum SignalDirection {
-	/// Input signal (from the perspective of the module)
-	Input,
-
-	/// Output signal (from the perspective of the module)
-	Output,
-
-	/// Tristate signal (direction left unspecified, actually)
-	Tristate,
-}
 
 /// Signal builder helper
 pub struct SignalBuilder {

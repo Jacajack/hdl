@@ -194,6 +194,12 @@ impl Expression {
 		todo!();
 	}
 
+	/// Attempt to drive the expression if possible.
+	/// Returns affected signal slice if drivable.
+	pub fn try_drive(&self) -> Option<SignalSlice> {
+		todo!();
+	}
+
 	// TODO reduction AND/OR/XOR
 	// TODO bitwise not
 	// TODO from i32
