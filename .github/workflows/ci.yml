@@ -57,7 +57,7 @@ jobs:
       with:
           shared-key: "post-cargo-build"
     - name: Tests
-      run: cargo test -p hdl -p hdllang --verbose
+      run: cargo test -p hdl -p hdllang -p hirn --verbose
 
   parser-fuzz-test:
     name: Parser fuzz test (constant seed)
