@@ -1,29 +1,76 @@
-use super::signal::{SignalSensitivity, SignalSlice, SignalClass};
+use num_bigint::BigInt;
+use super::eval::Evaluates;
+use super::signal::{SignalSensitivity, SignalSlice, SignalClass, SignalSignedness};
 use super::{Design, SignalId, DesignError};
 
-// TODO bigint
 /// Represents a numeric constant value
 #[derive(Clone)]
 pub struct NumericConstant {
-	// pub class: SignalClass,
-	pub value: Vec<u8>,
+	value: BigInt,
+	class: SignalClass,
+
 }
 
 impl NumericConstant {
-	pub fn zero() -> NumericConstant {
-		NumericConstant {
-			// class: SignalClass::Unsigned(),
-			// FIXME
-			value: vec![0],
+	/// New signed constant with bit width optimal to store the provided value
+	pub fn new_signed(value: BigInt) -> Self {
+		let bits = value.bits() + 1;
+		let c = Self::from_u64(bits);
+		Self::new(value, SignalClass::new_signed(c.into())).unwrap()
+	}
+
+	/// New unsigned constant with bit width optimal to store the provided value
+	pub fn new_unsigned(value: BigInt) -> Self {
+		let bits = value.bits();
+		let c = Self::from_u64(bits);
+		Self::new(value, SignalClass::new_unsigned(c.into())).unwrap()
+	}
+
+	// FIXME
+	pub fn from_u64(value: u64) -> Self {
+		Self::new(value.into(), SignalClass::new_unsigned(64u64.into())).unwrap()
+	}
+
+	pub fn new(value: BigInt, class: SignalClass) -> Result<Self, DesignError> {
+		let min_width = value.bits();
+		let specified_width = u64::try_from(
+				class.width.eval_constant()
+				.map_err(|e| DesignError::CannotEvaluateNumericConstantWidth(e))?
+				.value
+			).map_err(|_| DesignError::NumericConstantWidthTooLarge)?;
+
+		let sign_bit = if class.signedness == SignalSignedness::Signed { 1 } else { 0 };
+
+		assert!(min_width > 0);
+
+		if specified_width - sign_bit < min_width {
+			return Err(DesignError::NumericConstantWidthTooSmall);
 		}
+		
+		Ok(Self {
+			value,
+			class,
+		})
+	}
+
+	pub fn zero() -> NumericConstant {
+		Self::new_unsigned(0.into())
 	}
 
 	pub fn one() -> NumericConstant {
-		NumericConstant {
-			// class: SignalClass::Unsigned(),
-			// FIXME
-			value: vec![1],
-		}
+		Self::new_unsigned(1.into())
+	}
+}
+
+impl From<u64> for NumericConstant {
+	fn from(value: u64) -> Self {
+		Self::new_unsigned(value.into())
+	}
+}
+
+impl From<i64> for NumericConstant {
+	fn from(value: i64) -> Self {
+		Self::new_signed(value.into())
 	}
 }
 
@@ -86,11 +133,6 @@ pub struct ConditionalExpression {
 
 	/// Default value if all conditions are false
 	pub default: Box<Expression>,
-}
-
-/// Assumption list used when evaluating an expression
-pub struct Assumptions {
-	pub assumptions: Vec<(SignalId, NumericConstant)>
 }
 
 /// Cast expression
@@ -163,13 +205,19 @@ impl Expression {
 	}
 
 	/// Performs zero extension
-	pub fn zero_extend(self, _width: u32) -> Self {
-		todo!();
+	pub fn zero_extend(self, width: u32) -> Self {
+		Self::Unary(UnaryExpression {
+			op: UnaryOp::ZeroExtend{width},
+			operand: Box::new(self),
+		})
 	}
 
 	/// Performs sign extension
-	pub fn sign_extend(self, _width: u32) -> Self {
-		todo!();
+	pub fn sign_extend(self, width: u32) -> Self {
+		Self::Unary(UnaryExpression {
+			op: UnaryOp::SignExtend{width},
+			operand: Box::new(self),
+		})
 	}
 
 	/// Selects range of bits from the expression
@@ -178,26 +226,14 @@ impl Expression {
 		todo!();
 	}
 
-	/// Returns sensitivity of this expression
-	pub fn sensitivity(&self, _design: &Design) -> SignalSensitivity {
-		todo!();
-	}
-
-	/// Returns width of this expression
-	pub fn width(&self, _design: &Design) -> Expression {
-		// TODO does this require the assumption list
-		todo!();		
-	}
-
-	/// Attempts to evaluate the expression 
-	pub fn eval(&self, _design: &Design, _assumptions: &Assumptions) -> Result<NumericConstant, DesignError> {
-		todo!();
-	}
-
 	/// Attempt to drive the expression if possible.
 	/// Returns affected signal slice if drivable.
 	pub fn try_drive(&self) -> Option<SignalSlice> {
-		todo!();
+		match self {
+			Self::Signal(ref sig)  => Some((*sig).into()),
+			Self::Slice(slice) => Some(slice.clone()),
+			_ => None,
+		}
 	}
 
 	// TODO reduction AND/OR/XOR
@@ -221,5 +257,23 @@ impl Expression {
 impl From<SignalId> for Expression {
 	fn from(signal: SignalId) -> Self {
 		Self::Signal(signal)
+	}
+}
+
+impl From<NumericConstant> for Expression {
+	fn from(constant: NumericConstant) -> Self {
+		Self::Constant(constant)
+	}
+}
+
+impl From<u64> for Expression {
+	fn from(value: u64) -> Self {
+		Self::Constant(value.into())
+	}
+}
+
+impl From<i64> for Expression {
+	fn from(value: i64) -> Self {
+		Self::Constant(value.into())
 	}
 }

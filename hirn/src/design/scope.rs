@@ -195,10 +195,9 @@ impl ScopeHandle {
 	pub fn loop_scope(&mut self, iter_name: &str, from: Expression, to: Expression) -> Result<(ScopeHandle, SignalId), DesignError> {
 		let mut child = self.new_subscope()?;
 
-		// TODO proper signal class here
 		let iter_var = child.new_signal()?
 			.name(iter_name)
-			.generic()
+			.signed(Expression::new_one()) // TODO signed 64-bit
 			.constant()
 			.build()?;
 

@@ -4,20 +4,38 @@ use super::Expression;
 use super::ScopeId;
 use super::SignalId;
 
-/// Determines representation of a signal
-#[derive(Clone)]
-pub enum SignalClass {
-	/// Logic signal with given bit width (cannot be used in arithmetic)
-	Logic(Box<Expression>), 
-
+/// Potential TODO: Logic type which cannot be used in arithmetic
+#[derive(Copy, Clone, PartialEq, Eq)]
+pub enum SignalSignedness {
 	/// Signed integer with given bit width
-	Signed(Box<Expression>), 
+	Signed,
 
 	/// Unsigned integer with given bit width
-	Unsigned(Box<Expression>), 
+	Unsigned,
+}
 
-	/// Type used for compile-time generics. No bit width specified
-	Generic, 
+/// Determines representation of a signal
+#[derive(Clone)]
+pub struct SignalClass {
+	pub signedness: SignalSignedness,
+	pub width: Box<Expression>,
+}
+
+impl SignalClass {
+	pub fn new(expr: Expression, signedness: SignalSignedness) -> SignalClass {
+		Self {
+			signedness,
+			width: Box::new(expr),
+		}
+	}
+
+	pub fn new_signed(expr: Expression) -> SignalClass {
+		Self::new(expr, SignalSignedness::Signed)
+	}
+
+	pub fn new_unsigned(expr: Expression) -> SignalClass {
+		Self::new(expr, SignalSignedness::Unsigned)
+	}
 }
 
 /// Determines sensitivity of a signal to certain clock edges
@@ -182,29 +200,19 @@ impl SignalBuilder {
 	/// Sets type to unsigned and specifies width
 	pub fn unsigned(mut self, width: Expression) -> Self {
 		assert!(self.class.is_none());
-		self.class = Some(SignalClass::Unsigned(Box::new(width)));
+		self.class = Some(SignalClass::new_unsigned(width));
 		self
 	}
 
 	/// Sets type to signed and specifies width
 	pub fn signed(mut self, width: Expression) -> Self {
 		assert!(self.class.is_none());
-		self.class = Some(SignalClass::Signed(Box::new(width)));
+		self.class = Some(SignalClass::new_signed(width));
 		self
 	}
 
-	/// Sets type to logic and specifies width
-	pub fn logic(mut self, width: Expression) -> Self {
-		assert!(self.class.is_none());
-		self.class = Some(SignalClass::Logic(Box::new(width)));
-		self
-	}
-
-	/// Sets type to generic
-	pub fn generic(mut self) -> Self {
-		assert!(self.class.is_none());
-		self.class = Some(SignalClass::Generic);
-		self
+	pub fn wire(self) -> Self {
+		self.unsigned(Expression::new_one())
 	}
 
 	/// Marks signal as constant

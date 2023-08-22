@@ -5,12 +5,15 @@ pub mod module;
 pub mod signal;
 pub mod scope;
 pub mod utils;
+pub mod eval;
+pub mod expression_eval;
 
 pub use scope::{Scope, ScopeHandle};
-pub use signal::{Signal, SignalClass, SignalSlice};
+pub use signal::{Signal, SignalClass, SignalSlice, SignalSensitivity};
 pub use module::{Module, ModuleHandle, InterfaceSignal, SignalDirection};
-pub use expression::{Expression, BinaryOp, UnaryOp};
+pub use expression::{NumericConstant, Expression, BinaryOp, UnaryOp};
 pub use functional_blocks::{Register, RegisterBuilder};
+pub use eval::{EvalContext, EvalError};
 
 use std::collections::HashMap;
 use std::rc::{Weak, Rc};
@@ -267,6 +270,18 @@ pub enum DesignError {
 	#[error("Signal class not specified")]
 	SignalClassNotSpecified,
 
+	#[error("Cannot evaluate width of numeric constant without making assumptions")]
+	CannotEvaluateNumericConstantWidth(EvalError),
+
+	#[error("Numeric constant width evaluated to a large, unsupported value")]
+	NumericConstantWidthTooLarge,
+
+	#[error("Numeric constant width is not sufficient to store the provided value")]
+	NumericConstantWidthTooSmall,
+
+	#[error(transparent)]
+	EvalError(#[from] EvalError),
+
 	#[error("Expression cannot be driven - cannot bind to an output")]
 	ExpressionNotDriveable, // TODO more details
 
@@ -313,7 +328,7 @@ mod test {
 
 		let sig2 = m.scope().new_signal()?
 			.name("test_signal_2")
-			.logic(expr.clone())
+			.unsigned(expr.clone())
 			.constant()
 			.build()?;
 
@@ -339,13 +354,13 @@ mod test {
 
 		let _sig = m.scope().new_signal()?
 			.name("name")
-			.generic()
+			.unsigned(Expression::new_one())
 			.constant()
 			.build()?;
 
 		let sig2 = m.scope().new_signal()?
 			.name("name")
-			.generic()
+			.unsigned(Expression::new_one())
 			.constant()
 			.build();
 
@@ -387,13 +402,13 @@ mod test {
 		let clk = m.scope().new_signal()?
 			.name("clk")
 			.clock()
-			.logic(Expression::new_one())
+			.unsigned(Expression::new_one())
 			.build()?;
 
 		let nreset = m.scope().new_signal()?
 			.name("nreset")
 			.asynchronous()
-			.logic(Expression::new_one())
+			.unsigned(Expression::new_one())
 			.build()?;
 
 		let next = m.scope().new_signal()?
@@ -426,7 +441,7 @@ mod test {
 		let m_clk = m.scope().new_signal()?
 			.name("clk")
 			.clock()
-			.logic(Expression::new_one())
+			.wire()
 			.build()?;
 
 		m.expose(m_clk, SignalDirection::Input)?;
@@ -435,7 +450,7 @@ mod test {
 		let m_parent_clk = m_parent.scope().new_signal()?
 			.name("clk")
 			.clock()
-			.logic(Expression::new_one())
+			.wire()
 			.build()?;
 
 		println!("mod: {:?}", m);
