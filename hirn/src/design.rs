@@ -7,13 +7,15 @@ pub mod scope;
 pub mod utils;
 pub mod eval;
 pub mod expression_eval;
+pub mod numeric_constant;
 
 pub use scope::{Scope, ScopeHandle};
-pub use signal::{Signal, SignalClass, SignalSlice, SignalSensitivity};
+pub use signal::{Signal, SignalClass, SignalSlice, SignalSensitivity, SignalSignedness};
 pub use module::{Module, ModuleHandle, InterfaceSignal, SignalDirection};
-pub use expression::{NumericConstant, Expression, BinaryOp, UnaryOp};
+pub use expression::{Expression, BinaryOp, UnaryOp};
 pub use functional_blocks::{Register, RegisterBuilder};
 pub use eval::{EvalContext, EvalError};
+pub use numeric_constant::NumericConstant;
 
 use std::collections::HashMap;
 use std::rc::{Weak, Rc};

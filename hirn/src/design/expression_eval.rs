@@ -1,101 +1,75 @@
-use super::{Expression, eval::Evaluates, EvalContext, EvalError, NumericConstant, SignalSensitivity};
-use super::expression::{CastExpression, ConditionalExpression, BinaryExpression, UnaryExpression};
+use super::{Expression, eval::Evaluates, eval::EvaluatesType,  eval::EvalType, EvalContext, EvalError, NumericConstant, SignalSensitivity, eval::EvalResult};
+use super::expression::{CastExpression, ConditionalExpression, BinaryExpression, UnaryExpression, BinaryOp, UnaryOp};
+
+impl EvaluatesType for ConditionalExpression {
+	fn eval_type(&self, ctx: &EvalContext) -> EvalResult<EvalType> {
+		todo!();
+	}
+}
 
 impl Evaluates for ConditionalExpression {
-	fn width(&self, ctx: &EvalContext) -> Result<Expression, EvalError> {
+	fn eval(&self, ctx: &EvalContext) -> EvalResult<NumericConstant> {
 		todo!();
 	}
+}
 
-	fn sensitivity(&self, ctx: &EvalContext) -> Result<SignalSensitivity, EvalError> {
-		todo!();
-	}
-
-	fn eval_in_context(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
-		todo!();
-	}
-
-	fn eval_constant(&self) -> Result<NumericConstant, EvalError> {
+impl EvaluatesType for CastExpression {
+	fn eval_type(&self, ctx: &EvalContext) -> EvalResult<EvalType> {
 		todo!();
 	}
 }
 
 impl Evaluates for CastExpression {
-	fn width(&self, ctx: &EvalContext) -> Result<Expression, EvalError> {
+	fn eval(&self, ctx: &EvalContext) -> EvalResult<NumericConstant> {
 		todo!();
 	}
+}
 
-	fn sensitivity(&self, ctx: &EvalContext) -> Result<SignalSensitivity, EvalError> {
-		todo!();
-	}
-
-	fn eval_in_context(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
-		todo!();
-	}
-
-	fn eval_constant(&self) -> Result<NumericConstant, EvalError> {
+impl EvaluatesType for BinaryExpression {
+	fn eval_type(&self, ctx: &EvalContext) -> EvalResult<EvalType> {
 		todo!();
 	}
 }
 
 impl Evaluates for BinaryExpression {
-	fn width(&self, ctx: &EvalContext) -> Result<Expression, EvalError> {
+	fn eval(&self, ctx: &EvalContext) -> EvalResult<NumericConstant> {
 		todo!();
 	}
+}
 
-	fn sensitivity(&self, ctx: &EvalContext) -> Result<SignalSensitivity, EvalError> {
-		todo!();
-	}
-
-	fn eval_in_context(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
-		todo!();
-	}
-
-	fn eval_constant(&self) -> Result<NumericConstant, EvalError> {
+impl EvaluatesType for UnaryExpression {
+	fn eval_type(&self, ctx: &EvalContext) -> EvalResult<EvalType> {
 		todo!();
 	}
 }
 
 impl Evaluates for UnaryExpression {
-	fn width(&self, ctx: &EvalContext) -> Result<Expression, EvalError> {
+	fn eval(&self, ctx: &EvalContext) -> EvalResult<NumericConstant> {
 		todo!();
 	}
+}
 
-	fn sensitivity(&self, ctx: &EvalContext) -> Result<SignalSensitivity, EvalError> {
-		todo!();
-	}
-
-	fn eval_in_context(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
-		todo!();
-	}
-
-	fn eval_constant(&self) -> Result<NumericConstant, EvalError> {
+impl EvaluatesType for Expression {
+	fn eval_type(&self, ctx: &EvalContext) -> EvalResult<EvalType> {
 		todo!();
 	}
 }
 
 impl Evaluates for Expression {
-	fn width(&self, ctx: &EvalContext) -> Result<Expression, EvalError> {
-		todo!();
-	}
-
-	fn sensitivity(&self, ctx: &EvalContext) -> Result<SignalSensitivity, EvalError> {
-		todo!();
-	}
-
-	fn eval_in_context(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
-		todo!();
-	}
-
-	fn eval_constant(&self) -> Result<NumericConstant, EvalError> {
+	fn eval(&self, ctx: &EvalContext) -> EvalResult<NumericConstant> {
 		use Expression::*;
+		use EvalResult::*;
 		match self {
 			Constant(value) => Ok(value.clone()),
-			Conditional(expr) => expr.eval_constant(),
-			Binary(expr) => expr.eval_constant(),
-			Unary(expr) => expr.eval_constant(),
-			Cast(expr) => expr.eval_constant(),
-			Signal(id) => Err(EvalError::MissingAssumption(*id)),
-			Slice(slice) => Err(EvalError::MissingAssumption(slice.signal)),
+			Conditional(expr) => expr.eval(ctx),
+			Binary(expr) => expr.eval(ctx),
+			Unary(expr) => expr.eval(ctx),
+			Cast(expr) => expr.eval(ctx),
+			Signal(id) => Err(EvalError::MissingAssumption(*id)), // FIXME
+			Slice(slice) => Err(EvalError::MissingAssumption(slice.signal)), // FIXME
 		}
 	}
 }
+
+// TODO Evaluates for SignalSlice and SignalId
+// TODO remove SignalId from expression i guess
