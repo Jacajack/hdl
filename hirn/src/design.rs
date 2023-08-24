@@ -22,6 +22,8 @@ use std::rc::{Weak, Rc};
 use std::cell::RefCell;
 use thiserror::Error;
 
+use self::eval::EvalType;
+
 /// References a module in a design
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
 pub struct ModuleId {
@@ -308,6 +310,14 @@ pub enum DesignError {
 		first: ModuleId,
 		second: ModuleId,
 	},
+
+	#[error("Incompatible types in binding")]
+	IncompatibleBindingType{
+		module: ModuleId,
+		signal: SignalId,
+		binding_type: EvalType,
+		interface_type: EvalType,
+	},
 }
 
 #[cfg(test)]
@@ -455,12 +465,38 @@ mod test {
 			.wire()
 			.build()?;
 
-		println!("mod: {:?}", m);
-
 		m_parent.scope().new_module(m)?
 			.bind("clk", m_parent_clk.into())
 			.build()?;
 
+		Ok(())
+	}
+
+	/// Test invalid module interface binding async->clk
+	#[test]
+	fn test_bad_interface_binding() -> Result<(), DesignError> {
+		let mut d = Design::new();
+		let mut m = d.new_module("foo")?;
+		let m_clk = m.scope().new_signal()?
+			.name("clk")
+			.clock()
+			.wire()
+			.build()?;
+
+		m.expose(m_clk, SignalDirection::Input)?;
+
+		let mut m_parent = d.new_module("bar")?;
+		let m_parent_async = m_parent.scope().new_signal()?
+			.name("async")
+			.asynchronous()
+			.wire()
+			.build()?;
+
+		let err = m_parent.scope().new_module(m)?
+			.bind("clk", m_parent_async.into())
+			.build();
+
+		assert!(matches!(err, Err(DesignError::IncompatibleBindingType{..})));
 		Ok(())
 	}
 

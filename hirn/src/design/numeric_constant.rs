@@ -1,5 +1,5 @@
 use num_bigint::BigInt;
-use super::{SignalSignedness, DesignError, eval::EvalResult, eval::{EvalType, EvaluatesType}, SignalSensitivity, EvalContext};
+use super::{SignalSignedness, DesignError, eval::EvalResult, eval::{EvalType, EvaluatesType, EvaluatesDimensions}, SignalSensitivity, EvalContext};
 
 /// Represents a numeric constant value
 #[derive(Clone)]
@@ -45,16 +45,19 @@ impl NumericConstant {
 	pub fn one() -> NumericConstant {
 		Self::new_unsigned(1.into())
 	}
-}
 
-impl EvaluatesType for NumericConstant {
-	fn eval_type(&self, ctx: &EvalContext) -> EvalResult<EvalType> {
-		Ok(EvalType {
-			width: self.width,
-			signedness: self.signedness,
-			sensitivity: SignalSensitivity::Const,
-		}).into()
+	pub fn signedness(&self) -> SignalSignedness {
+		self.signedness
 	}
+
+	pub fn width(&self) -> u64 {
+		self.width
+	}
+
+	pub fn try_into_u64(&self) -> Option<u64> {
+		u64::try_from(&self.value).ok()
+	}
+
 }
 
 impl From<u64> for NumericConstant {
@@ -75,30 +78,30 @@ macro_rules! impl_binary_constant_op {
 			type Output = EvalResult<NumericConstant>;
 
 			fn $trait_func(self, other: Self) -> Self::Output {
-				use EvalResult::*;
-				match (self, other) {
-					(Err(lhs), Err(_)) => Err(lhs),
-					(Err(lhs), _) => Err(lhs),
-					(_, Err(rhs)) => Err(rhs),
-					(Ok(lhs), Ok(rhs)) => {
-						let value =  match $lambda(&lhs.value, &rhs.value) {
-							Ok(value) => value,
-							Err(err) => return Err(err),
-		
-						};
-		
-						let ty = match lhs.const_eval_type().$trait_func(rhs.const_eval_type()) {
-							Ok(ty) => ty,
-							Err(err) => return Err(err),
-						};
-		
-						Ok(NumericConstant::new(
-							value,
-							ty.signedness,
-							ty.width
-						).unwrap())
-					}
-				}
+				let func = $lambda;
+
+				EvalResult::<NumericConstant>::propagate(self, other, |lhs: NumericConstant, rhs: NumericConstant|{
+					let value =  match func(&lhs.value, &rhs.value) {
+						Ok(value) => value,
+						Err(err) => return EvalResult::Err(err),
+	
+					};
+	
+					let lhs_type = lhs.const_eval_type().unwrap(); // FIXME
+					let rhs_type = rhs.const_eval_type().unwrap(); // FIXME
+					let result_type = lhs_type.$trait_func(rhs_type).result().unwrap(); // FIXME unwrap
+	
+					// FIXME unwraps
+					let lhs_dims = lhs.const_eval_dims().unwrap();
+					let rhs_dims = rhs.const_eval_dims().unwrap();
+					let result_dims = lhs_dims.$trait_func(rhs_dims).result().unwrap();
+
+					EvalResult::Ok(NumericConstant::new(
+						value,
+						result_type.signedness,
+						result_dims.width
+					).unwrap())
+				})
 			}
 		}
 
@@ -126,7 +129,7 @@ mod test {
 		let b = NumericConstant::new_signed(3.into());
 		let c = (a + b).result().unwrap();
 		assert_eq!(c.value, 8.into());
-		assert_eq!(c.width, 7);
+		assert_eq!(c.width, 5);
 	}
 }
 

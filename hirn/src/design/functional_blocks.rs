@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::{ModuleId, ScopeId, Expression, SignalSlice, ScopeHandle, DesignError, DesignHandle, DesignCore, module::SignalDirection, ModuleHandle};
+use super::{ModuleId, ScopeId, Expression, SignalSlice, ScopeHandle, DesignError, DesignHandle, DesignCore, module::SignalDirection, ModuleHandle, EvalContext, eval::EvaluatesType};
 
 /// Register block
 pub struct Register {
@@ -190,14 +190,36 @@ impl ModuleInstance {
 		let sig = self.module.get_interface_signal_by_name(name)
 			.ok_or(DesignError::InvalidInterfaceSignalName(self.module.id()))?;
 		
+		// TODO defer this logic to assignment checker
+		let eval_ctx = EvalContext::without_assumptions(self.module.design());
+		let expr_type = expr.eval_type(&eval_ctx)?;
+		let sig_type = sig.signal.eval_type(&eval_ctx)?;
+
 		if sig.direction == SignalDirection::Output {
-			// TODO check signal classes
+			// Interface drives the expression
+
 			if expr.try_drive().is_none() {
 				return Err(DesignError::ExpressionNotDriveable)
 			}
+
+			if !sig_type.can_drive(&expr_type) {
+				return Err(DesignError::IncompatibleBindingType{
+					module: self.module.id(),
+					signal: sig.signal,
+					interface_type: sig_type,
+					binding_type: expr_type,
+				})
+			}
 		}
 		else {
-			// TODO check signal classes
+			if !expr_type.can_drive(&sig_type) {
+				return Err(DesignError::IncompatibleBindingType{
+					module: self.module.id(),
+					signal: sig.signal,
+					interface_type: sig_type,
+					binding_type: expr_type,
+				})
+			}
 		}
 
 		Ok(())

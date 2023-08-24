@@ -109,6 +109,7 @@ pub enum Expression {
 	Binary(BinaryExpression),
 	Unary(UnaryExpression),
 	Cast(CastExpression),
+	// TODO bit-select expression
 }
 
 impl Expression {
@@ -168,15 +169,11 @@ impl Expression {
 	// TODO from i32
 	// TODO from u32
 	// TODO from bool
-	// TODO from signal ref
-	// TODO from generic ref
 	// TODO remaining binary ops
 	
 
 	// Casts:
-	// TODO from i32
 	// TODO from bool
-	// TODO from Signal, SignalRef
 	
 }
 

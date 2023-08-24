@@ -3,9 +3,10 @@ use super::DesignHandle;
 use super::Expression;
 use super::ScopeId;
 use super::SignalId;
+use std::collections::HashSet;
 
 /// Potential TODO: Logic type which cannot be used in arithmetic
-#[derive(Copy, Clone, PartialEq, Eq)]
+#[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum SignalSignedness {
 	/// Signed integer with given bit width
 	Signed,
@@ -17,7 +18,7 @@ pub enum SignalSignedness {
 /// Determines representation of a signal
 #[derive(Clone)]
 pub struct SignalClass {
-	pub signedness: SignalSignedness,
+	pub signedness: SignalSignedness, // TODO make priv
 	pub width: Box<Expression>,
 }
 
@@ -39,17 +40,40 @@ impl SignalClass {
 }
 
 /// Determines sensitivity of a signal to certain clock edges
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct EdgeSensitivity {
 	pub clock_signal: SignalId,
 	pub on_rising: bool,
 }
 
 /// Determines sensitivity of a signal to certain clocks
-pub type ClockSensitivityList = Vec<EdgeSensitivity>;
+#[derive(Clone, Default, Debug)]
+pub struct ClockSensitivityList(HashSet<EdgeSensitivity>);
+
+impl ClockSensitivityList {
+	pub fn new(edge: &EdgeSensitivity) -> Self {
+		let mut list = Self {0: HashSet::new()};
+		list.push(*edge);
+		list
+	}
+
+	pub fn push(&mut self, edge: EdgeSensitivity) {
+		self.0.insert(edge);
+	}
+
+	pub fn combine(&self, other: &ClockSensitivityList) -> Self {
+		let mut new = self.clone();
+		new.0.extend(other.0.iter());
+		new
+	}
+
+	pub fn is_subset_of(&self, other: &ClockSensitivityList) -> bool {
+		self.0.is_subset(&other.0)
+	}
+}
 
 /// Determines 'sensitivity' of a signal - i.e. how constant it is
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum SignalSensitivity {
 	/// Completely asynchronous signal. Latching with any clock can lead to metastability
 	Async,
@@ -65,6 +89,42 @@ pub enum SignalSensitivity {
 
 	/// A compile-time constant signal
 	Const,
+}
+
+impl SignalSensitivity {
+	/// Determines sensitivity of a signal resulting form combining two signals
+	/// with combinational logic
+	pub fn combine(&self, other: &SignalSensitivity) -> Option<Self> {
+		use SignalSensitivity::*;
+		Some(match (self, other) {
+			(Const, Const) => Const,
+			(Async, _) | (_, Async) => Async,
+			(Clock, _) | (_, Clock) => None?,
+			(Sync(lhs), Sync(rhs)) => Sync(lhs.combine(rhs)),
+			(Sync(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
+			(Comb(lhs), Sync(rhs)) => Comb(lhs.combine(rhs)),
+			(Comb(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
+			(Sync(lhs), _) | (_, Sync(lhs)) => Sync(lhs.clone()),
+			(Comb(lhs), _) | (_, Comb(lhs))=> Comb(lhs.clone()),
+		})
+	}
+
+	/// Determines whether this signal can drive the other specified signal
+	/// The logic in this function implements both sensitivity and clocking semantics
+	pub fn can_drive(&self, dest: &SignalSensitivity) -> bool {
+		use SignalSensitivity::*;
+		match (dest, self) {
+			(Const, Const) => true,
+			(Clock, Clock) => true,
+			(Sync(_), Const) => true,
+			(Sync(lhs), Sync(rhs)) => rhs.is_subset_of(lhs),
+			(Comb(_), Const) => true,
+			(Comb(lhs), Comb(rhs)) => rhs.is_subset_of(lhs),
+			(Comb(lhs), Sync(rhs)) => rhs.is_subset_of(lhs),
+			(Async, Async | Const | Comb(_) | Sync(_) | Clock) => true,
+			_ => false,
+		}
+	}
 }
 
 /// Specifies a slice of a signal array
@@ -252,7 +312,7 @@ impl SignalBuilder {
 		if let Some(list) = &mut self.comb_clocking {
 			list.push(edge);
 		} else {
-			self.comb_clocking = Some(vec![edge]);
+			self.sync_clocking = Some(ClockSensitivityList::new(&edge));
 		}
 
 		self
@@ -271,7 +331,7 @@ impl SignalBuilder {
 		if let Some(list) = &mut self.sync_clocking {
 			list.push(edge);
 		} else {
-			self.sync_clocking = Some(vec![edge]);
+			self.sync_clocking = Some(ClockSensitivityList::new(&edge));
 		}
 		
 		self
