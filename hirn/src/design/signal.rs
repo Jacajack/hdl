@@ -143,7 +143,7 @@ pub struct SignalSlice {
 	/// Signal being accessed
 	pub signal: SignalId,
 
-	/// Array of slices, one per signal dimension and lastly for signal width
+	/// Array of slices, one per signal dimension
 	pub slices: Vec<ArraySlice>,
 }
 

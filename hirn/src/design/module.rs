@@ -1,7 +1,7 @@
 use super::{ModuleId, ScopeId, SignalId, DesignHandle, ScopeHandle, DesignError, Design, DesignCore};
 
 /// Specifies direction for signals in module interface
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub enum SignalDirection {
 	/// Input signal (from the perspective of the module)
 	Input,
@@ -15,7 +15,7 @@ pub enum SignalDirection {
 
 
 /// Represents a signal exposed to a module interface
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
 pub struct InterfaceSignal {
 	pub signal: SignalId,
 	pub direction: SignalDirection,
@@ -37,7 +37,7 @@ pub struct Module {
 	pub main_scope: ScopeId,
 
 	/// Signals exposed to the module interface
-	pub interface: Vec<InterfaceSignal>,
+	pub interface: Vec<InterfaceSignal>, // TODO set?
 }
 
 impl Module {
@@ -60,6 +60,10 @@ impl Module {
 	fn expose(&mut self, signal: SignalId, direction: SignalDirection) -> Result<(), DesignError> {
 		// TODO assert signal in main scope
 		// TODO assert exposed only once
+
+		if matches!(direction, SignalDirection::Tristate) {
+			unimplemented!("Tristate signals not yet supported");
+		}
 		
 		self.interface.push(InterfaceSignal {
 			signal,

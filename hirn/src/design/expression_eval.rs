@@ -1,3 +1,4 @@
+use super::SignalSlice;
 use super::eval::EvaluatesDimensions;
 use super::{Expression, eval::Evaluates, eval::EvaluatesType,  eval::EvalType, EvalContext, EvalError, NumericConstant, SignalSensitivity, eval::EvalResult, eval::EvalDims, SignalId};
 use super::expression::{CastExpression, ConditionalExpression, BinaryExpression, UnaryExpression, BinaryOp, UnaryOp};
@@ -67,6 +68,12 @@ impl EvaluatesType for SignalId {
 	}
 }
 
+impl EvaluatesType for SignalSlice {
+	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
+		self.signal.eval_type(ctx)
+	}
+}
+
 impl EvaluatesType for ConditionalExpression {
 	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
 		todo!();
@@ -124,8 +131,8 @@ impl EvaluatesType for Expression {
 			Binary(expr) => expr.eval_type(ctx),
 			Unary(expr) => expr.eval_type(ctx),
 			Cast(expr) => expr.eval_type(ctx),
-			Signal(id) => id.eval_type(ctx),
-			Slice(slice) => todo!(), // FIXME
+			Builtin(builtin) => todo!(), // FIXME
+			Slice(slice) => slice.eval_type(ctx),
 		}
 	}
 }
@@ -139,11 +146,10 @@ impl Evaluates for Expression {
 			Binary(expr) => expr.eval(ctx),
 			Unary(expr) => expr.eval(ctx),
 			Cast(expr) => expr.eval(ctx),
-			Signal(id) => todo!(), // FIXME
 			Slice(slice) => todo!(), // FIXME
+			Builtin(builtin) => todo!(), // FIXME
 		}
 	}
 }
 
 // TODO Evaluates for SignalSlice and SignalId
-// TODO remove SignalId from expression i guess

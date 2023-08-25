@@ -33,12 +33,17 @@ pub enum UnaryOp {
 	Negate,
 	LogicalNot,
 	BitwiseNot,
-	ZeroExtend{width: u32},
-	SignExtend{width: u32},
-	BitSelect(u32, u32),
 	ReductionAnd,
 	ReductionOr,
 	ReductionXor,
+}
+
+#[derive(Clone)]
+pub enum BuiltinOp {
+	ZeroExtend{expr: Box<Expression>, width: Box<Expression>},
+	SignExtend{expr: Box<Expression>, width: Box<Expression>},
+	BitSelect{expr: Box<Expression>, msb: Box<Expression>, lsb: Box<Expression>},
+	Replicate{expr: Box<Expression>, count: Box<Expression>},
 }
 
 /// Represents a conditional expression branch
@@ -98,18 +103,16 @@ pub struct UnaryExpression {
 	pub operand: Box<Expression>,
 }
 
-// TODO implement Rust operator overloads
 /// Language expression
 #[derive(Clone)]
 pub enum Expression {
 	Conditional(ConditionalExpression),
 	Constant(NumericConstant),
-	Signal(SignalId),
 	Slice(SignalSlice),
 	Binary(BinaryExpression),
+	Builtin(BuiltinOp),
 	Unary(UnaryExpression),
 	Cast(CastExpression),
-	// TODO bit-select expression
 }
 
 impl Expression {
@@ -133,18 +136,18 @@ impl Expression {
 	}
 
 	/// Performs zero extension
-	pub fn zero_extend(self, width: u32) -> Self {
-		Self::Unary(UnaryExpression {
-			op: UnaryOp::ZeroExtend{width},
-			operand: Box::new(self),
+	pub fn zero_extend(self, width: Expression) -> Self {
+		Self::Builtin(BuiltinOp::ZeroExtend {
+			expr: Box::new(self),
+			width: Box::new(width),
 		})
 	}
 
 	/// Performs sign extension
-	pub fn sign_extend(self, width: u32) -> Self {
-		Self::Unary(UnaryExpression {
-			op: UnaryOp::SignExtend{width},
-			operand: Box::new(self),
+	pub fn sign_extend(self, width: Expression) -> Self {
+		Self::Builtin(BuiltinOp::SignExtend {
+			expr: Box::new(self),
+			width: Box::new(width),
 		})
 	}
 
@@ -158,7 +161,6 @@ impl Expression {
 	/// Returns affected signal slice if drivable.
 	pub fn try_drive(&self) -> Option<SignalSlice> {
 		match self {
-			Self::Signal(ref sig)  => Some((*sig).into()),
 			Self::Slice(slice) => Some(slice.clone()),
 			_ => None,
 		}
@@ -180,7 +182,7 @@ impl Expression {
 /// Implements a conversion from signal ID to an expression
 impl From<SignalId> for Expression {
 	fn from(signal: SignalId) -> Self {
-		Self::Signal(signal)
+		Self::Slice(SignalSlice::from(signal))
 	}
 }
 
