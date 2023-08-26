@@ -72,6 +72,18 @@ impl From<i64> for NumericConstant {
 	}
 }
 
+impl From<u32> for NumericConstant {
+	fn from(value: u32) -> Self {
+		Self::new_unsigned(value.into())
+	}
+}
+
+impl From<i32> for NumericConstant {
+	fn from(value: i32) -> Self {
+		Self::new_signed(value.into())
+	}
+}
+
 macro_rules! impl_binary_constant_op {
 	($trait_name: ident, $trait_func: ident, $lambda: expr) => {
 		impl std::ops::$trait_name for EvalResult<NumericConstant> {

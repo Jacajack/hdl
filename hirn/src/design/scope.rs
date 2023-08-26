@@ -1,7 +1,7 @@
 use super::signal::SignalBuilder;
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::{Expression, ModuleHandle};
-use super::{ScopeId, SignalId, SignalSlice, DesignError, DesignHandle, RegisterBuilder, ModuleId};
+use super::{ScopeId, SignalId, DesignError, DesignHandle, RegisterBuilder, ModuleId};
 
 /// Scope associated with an if statement
 pub struct ConditionalScope {
@@ -32,7 +32,7 @@ pub struct RangeScope {
 /// Assignment of signals
 pub struct Assignment {
 	/// Left-hand side of the assignment
-	pub lhs: SignalSlice,
+	pub lhs: Expression,
 
 	/// Right-hand side of the assignment (an expression)
 	pub rhs: Expression,
@@ -121,7 +121,7 @@ impl Scope {
 	}
 
 	/// Assigns to a signal in this scope
-	fn assign_signal(&mut self, signal: SignalSlice, expr: Expression) -> Result<(), DesignError> {
+	fn assign_signal(&mut self, signal: Expression, expr: Expression) -> Result<(), DesignError> {
 		self.assignments.push(Assignment{lhs: signal, rhs: expr});
 		Ok(())
 
@@ -217,7 +217,7 @@ impl ScopeHandle {
 	}
 
 	/// Assigns an expression to a signal
-	pub fn assign(&mut self, signal: SignalSlice, expr: Expression) -> Result<(), DesignError> {
+	pub fn assign(&mut self, signal: Expression, expr: Expression) -> Result<(), DesignError> {
 		this_scope!(self).assign_signal(signal, expr)
 	}
 

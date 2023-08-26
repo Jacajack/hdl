@@ -10,7 +10,7 @@ pub mod expression_eval;
 pub mod numeric_constant;
 
 pub use scope::{Scope, ScopeHandle};
-pub use signal::{Signal, SignalClass, SignalSlice, SignalSensitivity, SignalSignedness};
+pub use signal::{Signal, SignalClass, SignalSensitivity, SignalSignedness};
 pub use module::{Module, ModuleHandle, InterfaceSignal, SignalDirection};
 pub use expression::{Expression, BinaryOp, UnaryOp};
 pub use functional_blocks::{Register, RegisterBuilder};
@@ -203,8 +203,6 @@ impl DesignCore {
 		self.get_module_mut(handle.id()).unwrap().main_scope = main_scope.id();
 		Ok(handle)
 	}
-
-
 }
 
 /// Weak reference to a design
@@ -235,6 +233,10 @@ impl Design {
 
 	fn borrow(&self) -> std::cell::Ref<DesignCore> {
 		self.handle.borrow()
+	}
+
+	pub fn handle(&self) -> DesignHandle {
+		self.handle.clone()
 	}
 
 	/// Creates a new module with provided name and returns a handle to it
@@ -286,7 +288,7 @@ pub enum DesignError {
 	#[error(transparent)]
 	EvalError(#[from] EvalError),
 
-	#[error("Expression cannot be driven - cannot bind to an output")]
+	#[error("Expression cannot be driven - cannot bind to an output or use in assignment LHS")]
 	ExpressionNotDriveable, // TODO more details
 
 	#[error("Signal sensitivity not specified")]
@@ -322,7 +324,7 @@ pub enum DesignError {
 
 #[cfg(test)]
 mod test {
-	use super::*;
+	use super::{*, eval::Evaluates};
 
 	#[test]
 	pub fn design_basic_test() -> Result<(), DesignError> {
@@ -500,5 +502,33 @@ mod test {
 		Ok(())
 	}
 
+	#[test]
+	fn signal_add_eval_test() -> Result<(), DesignError> {
+		let mut d = Design::new();
+		let mut m = d.new_module("test")?;
+
+		let a = m.scope().new_signal()?
+			.name("a")
+			.unsigned(8.into())
+			.constant()
+			.build()?;
+
+		let b = m.scope().new_signal()?
+			.name("b")
+			.unsigned(12.into())
+			.constant()
+			.build()?;
+
+		let expr = Expression::from(a) + b.into();
+
+		let mut ctx = EvalContext::without_assumptions(d.handle());
+		ctx.assume(a, 14.into());
+		ctx.assume(b, 16.into());
+
+		let result = expr.eval(&ctx)?;
+		assert_eq!(result.try_into_u64(), 30.into());
+
+		Ok(())
+	}
 
 }

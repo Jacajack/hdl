@@ -1,4 +1,4 @@
-use super::signal::{SignalSensitivity, SignalSlice, SignalClass};
+use super::signal::{SignalSensitivity, SignalClass};
 use super::{SignalId, NumericConstant};
 
 /// Binary operators
@@ -17,7 +17,6 @@ pub enum BinaryOp {
 	BitwiseAnd,
 	BitwiseOr,
 	BitwiseXor,
-	Join,
 	Equal,
 	NotEqual,
 	Less,
@@ -43,7 +42,9 @@ pub enum BuiltinOp {
 	ZeroExtend{expr: Box<Expression>, width: Box<Expression>},
 	SignExtend{expr: Box<Expression>, width: Box<Expression>},
 	BitSelect{expr: Box<Expression>, msb: Box<Expression>, lsb: Box<Expression>},
+	BusSelect{expr: Box<Expression>, index: Box<Expression>},
 	Replicate{expr: Box<Expression>, count: Box<Expression>},
+	Join(Vec<Expression>),
 }
 
 /// Represents a conditional expression branch
@@ -108,7 +109,7 @@ pub struct UnaryExpression {
 pub enum Expression {
 	Conditional(ConditionalExpression),
 	Constant(NumericConstant),
-	Slice(SignalSlice),
+	Signal(SignalId),
 	Binary(BinaryExpression),
 	Builtin(BuiltinOp),
 	Unary(UnaryExpression),
@@ -158,18 +159,17 @@ impl Expression {
 	}
 
 	/// Attempt to drive the expression if possible.
-	/// Returns affected signal slice if drivable.
-	pub fn try_drive(&self) -> Option<SignalSlice> {
+	/// Returns affected signal if drivable.
+	pub fn try_drive(&self) -> Option<SignalId> {
 		match self {
-			Self::Slice(slice) => Some(slice.clone()),
+			Self::Signal(slice) => Some(slice.clone()),
+			// TODO index/range expression drive
 			_ => None,
 		}
 	}
 
 	// TODO reduction AND/OR/XOR
 	// TODO bitwise not
-	// TODO from i32
-	// TODO from u32
 	// TODO from bool
 	// TODO remaining binary ops
 	
@@ -182,7 +182,7 @@ impl Expression {
 /// Implements a conversion from signal ID to an expression
 impl From<SignalId> for Expression {
 	fn from(signal: SignalId) -> Self {
-		Self::Slice(SignalSlice::from(signal))
+		Self::Signal(signal)
 	}
 }
 
@@ -200,6 +200,18 @@ impl From<u64> for Expression {
 
 impl From<i64> for Expression {
 	fn from(value: i64) -> Self {
+		Self::Constant(value.into())
+	}
+}
+
+impl From<u32> for Expression {
+	fn from(value: u32) -> Self {
+		Self::Constant(value.into())
+	}
+}
+
+impl From<i32> for Expression {
+	fn from(value: i32) -> Self {
 		Self::Constant(value.into())
 	}
 }

@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use super::{ModuleId, ScopeId, Expression, SignalSlice, ScopeHandle, DesignError, DesignHandle, DesignCore, module::SignalDirection, ModuleHandle, EvalContext, eval::EvaluatesType};
+use super::{ModuleId, ScopeId, Expression, ScopeHandle, DesignError, DesignHandle, DesignCore, module::SignalDirection, ModuleHandle, EvalContext, eval::EvaluatesType};
 
 /// Register block
 pub struct Register {
@@ -11,13 +11,13 @@ pub struct Register {
 	pub input_en: Expression,
 
 	/// Clock input
-	pub input_clk: SignalSlice,
+	pub input_clk: Expression,
 
 	/// Next value input
 	pub input_next: Expression,
 
 	/// Output value
-	pub output_data: SignalSlice,
+	pub output_data: Expression,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -33,9 +33,9 @@ pub struct RegisterBuilder {
 	scope: ScopeHandle,
 	input_nreset: Option<Expression>,
 	input_en: Option<Expression>,
-	input_clk: Option<SignalSlice>,
+	input_clk: Option<Expression>,
 	input_next: Option<Expression>,
-	output_data: Option<SignalSlice>,
+	output_data: Option<Expression>,
 }
 
 impl RegisterBuilder {
@@ -65,7 +65,7 @@ impl RegisterBuilder {
 	}
 
 	/// Connects a clock signal
-	pub fn clk(mut self, signal: SignalSlice) -> Self {
+	pub fn clk(mut self, signal: Expression) -> Self {
 		assert!(self.input_clk.is_none());
 		self.input_clk = Some(signal);
 		self
@@ -79,7 +79,7 @@ impl RegisterBuilder {
 	}
 
 	/// Connects an output signal
-	pub fn output(mut self, signal: SignalSlice) -> Self {
+	pub fn output(mut self, signal: Expression) -> Self {
 		assert!(self.output_data.is_none());
 		self.output_data = Some(signal);
 		self
@@ -105,28 +105,16 @@ impl RegisterBuilder {
 	}
 }
 
-/// Tristate buffer block
-pub struct TristateBuffer {
-	/// Enable input
-	pub input_en: Option<Expression>,
-
-	/// Data input
-	pub input_data: Expression,
-
-	/// Output data
-	pub output_data: SignalSlice,
-}
-
 /// Clock gating block
 pub struct ClockGate {
 	/// Enable input
 	pub input_en: Expression,
 
 	/// Clock input
-	pub input_clk: SignalSlice,
+	pub input_clk: Expression,
 
 	/// Output clock
-	pub output_clk: SignalSlice,
+	pub output_clk: Expression,
 }
 
 // FF synchronizer block
@@ -138,16 +126,16 @@ pub struct FfSync {
 	pub input_en: Option<Expression>,
 
 	/// Input clock signal input
-	pub input_clk1: SignalSlice,
+	pub input_clk1: Expression,
 
 	/// Output clock signal input
-	pub input_clk2: SignalSlice,
+	pub input_clk2: Expression,
 
 	/// Next value input
 	pub input_next: Expression,
 	
 	/// Output value
-	pub output_data: SignalSlice,
+	pub output_data: Expression,
 }
 
 /// Represents an instantiated module
@@ -256,7 +244,6 @@ impl ModuleInstanceBuilder {
 /// Represents a functional block instance
 pub enum BlockInstance {
 	Register(Register),
-	TristateBuffer(TristateBuffer),
 	ClockGate(ClockGate),
 	FfSync(FfSync),
 	Module(ModuleInstance),

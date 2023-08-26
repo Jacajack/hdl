@@ -1,17 +1,18 @@
 use super::{DesignHandle, SignalSensitivity, SignalId, NumericConstant, SignalSignedness};
 use thiserror::Error;
+use std::collections::HashMap;
 
 #[derive(Clone, Default)]
 pub struct EvalContext {
 	design: Option<DesignHandle>,
-	assumptions: Vec<(SignalId, NumericConstant)>,
+	assumptions: HashMap<SignalId, NumericConstant>,
 }
 
 impl EvalContext {
 	pub fn without_assumptions(design: DesignHandle) -> Self {
 		EvalContext {
 			design: Some(design),
-			assumptions: Vec::new(),
+			assumptions: HashMap::new(),
 		}
 	}
 
@@ -19,8 +20,16 @@ impl EvalContext {
 		self.design.clone()
 	}
 
-	pub fn assumptions(&self) -> &[(SignalId, NumericConstant)] {
+	pub fn assumptions(&self) -> &HashMap<SignalId, NumericConstant> {
 		&self.assumptions
+	}
+
+	pub fn assume(&mut self, signal: SignalId, value: NumericConstant) {
+		self.assumptions.insert(signal, value);
+	}
+
+	pub fn signal_value(&self, signal: SignalId) -> Option<&NumericConstant> {
+		self.assumptions().get(&signal)
 	}
 }
 

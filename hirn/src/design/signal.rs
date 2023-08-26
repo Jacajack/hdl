@@ -138,23 +138,23 @@ pub enum ArraySlice {
 }
 
 /// Determines which part of a signal (or signal array) is accessed
-#[derive(Clone)]
-pub struct SignalSlice {
-	/// Signal being accessed
-	pub signal: SignalId,
+// #[derive(Clone)]
+// pub struct SignalSlice {
+// 	/// Signal being accessed
+// 	pub signal: SignalId,
 
-	/// Array of slices, one per signal dimension
-	pub slices: Vec<ArraySlice>,
-}
+// 	/// Array of slices, one per signal dimension
+// 	pub slices: Vec<ArraySlice>,
+// }
 
-impl From<SignalId> for SignalSlice {
-	fn from(signal: SignalId) -> Self {
-		Self {
-			signal,
-			slices: vec![],
-		}
-	}
-}
+// impl From<SignalId> for SignalSlice {
+// 	fn from(signal: SignalId) -> Self {
+// 		Self {
+// 			signal,
+// 			slices: vec![],
+// 		}
+// 	}
+// }
 
 /// Physical signal representation
 pub struct Signal {
