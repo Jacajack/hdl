@@ -76,7 +76,7 @@ fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 }
 
 fn parse_file_recover_tables(code:String, ctx: LogosLexerContext) ->miette::Result<(Root, LogosLexerContext, String)>{
-	let mut lexer = LogosLexer::new_from_tables(&code, ctx);
+	let mut lexer = LogosLexer::new_with_context(&code, ctx);
 	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
 	let parser = parser::IzuluParser::new();

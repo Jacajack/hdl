@@ -166,7 +166,7 @@ pub trait Lexer<'source> {
 	/// Creates a lexer for provided source code
 	fn new(source: &'source str) -> Self;
 
-	fn new_from_tables(
+	fn new_with_context(
 		source: &'source str,
 		ctx: LogosLexerContext
 	) -> Self;

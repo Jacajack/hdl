@@ -221,7 +221,7 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 	}
 
 	/// Creates a new lexer given a source code string and pre-populated tables
-	fn new_from_tables(
+	fn new_with_context(
 		source: &'source str,
 		ctx: LogosLexerContext
 	) -> Self {

@@ -7,6 +7,15 @@ use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplement
 use crate::{lexer::CommentTableKey, lexer::IdTableKey, SourceSpan};
 use std::collections::HashMap;
 
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+pub enum TopDefinition {
+	ModuleDeclaration (ModuleDeclaration),
+	ModuleImplementation (ModuleImplementation),
+	PackageDeclaration (PackageDeclaration),
+	UseStatement (UseStatement),
+}
+
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ModuleDeclaration {
 	pub metadata: Vec<CommentTableKey>,
@@ -160,13 +169,7 @@ pub struct UseStatement {
 	pub location: SourceSpan,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
-pub enum TopDefinition {
-	ModuleDeclaration (ModuleDeclaration),
-	ModuleImplementation (ModuleImplementation),
-	PackageDeclaration (PackageDeclaration),
-	UseStatement (UseStatement),
-}
+
 impl SourceLocation for TopDefinition {
 	fn get_location(&self) -> SourceSpan {
 		use self::TopDefinition::*;
