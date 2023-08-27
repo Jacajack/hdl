@@ -1,5 +1,5 @@
-use crate::lexer::IdTableKey;
 use super::ModuleDeclarationScope;
+use crate::lexer::IdTableKey;
 
 #[derive(Debug)]
 pub struct ModuleDeclared {

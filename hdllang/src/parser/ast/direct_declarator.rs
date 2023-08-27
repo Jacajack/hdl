@@ -3,7 +3,6 @@ mod pretty_printable;
 use crate::parser::ast::{Expression, SourceLocation};
 use crate::{lexer::IdTableKey, SourceSpan};
 
-
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct DirectDeclarator {
 	pub name: IdTableKey,

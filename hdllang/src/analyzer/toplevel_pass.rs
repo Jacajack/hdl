@@ -5,7 +5,7 @@ use super::analyzer_pass::preamble::*;
 pub struct ToplevelPass {}
 
 impl<'source> AnalyzerPass<'source> for ToplevelPass {
-	fn run(&mut self, _ctx: &mut PassContext<'source>, ast: &'source Root) -> miette::Result<()>{
+	fn run(&mut self, _ctx: &mut PassContext<'source>, ast: &'source Root) -> miette::Result<()> {
 		info!("Running toplevel pass");
 		for _def in &ast.definitions {
 			//use crate::parser::ast::TopDefinition::*;

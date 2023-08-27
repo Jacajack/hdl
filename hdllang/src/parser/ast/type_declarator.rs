@@ -3,7 +3,6 @@ mod pretty_printable;
 use crate::parser::ast::{SourceLocation, TypeQualifier, TypeSpecifier};
 use crate::SourceSpan;
 
-
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct TypeDeclarator {
 	pub specifier: TypeSpecifier,

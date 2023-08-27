@@ -1,6 +1,9 @@
 use num_bigint::BigInt;
 
-use crate::{lexer::IdTableKey, parser::ast::{TypeSpecifier, Expression}};
+use crate::{
+	lexer::IdTableKey,
+	parser::ast::{Expression, TypeSpecifier},
+};
 
 use super::CombinedQualifiers;
 

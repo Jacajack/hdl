@@ -1,20 +1,23 @@
 use crate::parser::ast::ModuleImplementationStatement;
 use crate::parser::pretty_printer::*;
 
-use super::{AssignmentStatement, IfElseStatement, IterationStatement, InstantiationStatement, ModuleImplementationBlockStatement};
+use super::{
+	AssignmentStatement, IfElseStatement, InstantiationStatement, IterationStatement,
+	ModuleImplementationBlockStatement,
+};
 
-impl PrettyPrintable for AssignmentStatement{
-    fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
-        ctx.after_brackets = false;
+impl PrettyPrintable for AssignmentStatement {
+	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
+		ctx.after_brackets = false;
 		ctx.write_opt_newline("")?;
 		self.lhs.pretty_print(ctx)?;
 		ctx.write(format!(" {:?} ", self.assignment_opcode).as_str())?;
 		self.rhs.pretty_print(ctx)?;
 		ctx.writeln(";")
-    }
+	}
 }
 
-impl PrettyPrintable for IfElseStatement{
+impl PrettyPrintable for IfElseStatement {
 	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
 		if !ctx.afer_else {
 			ctx.writeln("")?;
@@ -30,11 +33,11 @@ impl PrettyPrintable for IfElseStatement{
 			ctx.afer_else = true;
 			stmt.pretty_print(ctx)?;
 		}
-		Ok(())				
+		Ok(())
 	}
 }
 
-impl PrettyPrintable for IterationStatement{
+impl PrettyPrintable for IterationStatement {
 	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
 		ctx.after_brackets = false;
 		ctx.write_opt_newline("")?;
@@ -47,8 +50,8 @@ impl PrettyPrintable for IterationStatement{
 	}
 }
 
-impl PrettyPrintable for InstantiationStatement{
-    fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
+impl PrettyPrintable for InstantiationStatement {
+	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
 		ctx.after_brackets = false;
 		ctx.write_opt_newline("")?;
 		self.module_name.pretty_print(ctx)?;
@@ -62,11 +65,11 @@ impl PrettyPrintable for InstantiationStatement{
 		ctx.decrease_indent();
 		ctx.write_indent("")?;
 		ctx.writeln("}")
-    }
+	}
 }
 
-impl PrettyPrintable for ModuleImplementationBlockStatement{
-    fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
+impl PrettyPrintable for ModuleImplementationBlockStatement {
+	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
 		if ctx.after_brackets {
 			ctx.after_brackets = false;
 			ctx.writeln("")?;
@@ -81,24 +84,24 @@ impl PrettyPrintable for ModuleImplementationBlockStatement{
 		ctx.write_opt_newline("}")?;
 		ctx.after_brackets = true;
 		Ok(())
-    }
+	}
 }
 impl PrettyPrintable for ModuleImplementationStatement {
 	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
 		use ModuleImplementationStatement::*;
 		match self {
 			VariableBlock(block) => block.pretty_print(ctx),
-			VariableDefinition (definition) => {
+			VariableDefinition(definition) => {
 				ctx.after_brackets = false;
 				ctx.write_opt_newline("")?;
 				definition.pretty_print(ctx)?;
 				ctx.writeln(";")
 			},
-			AssignmentStatement (assignment_statement) => assignment_statement.pretty_print(ctx),
-			IfElseStatement (if_else) => if_else.pretty_print(ctx),
-			IterationStatement (iteration) => iteration.pretty_print(ctx),
-			InstantiationStatement (instantation) => instantation.pretty_print(ctx),
-			ModuleImplementationBlockStatement (block) => block.pretty_print(ctx),
+			AssignmentStatement(assignment_statement) => assignment_statement.pretty_print(ctx),
+			IfElseStatement(if_else) => if_else.pretty_print(ctx),
+			IterationStatement(iteration) => iteration.pretty_print(ctx),
+			InstantiationStatement(instantation) => instantation.pretty_print(ctx),
+			ModuleImplementationBlockStatement(block) => block.pretty_print(ctx),
 		}
 	}
 }

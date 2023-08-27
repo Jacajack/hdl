@@ -3,7 +3,7 @@ extern crate sha256;
 use clap::{arg, command, Arg, ArgGroup};
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
 use hdllang::core::DiagnosticBuffer;
-use hdllang::lexer::{Lexer, LogosLexer, LogosLexerContext, IdTable};
+use hdllang::lexer::{IdTable, Lexer, LogosLexer, LogosLexerContext};
 use hdllang::parser::ast::Root;
 use hdllang::parser::pretty_printer::PrettyPrintable;
 use hdllang::parser::ParserError;
@@ -11,7 +11,7 @@ use hdllang::serializer::SerializerContext;
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
 use hdllang::{analyzer, parser};
-use log::{info, debug};
+use log::{debug, info};
 use std::collections::HashMap;
 use std::env;
 use std::fs;
@@ -75,7 +75,10 @@ fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	Ok(())
 }
 
-fn parse_file_recover_tables(code:String, ctx: LogosLexerContext) ->miette::Result<(Root, LogosLexerContext, String)>{
+fn parse_file_recover_tables(
+	code: String,
+	ctx: LogosLexerContext,
+) -> miette::Result<(Root, LogosLexerContext, String)> {
 	let mut lexer = LogosLexer::new_with_context(&code, ctx);
 	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
@@ -174,7 +177,8 @@ fn init_logging() {
 			.init();
 
 		info!("Logging to file '{}'", logfile);
-	} else {
+	}
+	else {
 		env_logger::init();
 		info!("Hello! Logging to stderr...");
 	}
@@ -191,13 +195,14 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 	let mut file_queue: VecDeque<String> = VecDeque::from([root_file_name.clone()]);
 	debug!("File queue: {:?}", file_queue);
 	use sha256::try_digest;
-	let hash = try_digest(root_file_name.clone()).map_err(|_| CompilerError::FileNotFound(root_file_name.clone()).to_miette_report())?;
+	let hash = try_digest(root_file_name.clone())
+		.map_err(|_| CompilerError::FileNotFound(root_file_name.clone()).to_miette_report())?;
 	let mut map = HashMap::new();
 	map.insert(hash, String::from("root"));
 
 	// tokenize and parse
-	let root:Root;
-	let mut ctx = LogosLexerContext{
+	let root: Root;
+	let mut ctx = LogosLexerContext {
 		id_table: IdTable::new(),
 		comment_table: hdllang::lexer::CommentTable::new(),
 		numeric_constants: hdllang::lexer::NumericConstantTable::new(),
@@ -205,13 +210,19 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 	};
 	let source: String;
 	while let Some(file_name) = file_queue.pop_front() {
-		let current_directory  = Path::new(&file_name).parent().unwrap().to_str().unwrap();
+		let current_directory = Path::new(&file_name).parent().unwrap().to_str().unwrap();
 		debug!("Current directory: {}", current_directory);
 		let code = read_input_from_file(&file_name)?;
-		(root, ctx, source) = parse_file_recover_tables(code,ctx)?;
+		(root, ctx, source) = parse_file_recover_tables(code, ctx)?;
 		let name = Path::new(&file_name).to_str().unwrap().to_string();
-		let paths = hdllang::analyzer::combine(&ctx.id_table, &ctx.numeric_constants, &root, String::from(current_directory),&mut map)
-			.map_err(|e|e.with_source_code(miette::NamedSource::new( name, source)))?;
+		let paths = hdllang::analyzer::combine(
+			&ctx.id_table,
+			&ctx.numeric_constants,
+			&root,
+			String::from(current_directory),
+			&mut map,
+		)
+		.map_err(|e| e.with_source_code(miette::NamedSource::new(name, source)))?;
 		for path in paths {
 			file_queue.push_back(path);
 		}
@@ -224,7 +235,7 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 fn main() -> miette::Result<()> {
 	std::env::set_var("RUST_LOG", "debug");
 	init_logging();
-	
+
 	let matches = command!()
 		.arg(Arg::new("source"))
 		.arg(Arg::new("output").short('o').long("output"))
@@ -260,7 +271,7 @@ fn main() -> miette::Result<()> {
 		Some(x) => x,
 	};
 	match matches.get_one::<bool>("clean") {
-	Some(x) => {
+		Some(x) => {
 			if *x {
 				mode = "clean";
 			}

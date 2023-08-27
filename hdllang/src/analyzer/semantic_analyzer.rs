@@ -9,11 +9,15 @@ pub struct SemanticAnalyzer<'source> {
 }
 
 impl<'source> SemanticAnalyzer<'source> {
-	pub fn new(id_table: &'source IdTable, comment_table: &'source CommentTable, diagnostics: &'source mut DiagnosticBuffer<'source>) -> Self {
+	pub fn new(
+		id_table: &'source IdTable,
+		comment_table: &'source CommentTable,
+		diagnostics: &'source mut DiagnosticBuffer<'source>,
+	) -> Self {
 		let context = PassContext {
 			id_table,
 			comment_table,
-			diagnostics
+			diagnostics,
 		};
 
 		Self {
@@ -22,7 +26,7 @@ impl<'source> SemanticAnalyzer<'source> {
 		}
 	}
 
-	pub fn process(&mut self, ast: &'source Root) -> miette::Result<()>{
+	pub fn process(&mut self, ast: &'source Root) -> miette::Result<()> {
 		println!("Running semantic analyzer");
 		for pass in &mut self.passes {
 			pass.run(&mut self.context, ast)?;

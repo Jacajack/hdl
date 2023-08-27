@@ -31,7 +31,7 @@ impl PrettyPrintable for VariableBlockStatement {
 				definition.pretty_print(ctx)?;
 				ctx.writeln(";")
 			},
-			VariableBlock (block) => {
+			VariableBlock(block) => {
 				ctx.increase_indent();
 				block.pretty_print(ctx)?;
 				ctx.decrease_indent();

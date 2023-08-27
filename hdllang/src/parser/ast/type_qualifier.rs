@@ -4,7 +4,7 @@ use crate::parser::ast::{Expression, SourceLocation};
 use crate::SourceSpan;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
-pub struct 	Sync {
+pub struct Sync {
 	pub expressions: Vec<Expression>,
 	pub location: SourceSpan,
 }
@@ -15,32 +15,16 @@ pub struct Comb {
 }
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum TypeQualifier {
-	Signed {
-		location: SourceSpan,
-	},
-	Unsigned {
-		location: SourceSpan,
-	},
-	Tristate {
-		location: SourceSpan,
-	},
-	Const {
-		location: SourceSpan,
-	},
-	Clock {
-		location: SourceSpan,
-	},
-	Comb (Comb),
-	Sync (Sync),
-	Input {
-		location: SourceSpan,
-	},
-	Output {
-		location: SourceSpan,
-	},
-	Async {
-		location: SourceSpan,
-	},
+	Signed { location: SourceSpan },
+	Unsigned { location: SourceSpan },
+	Tristate { location: SourceSpan },
+	Const { location: SourceSpan },
+	Clock { location: SourceSpan },
+	Comb(Comb),
+	Sync(Sync),
+	Input { location: SourceSpan },
+	Output { location: SourceSpan },
+	Async { location: SourceSpan },
 }
 impl SourceLocation for TypeQualifier {
 	fn get_location(&self) -> SourceSpan {
@@ -51,8 +35,8 @@ impl SourceLocation for TypeQualifier {
 			Tristate { location } => *location,
 			Const { location } => *location,
 			Clock { location } => *location,
-			Comb (comb) => comb.location,
-			Sync (sync) => sync.location,
+			Comb(comb) => comb.location,
+			Sync(sync) => sync.location,
 			Input { location } => *location,
 			Output { location } => *location,
 			Async { location } => *location,

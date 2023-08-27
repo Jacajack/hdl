@@ -9,23 +9,15 @@ use std::fmt::{Debug, Error, Formatter};
 pub struct Bus {
 	pub width: Box<Expression>,
 	pub location: SourceSpan,
-	pub compiled_width: Option<BigInt> // to be transferred to a hashmap,
+	pub compiled_width: Option<BigInt>, // to be transferred to a hashmap,
 }
 #[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq)]
 pub enum TypeSpecifier {
-	Auto {
-		location: SourceSpan,
-	},
-	Int {
-		location: SourceSpan,
-	},
-	Wire {
-		location: SourceSpan,
-	},
-	Bool {
-		location: SourceSpan,
-	},
-	Bus (Bus),
+	Auto { location: SourceSpan },
+	Int { location: SourceSpan },
+	Wire { location: SourceSpan },
+	Bool { location: SourceSpan },
+	Bus(Bus),
 }
 impl Debug for TypeSpecifier {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
@@ -35,7 +27,7 @@ impl Debug for TypeSpecifier {
 			Int { location: _ } => write!(fmt, "int"),
 			Bool { location: _ } => write!(fmt, "bool"),
 			Wire { location: _ } => write!(fmt, "wire"),
-			Bus (bus) => write!(fmt, "bus<{:?}>", bus.width),
+			Bus(bus) => write!(fmt, "bus<{:?}>", bus.width),
 		}
 	}
 }
@@ -47,7 +39,7 @@ impl SourceLocation for TypeSpecifier {
 			Int { location } => *location,
 			Wire { location } => *location,
 			Bool { location } => *location,
-			Bus (bus) => bus.location,
+			Bus(bus) => bus.location,
 		}
 	}
 }

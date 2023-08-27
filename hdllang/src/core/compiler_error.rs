@@ -43,7 +43,7 @@ impl ProvidesCompilerDiagnostic for CompilerError {
 			JsonError(serde_error) => CompilerDiagnosticBuilder::from_error(&self)
 				.help(&serde_error.to_string())
 				.build(),
-    		FileNotFound(file_name) => CompilerDiagnosticBuilder::from_error(&self)
+			FileNotFound(file_name) => CompilerDiagnosticBuilder::from_error(&self)
 				.help(&format!("Make sure this file exists: {}", file_name))
 				.build(),
 		}

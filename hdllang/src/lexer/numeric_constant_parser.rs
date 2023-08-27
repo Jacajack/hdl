@@ -1,8 +1,8 @@
 use crate::{compiler_diagnostic::*, lexer::numeric_constant::NumericConstantBase};
-use std::fmt;
 use log::debug;
 use num_bigint::BigInt;
 use num_traits::Pow;
+use std::fmt;
 use thiserror::Error;
 
 use super::NumericConstant;
@@ -61,38 +61,50 @@ impl ProvidesCompilerDiagnostic for NumberParseError {
 
 /// Parses a pure decimal number
 fn parse_pure_decimal(s: &str) -> Result<BigInt, NumberParseError> {
-	BigInt::parse_bytes(s.as_bytes(), 10).map_or_else(||
-		Err(NumberParseError {
-			kind: NumericConstantParseErrorKind::BadBinaryDigit,
-			range: (0, s.len()),
-		}), |f|{
-			debug!("dec: {:?}, bigint: {:?}",s, f);
+	BigInt::parse_bytes(s.as_bytes(), 10).map_or_else(
+		|| {
+			Err(NumberParseError {
+				kind: NumericConstantParseErrorKind::BadBinaryDigit,
+				range: (0, s.len()),
+			})
+		},
+		|f| {
+			debug!("dec: {:?}, bigint: {:?}", s, f);
 			Ok(f)
-		})
+		},
+	)
 }
 
 /// Parses a pure hex number
 fn parse_pure_hex(s: &str) -> Result<BigInt, NumberParseError> {
-	BigInt::parse_bytes(s.as_bytes(), 16).map_or_else(||
-		Err(NumberParseError {
-			kind: NumericConstantParseErrorKind::BadHexDigit,
-			range: (0, s.len()),
-		}), |f|{
-			debug!("hex: 0x{:?}, bigint: {:?}",s, f);
+	BigInt::parse_bytes(s.as_bytes(), 16).map_or_else(
+		|| {
+			Err(NumberParseError {
+				kind: NumericConstantParseErrorKind::BadHexDigit,
+				range: (0, s.len()),
+			})
+		},
+		|f| {
+			debug!("hex: 0x{:?}, bigint: {:?}", s, f);
 			Ok(f)
-		})
+		},
+	)
 }
 
 /// Parses a pure binary number
 fn parse_pure_binary(s: &str) -> Result<BigInt, NumberParseError> {
-	BigInt::parse_bytes(s.as_bytes(), 2).map_or_else(||
-		Err(NumberParseError {
-			kind: NumericConstantParseErrorKind::BadBinaryDigit,
-			range: (0, s.len()),
-		}), |f|{
-			debug!("bin: 0b{:?}, bigint: {:?}",s, f);
+	BigInt::parse_bytes(s.as_bytes(), 2).map_or_else(
+		|| {
+			Err(NumberParseError {
+				kind: NumericConstantParseErrorKind::BadBinaryDigit,
+				range: (0, s.len()),
+			})
+		},
+		|f| {
+			debug!("bin: 0b{:?}, bigint: {:?}", s, f);
 			Ok(f)
-		})
+		},
+	)
 }
 /// Parses numeric constant strings
 pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberParseError> {
@@ -145,12 +157,12 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 		}
 
 		// If the number is signed, we need to check the first digit
-		if Some(true) == is_signed{
+		if Some(true) == is_signed {
 			let (_, f) = s.char_indices().nth(2).unwrap();
 			if f.to_digit(16).unwrap() > 7 {
 				let mut d = BigInt::from(f.to_digit(16).unwrap());
-				d-=8;
-				d = d*BigInt::from(16).pow((digits_end - 3) as u32);
+				d -= 8;
+				d = d * BigInt::from(16).pow((digits_end - 3) as u32);
 				let a = BigInt::from(2).pow((digits_end - 2) as u32 * 4 - 1);
 				let b = parse_pure_hex(&s[3..digits_end]).map_err(|e| NumberParseError {
 					kind: e.kind,
@@ -158,14 +170,14 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 				})?;
 				b - a + d
 			}
-			else{
-				 parse_pure_hex(&s[2..digits_end]).map_err(|e| NumberParseError {
+			else {
+				parse_pure_hex(&s[2..digits_end]).map_err(|e| NumberParseError {
 					kind: e.kind,
 					range: (0, token_len),
 				})?
 			}
 		}
-		else{
+		else {
 			parse_pure_hex(&s[2..digits_end]).map_err(|e| NumberParseError {
 				kind: e.kind,
 				range: (0, token_len),
@@ -176,29 +188,33 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 		base = NumericConstantBase::Binary;
 		match is_signed {
 			Some(true) => {
-				if s.starts_with("0b1"){
+				if s.starts_with("0b1") {
 					debug!("s: {:?}", &s[2..digits_end]);
 					let mut val = parse_pure_binary(&s[3..digits_end]).map_err(|e| NumberParseError {
 						kind: e.kind,
-						range: (0, token_len)})?;
+						range: (0, token_len),
+					})?;
 					val = val - BigInt::from(2).pow((digits_end - 3) as u32);
 					val
-				} else {
+				}
+				else {
 					parse_pure_binary(&s[3..digits_end]).map_err(|e| NumberParseError {
 						kind: e.kind,
-						range: (0, token_len)})?
-					}
+						range: (0, token_len),
+					})?
+				}
 			},
 			Some(false) => parse_pure_binary(&s[2..digits_end]).map_err(|e| NumberParseError {
-			kind: e.kind,
-			range: (0, token_len),
-		})?,
-			None =>{ 
-			is_signed = Some(false);
-			parse_pure_binary(&s[2..digits_end]).map_err(|e| NumberParseError {
-			kind: e.kind,
-			range: (0, token_len),
-		})?},
+				kind: e.kind,
+				range: (0, token_len),
+			})?,
+			None => {
+				is_signed = Some(false);
+				parse_pure_binary(&s[2..digits_end]).map_err(|e| NumberParseError {
+					kind: e.kind,
+					range: (0, token_len),
+				})?
+			},
 		}
 	}
 	else {

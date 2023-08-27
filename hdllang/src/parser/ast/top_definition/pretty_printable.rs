@@ -1,12 +1,11 @@
-use crate::parser::ast::{TopDefinition,ModuleDeclaration};
+use crate::parser::ast::{ModuleDeclaration, TopDefinition};
 use crate::parser::pretty_printer::*;
 
 use super::{ModuleImplementation, PackageDeclaration, UseStatement};
 
-
-impl PrettyPrintable for ModuleDeclaration{
-    fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
-        for comment in self.metadata.iter() {
+impl PrettyPrintable for ModuleDeclaration {
+	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
+		for comment in self.metadata.iter() {
 			ctx.writeln(format!("///{}", ctx.get_comment(*comment)).as_str())?;
 		}
 		ctx.write_indent("module ")?;
@@ -22,12 +21,12 @@ impl PrettyPrintable for ModuleDeclaration{
 		ctx.writeln("")?;
 		ctx.writeln("")?;
 		Ok(())
-    }
+	}
 }
 
-impl PrettyPrintable for ModuleImplementation{
-    fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
-        for comment in self.metadata.iter() {
+impl PrettyPrintable for ModuleImplementation {
+	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
+		for comment in self.metadata.iter() {
 			ctx.writeln(format!("///{}", ctx.get_comment(*comment)).as_str())?;
 		}
 		ctx.write_indent("impl ")?;
@@ -35,39 +34,39 @@ impl PrettyPrintable for ModuleImplementation{
 		self.statement.pretty_print(ctx)?;
 		ctx.writeln("")?;
 		Ok(())
-    }
+	}
 }
 
-impl PrettyPrintable for PackageDeclaration{
-    fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
-        for comment in self.metadata.iter() {
+impl PrettyPrintable for PackageDeclaration {
+	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
+		for comment in self.metadata.iter() {
 			ctx.writeln(format!("///{}", ctx.get_comment(*comment)).as_str())?;
 		}
 		ctx.write_indent("package ")?;
 		self.path.pretty_print(ctx)?;
 		ctx.writeln(";")
-    }
+	}
 }
 
-impl PrettyPrintable for UseStatement{
-    fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
-        for comment in self.metadata.iter() {
+impl PrettyPrintable for UseStatement {
+	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
+		for comment in self.metadata.iter() {
 			ctx.writeln(format!("///{}", ctx.get_comment(*comment)).as_str())?;
 		}
 		ctx.write_indent("use ")?;
 		self.path.pretty_print(ctx)?;
 		ctx.writeln(";")
-    }
+	}
 }
 
 impl PrettyPrintable for TopDefinition {
 	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
 		use TopDefinition::*;
 		match self {
-			ModuleDeclaration (declaration) => declaration.pretty_print(ctx),
-			ModuleImplementation (implementation)=> implementation.pretty_print(ctx),
-			PackageDeclaration (package) => package.pretty_print(ctx),
-			UseStatement (use_statement) => use_statement.pretty_print(ctx),
+			ModuleDeclaration(declaration) => declaration.pretty_print(ctx),
+			ModuleImplementation(implementation) => implementation.pretty_print(ctx),
+			PackageDeclaration(package) => package.pretty_print(ctx),
+			UseStatement(use_statement) => use_statement.pretty_print(ctx),
 		}
 	}
 }

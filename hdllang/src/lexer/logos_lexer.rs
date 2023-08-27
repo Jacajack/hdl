@@ -221,18 +221,12 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 	}
 
 	/// Creates a new lexer given a source code string and pre-populated tables
-	fn new_with_context(
-		source: &'source str,
-		ctx: LogosLexerContext
-	) -> Self {
+	fn new_with_context(source: &'source str, ctx: LogosLexerContext) -> Self {
 		LogosLexer {
-			lexer: TokenKind::lexer_with_extras(
-				source,
-				ctx,
-			),
+			lexer: TokenKind::lexer_with_extras(source, ctx),
 		}
 	}
- 	/// Processes the string and produces a vector of tokens
+	/// Processes the string and produces a vector of tokens
 	fn process(&mut self) -> Result<Vec<Token>, LexerError> {
 		// TODO determine average token length and pre-allocate vector space based on that
 		let mut tokens = Vec::<Token>::with_capacity(1000);

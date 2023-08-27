@@ -1,13 +1,13 @@
 mod pretty_printable;
 
 use crate::parser::ast::{
-	AssignmentOpcode, Expression, ImportPath, PortBindStatement, RangeExpression, SourceLocation, VariableBlock, VariableDefinition,
+	AssignmentOpcode, Expression, ImportPath, PortBindStatement, RangeExpression, SourceLocation, VariableBlock,
+	VariableDefinition,
 };
 use crate::{
 	lexer::{CommentTableKey, IdTableKey},
 	SourceSpan,
 };
-
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct AssignmentStatement {
@@ -49,26 +49,26 @@ pub struct ModuleImplementationBlockStatement {
 }
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum ModuleImplementationStatement {
-	VariableBlock (VariableBlock),
-	VariableDefinition (VariableDefinition),
-	AssignmentStatement (AssignmentStatement),
-	IfElseStatement (IfElseStatement),
-	IterationStatement (IterationStatement),
-	InstantiationStatement (InstantiationStatement),
-	ModuleImplementationBlockStatement (ModuleImplementationBlockStatement),
+	VariableBlock(VariableBlock),
+	VariableDefinition(VariableDefinition),
+	AssignmentStatement(AssignmentStatement),
+	IfElseStatement(IfElseStatement),
+	IterationStatement(IterationStatement),
+	InstantiationStatement(InstantiationStatement),
+	ModuleImplementationBlockStatement(ModuleImplementationBlockStatement),
 }
 
 impl SourceLocation for ModuleImplementationStatement {
 	fn get_location(&self) -> SourceSpan {
 		use self::ModuleImplementationStatement::*;
 		match self {
-			VariableBlock (block) => block.location,
-			VariableDefinition (definition) => definition.location,
-			AssignmentStatement (assignment_statement) => assignment_statement.location,
-			IfElseStatement (if_else) => if_else.location,
-			IterationStatement (iteration) => iteration.location,
-			InstantiationStatement (instantation) => instantation.location,
-			ModuleImplementationBlockStatement (block) => block.location,
+			VariableBlock(block) => block.location,
+			VariableDefinition(definition) => definition.location,
+			AssignmentStatement(assignment_statement) => assignment_statement.location,
+			IfElseStatement(if_else) => if_else.location,
+			IterationStatement(iteration) => iteration.location,
+			InstantiationStatement(instantation) => instantation.location,
+			ModuleImplementationBlockStatement(block) => block.location,
 		}
 	}
 }

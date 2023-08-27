@@ -12,12 +12,12 @@ use preamble::*;
 pub struct PassContext<'source> {
 	pub id_table: &'source IdTable,
 	pub comment_table: &'source CommentTable,
-	pub diagnostics: &'source  mut DiagnosticBuffer<'source>,
+	pub diagnostics: &'source mut DiagnosticBuffer<'source>,
 	// namespace_defs: &'source mut NamespaceTable,
 	// module_defs: &'source mut ModuleDefTable,
 	// module_impls: &'source mut ModuleImplTable,
 }
 
 pub trait AnalyzerPass<'source> {
-	fn run(&mut self, ctx: &mut PassContext<'source>, ast: &'source Root)-> miette::Result<()>;
+	fn run(&mut self, ctx: &mut PassContext<'source>, ast: &'source Root) -> miette::Result<()>;
 }

@@ -43,7 +43,7 @@ impl NumericConstant {
 		num
 	}
 
-	pub fn new_from_unary(other: Self, operation: fn(BigInt)->BigInt) -> Self {
+	pub fn new_from_unary(other: Self, operation: fn(BigInt) -> BigInt) -> Self {
 		let num = Self {
 			value: operation(other.value),
 			width: other.width,
@@ -55,7 +55,7 @@ impl NumericConstant {
 		num
 	}
 
-	pub fn new_from_binary(other1: Self, other2: Self, operation: fn(BigInt, BigInt)->BigInt) -> Self {
+	pub fn new_from_binary(other1: Self, other2: Self, operation: fn(BigInt, BigInt) -> BigInt) -> Self {
 		let num = Self {
 			value: operation(other1.value, other2.value),
 			width: other1.width,
@@ -81,7 +81,7 @@ impl NumericConstant {
 	}
 	fn count_ones(&self) -> u32 {
 		let mut ones = 0;
-		for d in self.value.iter_u32_digits(){
+		for d in self.value.iter_u32_digits() {
 			ones += d.count_ones();
 		}
 		ones
@@ -139,7 +139,7 @@ impl NumericConstant {
 	/// Returns if the number can be represented with the specifed
 	/// number of bits and signedness
 	pub fn is_representable_as_positive(&self) -> Option<bool> {
-		self.get_effective_bits().map(|n| self.value.bits()as u32 <= n)
+		self.get_effective_bits().map(|n| self.value.bits() as u32 <= n)
 	}
 
 	/// Returns if the number can be represented with the specifed

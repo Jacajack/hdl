@@ -3,7 +3,6 @@ mod pretty_printable;
 use crate::parser::ast::{DirectDeclarator, Expression, SourceLocation};
 use crate::SourceSpan;
 
-
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct DirectInitializer {
 	pub declarator: DirectDeclarator,

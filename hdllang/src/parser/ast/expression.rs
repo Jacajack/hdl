@@ -13,7 +13,7 @@ mod ternary_expression;
 mod tuple;
 mod unary_cast_expression;
 mod unary_operator_expression;
-use crate::analyzer::{SemanticError, ModuleImplementationScope};
+use crate::analyzer::{ModuleImplementationScope, SemanticError};
 use crate::core::id_table;
 use crate::lexer::{IdTableKey, NumericConstantBase};
 use crate::parser::ast::{opcodes::*, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName};
@@ -37,7 +37,7 @@ pub use unary_operator_expression::UnaryOperatorExpression;
 
 use crate::lexer::NumericConstant;
 use num_bigint::{BigInt, Sign};
-#[derive(serde::Serialize, serde::Deserialize, Clone,PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub enum Expression {
 	Number(Number),
 	Identifier(Identifier),
@@ -130,16 +130,16 @@ impl SourceLocation for Expression {
 	}
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Value{
+pub struct Value {
 	pub value: Option<BigInt>,
 	pub signed: Option<bool>,
 	pub width: Option<u32>,
 	pub dimensions: Vec<BigInt>,
 	// sensitivity ?
 }
-impl Value{
-	pub fn new_from_constant(constant: &NumericConstant) -> Self{
-		Self{
+impl Value {
+	pub fn new_from_constant(constant: &NumericConstant) -> Self {
+		Self {
 			value: Some(constant.value.clone()),
 			signed: constant.signed,
 			width: constant.width,
@@ -209,7 +209,8 @@ impl Expression {
 			Expression::TernaryExpression(tern) => Ok(
 				if tern.condition.evaluate_in_declaration(nc_table)?.value != BigInt::from(0) {
 					tern.true_branch.evaluate_in_declaration(nc_table)?
-				} else {
+				}
+				else {
 					tern.false_branch.evaluate_in_declaration(nc_table)?
 				},
 			),
@@ -223,7 +224,8 @@ impl Expression {
 					LogicalNot => Ok(
 						if unary.expression.evaluate_in_declaration(nc_table)?.value == BigInt::from(0) {
 							NumericConstant::new(BigInt::from(1), None, None, Some(NumericConstantBase::Boolean))
-						} else {
+						}
+						else {
 							NumericConstant::new(BigInt::from(0), None, None, Some(NumericConstantBase::Boolean))
 						},
 					),
@@ -300,7 +302,8 @@ impl Expression {
 							== binop.rhs.evaluate_in_declaration(nc_table)?.value
 						{
 							NumericConstant::from_u64(1, Some(1), Some(false), Some(NumericConstantBase::Boolean))
-						} else {
+						}
+						else {
 							NumericConstant::from_u64(0, Some(1), Some(false), Some(NumericConstantBase::Boolean))
 						},
 					),
@@ -309,7 +312,8 @@ impl Expression {
 							!= binop.rhs.evaluate_in_declaration(nc_table)?.value
 						{
 							NumericConstant::from_u64(1, Some(1), Some(false), Some(NumericConstantBase::Boolean))
-						} else {
+						}
+						else {
 							NumericConstant::from_u64(0, Some(1), Some(false), Some(NumericConstantBase::Boolean))
 						},
 					),
@@ -323,7 +327,8 @@ impl Expression {
 									.label(binop.rhs.get_location(), "Shift by negative number is not allowed")
 									.build(),
 							));
-						} else {
+						}
+						else {
 							let mut i = BigInt::from(0);
 							while i < rhs.value {
 								lhs.value = lhs.value << 1;
@@ -342,7 +347,8 @@ impl Expression {
 									.label(binop.rhs.get_location(), "Shift by negative number is not allowed")
 									.build(),
 							));
-						} else {
+						}
+						else {
 							let mut i = BigInt::from(0);
 							while i < rhs.value {
 								lhs.value = lhs.value >> 1;
@@ -371,7 +377,8 @@ impl Expression {
 							< binop.rhs.evaluate_in_declaration(nc_table)?.value
 						{
 							NumericConstant::new_true()
-						} else {
+						}
+						else {
 							NumericConstant::new_false()
 						},
 					),
@@ -380,7 +387,8 @@ impl Expression {
 							> binop.rhs.evaluate_in_declaration(nc_table)?.value
 						{
 							NumericConstant::new_true()
-						} else {
+						}
+						else {
 							NumericConstant::new_false()
 						},
 					),
@@ -389,7 +397,8 @@ impl Expression {
 							<= binop.rhs.evaluate_in_declaration(nc_table)?.value
 						{
 							NumericConstant::new_true()
-						} else {
+						}
+						else {
 							NumericConstant::new_false()
 						},
 					),
@@ -398,7 +407,8 @@ impl Expression {
 							>= binop.rhs.evaluate_in_declaration(nc_table)?.value
 						{
 							NumericConstant::new_true()
-						} else {
+						}
+						else {
 							NumericConstant::new_false()
 						},
 					),
@@ -407,7 +417,8 @@ impl Expression {
 							&& binop.rhs.evaluate_in_declaration(nc_table)?.value != BigInt::from(0)
 						{
 							NumericConstant::new_true()
-						} else {
+						}
+						else {
 							NumericConstant::new_false()
 						},
 					),
@@ -416,7 +427,8 @@ impl Expression {
 							|| binop.rhs.evaluate_in_declaration(nc_table)?.value != BigInt::from(0)
 						{
 							NumericConstant::new_true()
-						} else {
+						}
+						else {
 							NumericConstant::new_false()
 						},
 					),
@@ -424,27 +436,28 @@ impl Expression {
 			},
 		}
 	}
-	pub fn evaluate(&self,
+	pub fn evaluate(
+		&self,
 		scope: ModuleImplementationScope,
 		nc_table: &crate::lexer::NumericConstantTable,
 		id_table: &id_table::IdTable,
 	) -> miette::Result<Value> {
 		use self::Expression::*;
 		match self {
-    		Number(num) => Ok(Value::new_from_constant(nc_table.get_by_key(&num.key).unwrap())),
-    		Identifier(_) => todo!(),
-    		ParenthesizedExpression(expr) => expr.expression.evaluate(scope, nc_table, id_table),
-    		MatchExpression(_) => todo!(),
-    		ConditionalExpression(_) => todo!(),
-    		Tuple(_) => todo!(),
-    		TernaryExpression(_) => todo!(),
-    		PostfixWithIndex(_) => todo!(),
-    		PostfixWithRange(_) => todo!(),
-    		PostfixWithArgs(_) => todo!(),
-    		PostfixWithId(_) => todo!(),
-    		UnaryOperatorExpression(_) => todo!(),
-    		UnaryCastExpression(_) => todo!(),
-    		BinaryExpression(_) => todo!(),
+			Number(num) => Ok(Value::new_from_constant(nc_table.get_by_key(&num.key).unwrap())),
+			Identifier(_) => todo!(),
+			ParenthesizedExpression(expr) => expr.expression.evaluate(scope, nc_table, id_table),
+			MatchExpression(_) => todo!(),
+			ConditionalExpression(_) => todo!(),
+			Tuple(_) => todo!(),
+			TernaryExpression(_) => todo!(),
+			PostfixWithIndex(_) => todo!(),
+			PostfixWithRange(_) => todo!(),
+			PostfixWithArgs(_) => todo!(),
+			PostfixWithId(_) => todo!(),
+			UnaryOperatorExpression(_) => todo!(),
+			UnaryCastExpression(_) => todo!(),
+			BinaryExpression(_) => todo!(),
 		}
 	}
 }

@@ -4,7 +4,6 @@ use crate::lexer::CommentTableKey;
 use crate::parser::ast::{DirectInitializer, SourceLocation, TypeDeclarator};
 use crate::SourceSpan;
 
-
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct VariableDefinition {
 	pub metadata: Vec<CommentTableKey>,

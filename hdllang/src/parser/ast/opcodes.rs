@@ -1,4 +1,3 @@
-
 use std::fmt::{Debug, Error, Formatter};
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
@@ -11,8 +10,8 @@ pub enum RangeOpcode {
 pub enum UnaryOpcode {
 	BitwiseNot, // ~
 	LogicalNot, // !
-	Minus, // -
-	Plus, // +
+	Minus,      // -
+	Plus,       // +
 }
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub enum BinaryOpcode {

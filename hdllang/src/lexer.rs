@@ -166,10 +166,7 @@ pub trait Lexer<'source> {
 	/// Creates a lexer for provided source code
 	fn new(source: &'source str) -> Self;
 
-	fn new_with_context(
-		source: &'source str,
-		ctx: LogosLexerContext
-	) -> Self;
+	fn new_with_context(source: &'source str, ctx: LogosLexerContext) -> Self;
 	/// Processes the text and returns a vector of tokens
 	fn process(&mut self) -> Result<Vec<Token>, LexerError>;
 

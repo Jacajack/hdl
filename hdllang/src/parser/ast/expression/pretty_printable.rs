@@ -5,14 +5,14 @@ impl PrettyPrintable for Expression {
 	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
 		use Expression::*;
 		match self {
-			Number (num) => ctx.write(ctx.get_numeric_constant(num.key).to_pretty_string().as_str()),
-			Identifier (ident) => ctx.write((&ctx.get_id(ident.id)).to_string().as_str()),
-			ParenthesizedExpression (expr) => {
+			Number(num) => ctx.write(ctx.get_numeric_constant(num.key).to_pretty_string().as_str()),
+			Identifier(ident) => ctx.write((&ctx.get_id(ident.id)).to_string().as_str()),
+			ParenthesizedExpression(expr) => {
 				ctx.write("(")?;
 				expr.expression.pretty_print(ctx)?;
 				ctx.write(")")
 			},
-			MatchExpression (match_expr) => {
+			MatchExpression(match_expr) => {
 				ctx.write("match (")?;
 				match_expr.value.pretty_print(ctx)?;
 				ctx.write(")")?;
@@ -24,7 +24,7 @@ impl PrettyPrintable for Expression {
 				ctx.decrease_indent();
 				ctx.write_indent("}")
 			},
-			ConditionalExpression (cond) => {
+			ConditionalExpression(cond) => {
 				ctx.write("conditional")?;
 				ctx.increase_indent();
 				ctx.writeln(" {")?;
@@ -35,7 +35,7 @@ impl PrettyPrintable for Expression {
 				ctx.writeln("")?;
 				ctx.write_indent("}")
 			},
-			Tuple (tuple) => {
+			Tuple(tuple) => {
 				ctx.write("(")?;
 				for (i, expression) in tuple.expressions.iter().enumerate() {
 					expression.pretty_print(ctx)?;
@@ -45,25 +45,25 @@ impl PrettyPrintable for Expression {
 				}
 				ctx.write(")")
 			},
-			TernaryExpression (ternary) => {
+			TernaryExpression(ternary) => {
 				ternary.condition.pretty_print(ctx)?;
 				ctx.write(" ? ")?;
 				ternary.true_branch.pretty_print(ctx)?;
 				ctx.write(" : ")?;
 				ternary.false_branch.pretty_print(ctx)
 			},
-			PostfixWithIndex (postfix) => {
+			PostfixWithIndex(postfix) => {
 				postfix.expression.pretty_print(ctx)?;
 				ctx.write("[")?;
 				postfix.index.pretty_print(ctx)?;
 				ctx.write("]")
 			},
-			PostfixWithRange (postfix) => {
+			PostfixWithRange(postfix) => {
 				postfix.expression.pretty_print(ctx)?;
 				postfix.range.pretty_print(ctx)?;
 				Ok(())
 			},
-			PostfixWithArgs (postfix) => {
+			PostfixWithArgs(postfix) => {
 				ctx.write(format!("{}", ctx.get_id(postfix.id)).as_str())?;
 				ctx.write("(")?;
 				for (i, expression) in postfix.argument_list.iter().enumerate() {
@@ -74,21 +74,21 @@ impl PrettyPrintable for Expression {
 				}
 				ctx.write(")")
 			},
-			PostfixWithId (postfix) => {
+			PostfixWithId(postfix) => {
 				postfix.expression.pretty_print(ctx)?;
 				ctx.write(format!(".{}", ctx.get_id(postfix.id)).as_str())
 			},
-			UnaryOperatorExpression (unary) => {
+			UnaryOperatorExpression(unary) => {
 				ctx.write(format!("{:?}", unary.code).as_str())?;
 				unary.expression.pretty_print(ctx)
 			},
-			UnaryCastExpression (unary) => {
+			UnaryCastExpression(unary) => {
 				ctx.write("(")?;
 				unary.type_name.pretty_print(ctx)?;
 				ctx.write(")")?;
 				unary.expression.pretty_print(ctx)
 			},
-			BinaryExpression (binop) => {
+			BinaryExpression(binop) => {
 				binop.lhs.pretty_print(ctx)?;
 				ctx.write(format!(" {:?} ", binop.code).as_str())?;
 				binop.rhs.pretty_print(ctx)
