@@ -186,13 +186,13 @@ pub enum TokenKind {
 /// by it.
 pub struct LogosLexerContext {
 	/// Identifier table (names only)
-	pub id_table: IdTable, // TODO store reference instead
+	pub id_table: IdTable,
 
 	/// Metadata comments table
-	pub comment_table: CommentTable, // TODO store reference instead
+	pub comment_table: CommentTable,
 
 	/// Numeric constant table
-	pub numeric_constants: NumericConstantTable, // TODO store reference instead
+	pub numeric_constants: NumericConstantTable,
 
 	/// Last lexing error (written by custom token parsing funcitons)
 	pub last_err: Option<LexerError>,
