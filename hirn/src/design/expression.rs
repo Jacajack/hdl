@@ -1,4 +1,4 @@
-use super::signal::{SignalSensitivity, SignalClass};
+use super::signal::{SignalSensitivity, SignalClass, SignalSlice};
 use super::{SignalId, NumericConstant};
 
 /// Binary operators
@@ -109,7 +109,7 @@ pub struct UnaryExpression {
 pub enum Expression {
 	Conditional(ConditionalExpression),
 	Constant(NumericConstant),
-	Signal(SignalId),
+	Signal(SignalSlice),
 	Binary(BinaryExpression),
 	Builtin(BuiltinOp),
 	Unary(UnaryExpression),
@@ -159,8 +159,8 @@ impl Expression {
 	}
 
 	/// Attempt to drive the expression if possible.
-	/// Returns affected signal if drivable.
-	pub fn try_drive(&self) -> Option<SignalId> {
+	/// Returns affected signal slice if drivable.
+	pub fn try_drive(&self) -> Option<SignalSlice> {
 		match self {
 			Self::Signal(slice) => Some(slice.clone()),
 			// TODO index/range expression drive
@@ -182,7 +182,7 @@ impl Expression {
 /// Implements a conversion from signal ID to an expression
 impl From<SignalId> for Expression {
 	fn from(signal: SignalId) -> Self {
-		Self::Signal(signal)
+		Self::Signal(signal.into())
 	}
 }
 

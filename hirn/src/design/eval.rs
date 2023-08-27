@@ -5,7 +5,7 @@ use std::collections::HashMap;
 #[derive(Clone, Default)]
 pub struct EvalContext {
 	design: Option<DesignHandle>,
-	assumptions: HashMap<SignalId, NumericConstant>,
+	assumptions: HashMap<(SignalId, Vec<i64>), NumericConstant>,
 }
 
 impl EvalContext {
@@ -20,16 +20,20 @@ impl EvalContext {
 		self.design.clone()
 	}
 
-	pub fn assumptions(&self) -> &HashMap<SignalId, NumericConstant> {
-		&self.assumptions
+	pub fn assume(&mut self, signal: SignalId, indices: Vec<i64>, value: NumericConstant) {
+		self.assumptions.insert((signal, indices), value);
 	}
 
-	pub fn assume(&mut self, signal: SignalId, value: NumericConstant) {
-		self.assumptions.insert(signal, value);
+	pub fn assume_scalar(&mut self, signal: SignalId, value: NumericConstant) {
+		self.assume(signal, vec![], value);
 	}
 
-	pub fn signal_value(&self, signal: SignalId) -> Option<&NumericConstant> {
-		self.assumptions().get(&signal)
+	pub fn signal(&self, signal: SignalId, indices: &Vec<i64>) -> Option<&NumericConstant> {
+		self.assumptions.get(&(signal, indices.to_vec())) // FIXME
+	}
+
+	pub fn scalar_signal(&self, signal: SignalId) -> Option<&NumericConstant> {
+		self.signal(signal, &vec![])
 	}
 }
 
@@ -75,7 +79,13 @@ pub enum EvalError {
 	NoDesign,
 
 	#[error("Incompatible type assignment/binding")]
-	IncompatibleType(EvalType, EvalType)
+	IncompatibleType(EvalType, EvalType),
+
+	#[error("Invalid array index")]
+	InvalidIndex,
+
+	#[error("Invalid index rank")]
+	InvalidIndexRank,
 }
 
 pub struct EvalDims {

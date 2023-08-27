@@ -127,34 +127,24 @@ impl SignalSensitivity {
 	}
 }
 
-/// Specifies a slice of a signal array
+/// Determines which part of a signal (or signal array) is accessed
 #[derive(Clone)]
-pub enum ArraySlice {
-	/// Range of indices (both ends inclusive)
-	Range(Box<Expression>, Box<Expression>),
+pub struct SignalSlice {
+	/// Signal being accessed
+	pub signal: SignalId,
 
-	/// Single array element
-	Index(Box<Expression>),
+	/// Array of indices, one per dimension
+	pub indices: Vec<Expression>,
 }
 
-/// Determines which part of a signal (or signal array) is accessed
-// #[derive(Clone)]
-// pub struct SignalSlice {
-// 	/// Signal being accessed
-// 	pub signal: SignalId,
-
-// 	/// Array of slices, one per signal dimension
-// 	pub slices: Vec<ArraySlice>,
-// }
-
-// impl From<SignalId> for SignalSlice {
-// 	fn from(signal: SignalId) -> Self {
-// 		Self {
-// 			signal,
-// 			slices: vec![],
-// 		}
-// 	}
-// }
+impl From<SignalId> for SignalSlice {
+	fn from(signal: SignalId) -> Self {
+		Self {
+			signal,
+			indices: vec![],
+		}
+	}
+}
 
 /// Physical signal representation
 pub struct Signal {
@@ -206,6 +196,9 @@ impl Signal {
 		})
 	}
 
+	pub fn is_scalar(&self) -> bool {
+		self.dimensions.is_empty()
+	}
 }
 
 
@@ -335,6 +328,14 @@ impl SignalBuilder {
 		}
 		
 		self
+	}
+
+	/// Adds a dimension to the signal array
+	pub fn array(mut self, expr: Expression) -> Result<Self, DesignError> {
+		// TODO assert dimensions valid if can be evaluated
+
+		self.dimensions.push(expr);
+		Ok(self)
 	}
 
 	/// Creates the signal and adds it to the design. Returns the signal ID.

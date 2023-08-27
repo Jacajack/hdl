@@ -2,7 +2,7 @@ use num_bigint::BigInt;
 use super::{SignalSignedness, DesignError, eval::EvalResult, eval::{EvalType, EvaluatesType, EvaluatesDimensions}, SignalSensitivity, EvalContext};
 
 /// Represents a numeric constant value
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct NumericConstant {
 	value: BigInt,
 	signedness: SignalSignedness,
@@ -56,6 +56,10 @@ impl NumericConstant {
 
 	pub fn try_into_u64(&self) -> Option<u64> {
 		u64::try_from(&self.value).ok()
+	}
+
+	pub fn try_into_i64(&self) -> Option<i64> {
+		i64::try_from(&self.value).ok()
 	}
 
 }

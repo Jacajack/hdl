@@ -10,7 +10,7 @@ pub mod expression_eval;
 pub mod numeric_constant;
 
 pub use scope::{Scope, ScopeHandle};
-pub use signal::{Signal, SignalClass, SignalSensitivity, SignalSignedness};
+pub use signal::{Signal, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice};
 pub use module::{Module, ModuleHandle, InterfaceSignal, SignalDirection};
 pub use expression::{Expression, BinaryOp, UnaryOp};
 pub use functional_blocks::{Register, RegisterBuilder};
@@ -48,6 +48,14 @@ impl SignalId {
 	/// Checks if the reference is valid
 	pub fn is_null(&self) -> bool {
 		self.id == 0
+	}
+
+	// TODO implement as trait
+	pub fn index(&self, index: Expression) -> SignalSlice {
+		SignalSlice {
+			signal: self.clone(),
+			indices: vec![index],
+		}
 	}
 }
 
@@ -522,11 +530,46 @@ mod test {
 		let expr = Expression::from(a) + b.into();
 
 		let mut ctx = EvalContext::without_assumptions(d.handle());
-		ctx.assume(a, 14.into());
-		ctx.assume(b, 16.into());
+		ctx.assume_scalar(a, 14.into());
+		ctx.assume_scalar(b, 16.into());
 
 		let result = expr.eval(&ctx)?;
 		assert_eq!(result.try_into_u64(), 30.into());
+
+		Ok(())
+	}
+
+	#[test]
+	fn signal_array_eval_test() -> Result<(), DesignError> {
+		let mut d = Design::new();
+		let mut m = d.new_module("test")?;
+
+		let a = m.scope().new_signal()?
+			.name("a")
+			.unsigned(8.into())
+			.constant()
+			.array(4.into())?
+			.build()?;
+
+
+		let mut ctx = EvalContext::without_assumptions(d.handle());
+		ctx.assume(a, vec![0], 1.into());
+		ctx.assume(a, vec![1], 2.into());
+		ctx.assume(a, vec![2], 15.into());
+		ctx.assume(a, vec![3], 10.into());
+
+		let result0 = Expression::Signal(a.index(0.into())).eval(&ctx)?;
+		let result1 = Expression::Signal(a.index(1.into())).eval(&ctx)?;
+		let result2 = Expression::Signal(a.index(2.into())).eval(&ctx)?;
+		let result3 = Expression::Signal(a.index(3.into())).eval(&ctx)?;
+		assert_eq!(result0.try_into_i64(), 1.into());
+		assert_eq!(result1.try_into_i64(), 2.into());
+		assert_eq!(result2.try_into_i64(), 15.into());
+		assert_eq!(result3.try_into_i64(), 10.into());
+
+		let index_expr = Expression::from(1) + Expression::from(2);
+		let result = a.index(index_expr).eval(&ctx)?;
+		assert_eq!(result.try_into_i64(), 10.into());
 
 		Ok(())
 	}

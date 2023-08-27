@@ -1,5 +1,5 @@
 use super::eval::EvaluatesDimensions;
-use super::{Expression, eval::Evaluates, eval::EvaluatesType,  eval::EvalType, EvalContext, EvalError, NumericConstant, SignalSensitivity, eval::EvalResult, eval::EvalDims, SignalId};
+use super::{Expression, SignalSlice, eval::Evaluates, eval::EvaluatesType,  eval::EvalType, EvalContext, EvalError, NumericConstant, SignalSensitivity, eval::EvalResult, eval::EvalDims, SignalId};
 use super::expression::{CastExpression, ConditionalExpression, BinaryExpression, UnaryExpression, BinaryOp, UnaryOp, BuiltinOp};
 
 impl EvaluatesType for NumericConstant {
@@ -75,15 +75,66 @@ impl EvaluatesType for SignalId {
 
 impl Evaluates for SignalId {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
-		// TODO check if the assumed width matches the signal width
-		// TODO ah the fucking arrays i forgot about that
+		if let Some(design) = ctx.design() {
+			let design = design.borrow();
+			let signal = design.get_signal(*self).unwrap();
 
-
-		ctx.signal_value(*self)
+			if !signal.is_scalar() {
+				return Err(EvalError::NonScalar);
+			}
+		}
+		else {
+			return Err(EvalError::NoDesign);
+		}
+		
+		ctx.scalar_signal(*self)
 			.map(|v| v.clone())
 			.ok_or(EvalError::MissingAssumption(*self))
 	}
 }
+
+impl EvaluatesType for SignalSlice {
+	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
+		self.signal.eval_type(ctx)
+	}
+}
+
+impl EvaluatesDimensions for SignalSlice {
+	fn eval_dims(&self, ctx: &EvalContext) -> Result<EvalDims, EvalError> {
+		if let Some(design) = ctx.design() {
+			let design = design.borrow();
+			let signal = design.get_signal(self.signal).unwrap();
+
+			// Make sure we get a scalar!
+			if signal.dimensions.len() != self.indices.len() {
+				return Err(EvalError::InvalidIndexRank);
+			}
+
+			Ok(EvalDims{
+				dimensions: vec![],
+				width: self.signal.eval_dims(ctx)?.width
+			})
+		}
+		else {
+			return Err(EvalError::NoDesign);
+		}
+	}
+}
+
+impl Evaluates for SignalSlice {
+	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
+		// Evaluate indices
+		let mut indices = Vec::new();
+		for index in &self.indices {
+			indices.push(index.eval(ctx)?.try_into_u64().ok_or(EvalError::InvalidIndex)? as i64);
+		}
+
+		ctx.signal(self.signal, &indices)
+			.map(|v| v.clone())
+			.ok_or(EvalError::MissingAssumption(self.signal))
+	}
+}
+
 
 impl EvaluatesType for ConditionalExpression {
 	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
@@ -193,7 +244,7 @@ impl EvaluatesType for Expression {
 			Unary(expr) => expr.eval_type(ctx),
 			Cast(expr) => expr.eval_type(ctx),
 			Builtin(builtin) => builtin.eval_type(ctx),
-			Signal(signal) => signal.eval_type(ctx),
+			Signal(slice) => slice.eval_type(ctx),
 		}
 	}
 }
@@ -207,7 +258,7 @@ impl EvaluatesDimensions for Expression {
 			Binary(expr) => expr.eval_dims(ctx),
 			Unary(expr) => expr.eval_dims(ctx),
 			Cast(expr) => expr.eval_dims(ctx),
-			Signal(signal) => signal.eval_dims(ctx),
+			Signal(slice) => slice.eval_dims(ctx),
 			Builtin(builtin) => builtin.eval_dims(ctx),
 		}
 	}
