@@ -2,11 +2,10 @@ use crate::{parser::ast::Expression, ProvidesCompilerDiagnostic, SourceSpan};
 
 use super::SemanticError;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CombinedQualifiers {
 	pub signed: Option<SourceSpan>,
 	pub unsigned: Option<SourceSpan>,
-	pub tristate: Option<SourceSpan>,
 	pub constant: Option<SourceSpan>,
 	pub comb: Option<(Vec<Expression>, SourceSpan)>,
 	pub input: Option<SourceSpan>,
@@ -21,7 +20,6 @@ impl CombinedQualifiers {
 		Self {
 			signed: None,
 			unsigned: None,
-			tristate: None,
 			constant: None,
 			comb: None,
 			input: None,
@@ -42,24 +40,10 @@ impl CombinedQualifiers {
 			},
 			CombinedQualifiers {
 				input: Some(x),
-				tristate: Some(y),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "input", "tristate")?;
-			},
-			CombinedQualifiers {
-				input: Some(x),
 				output: Some(y),
 				..
 			} => {
 				report_contradicting_qualifier(x, y, "input", "output")?;
-			},
-			CombinedQualifiers {
-				output: Some(x),
-				tristate: Some(y),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "output", "tristate")?;
 			},
 			CombinedQualifiers {
 				constant: Some(x),

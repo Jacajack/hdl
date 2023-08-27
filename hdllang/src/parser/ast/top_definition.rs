@@ -5,11 +5,9 @@ use crate::analyzer::{SemanticError, ModuleDeclared, ModuleDeclarationScope, Com
 use crate::lexer::IdTable;
 use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
 use crate::{lexer::CommentTableKey, lexer::IdTableKey, SourceSpan};
-use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
-use std::fmt::Debug;
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ModuleDeclaration {
 	pub metadata: Vec<CommentTableKey>,
 	pub id: IdTableKey,
@@ -67,7 +65,7 @@ impl ModuleDeclaration {
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ModuleImplementation {
 	pub metadata: Vec<CommentTableKey>,
 	pub id: IdTableKey,
@@ -75,7 +73,7 @@ pub struct ModuleImplementation {
 	pub location: SourceSpan,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct PackageDeclaration {
 	pub metadata: Vec<CommentTableKey>,
 	pub path: ImportPath,
@@ -155,15 +153,14 @@ fn create_label_message(file_name: &String) -> String {
 		_ => format!("File already packaged in {}", file_name),
 	}
 }
-
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct UseStatement {
 	pub metadata: Vec<CommentTableKey>,
 	pub path: ImportPath,
 	pub location: SourceSpan,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum TopDefinition {
 	ModuleDeclaration (ModuleDeclaration),
 	ModuleImplementation (ModuleImplementation),

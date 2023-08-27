@@ -1,20 +1,20 @@
-use serde::{Deserialize, Serialize};
+
 use std::fmt::{Debug, Error, Formatter};
 
-#[derive(Serialize, Deserialize, Copy, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub enum RangeOpcode {
 	Colon,
 	PlusColon,
 	ColonLessThan,
 }
-#[derive(Serialize, Deserialize, Copy, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub enum UnaryOpcode {
 	BitwiseNot, // ~
 	LogicalNot, // !
 	Minus, // -
 	Plus, // +
 }
-#[derive(Serialize, Deserialize, Copy, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub enum BinaryOpcode {
 	Multiplication,
 	Division,
@@ -82,7 +82,7 @@ impl Debug for UnaryOpcode {
 		}
 	}
 }
-#[derive(Serialize, Deserialize, Copy, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq)]
 pub enum AssignmentOpcode {
 	Equal,
 	PlusEqual,

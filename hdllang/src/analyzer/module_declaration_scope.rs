@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 use log::debug;
 use num_traits::Signed;
+use num_bigint::BigInt;
 
 use crate::lexer::IdTableKey;
 use crate::{SourceSpan, ProvidesCompilerDiagnostic};
@@ -8,11 +9,15 @@ use super::{VariableDeclared, CombinedQualifiers, SemanticError};
 #[derive(Debug)]
 pub struct ModuleDeclarationScope {
 	variables: HashMap<IdTableKey, (VariableDeclared, SourceSpan)>,
+	bus_widths: HashMap<IdTableKey, BigInt>,
+	array_sizes: HashMap<IdTableKey, Vec<BigInt>>,
 }
 impl ModuleDeclarationScope {
 	pub fn new() -> Self {
 		ModuleDeclarationScope {
 			variables: HashMap::new(),
+			bus_widths: HashMap::new(),
+			array_sizes: HashMap::new(),
 		}
 	}
 	pub fn is_declared(&self, name: &IdTableKey) -> Option<SourceSpan> {
@@ -36,15 +41,14 @@ impl ModuleDeclarationScope {
 	pub fn analyze(&mut self, 
 		id_table: &crate::lexer::IdTable,
 		nc_table: &crate::lexer::NumericConstantTable) -> miette::Result<()>{
-			let copy_var = self.variables.clone();
-			for name in copy_var.keys(){
-				let (variable,span) = self.variables.get_mut(name).unwrap();
+			for name in self.variables.keys(){
+				let (variable,span) = self.variables.get(name).unwrap();
 				match &variable.qualifiers{
 					CombinedQualifiers {synchronous: Some((exprs, location)),.. } =>{
 						match exprs.len(){
 							1 =>{
 								let name2 = exprs[0].get_name_sync_or_comb()?;
-								match copy_var.get(&name2) {
+								match self.variables.get(&name2) {
 									None =>
 									return Err(miette::Report::new(SemanticError::VariableNotDeclared.to_diagnostic_builder()
 									.label(*location, format!("This variable {:?} is not declared", id_table.get_by_key(&name2).unwrap()).as_str())
@@ -65,7 +69,7 @@ impl ModuleDeclarationScope {
 							2 =>{
 								let name2 = exprs[0].get_name_sync_or_comb()?;
 								let name3 = exprs[1].get_name_sync_or_comb()?;
-								match copy_var.get(&name2) {
+								match self.variables.get(&name2) {
 									None =>
 									return Err(miette::Report::new(SemanticError::VariableNotDeclared.to_diagnostic_builder()
 									.label(*location, format!("This variable {:?} is not declared", id_table.get_by_key(&name2).unwrap()).as_str())
@@ -111,7 +115,7 @@ impl ModuleDeclarationScope {
 									.build(),
 								))
 							}
-							match copy_var.get(&name2) {
+							match self.variables.get(&name2) {
 								None =>
 								return Err(miette::Report::new(SemanticError::VariableNotDeclared.to_diagnostic_builder()
 								.label(*span1, format!("This variable {:?} is not declared", id_table.get_by_key(&name2).unwrap()).as_str())
@@ -133,7 +137,7 @@ impl ModuleDeclarationScope {
 					_ =>(),
 				}
 				use crate::parser::ast::TypeSpecifier::*;
-				match &mut variable.specifier{
+				match &variable.specifier{
 					Bus(bus) =>  {
 						let val = bus.width.evaluate_in_declaration( nc_table )?;
 						debug!("Bus width is {}", val.value);
@@ -142,7 +146,7 @@ impl ModuleDeclarationScope {
 							.label(bus.location, "Bus width cannot be negative")
 							.build()))
 						}
-						bus.compiled_width = Some(val.value);
+						self.bus_widths.insert(variable.name, val.value);
 					},
 					_ => (),
 				};
@@ -157,8 +161,7 @@ impl ModuleDeclarationScope {
 					}
 					compiled_array.push(val.value);
 				}
-				variable.array_compiled = Some(compiled_array);
-				variable.array=vec![];
+				self.array_sizes.insert(variable.name, compiled_array);
 			}
 		Ok(())
 	}

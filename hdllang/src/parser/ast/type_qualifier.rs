@@ -2,18 +2,18 @@ mod pretty_printable;
 
 use crate::parser::ast::{Expression, SourceLocation};
 use crate::SourceSpan;
-use serde::{Deserialize, Serialize};
-#[derive(Serialize, Deserialize, Debug, Clone)]
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct 	Sync {
 	pub expressions: Vec<Expression>,
 	pub location: SourceSpan,
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct Comb {
 	pub expressions: Vec<Expression>,
 	pub location: SourceSpan,
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum TypeQualifier {
 	Signed {
 		location: SourceSpan,

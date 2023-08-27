@@ -2,9 +2,9 @@ mod pretty_printable;
 
 use crate::parser::ast::{Expression, SourceLocation, TypeDeclarator};
 use crate::SourceSpan;
-use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Clone, Debug)]
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct TypeName {
 	pub declarator: TypeDeclarator,
 	pub array_declarators: Vec<Expression>,

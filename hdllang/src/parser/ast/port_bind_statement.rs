@@ -2,23 +2,23 @@ mod pretty_printable;
 
 use crate::parser::ast::{Expression, SourceLocation, VariableDeclaration};
 use crate::{lexer::IdTableKey, SourceSpan};
-use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct IdWithDeclaration {
 	pub id: IdTableKey,
 	pub declaration: VariableDeclaration,
 	pub location: SourceSpan,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct IdWithExpression {
 	pub id: IdTableKey,
 	pub expression: Expression,
 	pub location: SourceSpan,
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct OnlyId {
 	pub id: IdTableKey,
 	pub location: SourceSpan,
@@ -34,7 +34,7 @@ impl SourceLocation for PortBindStatement {
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum PortBindStatement {
 	OnlyId (OnlyId),
 	IdWithExpression (IdWithExpression),

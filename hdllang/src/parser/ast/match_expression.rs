@@ -3,9 +3,8 @@ mod pretty_printable;
 use crate::SourceSpan;
 
 use crate::parser::ast::{Expression, SourceLocation};
-use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct MatchExpressionStatement {
 	pub antecedent: MatchExpressionAntecendent,
 	pub expression: Expression,
@@ -17,7 +16,7 @@ impl SourceLocation for MatchExpressionStatement {
 		self.location
 	}
 }
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum MatchExpressionAntecendent {
 	Expression {
 		expressions: Vec<Expression>,

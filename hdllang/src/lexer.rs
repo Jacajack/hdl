@@ -8,6 +8,7 @@ pub use crate::core::id_table::{IdTable, IdTableKey};
 pub use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
 use crate::SourceSpan;
 pub use logos_lexer::LogosLexer;
+pub use logos_lexer::LogosLexerContext;
 pub use numeric_constant::{NumericConstant, NumericConstantBase};
 pub use numeric_constant_parser::NumberParseError;
 use std::fmt;
@@ -165,6 +166,10 @@ pub trait Lexer<'source> {
 	/// Creates a lexer for provided source code
 	fn new(source: &'source str) -> Self;
 
+	fn new_from_tables(
+		source: &'source str,
+		ctx: LogosLexerContext
+	) -> Self;
 	/// Processes the text and returns a vector of tokens
 	fn process(&mut self) -> Result<Vec<Token>, LexerError>;
 
@@ -175,4 +180,6 @@ pub trait Lexer<'source> {
 	fn comment_table(&self) -> &CommentTable;
 
 	fn numeric_constant_table(&self) -> &NumericConstantTable;
+
+	fn get_context(self) -> logos_lexer::LogosLexerContext;
 }

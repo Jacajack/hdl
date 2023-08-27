@@ -3,7 +3,8 @@ extern crate sha256;
 use clap::{arg, command, Arg, ArgGroup};
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
 use hdllang::core::DiagnosticBuffer;
-use hdllang::lexer::{Lexer, LogosLexer};
+use hdllang::lexer::{Lexer, LogosLexer, LogosLexerContext, IdTable};
+use hdllang::parser::ast::Root;
 use hdllang::parser::pretty_printer::PrettyPrintable;
 use hdllang::parser::ParserError;
 use hdllang::serializer::SerializerContext;
@@ -74,8 +75,8 @@ fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	Ok(())
 }
 
-fn parse_file(code: String) -> miette::Result<(SerializerContext, String)> {
-	let mut lexer = LogosLexer::new(&code);
+fn parse_file_recover_tables(code:String, ctx: LogosLexerContext) ->miette::Result<(Root, LogosLexerContext, String)>{
+	let mut lexer = LogosLexer::new_from_tables(&code, ctx);
 	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
 	let parser = parser::IzuluParser::new();
@@ -84,15 +85,7 @@ fn parse_file(code: String) -> miette::Result<(SerializerContext, String)> {
 			.to_miette_report()
 			.with_source_code(code.clone())
 	})?;
-	Ok((
-		SerializerContext {
-			ast_root: ast,
-			id_table: lexer.id_table().clone(),
-			comment_table: lexer.comment_table().clone(),
-			nc_table: lexer.numeric_constant_table().clone(),
-		},
-		code,
-	))
+	Ok((ast, lexer.get_context(), code))
 }
 
 fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
@@ -198,33 +191,32 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 	let mut file_queue: VecDeque<String> = VecDeque::from([root_file_name.clone()]);
 	debug!("File queue: {:?}", file_queue);
 	use sha256::try_digest;
-	let hash = try_digest(root_file_name.clone()).unwrap();
+	let hash = try_digest(root_file_name.clone()).map_err(|_| CompilerError::FileNotFound(root_file_name.clone()).to_miette_report())?;
 	let mut map = HashMap::new();
 	map.insert(hash, String::from("root"));
-	
 
+	// tokenize and parse
+	let root:Root;
+	let mut ctx = LogosLexerContext{
+		id_table: IdTable::new(),
+		comment_table: hdllang::lexer::CommentTable::new(),
+		numeric_constants: hdllang::lexer::NumericConstantTable::new(),
+		last_err: None,
+	};
+	let source: String;
 	while let Some(file_name) = file_queue.pop_front() {
 		let current_directory  = Path::new(&file_name).parent().unwrap().to_str().unwrap();
 		debug!("Current directory: {}", current_directory);
-		let _ast: () = match Path::new(format!("{}/{}", target_directory, file_name).as_str()).exists() {
-			true => todo!(),
-			false => {
-				let code: String = read_input_from_file(&file_name)?;
-				// tokenize and parse
-				let (parsed, source) = parse_file(code)?;
-				let name = Path::new(&file_name).to_str().unwrap().to_string();
-				let paths = hdllang::analyzer::combine(&parsed.id_table, &parsed.nc_table, &parsed.ast_root, String::from(current_directory),&mut map)
-					.map_err(|e|e.with_source_code(miette::NamedSource::new( name, source)))?;
-				for path in paths {
-					file_queue.push_back(path);
-				}
-			},
-		};
-		// collect all packages
-
-		// store the tmp file
+		let code = read_input_from_file(&file_name)?;
+		(root, ctx, source) = parse_file_recover_tables(code,ctx)?;
+		let name = Path::new(&file_name).to_str().unwrap().to_string();
+		let paths = hdllang::analyzer::combine(&ctx.id_table, &ctx.numeric_constants, &root, String::from(current_directory),&mut map)
+			.map_err(|e|e.with_source_code(miette::NamedSource::new( name, source)))?;
+		for path in paths {
+			file_queue.push_back(path);
+		}
 		println!("File queue: {:?}", file_queue);
-
+		break; // we stop after the first file for now
 	}
 	writeln!(output, "{}", "done").map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())
@@ -232,7 +224,7 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 fn main() -> miette::Result<()> {
 	std::env::set_var("RUST_LOG", "debug");
 	init_logging();
-
+	
 	let matches = command!()
 		.arg(Arg::new("source"))
 		.arg(Arg::new("output").short('o').long("output"))

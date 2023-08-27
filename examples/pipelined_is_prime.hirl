@@ -1,4 +1,3 @@
-
 module pipelined_is_prime {
 	input clock clk;
 	input nreset;

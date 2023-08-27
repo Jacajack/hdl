@@ -1,6 +1,7 @@
 use super::Expression;
 
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
+
 pub struct BinaryExpression {
 	pub lhs: Box<Expression>,
 	pub rhs: Box<Expression>,

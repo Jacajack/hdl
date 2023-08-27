@@ -26,7 +26,7 @@ pub TopDefinition: TopDefinition={
 			location:SourceSpan::new_between(start,end),
 		})
 	},
-	<start: @L> <mc:MetadataComments ?> "impl" <id:"Id">  <statement:ModuleImplBlockStmt>  <end: @R> =>
+	<start: @L> <mc:MetadataComments ?> "impl" <id:"Id"> <end: @R> <statement:ModuleImplBlockStmt>   =>
 	{
 		let metadata = match mc{
 		Some(mc) => mc,

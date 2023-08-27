@@ -3,9 +3,9 @@ mod pretty_printable;
 use crate::lexer::CommentTableKey;
 use crate::parser::ast::{DirectDeclarator, SourceLocation, TypeDeclarator};
 use crate::SourceSpan;
-use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug)]
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct VariableDeclaration {
 	pub metadata: Vec<CommentTableKey>,
 	pub type_declarator: TypeDeclarator,

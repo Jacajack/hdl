@@ -13,7 +13,8 @@ mod ternary_expression;
 mod tuple;
 mod unary_cast_expression;
 mod unary_operator_expression;
-use crate::analyzer::SemanticError;
+use crate::analyzer::{SemanticError, ModuleImplementationScope};
+use crate::core::id_table;
 use crate::lexer::{IdTableKey, NumericConstantBase};
 use crate::parser::ast::{opcodes::*, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName};
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
@@ -34,9 +35,9 @@ pub use tuple::Tuple;
 pub use unary_cast_expression::UnaryCastExpression;
 pub use unary_operator_expression::UnaryOperatorExpression;
 
-use num_bigint::{BigInt, Sign};
 use crate::lexer::NumericConstant;
-#[derive(serde::Serialize, serde::Deserialize, Clone)]
+use num_bigint::{BigInt, Sign};
+#[derive(serde::Serialize, serde::Deserialize, Clone,PartialEq, Eq)]
 pub enum Expression {
 	Number(Number),
 	Identifier(Identifier),
@@ -128,7 +129,24 @@ impl SourceLocation for Expression {
 		}
 	}
 }
-
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct Value{
+	pub value: Option<BigInt>,
+	pub signed: Option<bool>,
+	pub width: Option<u32>,
+	pub dimensions: Vec<BigInt>,
+	// sensitivity ?
+}
+impl Value{
+	pub fn new_from_constant(constant: &NumericConstant) -> Self{
+		Self{
+			value: Some(constant.value.clone()),
+			signed: constant.signed,
+			width: constant.width,
+			dimensions: vec![],
+		}
+	}
+}
 impl Expression {
 	pub fn get_name_sync_or_comb(&self) -> miette::Result<IdTableKey> {
 		use self::Expression::*;
@@ -164,15 +182,13 @@ impl Expression {
 			},
 		}
 	}
-	pub fn evaluate_in_declaration(&self, nc_table: &crate::lexer::NumericConstantTable) -> miette::Result<NumericConstant> {
+	pub fn evaluate_in_declaration(
+		&self,
+		nc_table: &crate::lexer::NumericConstantTable,
+	) -> miette::Result<NumericConstant> {
 		match self {
 			Expression::Number(nc_key) => {
 				let constant = nc_table.get_by_key(&nc_key.key).unwrap();
-				//if let Some(signed) = constant.signed {
-				//	if signed {
-				//		return Ok(signed_big_uint_to_big_int(&constant.value));
-				//	}
-				//
 				Ok(constant.clone())
 			},
 			Expression::Identifier(id) => {
@@ -187,8 +203,8 @@ impl Expression {
 				))
 			},
 			Expression::ParenthesizedExpression(expr) => expr.expression.evaluate_in_declaration(nc_table),
-			Expression::MatchExpression(_) => todo!(),
-			Expression::ConditionalExpression(_) => todo!(),
+			Expression::MatchExpression(expr) => report_not_allowed_expression(expr.location, "match"),
+			Expression::ConditionalExpression(expr) => report_not_allowed_expression(expr.location, "conditional"),
 			Expression::Tuple(_) => unreachable!(),
 			Expression::TernaryExpression(tern) => Ok(
 				if tern.condition.evaluate_in_declaration(nc_table)?.value != BigInt::from(0) {
@@ -197,10 +213,10 @@ impl Expression {
 					tern.false_branch.evaluate_in_declaration(nc_table)?
 				},
 			),
-			Expression::PostfixWithIndex(_) => todo!(), // nie bedzie
-			Expression::PostfixWithRange(_) => todo!(), // nie bedzie
-			Expression::PostfixWithArgs(_) => todo!(),  // szerokość busa
-			Expression::PostfixWithId(_) => todo!(),    // nie bedzie
+			Expression::PostfixWithIndex(expr) => report_not_allowed_expression(expr.location, "index"),
+			Expression::PostfixWithRange(expr) => report_not_allowed_expression(expr.location, "range"), // nie bedzie
+			Expression::PostfixWithArgs(_) => todo!(),                                                   // szerokość busa
+			Expression::PostfixWithId(expr) => report_not_allowed_expression(expr.location, "postfix with id"), // nie bedzie
 			Expression::UnaryOperatorExpression(unary) => {
 				use crate::parser::ast::UnaryOpcode::*;
 				match unary.code {
@@ -211,28 +227,32 @@ impl Expression {
 							NumericConstant::new(BigInt::from(0), None, None, Some(NumericConstantBase::Boolean))
 						},
 					),
-					BitwiseNot => Ok(NumericConstant::new_from_unary(unary.expression.evaluate_in_declaration(nc_table)?,|e| !e)),
-					Minus => { 
+					BitwiseNot => Ok(NumericConstant::new_from_unary(
+						unary.expression.evaluate_in_declaration(nc_table)?,
+						|e| !e,
+					)),
+					Minus => {
 						let other = unary.expression.evaluate_in_declaration(nc_table)?;
-						if let Some(false) = other.signed{
+						if let Some(false) = other.signed {
 							// report an error
 						}
-						Ok(NumericConstant::new_from_unary(other,|e| -e))
-					}, // catch unsigned
-					Plus => Ok(NumericConstant::new_from_unary(unary.expression.evaluate_in_declaration(nc_table)?,|e| e*(-1))),
+						Ok(NumericConstant::new_from_unary(other, |e| -e))
+					},
+					Plus => Ok(NumericConstant::new_from_unary(
+						unary.expression.evaluate_in_declaration(nc_table)?,
+						|e| e * (-1),
+					)),
 				}
 			},
-			Expression::UnaryCastExpression(_) => todo!(), // nie bedzie
+			Expression::UnaryCastExpression(expr) => report_not_allowed_expression(expr.location, "unary cast"), // nie bedzie
 			Expression::BinaryExpression(binop) => {
 				use crate::parser::ast::BinaryOpcode::*;
 				match binop.code {
-					Multiplication => {
-						Ok(NumericConstant::new_from_binary(
-							binop.lhs.evaluate_in_declaration(nc_table)?,
-							binop.rhs.evaluate_in_declaration(nc_table)?,
-							|e1, e2| e1 * e2,
-						))
-					},
+					Multiplication => Ok(NumericConstant::new_from_binary(
+						binop.lhs.evaluate_in_declaration(nc_table)?,
+						binop.rhs.evaluate_in_declaration(nc_table)?,
+						|e1, e2| e1 * e2,
+					)),
 					Division => {
 						let rhs = binop.rhs.evaluate_in_declaration(nc_table)?;
 						if rhs.value.is_zero() {
@@ -243,22 +263,22 @@ impl Expression {
 									.build(),
 							));
 						}
-						Ok(NumericConstant::new_from_binary(binop.lhs.evaluate_in_declaration(nc_table)?, rhs, |e1, e2| e1 / e2))
-					},
-					Addition => {
 						Ok(NumericConstant::new_from_binary(
 							binop.lhs.evaluate_in_declaration(nc_table)?,
-							binop.rhs.evaluate_in_declaration(nc_table)?,
-							|e1, e2| e1 + e2,
+							rhs,
+							|e1, e2| e1 / e2,
 						))
 					},
-					Subtraction => {
-						Ok(NumericConstant::new_from_binary(
-							binop.lhs.evaluate_in_declaration(nc_table)?,
-							binop.rhs.evaluate_in_declaration(nc_table)?,
-							|e1, e2| e1 - e2,
-						))
-					},
+					Addition => Ok(NumericConstant::new_from_binary(
+						binop.lhs.evaluate_in_declaration(nc_table)?,
+						binop.rhs.evaluate_in_declaration(nc_table)?,
+						|e1, e2| e1 + e2,
+					)),
+					Subtraction => Ok(NumericConstant::new_from_binary(
+						binop.lhs.evaluate_in_declaration(nc_table)?,
+						binop.rhs.evaluate_in_declaration(nc_table)?,
+						|e1, e2| e1 - e2,
+					)),
 					Modulo => {
 						let rhs = binop.rhs.evaluate_in_declaration(nc_table)?;
 						if rhs.value.is_zero() {
@@ -269,40 +289,28 @@ impl Expression {
 									.build(),
 							));
 						}
-						Ok(NumericConstant::new_from_binary(binop.lhs.evaluate_in_declaration(nc_table)?, rhs, |e1, e2| e1 / e2))
+						Ok(NumericConstant::new_from_binary(
+							binop.lhs.evaluate_in_declaration(nc_table)?,
+							rhs,
+							|e1, e2| e1 / e2,
+						))
 					},
 					Equal => Ok(
 						if binop.lhs.evaluate_in_declaration(nc_table)?.value
 							== binop.rhs.evaluate_in_declaration(nc_table)?.value
 						{
-							NumericConstant::from_u64(
-								1,
-								Some(1),
-								Some(false),
-								Some(NumericConstantBase::Boolean))
+							NumericConstant::from_u64(1, Some(1), Some(false), Some(NumericConstantBase::Boolean))
 						} else {
-							NumericConstant::from_u64(
-								0,
-								Some(1),
-								Some(false),
-								Some(NumericConstantBase::Boolean))
+							NumericConstant::from_u64(0, Some(1), Some(false), Some(NumericConstantBase::Boolean))
 						},
 					),
 					NotEqual => Ok(
 						if binop.lhs.evaluate_in_declaration(nc_table)?.value
 							!= binop.rhs.evaluate_in_declaration(nc_table)?.value
 						{
-							NumericConstant::from_u64(
-								1,
-								Some(1),
-								Some(false),
-								Some(NumericConstantBase::Boolean))
+							NumericConstant::from_u64(1, Some(1), Some(false), Some(NumericConstantBase::Boolean))
 						} else {
-							NumericConstant::from_u64(
-								0,
-								Some(1),
-								Some(false),
-								Some(NumericConstantBase::Boolean))
+							NumericConstant::from_u64(0, Some(1), Some(false), Some(NumericConstantBase::Boolean))
 						},
 					),
 					LShift => {
@@ -343,36 +351,34 @@ impl Expression {
 							Ok(lhs)
 						}
 					},
-					BitwiseAnd => {
-						Ok(NumericConstant::new_from_binary(
-							binop.lhs.evaluate_in_declaration(nc_table)?,
-							binop.rhs.evaluate_in_declaration(nc_table)?,
-							|e1, e2| e1 & e2,
-						))
-					},
-					BitwiseOr => {
-						Ok(NumericConstant::new_from_binary(
-							binop.lhs.evaluate_in_declaration(nc_table)?,
-							binop.rhs.evaluate_in_declaration(nc_table)?,
-							|e1, e2| e1 | e2,
-						))
-					},
-					BitwiseXor => {
-						Ok(NumericConstant::new_from_binary(
-							binop.lhs.evaluate_in_declaration(nc_table)?,
-							binop.rhs.evaluate_in_declaration(nc_table)?,
-							|e1, e2| e1 ^ e2,
-						))
-					},
+					BitwiseAnd => Ok(NumericConstant::new_from_binary(
+						binop.lhs.evaluate_in_declaration(nc_table)?,
+						binop.rhs.evaluate_in_declaration(nc_table)?,
+						|e1, e2| e1 & e2,
+					)),
+					BitwiseOr => Ok(NumericConstant::new_from_binary(
+						binop.lhs.evaluate_in_declaration(nc_table)?,
+						binop.rhs.evaluate_in_declaration(nc_table)?,
+						|e1, e2| e1 | e2,
+					)),
+					BitwiseXor => Ok(NumericConstant::new_from_binary(
+						binop.lhs.evaluate_in_declaration(nc_table)?,
+						binop.rhs.evaluate_in_declaration(nc_table)?,
+						|e1, e2| e1 ^ e2,
+					)),
 					Less => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?.value < binop.rhs.evaluate_in_declaration(nc_table)?.value {
+						if binop.lhs.evaluate_in_declaration(nc_table)?.value
+							< binop.rhs.evaluate_in_declaration(nc_table)?.value
+						{
 							NumericConstant::new_true()
 						} else {
 							NumericConstant::new_false()
 						},
 					),
 					Greater => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?.value > binop.rhs.evaluate_in_declaration(nc_table)?.value {
+						if binop.lhs.evaluate_in_declaration(nc_table)?.value
+							> binop.rhs.evaluate_in_declaration(nc_table)?.value
+						{
 							NumericConstant::new_true()
 						} else {
 							NumericConstant::new_false()
@@ -418,5 +424,43 @@ impl Expression {
 			},
 		}
 	}
+	pub fn evaluate(&self,
+		scope: ModuleImplementationScope,
+		nc_table: &crate::lexer::NumericConstantTable,
+		id_table: &id_table::IdTable,
+	) -> miette::Result<Value> {
+		use self::Expression::*;
+		match self {
+    		Number(num) => Ok(Value::new_from_constant(nc_table.get_by_key(&num.key).unwrap())),
+    		Identifier(_) => todo!(),
+    		ParenthesizedExpression(expr) => expr.expression.evaluate(scope, nc_table, id_table),
+    		MatchExpression(_) => todo!(),
+    		ConditionalExpression(_) => todo!(),
+    		Tuple(_) => todo!(),
+    		TernaryExpression(_) => todo!(),
+    		PostfixWithIndex(_) => todo!(),
+    		PostfixWithRange(_) => todo!(),
+    		PostfixWithArgs(_) => todo!(),
+    		PostfixWithId(_) => todo!(),
+    		UnaryOperatorExpression(_) => todo!(),
+    		UnaryCastExpression(_) => todo!(),
+    		BinaryExpression(_) => todo!(),
+		}
+	}
 }
 
+fn report_not_allowed_expression(span: SourceSpan, expr_name: &str) -> miette::Result<NumericConstant> {
+	Err(miette::Report::new(
+		SemanticError::ExpressionNotAllowedInNonGenericModuleDeclaration
+			.to_diagnostic_builder()
+			.label(
+				span,
+				format!(
+					"This {} expression is not allowed in non-generic module declaration",
+					expr_name
+				)
+				.as_str(),
+			)
+			.build(),
+	))
+}

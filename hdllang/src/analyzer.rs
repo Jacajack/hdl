@@ -8,7 +8,9 @@ mod combined_qualifiers;
 pub mod module_declaration_scope;
 pub mod module_declared;
 pub mod variable_declared;
+pub mod module_implementation_scope;
 
+pub use module_implementation_scope::ModuleImplementationScope;
 pub use variable_declared::VariableDeclared;
 pub use module_declared::ModuleDeclared;
 pub use module_declaration_scope::ModuleDeclarationScope;

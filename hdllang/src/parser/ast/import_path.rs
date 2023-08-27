@@ -5,8 +5,7 @@ use super::SourceLocation;
 use super::SourceSpan;
 use crate::lexer::IdTable;
 use crate::lexer::IdTableKey;
-use serde::{Deserialize, Serialize};
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ImportPath {
 	pub start: Start,
 	pub path: Vec<IdTableKey>,
@@ -58,14 +57,13 @@ impl SourceLocation for ImportPath {
 	}
 }
 
-#[derive(Serialize, Deserialize, Debug)]
-
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum Start {
 	Super { number: usize },
 	Root,
 	Local,
 }
-#[derive(Serialize, Deserialize, Debug, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum Modules {
 	All,
 	Specific { modules: Vec<IdTableKey> },
@@ -83,7 +81,6 @@ mod tests {
 		let foo_key = table.insert_or_get("foo");
 		let bar_key = table.insert_or_get("bar");
 		let bar_key2 = table.insert_or_get("bar");
-		let bar_key3 = table.insert_or_get("bar");
 
 		let path = ImportPath{
 			start: Start::Super { number: 1 },

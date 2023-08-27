@@ -4,15 +4,14 @@ use crate::parser::ast::expression::Expression;
 use crate::parser::ast::SourceLocation;
 use crate::SourceSpan;
 use num_bigint::BigInt;
-use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Error, Formatter};
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq)]
 pub struct Bus {
 	pub width: Box<Expression>,
 	pub location: SourceSpan,
 	pub compiled_width: Option<BigInt> // to be transferred to a hashmap,
 }
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq)]
 pub enum TypeSpecifier {
 	Auto {
 		location: SourceSpan,

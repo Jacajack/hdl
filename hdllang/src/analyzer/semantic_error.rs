@@ -41,6 +41,8 @@ pub enum SemanticError {
 	NegativeBusWidth,
 	#[error ("Compiler could not find a generic module implementation for this module in the same file.")]
 	GenericModuleImplementationNotFound,
+	#[error ("This expression is not allowed in a non-generic module declaration")]
+	ExpressionNotAllowedInNonGenericModuleDeclaration
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -103,6 +105,9 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
     		GenericModuleImplementationNotFound => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please provide implementation of this module in the same file.")
+				.build(),
+    		ExpressionNotAllowedInNonGenericModuleDeclaration => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please only allowed expressions in non-generic module declarations.")
 				.build(),
 		}
 	}
