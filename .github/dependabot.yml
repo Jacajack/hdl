@@ -17,3 +17,9 @@ updates:
       interval: "weekly"
     labels:
       - "dependencies"
+  - package-ecosystem: "cargo"
+    directory: "/hirn/"
+    schedule:
+      interval: "weekly"
+    labels:
+      - "dependencies"
