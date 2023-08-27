@@ -1,6 +1,6 @@
+use super::expression::{BinaryExpression, UnaryExpression};
+use super::{BinaryOp, Expression, UnaryOp};
 use std::ops;
-use super::{Expression, BinaryOp, UnaryOp};
-use super::expression::{UnaryExpression, BinaryExpression};
 
 macro_rules! impl_binary_op_for_expression {
 	($trait: ident, $trait_func: ident, $hirn_op: ident) => {
@@ -8,14 +8,14 @@ macro_rules! impl_binary_op_for_expression {
 			type Output = Expression;
 
 			fn $trait_func(self, rhs: Expression) -> Self::Output {
-				Expression::Binary(BinaryExpression{
+				Expression::Binary(BinaryExpression {
 					op: BinaryOp::$hirn_op,
 					lhs: Box::new(self),
 					rhs: Box::new(rhs),
 				})
 			}
 		}
-	}
+	};
 }
 
 macro_rules! impl_unary_op_for_expression {
@@ -24,13 +24,13 @@ macro_rules! impl_unary_op_for_expression {
 			type Output = Expression;
 
 			fn $trait_func(self) -> Self::Output {
-				Expression::Unary(UnaryExpression{
+				Expression::Unary(UnaryExpression {
 					op: UnaryOp::$hirn_op,
 					operand: Box::new(self),
 				})
 			}
 		}
-	}
+	};
 }
 
 impl_binary_op_for_expression!(Add, add, Add);
@@ -46,4 +46,3 @@ impl_binary_op_for_expression!(BitXor, bitxor, BitwiseXor);
 
 impl_unary_op_for_expression!(Not, not, LogicalNot);
 impl_unary_op_for_expression!(Neg, neg, Negate);
-

@@ -1,6 +1,6 @@
-use super::{DesignHandle, SignalSensitivity, SignalId, NumericConstant, SignalSignedness};
-use thiserror::Error;
+use super::{DesignHandle, NumericConstant, SignalId, SignalSensitivity, SignalSignedness};
 use std::collections::HashMap;
+use thiserror::Error;
 
 #[derive(Clone, Default)]
 pub struct EvalContext {
@@ -106,21 +106,20 @@ pub struct EvalType {
 	pub sensitivity: SignalSensitivity,
 }
 
-
 impl EvalType {
 	pub fn can_drive(&self, other: &EvalType) -> bool {
 		self.signedness == other.signedness && self.sensitivity.can_drive(&other.sensitivity)
 	}
 }
 
-macro_rules !impl_binary_type_eval_rule {
+macro_rules! impl_binary_type_eval_rule {
 	($trait_name: ident, $trait_func: ident, $lambda: expr) => {
 		impl std::ops::$trait_name for EvalResult<EvalType> {
 			type Output = Self;
 
 			fn $trait_func(self, rhs: EvalResult<EvalType>) -> Self::Output {
 				let func = $lambda;
-				EvalResult::propagate(self, rhs, |lhs, rhs|{
+				EvalResult::propagate(self, rhs, |lhs, rhs| {
 					let result: Result<EvalType, EvalError> = func(lhs, rhs);
 					result.into()
 				})
@@ -134,7 +133,7 @@ macro_rules !impl_binary_type_eval_rule {
 				EvalResult::Ok(self).$trait_func(EvalResult::Ok(rhs))
 			}
 		}
-	}
+	};
 }
 
 macro_rules! impl_binary_dims_eval_rule {
@@ -144,7 +143,7 @@ macro_rules! impl_binary_dims_eval_rule {
 
 			fn $trait_func(self, rhs: EvalResult<EvalDims>) -> Self::Output {
 				let func = $lambda;
-				EvalResult::propagate(self, rhs, |lhs, rhs|{
+				EvalResult::propagate(self, rhs, |lhs, rhs| {
 					let result: Result<EvalDims, EvalError> = func(lhs, rhs);
 					result.into()
 				})
@@ -158,15 +157,15 @@ macro_rules! impl_binary_dims_eval_rule {
 				EvalResult::Ok(self).$trait_func(EvalResult::Ok(rhs))
 			}
 		}
-	}
+	};
 }
 
 impl_binary_dims_eval_rule!(Add, add, |lhs: EvalDims, rhs: EvalDims| {
 	if !lhs.is_scalar() || !rhs.is_scalar() {
 		return Err(EvalError::NonScalar);
 	}
-	
-	Ok(EvalDims{
+
+	Ok(EvalDims {
 		width: lhs.width.max(rhs.width) + 1,
 		dimensions: Vec::new(),
 	})
@@ -179,7 +178,10 @@ impl_binary_type_eval_rule!(Add, add, |lhs: EvalType, rhs: EvalType| {
 
 	Ok(EvalType {
 		signedness: lhs.signedness,
-		sensitivity: lhs.sensitivity.combine(&rhs.sensitivity).ok_or(EvalError::IncompatibleSensitivity)?,
+		sensitivity: lhs
+			.sensitivity
+			.combine(&rhs.sensitivity)
+			.ok_or(EvalError::IncompatibleSensitivity)?,
 	})
 });
 

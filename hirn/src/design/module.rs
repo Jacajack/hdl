@@ -1,4 +1,4 @@
-use super::{ModuleId, ScopeId, SignalId, DesignHandle, ScopeHandle, DesignError, Design, DesignCore};
+use super::{Design, DesignCore, DesignError, DesignHandle, ModuleId, ScopeHandle, ScopeId, SignalId};
 
 /// Specifies direction for signals in module interface
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -12,7 +12,6 @@ pub enum SignalDirection {
 	/// Tristate signal (direction left unspecified, actually)
 	Tristate,
 }
-
 
 /// Represents a signal exposed to a module interface
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -46,12 +45,12 @@ impl Module {
 		if !super::utils::is_name_valid(name) {
 			return Err(DesignError::InvalidName);
 		}
-		
+
 		Ok(Self {
-			id: ModuleId{id: 0},
+			id: ModuleId { id: 0 },
 			namespace_path,
 			name: name.into(),
-			main_scope: ScopeId{id: 0},
+			main_scope: ScopeId { id: 0 },
 			interface: vec![],
 		})
 	}
@@ -64,11 +63,8 @@ impl Module {
 		if matches!(direction, SignalDirection::Tristate) {
 			unimplemented!("Tristate signals not yet supported");
 		}
-		
-		self.interface.push(InterfaceSignal {
-			signal,
-			direction,
-		});
+
+		self.interface.push(InterfaceSignal { signal, direction });
 
 		Ok(())
 	}
@@ -89,13 +85,13 @@ impl Module {
 macro_rules! this_module_mut {
 	($self:ident) => {
 		$self.design.borrow_mut().get_module_mut($self.id).unwrap()
-	}
+	};
 }
 
 macro_rules! this_module {
 	($self:ident) => {
 		$self.design.borrow().get_module($self.id).unwrap()
-	}
+	};
 }
 
 /// References a module in the design
@@ -111,10 +107,7 @@ pub struct ModuleHandle {
 impl ModuleHandle {
 	/// Creates a new module handle
 	pub(super) fn new(design: DesignHandle, id: ModuleId) -> Self {
-		Self {
-			design,
-			id,
-		}
+		Self { design, id }
 	}
 
 	pub fn design(&self) -> DesignHandle {

@@ -52,7 +52,7 @@ pub struct ClockSensitivityList(HashSet<EdgeSensitivity>);
 
 impl ClockSensitivityList {
 	pub fn new(edge: &EdgeSensitivity) -> Self {
-		let mut list = Self {0: HashSet::new()};
+		let mut list = Self { 0: HashSet::new() };
 		list.push(*edge);
 		list
 	}
@@ -105,7 +105,7 @@ impl SignalSensitivity {
 			(Comb(lhs), Sync(rhs)) => Comb(lhs.combine(rhs)),
 			(Comb(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
 			(Sync(lhs), _) | (_, Sync(lhs)) => Sync(lhs.clone()),
-			(Comb(lhs), _) | (_, Comb(lhs))=> Comb(lhs.clone()),
+			(Comb(lhs), _) | (_, Comb(lhs)) => Comb(lhs.clone()),
 		})
 	}
 
@@ -174,9 +174,8 @@ impl Signal {
 		name: &str,
 		dimensions: Vec<Expression>,
 		class: SignalClass,
-		sensitivity: SignalSensitivity)
-		-> Result<Self, DesignError>
-	{
+		sensitivity: SignalSensitivity,
+	) -> Result<Self, DesignError> {
 		// Check name valid
 		if !super::utils::is_name_valid(name) {
 			return Err(DesignError::InvalidName);
@@ -192,7 +191,7 @@ impl Signal {
 			name: name.into(),
 			dimensions,
 			class,
-			sensitivity
+			sensitivity,
 		})
 	}
 
@@ -200,7 +199,6 @@ impl Signal {
 		self.dimensions.is_empty()
 	}
 }
-
 
 /// Signal builder helper
 pub struct SignalBuilder {
@@ -212,7 +210,7 @@ pub struct SignalBuilder {
 
 	/// Name for the signal
 	name: Option<String>,
-	
+
 	/// Dimensions (arrays only)
 	dimensions: Vec<Expression>,
 
@@ -224,7 +222,7 @@ pub struct SignalBuilder {
 
 	/// Clocking list (for combinational signals)
 	comb_clocking: Option<ClockSensitivityList>,
-	
+
 	/// Clocking list (for synchronous signals)
 	sync_clocking: Option<ClockSensitivityList>,
 }
@@ -297,14 +295,15 @@ impl SignalBuilder {
 	pub fn comb(mut self, clock: SignalId, on_rising: bool) -> Self {
 		assert!(self.sensitivity.is_none());
 		assert!(self.sync_clocking.is_none());
-		let edge = EdgeSensitivity{
+		let edge = EdgeSensitivity {
 			clock_signal: clock,
 			on_rising,
 		};
 
 		if let Some(list) = &mut self.comb_clocking {
 			list.push(edge);
-		} else {
+		}
+		else {
 			self.sync_clocking = Some(ClockSensitivityList::new(&edge));
 		}
 
@@ -316,17 +315,18 @@ impl SignalBuilder {
 	pub fn sync(mut self, clock: SignalId, on_rising: bool) -> Self {
 		assert!(self.sensitivity.is_none());
 		assert!(self.comb_clocking.is_none());
-		let edge = EdgeSensitivity{
+		let edge = EdgeSensitivity {
 			clock_signal: clock,
 			on_rising,
 		};
 
 		if let Some(list) = &mut self.sync_clocking {
 			list.push(edge);
-		} else {
+		}
+		else {
 			self.sync_clocking = Some(ClockSensitivityList::new(&edge));
 		}
-		
+
 		self
 	}
 
@@ -349,7 +349,7 @@ impl SignalBuilder {
 		};
 
 		self.design.borrow_mut().add_signal(Signal::new(
-			SignalId{id: 0},
+			SignalId { id: 0 },
 			self.scope,
 			self.name.ok_or(DesignError::InvalidName)?.as_str(),
 			self.dimensions,

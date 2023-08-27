@@ -1,25 +1,25 @@
+pub mod eval;
 pub mod expression;
+pub mod expression_eval;
 pub mod expression_ops;
 pub mod functional_blocks;
 pub mod module;
-pub mod signal;
-pub mod scope;
-pub mod utils;
-pub mod eval;
-pub mod expression_eval;
 pub mod numeric_constant;
+pub mod scope;
+pub mod signal;
+pub mod utils;
 
+pub use eval::{EvalContext, EvalError};
+pub use expression::{BinaryOp, Expression, UnaryOp};
+pub use functional_blocks::{Register, RegisterBuilder};
+pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
+pub use numeric_constant::NumericConstant;
 pub use scope::{Scope, ScopeHandle};
 pub use signal::{Signal, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice};
-pub use module::{Module, ModuleHandle, InterfaceSignal, SignalDirection};
-pub use expression::{Expression, BinaryOp, UnaryOp};
-pub use functional_blocks::{Register, RegisterBuilder};
-pub use eval::{EvalContext, EvalError};
-pub use numeric_constant::NumericConstant;
 
-use std::collections::HashMap;
-use std::rc::{Weak, Rc};
 use std::cell::RefCell;
+use std::collections::HashMap;
+use std::rc::{Rc, Weak};
 use thiserror::Error;
 
 use self::eval::EvalType;
@@ -105,9 +105,9 @@ impl DesignCore {
 
 	/// Creates a new scope and adds it to the design
 	fn new_scope(&mut self, module: ModuleId) -> Result<ScopeHandle, DesignError> {
-		let id = ScopeId{id: self.next_scope_id};
+		let id = ScopeId { id: self.next_scope_id };
 		self.next_scope_id += 1;
-		
+
 		let scope = Scope::new(id, module);
 		self.scopes.push(scope);
 		self.module_scopes.entry(module).or_insert(vec![]).push(id);
@@ -115,15 +115,15 @@ impl DesignCore {
 	}
 
 	/// Adds an existing signal to the design
-	/// 
+	///
 	/// Performs check for conflicting signal names.
 	fn add_signal(&mut self, signal: Signal) -> Result<SignalId, DesignError> {
 		let id = self.next_signal_id;
 		self.next_signal_id += 1;
 
 		let mut sig = signal;
-		sig.id = SignalId{id};
-		
+		sig.id = SignalId { id };
+
 		// Check for name collisions
 		for id in self.get_scope_signals(sig.parent_scope).unwrap_or(&vec![]) {
 			let other = self.get_signal(*id).unwrap();
@@ -132,14 +132,17 @@ impl DesignCore {
 					scope: sig.parent_scope,
 					first: other.id,
 					second: sig.id,
-				})
+				});
 			}
 		}
-		
+
 		// Add to design
-		self.scope_signals.entry(sig.parent_scope).or_insert(vec![]).push(SignalId{id});
+		self.scope_signals
+			.entry(sig.parent_scope)
+			.or_insert(vec![])
+			.push(SignalId { id });
 		self.signals.push(sig);
-		Ok(SignalId{id})
+		Ok(SignalId { id })
 	}
 
 	/// Adds an existing module to the design
@@ -148,19 +151,21 @@ impl DesignCore {
 		self.next_module_id += 1;
 
 		let mut m = module;
-		m.id = ModuleId{id};
+		m.id = ModuleId { id };
 
 		// Check name conflicts
 		// FIXME this ignores namespaces for now
 		for other in &self.modules {
 			if other.name == m.name {
-				return Err(DesignError::ModuleNameConflict { first: other.id, second: m.id })
+				return Err(DesignError::ModuleNameConflict {
+					first: other.id,
+					second: m.id,
+				});
 			}
 		}
 
-		
 		self.modules.push(m);
-		Ok(ModuleHandle::new(self.weak.upgrade().unwrap(), ModuleId{id}))
+		Ok(ModuleHandle::new(self.weak.upgrade().unwrap(), ModuleId { id }))
 	}
 
 	/// Returns a mutable reference to the signal with the given ID
@@ -221,14 +226,14 @@ pub type DesignHandle = Rc<RefCell<DesignCore>>;
 
 /// Represents a hardware design
 pub struct Design {
-	handle: DesignHandle
+	handle: DesignHandle,
 }
 
 impl Design {
 	/// Creates a new HIRN design
 	pub fn new() -> Self {
 		let d = Self {
-			handle: Rc::new(RefCell::new(DesignCore::new()))
+			handle: Rc::new(RefCell::new(DesignCore::new())),
 		};
 
 		d.handle.borrow_mut().weak = Rc::downgrade(&d.handle);
@@ -309,20 +314,17 @@ pub enum DesignError {
 	RequiredRegisterSignalNotConnected(functional_blocks::ReqiuredRegisterSignal),
 
 	#[error("Signal name conflict in scope")]
-	SignalNameConflict{
+	SignalNameConflict {
 		scope: ScopeId,
 		first: SignalId,
 		second: SignalId,
 	},
 
 	#[error("Module name conflict")]
-	ModuleNameConflict{
-		first: ModuleId,
-		second: ModuleId,
-	},
+	ModuleNameConflict { first: ModuleId, second: ModuleId },
 
 	#[error("Incompatible types in binding")]
-	IncompatibleBindingType{
+	IncompatibleBindingType {
 		module: ModuleId,
 		signal: SignalId,
 		binding_type: EvalType,
@@ -332,7 +334,7 @@ pub enum DesignError {
 
 #[cfg(test)]
 mod test {
-	use super::{*, eval::Evaluates};
+	use super::{eval::Evaluates, *};
 
 	#[test]
 	pub fn design_basic_test() -> Result<(), DesignError> {
@@ -340,7 +342,9 @@ mod test {
 		let mut d = Design::new();
 		let mut m = d.new_module("test")?;
 
-		let sig = m.scope().new_signal()?
+		let sig = m
+			.scope()
+			.new_signal()?
 			.name("test_signal")
 			.unsigned(Expression::new_zero())
 			.constant()
@@ -348,7 +352,9 @@ mod test {
 
 		let expr = Expression::from(sig) + sig.into();
 
-		let sig2 = m.scope().new_signal()?
+		let sig2 = m
+			.scope()
+			.new_signal()?
 			.name("test_signal_2")
 			.unsigned(expr.clone())
 			.constant()
@@ -356,7 +362,8 @@ mod test {
 
 		let mut scope2 = m.scope().if_scope(Expression::new_zero())?;
 
-		scope2.new_register()?
+		scope2
+			.new_register()?
 			.clk(sig.into())
 			.nreset(expr.clone())
 			.next(Expression::new_zero())
@@ -374,19 +381,23 @@ mod test {
 		let mut d = Design::new();
 		let mut m = d.new_module("test")?;
 
-		let _sig = m.scope().new_signal()?
+		let _sig = m
+			.scope()
+			.new_signal()?
 			.name("name")
 			.unsigned(Expression::new_one())
 			.constant()
 			.build()?;
 
-		let sig2 = m.scope().new_signal()?
+		let sig2 = m
+			.scope()
+			.new_signal()?
 			.name("name")
 			.unsigned(Expression::new_one())
 			.constant()
 			.build();
 
-		assert!(matches!(sig2, Err(DesignError::SignalNameConflict{..})));
+		assert!(matches!(sig2, Err(DesignError::SignalNameConflict { .. })));
 		Ok(())
 	}
 
@@ -397,7 +408,7 @@ mod test {
 		let _m = d.new_module("name")?;
 		let m2 = d.new_module("name");
 
-		assert!(matches!(m2, Err(DesignError::ModuleNameConflict{..})));
+		assert!(matches!(m2, Err(DesignError::ModuleNameConflict { .. })));
 		Ok(())
 	}
 
@@ -408,10 +419,16 @@ mod test {
 		assert!(matches!(d.new_module("asdf"), Ok(..)));
 		assert!(matches!(d.new_module("_asdf1131"), Ok(..)));
 		assert!(matches!(d.new_module("_asd_____f1131fafa_222"), Ok(..)));
-		
+
 		assert!(matches!(d.new_module("$wongo_bongo"), Err(DesignError::InvalidName)));
-		assert!(matches!(d.new_module("1love5ystemVerilog"), Err(DesignError::InvalidName)));
-		assert!(matches!(d.new_module("spaces are not allowed"), Err(DesignError::InvalidName)));
+		assert!(matches!(
+			d.new_module("1love5ystemVerilog"),
+			Err(DesignError::InvalidName)
+		));
+		assert!(matches!(
+			d.new_module("spaces are not allowed"),
+			Err(DesignError::InvalidName)
+		));
 		Ok(())
 	}
 
@@ -421,31 +438,41 @@ mod test {
 		let mut d = Design::new();
 		let mut m = d.new_module("foo")?;
 
-		let clk = m.scope().new_signal()?
+		let clk = m
+			.scope()
+			.new_signal()?
 			.name("clk")
 			.clock()
 			.unsigned(Expression::new_one())
 			.build()?;
 
-		let nreset = m.scope().new_signal()?
+		let nreset = m
+			.scope()
+			.new_signal()?
 			.name("nreset")
 			.asynchronous()
 			.unsigned(Expression::new_one())
 			.build()?;
 
-		let next = m.scope().new_signal()?
+		let next = m
+			.scope()
+			.new_signal()?
 			.name("next")
 			.unsigned(Expression::new_one())
 			.comb(clk, true)
 			.build()?;
 
-		let output = m.scope().new_signal()?
+		let output = m
+			.scope()
+			.new_signal()?
 			.name("output")
 			.unsigned(Expression::new_one())
 			.sync(clk, true)
 			.build()?;
 
-		let _register = m.scope().new_register()?
+		let _register = m
+			.scope()
+			.new_register()?
 			.clk(clk.into())
 			.nreset(nreset.into())
 			.next(next.into())
@@ -460,22 +487,16 @@ mod test {
 	fn test_interfaces() -> Result<(), DesignError> {
 		let mut d = Design::new();
 		let mut m = d.new_module("foo")?;
-		let m_clk = m.scope().new_signal()?
-			.name("clk")
-			.clock()
-			.wire()
-			.build()?;
+		let m_clk = m.scope().new_signal()?.name("clk").clock().wire().build()?;
 
 		m.expose(m_clk, SignalDirection::Input)?;
 
 		let mut m_parent = d.new_module("bar")?;
-		let m_parent_clk = m_parent.scope().new_signal()?
-			.name("clk")
-			.clock()
-			.wire()
-			.build()?;
+		let m_parent_clk = m_parent.scope().new_signal()?.name("clk").clock().wire().build()?;
 
-		m_parent.scope().new_module(m)?
+		m_parent
+			.scope()
+			.new_module(m)?
 			.bind("clk", m_parent_clk.into())
 			.build()?;
 
@@ -487,26 +508,26 @@ mod test {
 	fn test_bad_interface_binding() -> Result<(), DesignError> {
 		let mut d = Design::new();
 		let mut m = d.new_module("foo")?;
-		let m_clk = m.scope().new_signal()?
-			.name("clk")
-			.clock()
-			.wire()
-			.build()?;
+		let m_clk = m.scope().new_signal()?.name("clk").clock().wire().build()?;
 
 		m.expose(m_clk, SignalDirection::Input)?;
 
 		let mut m_parent = d.new_module("bar")?;
-		let m_parent_async = m_parent.scope().new_signal()?
+		let m_parent_async = m_parent
+			.scope()
+			.new_signal()?
 			.name("async")
 			.asynchronous()
 			.wire()
 			.build()?;
 
-		let err = m_parent.scope().new_module(m)?
+		let err = m_parent
+			.scope()
+			.new_module(m)?
 			.bind("clk", m_parent_async.into())
 			.build();
 
-		assert!(matches!(err, Err(DesignError::IncompatibleBindingType{..})));
+		assert!(matches!(err, Err(DesignError::IncompatibleBindingType { .. })));
 		Ok(())
 	}
 
@@ -515,13 +536,17 @@ mod test {
 		let mut d = Design::new();
 		let mut m = d.new_module("test")?;
 
-		let a = m.scope().new_signal()?
+		let a = m
+			.scope()
+			.new_signal()?
 			.name("a")
 			.unsigned(8.into())
 			.constant()
 			.build()?;
 
-		let b = m.scope().new_signal()?
+		let b = m
+			.scope()
+			.new_signal()?
 			.name("b")
 			.unsigned(12.into())
 			.constant()
@@ -544,13 +569,14 @@ mod test {
 		let mut d = Design::new();
 		let mut m = d.new_module("test")?;
 
-		let a = m.scope().new_signal()?
+		let a = m
+			.scope()
+			.new_signal()?
 			.name("a")
 			.unsigned(8.into())
 			.constant()
 			.array(4.into())?
 			.build()?;
-
 
 		let mut ctx = EvalContext::without_assumptions(d.handle());
 		ctx.assume(a, vec![0], 1.into());
@@ -573,5 +599,4 @@ mod test {
 
 		Ok(())
 	}
-
 }

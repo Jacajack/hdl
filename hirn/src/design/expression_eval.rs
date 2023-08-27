@@ -1,6 +1,11 @@
 use super::eval::EvaluatesDimensions;
-use super::{Expression, SignalSlice, eval::Evaluates, eval::EvaluatesType,  eval::EvalType, EvalContext, EvalError, NumericConstant, SignalSensitivity, eval::EvalResult, eval::EvalDims, SignalId};
-use super::expression::{CastExpression, ConditionalExpression, BinaryExpression, UnaryExpression, BinaryOp, UnaryOp, BuiltinOp};
+use super::expression::{
+	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, UnaryExpression, UnaryOp,
+};
+use super::{
+	eval::EvalDims, eval::EvalResult, eval::EvalType, eval::Evaluates, eval::EvaluatesType, EvalContext, EvalError,
+	Expression, NumericConstant, SignalId, SignalSensitivity, SignalSlice,
+};
 
 impl EvaluatesType for NumericConstant {
 	fn eval_type(&self, _ctx: &EvalContext) -> Result<EvalType, EvalError> {
@@ -13,7 +18,7 @@ impl EvaluatesType for NumericConstant {
 
 impl EvaluatesDimensions for NumericConstant {
 	fn eval_dims(&self, _ctx: &EvalContext) -> Result<EvalDims, EvalError> {
-		Ok(EvalDims{
+		Ok(EvalDims {
 			width: self.width(),
 			dimensions: vec![],
 		})
@@ -45,14 +50,10 @@ impl EvaluatesDimensions for SignalId {
 
 			// TODO check the dimensions??
 
-			Ok(EvalDims {
-				dimensions,
-				width,
-			})
+			Ok(EvalDims { dimensions, width })
 		}
 		else {
 			Err(EvalError::NoDesign)
-			
 		}
 	}
 }
@@ -86,7 +87,7 @@ impl Evaluates for SignalId {
 		else {
 			return Err(EvalError::NoDesign);
 		}
-		
+
 		ctx.scalar_signal(*self)
 			.map(|v| v.clone())
 			.ok_or(EvalError::MissingAssumption(*self))
@@ -110,9 +111,9 @@ impl EvaluatesDimensions for SignalSlice {
 				return Err(EvalError::InvalidIndexRank);
 			}
 
-			Ok(EvalDims{
+			Ok(EvalDims {
 				dimensions: vec![],
-				width: self.signal.eval_dims(ctx)?.width
+				width: self.signal.eval_dims(ctx)?.width,
 			})
 		}
 		else {
@@ -134,7 +135,6 @@ impl Evaluates for SignalSlice {
 			.ok_or(EvalError::MissingAssumption(self.signal))
 	}
 }
-
 
 impl EvaluatesType for ConditionalExpression {
 	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
@@ -193,8 +193,9 @@ impl Evaluates for BinaryExpression {
 		match self.op {
 			Add => lhs + rhs,
 			// TODO remainig ops
-			_ => todo!()
-		}.into()
+			_ => todo!(),
+		}
+		.into()
 	}
 }
 

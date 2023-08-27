@@ -1,8 +1,8 @@
-use super::signal::{SignalSensitivity, SignalClass, SignalSlice};
-use super::{SignalId, NumericConstant};
+use super::signal::{SignalClass, SignalSensitivity, SignalSlice};
+use super::{NumericConstant, SignalId};
 
 /// Binary operators
-/// TODO check if we have all 
+/// TODO check if we have all
 #[derive(Clone, Copy)]
 pub enum BinaryOp {
 	Add,
@@ -39,11 +39,27 @@ pub enum UnaryOp {
 
 #[derive(Clone)]
 pub enum BuiltinOp {
-	ZeroExtend{expr: Box<Expression>, width: Box<Expression>},
-	SignExtend{expr: Box<Expression>, width: Box<Expression>},
-	BitSelect{expr: Box<Expression>, msb: Box<Expression>, lsb: Box<Expression>},
-	BusSelect{expr: Box<Expression>, index: Box<Expression>},
-	Replicate{expr: Box<Expression>, count: Box<Expression>},
+	ZeroExtend {
+		expr: Box<Expression>,
+		width: Box<Expression>,
+	},
+	SignExtend {
+		expr: Box<Expression>,
+		width: Box<Expression>,
+	},
+	BitSelect {
+		expr: Box<Expression>,
+		msb: Box<Expression>,
+		lsb: Box<Expression>,
+	},
+	BusSelect {
+		expr: Box<Expression>,
+		index: Box<Expression>,
+	},
+	Replicate {
+		expr: Box<Expression>,
+		count: Box<Expression>,
+	},
 	Join(Vec<Expression>),
 }
 
@@ -132,7 +148,7 @@ impl Expression {
 		Self::Cast(CastExpression {
 			dest_class,
 			dest_sensitivity,
-			src: Box::new(self)
+			src: Box::new(self),
 		})
 	}
 
@@ -172,11 +188,9 @@ impl Expression {
 	// TODO bitwise not
 	// TODO from bool
 	// TODO remaining binary ops
-	
 
 	// Casts:
 	// TODO from bool
-	
 }
 
 /// Implements a conversion from signal ID to an expression

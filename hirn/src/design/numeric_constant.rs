@@ -1,5 +1,9 @@
+use super::{
+	eval::EvalResult,
+	eval::{EvalType, EvaluatesDimensions, EvaluatesType},
+	DesignError, EvalContext, SignalSensitivity, SignalSignedness,
+};
 use num_bigint::BigInt;
-use super::{SignalSignedness, DesignError, eval::EvalResult, eval::{EvalType, EvaluatesType, EvaluatesDimensions}, SignalSensitivity, EvalContext};
 
 /// Represents a numeric constant value
 #[derive(Clone, Debug)]
@@ -30,11 +34,11 @@ impl NumericConstant {
 		if width < (min_width + sign_bit).max(1) {
 			return Err(DesignError::NumericConstantWidthTooSmall);
 		}
-		
+
 		Ok(Self {
 			value,
 			signedness,
-			width
+			width,
 		})
 	}
 
@@ -61,7 +65,6 @@ impl NumericConstant {
 	pub fn try_into_i64(&self) -> Option<i64> {
 		i64::try_from(&self.value).ok()
 	}
-
 }
 
 impl From<u64> for NumericConstant {
@@ -96,27 +99,22 @@ macro_rules! impl_binary_constant_op {
 			fn $trait_func(self, other: Self) -> Self::Output {
 				let func = $lambda;
 
-				EvalResult::<NumericConstant>::propagate(self, other, |lhs: NumericConstant, rhs: NumericConstant|{
-					let value =  match func(&lhs.value, &rhs.value) {
+				EvalResult::<NumericConstant>::propagate(self, other, |lhs: NumericConstant, rhs: NumericConstant| {
+					let value = match func(&lhs.value, &rhs.value) {
 						Ok(value) => value,
 						Err(err) => return EvalResult::Err(err),
-	
 					};
-	
+
 					let lhs_type = lhs.const_eval_type().unwrap(); // FIXME
 					let rhs_type = rhs.const_eval_type().unwrap(); // FIXME
 					let result_type = lhs_type.$trait_func(rhs_type).result().unwrap(); // FIXME unwrap
-	
+
 					// FIXME unwraps
 					let lhs_dims = lhs.const_eval_dims().unwrap();
 					let rhs_dims = rhs.const_eval_dims().unwrap();
 					let result_dims = lhs_dims.$trait_func(rhs_dims).result().unwrap();
 
-					EvalResult::Ok(NumericConstant::new(
-						value,
-						result_type.signedness,
-						result_dims.width
-					).unwrap())
+					EvalResult::Ok(NumericConstant::new(value, result_type.signedness, result_dims.width).unwrap())
 				})
 			}
 		}
@@ -128,12 +126,10 @@ macro_rules! impl_binary_constant_op {
 				EvalResult::Ok(self).$trait_func(EvalResult::Ok(rhs))
 			}
 		}
-	}
+	};
 }
 
-impl_binary_constant_op!(Add, add, |lhs: &BigInt, rhs: &BigInt| {
-	Ok(lhs + rhs)
-});
+impl_binary_constant_op!(Add, add, |lhs: &BigInt, rhs: &BigInt| { Ok(lhs + rhs) });
 
 #[cfg(test)]
 mod test {
@@ -148,4 +144,3 @@ mod test {
 		assert_eq!(c.width, 5);
 	}
 }
-

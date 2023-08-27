@@ -1,6 +1,9 @@
 use std::collections::HashSet;
 
-use super::{ModuleId, ScopeId, Expression, ScopeHandle, DesignError, DesignHandle, DesignCore, module::SignalDirection, ModuleHandle, EvalContext, eval::EvaluatesType};
+use super::{
+	eval::EvaluatesType, module::SignalDirection, DesignCore, DesignError, DesignHandle, EvalContext, Expression,
+	ModuleHandle, ModuleId, ScopeHandle, ScopeId,
+};
 
 /// Register block
 pub struct Register {
@@ -54,7 +57,7 @@ impl RegisterBuilder {
 	pub fn nreset(mut self, expr: Expression) -> Self {
 		assert!(self.input_nreset.is_none());
 		self.input_nreset = Some(expr);
-		self	
+		self
 	}
 
 	/// Connects an enable signal
@@ -95,12 +98,20 @@ impl RegisterBuilder {
 		// TODO assert en is 1-bit and comb to specified clock
 
 		use ReqiuredRegisterSignal::*;
-		self.scope.add_block(BlockInstance::Register(Register{
-			input_clk: self.input_clk.ok_or(DesignError::RequiredRegisterSignalNotConnected(Clk))?,
+		self.scope.add_block(BlockInstance::Register(Register {
+			input_clk: self
+				.input_clk
+				.ok_or(DesignError::RequiredRegisterSignalNotConnected(Clk))?,
 			input_en: self.input_en.unwrap_or(Expression::new_one()),
-			input_nreset: self.input_nreset.ok_or(DesignError::RequiredRegisterSignalNotConnected(Nreset))?,
-			input_next: self.input_next.ok_or(DesignError::RequiredRegisterSignalNotConnected(Next))?,
-			output_data: self.output_data.ok_or(DesignError::RequiredRegisterSignalNotConnected(Output))?,
+			input_nreset: self
+				.input_nreset
+				.ok_or(DesignError::RequiredRegisterSignalNotConnected(Nreset))?,
+			input_next: self
+				.input_next
+				.ok_or(DesignError::RequiredRegisterSignalNotConnected(Next))?,
+			output_data: self
+				.output_data
+				.ok_or(DesignError::RequiredRegisterSignalNotConnected(Output))?,
 		}))
 	}
 }
@@ -133,7 +144,7 @@ pub struct FfSync {
 
 	/// Next value input
 	pub input_next: Expression,
-	
+
 	/// Output value
 	pub output_data: Expression,
 }
@@ -143,7 +154,7 @@ pub struct ModuleInstance {
 	/// ID of the instantiated module
 	pub module: ModuleHandle,
 
-	bindings: Vec<(String, Expression)>
+	bindings: Vec<(String, Expression)>,
 }
 
 impl ModuleInstance {
@@ -162,7 +173,7 @@ impl ModuleInstance {
 
 		for (name, expr) in &self.bindings {
 			self.verify_binding(name, expr)?;
-			
+
 			// Catch duplicate bindings
 			if names.contains(name) {
 				return Err(DesignError::DuplicateInterfaceBinding(self.module.id()));
@@ -175,9 +186,11 @@ impl ModuleInstance {
 	}
 
 	fn verify_binding(&self, name: &str, expr: &Expression) -> Result<(), DesignError> {
-		let sig = self.module.get_interface_signal_by_name(name)
+		let sig = self
+			.module
+			.get_interface_signal_by_name(name)
 			.ok_or(DesignError::InvalidInterfaceSignalName(self.module.id()))?;
-		
+
 		// TODO defer this logic to assignment checker
 		let eval_ctx = EvalContext::without_assumptions(self.module.design());
 		let expr_type = expr.eval_type(&eval_ctx)?;
@@ -187,26 +200,26 @@ impl ModuleInstance {
 			// Interface drives the expression
 
 			if expr.try_drive().is_none() {
-				return Err(DesignError::ExpressionNotDriveable)
+				return Err(DesignError::ExpressionNotDriveable);
 			}
 
 			if !sig_type.can_drive(&expr_type) {
-				return Err(DesignError::IncompatibleBindingType{
+				return Err(DesignError::IncompatibleBindingType {
 					module: self.module.id(),
 					signal: sig.signal,
 					interface_type: sig_type,
 					binding_type: expr_type,
-				})
+				});
 			}
 		}
 		else {
 			if !expr_type.can_drive(&sig_type) {
-				return Err(DesignError::IncompatibleBindingType{
+				return Err(DesignError::IncompatibleBindingType {
 					module: self.module.id(),
 					signal: sig.signal,
 					interface_type: sig_type,
 					binding_type: expr_type,
-				})
+				});
 			}
 		}
 
@@ -217,7 +230,7 @@ impl ModuleInstance {
 pub struct ModuleInstanceBuilder {
 	module: ModuleHandle,
 	scope: ScopeHandle,
-	bindings: Vec<(String, Expression)>
+	bindings: Vec<(String, Expression)>,
 }
 
 impl ModuleInstanceBuilder {
@@ -235,9 +248,8 @@ impl ModuleInstanceBuilder {
 	}
 
 	pub fn build(mut self) -> Result<(), DesignError> {
-		self.scope.add_block(
-			BlockInstance::Module(ModuleInstance::new(self.module, self.bindings)?)
-		)
+		self.scope
+			.add_block(BlockInstance::Module(ModuleInstance::new(self.module, self.bindings)?))
 	}
 }
 
