@@ -7,5 +7,6 @@
 **/__pycache__
 **/Cargo.lock
 *.json
+*.hirl
 target/
 utils/fuzzer/

@@ -1,25 +1,25 @@
-use serde::{Deserialize, Serialize};
+
 use std::fmt::{Debug, Error, Formatter};
 
-#[derive(Serialize, Deserialize, Copy, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub enum RangeOpcode {
 	Colon,
 	PlusColon,
 	ColonLessThan,
 }
-#[derive(Serialize, Deserialize, Copy, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub enum UnaryOpcode {
-	BitwiseNot,
-	LogicalNot,
-	Minus,
-	Plus,
+	BitwiseNot, // ~
+	LogicalNot, // !
+	Minus, // -
+	Plus, // +
 }
-#[derive(Serialize, Deserialize, Copy, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub enum BinaryOpcode {
 	Multiplication,
 	Division,
 	Addition,
-	Substraction,
+	Subtraction,
 	Modulo,
 	Equal,
 	NotEqual,
@@ -43,7 +43,7 @@ impl Debug for BinaryOpcode {
 			Multiplication => write!(fmt, "*"),
 			Division => write!(fmt, "/"),
 			Addition => write!(fmt, "+"),
-			Substraction => write!(fmt, "-"),
+			Subtraction => write!(fmt, "-"),
 			Modulo => write!(fmt, "%"),
 			Equal => write!(fmt, "=="),
 			NotEqual => write!(fmt, "!="),
@@ -82,7 +82,7 @@ impl Debug for UnaryOpcode {
 		}
 	}
 }
-#[derive(Serialize, Deserialize, Copy, Clone)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq)]
 pub enum AssignmentOpcode {
 	Equal,
 	PlusEqual,

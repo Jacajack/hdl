@@ -5,119 +5,94 @@ impl PrettyPrintable for Expression {
 	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
 		use Expression::*;
 		match self {
-			Number { key, .. } => ctx.write(ctx.get_numeric_constant(*key).to_pretty_string().as_str()),
-			Identifier { id, .. } => ctx.write((&ctx.get_id(*id)).to_string().as_str()),
-			ParenthesizedExpression { expression, .. } => {
+			Number (num) => ctx.write(ctx.get_numeric_constant(num.key).to_pretty_string().as_str()),
+			Identifier (ident) => ctx.write((&ctx.get_id(ident.id)).to_string().as_str()),
+			ParenthesizedExpression (expr) => {
 				ctx.write("(")?;
-				expression.pretty_print(ctx)?;
+				expr.expression.pretty_print(ctx)?;
 				ctx.write(")")
 			},
-			MatchExpression { value, statements, .. } => {
+			MatchExpression (match_expr) => {
 				ctx.write("match (")?;
-				value.pretty_print(ctx)?;
+				match_expr.value.pretty_print(ctx)?;
 				ctx.write(")")?;
 				ctx.increase_indent();
 				ctx.writeln(" {")?;
-				for statement in statements {
+				for statement in &match_expr.statements {
 					statement.pretty_print(ctx)?;
 				}
 				ctx.decrease_indent();
 				ctx.write_indent("}")
 			},
-			ConditionalExpression { statements, .. } => {
+			ConditionalExpression (cond) => {
 				ctx.write("conditional")?;
 				ctx.increase_indent();
 				ctx.writeln(" {")?;
-				for statement in statements {
+				for statement in &cond.statements {
 					statement.pretty_print(ctx)?;
 				}
 				ctx.decrease_indent();
 				ctx.writeln("")?;
 				ctx.write_indent("}")
 			},
-			Tuple { expressions, .. } => {
+			Tuple (tuple) => {
 				ctx.write("(")?;
-				for (i, expression) in expressions.iter().enumerate() {
+				for (i, expression) in tuple.expressions.iter().enumerate() {
 					expression.pretty_print(ctx)?;
-					if i != expressions.len() - 1 {
+					if i != tuple.expressions.len() - 1 {
 						ctx.write(", ")?;
 					}
 				}
 				ctx.write(")")
 			},
-			TernaryExpression {
-				condition,
-				true_branch,
-				false_branch,
-				..
-			} => {
-				condition.pretty_print(ctx)?;
+			TernaryExpression (ternary) => {
+				ternary.condition.pretty_print(ctx)?;
 				ctx.write(" ? ")?;
-				true_branch.pretty_print(ctx)?;
+				ternary.true_branch.pretty_print(ctx)?;
 				ctx.write(" : ")?;
-				false_branch.pretty_print(ctx)
+				ternary.false_branch.pretty_print(ctx)
 			},
-			PostfixWithIndex { expression, index, .. } => {
-				expression.pretty_print(ctx)?;
+			PostfixWithIndex (postfix) => {
+				postfix.expression.pretty_print(ctx)?;
 				ctx.write("[")?;
-				index.pretty_print(ctx)?;
+				postfix.index.pretty_print(ctx)?;
 				ctx.write("]")
 			},
-			PostfixWithRange { expression, range, .. } => {
-				expression.pretty_print(ctx)?;
-				//ctx.write("[")?;
-				range.pretty_print(ctx)?;
-				//ctx.write("]")
+			PostfixWithRange (postfix) => {
+				postfix.expression.pretty_print(ctx)?;
+				postfix.range.pretty_print(ctx)?;
 				Ok(())
 			},
-			PostfixWithArgs {
-				expression,
-				argument_list,
-				..
-			} => {
-				expression.pretty_print(ctx)?;
+			PostfixWithArgs (postfix) => {
+				ctx.write(format!("{}", ctx.get_id(postfix.id)).as_str())?;
 				ctx.write("(")?;
-				for (i, expression) in argument_list.iter().enumerate() {
+				for (i, expression) in postfix.argument_list.iter().enumerate() {
 					expression.pretty_print(ctx)?;
-					if i != argument_list.len() - 1 {
+					if i != postfix.argument_list.len() - 1 {
 						ctx.write(", ")?;
 					}
 				}
 				ctx.write(")")
 			},
-			// PostfixEmptyCall { expression, .. } => {
-			// 	expression.pretty_print(ctx)?;
-			// 	ctx.write("()")
-			// },
-			PostfixWithId { expression, id, .. } => {
-				expression.pretty_print(ctx)?;
-				ctx.write(format!(".{}", ctx.get_id(*id)).as_str())
+			PostfixWithId (postfix) => {
+				postfix.expression.pretty_print(ctx)?;
+				ctx.write(format!(".{}", ctx.get_id(postfix.id)).as_str())
 			},
-			UnaryOperatorExpression { expression, code, .. } => {
-				ctx.write(format!("{:?}", code).as_str())?;
-				expression.pretty_print(ctx)
+			UnaryOperatorExpression (unary) => {
+				ctx.write(format!("{:?}", unary.code).as_str())?;
+				unary.expression.pretty_print(ctx)
 			},
-			UnaryCastExpression {
-				type_name, expression, ..
-			} => {
+			UnaryCastExpression (unary) => {
 				ctx.write("(")?;
-				type_name.pretty_print(ctx)?;
+				unary.type_name.pretty_print(ctx)?;
 				ctx.write(")")?;
-				expression.pretty_print(ctx)
+				unary.expression.pretty_print(ctx)
 			},
-			// RangeExpression { lhs, rhs, code, .. } => {
-			// 	ctx.write("[")?;
-			// 	lhs.pretty_print(ctx)?;
-			// 	ctx.write(format!(" {:?} ", code).as_str())?;
-			// 	rhs.pretty_print(ctx)?;
-			// 	ctx.write("]")
-			// },
-			BinaryExpression { lhs, rhs, code, .. } => {
-				lhs.pretty_print(ctx)?;
-				ctx.write(format!(" {:?} ", code).as_str())?;
-				rhs.pretty_print(ctx)
+			BinaryExpression (binop) => {
+				binop.lhs.pretty_print(ctx)?;
+				ctx.write(format!(" {:?} ", binop.code).as_str())?;
+				binop.rhs.pretty_print(ctx)
 			},
-			Error => ctx.write("error"),
 		}
 	}
 }

@@ -1,4 +1,5 @@
-use crate::core::WideUint;
+use log::debug;
+use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
@@ -11,7 +12,7 @@ pub enum NumericConstantBase {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct NumericConstant {
-	pub value: WideUint,
+	pub value: BigInt,
 	pub width: Option<u32>,
 	pub signed: Option<bool>,
 	pub base: Option<NumericConstantBase>,
@@ -21,7 +22,7 @@ impl NumericConstant {
 	/// Creates a new numeric constant from u64
 	pub fn from_u64(value: u64, width: Option<u32>, signed: Option<bool>, base: Option<NumericConstantBase>) -> Self {
 		let num = Self {
-			value: WideUint::from_u64(value),
+			value: BigInt::from(value),
 			width,
 			signed,
 			base,
@@ -30,12 +31,67 @@ impl NumericConstant {
 		num
 	}
 
+	pub fn new(value: BigInt, width: Option<u32>, signed: Option<bool>, base: Option<NumericConstantBase>) -> Self {
+		let num = Self {
+			value,
+			width,
+			signed,
+			base,
+		};
+		debug!("Created numeric constant: {:?}", num);
+		assert!(num.consistency_check());
+		num
+	}
+
+	pub fn new_from_unary(other: Self, operation: fn(BigInt)->BigInt) -> Self {
+		let num = Self {
+			value: operation(other.value),
+			width: other.width,
+			signed: other.signed,
+			base: other.base,
+		};
+		debug!("Created numeric constant: {:?}", num);
+		assert!(num.consistency_check());
+		num
+	}
+
+	pub fn new_from_binary(other1: Self, other2: Self, operation: fn(BigInt, BigInt)->BigInt) -> Self {
+		let num = Self {
+			value: operation(other1.value, other2.value),
+			width: other1.width,
+			signed: if let Some(s1) = other1.signed {
+				Some(s1 || other2.signed.unwrap_or(false))
+			}
+			else {
+				other2.signed
+			},
+			base: other1.base,
+		};
+		debug!("Created numeric constant: {:?}", num);
+		assert!(num.consistency_check());
+		num
+	}
+
+	pub fn new_true() -> Self {
+		Self::from_u64(1, Some(1), Some(false), Some(NumericConstantBase::Boolean))
+	}
+
+	pub fn new_false() -> Self {
+		Self::from_u64(0, Some(1), Some(false), Some(NumericConstantBase::Boolean))
+	}
+	fn count_ones(&self) -> u32 {
+		let mut ones = 0;
+		for d in self.value.iter_u32_digits(){
+			ones += d.count_ones();
+		}
+		ones
+	}
 	/// Internal consistency checks
 	fn consistency_check(&self) -> bool {
 		// Boolean constants
 		if matches!(self.base, Some(NumericConstantBase::Boolean))
-			&& self.value != WideUint::from_u64(0)
-			&& self.value != WideUint::from_u64(1)
+			&& self.value != BigInt::from(0u32)
+			&& self.value != BigInt::from(1u32)
 		{
 			return false;
 		}
@@ -83,14 +139,14 @@ impl NumericConstant {
 	/// Returns if the number can be represented with the specifed
 	/// number of bits and signedness
 	pub fn is_representable_as_positive(&self) -> Option<bool> {
-		self.get_effective_bits().map(|n| self.value.bits_required() <= n)
+		self.get_effective_bits().map(|n| self.value.bits()as u32 <= n)
 	}
 
 	/// Returns if the number can be represented with the specifed
 	/// number of bits and signedness when negated
 	pub fn is_representable_as_negative(&self) -> Option<bool> {
 		self.get_effective_bits().map(|n| {
-			self.value.bits_required() <= n || (self.value.bits_required() == n + 1 && self.value.count_ones() == 1)
+			self.value.bits() as u32 <= n || (self.value.bits() as u32 == n + 1 && self.count_ones() as u32 == 1)
 		})
 	}
 
@@ -119,7 +175,7 @@ impl NumericConstant {
 
 		// Special case for boolean constants
 		if matches!(self.base, Some(Boolean)) {
-			return if self.value.count_ones() == 0 {
+			return if self.count_ones() == 0 {
 				"false".to_string()
 			}
 			else {
@@ -148,7 +204,7 @@ impl NumericConstant {
 		format!(
 			"{}{}{}{}",
 			radix_prefix,
-			self.value.to_string_radix(radix),
+			self.value.to_str_radix(radix),
 			self.signed.map_or("", |s| if s { "s" } else { "u" }),
 			self.width.map_or("".to_string(), |w| w.to_string())
 		)

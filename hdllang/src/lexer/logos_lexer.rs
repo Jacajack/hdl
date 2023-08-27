@@ -186,16 +186,16 @@ pub enum TokenKind {
 /// by it.
 pub struct LogosLexerContext {
 	/// Identifier table (names only)
-	id_table: IdTable, // TODO store reference instead
+	pub id_table: IdTable,
 
 	/// Metadata comments table
-	comment_table: CommentTable, // TODO store reference instead
+	pub comment_table: CommentTable,
 
 	/// Numeric constant table
-	numeric_constants: NumericConstantTable, // TODO store reference instead
+	pub numeric_constants: NumericConstantTable,
 
 	/// Last lexing error (written by custom token parsing funcitons)
-	last_err: Option<LexerError>,
+	pub last_err: Option<LexerError>,
 }
 
 /// Logos-based lexer implementation
@@ -220,7 +220,19 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 		}
 	}
 
-	/// Processes the string and produces a vector of tokens
+	/// Creates a new lexer given a source code string and pre-populated tables
+	fn new_with_context(
+		source: &'source str,
+		ctx: LogosLexerContext
+	) -> Self {
+		LogosLexer {
+			lexer: TokenKind::lexer_with_extras(
+				source,
+				ctx,
+			),
+		}
+	}
+ 	/// Processes the string and produces a vector of tokens
 	fn process(&mut self) -> Result<Vec<Token>, LexerError> {
 		// TODO determine average token length and pre-allocate vector space based on that
 		let mut tokens = Vec::<Token>::with_capacity(1000);
@@ -256,6 +268,10 @@ impl<'source> Lexer<'source> for LogosLexer<'source> {
 
 	fn numeric_constant_table(&self) -> &NumericConstantTable {
 		&self.lexer.extras.numeric_constants
+	}
+
+	fn get_context(self) -> LogosLexerContext {
+		self.lexer.extras
 	}
 }
 

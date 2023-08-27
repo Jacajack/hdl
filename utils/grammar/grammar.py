@@ -216,7 +216,7 @@ GRAMMAR = {
 	"<postfix_expression>": [
 		"<postfix_expression><index_expression>",
 		"<postfix_expression><range_expression>",
-        "<postfix_expression>(<argument_list>?)",
+        "<id>(<argument_list>?)",
         "<postfix_expression>.<id>",
         "<primary_expression>"
 	],

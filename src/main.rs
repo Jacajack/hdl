@@ -1,15 +1,18 @@
 extern crate hdllang;
-use clap::{arg, command, Arg};
+extern crate sha256;
+use clap::{arg, command, Arg, ArgGroup};
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
 use hdllang::core::DiagnosticBuffer;
-use hdllang::lexer::{Lexer, LogosLexer};
+use hdllang::lexer::{Lexer, LogosLexer, LogosLexerContext, IdTable};
+use hdllang::parser::ast::Root;
 use hdllang::parser::pretty_printer::PrettyPrintable;
 use hdllang::parser::ParserError;
 use hdllang::serializer::SerializerContext;
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
 use hdllang::{analyzer, parser};
-use log::info;
+use log::{info, debug};
+use std::collections::HashMap;
 use std::env;
 use std::fs;
 use std::io;
@@ -33,10 +36,10 @@ fn lexer_example() -> miette::Result<()> {
 
 	Ok(())
 }
-fn read_input_from_file(filename: String) -> miette::Result<String> {
-	match fs::read_to_string(filename) {
+fn read_input_from_file(filename: &String) -> miette::Result<String> {
+	match fs::read_to_string(&filename) {
 		Ok(file) => Ok(file),
-		Err(err) => Err(CompilerError::IoError(err).to_miette_report()),
+		Err(_) => Err(CompilerError::FileNotFound(filename.to_string()).to_miette_report()),
 	}
 }
 fn tokenize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
@@ -72,6 +75,19 @@ fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	Ok(())
 }
 
+fn parse_file_recover_tables(code:String, ctx: LogosLexerContext) ->miette::Result<(Root, LogosLexerContext, String)>{
+	let mut lexer = LogosLexer::new_with_context(&code, ctx);
+	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
+	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
+	let parser = parser::IzuluParser::new();
+	let ast = parser.parse(&mut ctx, Some(&code), &mut lexer).map_err(|e| {
+		ParserError::new_form_lalrpop_error(e)
+			.to_miette_report()
+			.with_source_code(code.clone())
+	})?;
+	Ok((ast, lexer.get_context(), code))
+}
+
 fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
 	let buf = Box::new(DiagnosticBuffer::new());
@@ -87,11 +103,11 @@ fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	println!("Comments: {:?}", lexer.comment_table());
 	let id_table = lexer.id_table().clone();
 	let comment_table = lexer.comment_table().clone();
-
-	let mut analyzer = analyzer::SemanticAnalyzer::new(&id_table, &comment_table);
+	let mut buffer = DiagnosticBuffer::new();
+	let mut analyzer = analyzer::SemanticAnalyzer::new(&id_table, &comment_table, &mut buffer);
 
 	writeln!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
-	analyzer.process(&ast);
+	analyzer.process(&ast)?;
 	Ok(())
 }
 fn serialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
@@ -158,19 +174,61 @@ fn init_logging() {
 			.init();
 
 		info!("Logging to file '{}'", logfile);
-	}
-	else {
+	} else {
 		env_logger::init();
 		info!("Hello! Logging to stderr...");
 	}
 }
 
-fn main() -> miette::Result<()> {
-	init_logging();
+fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result<()> {
+	use std::path::Path;
+	let target_directory = "hirn_target/intermidiate";
+	match Path::new(target_directory).exists() {
+		true => (),
+		false => fs::create_dir_all(target_directory).map_err(|err| CompilerError::IoError(err).to_miette_report())?,
+	};
+	use std::collections::VecDeque;
+	let mut file_queue: VecDeque<String> = VecDeque::from([root_file_name.clone()]);
+	debug!("File queue: {:?}", file_queue);
+	use sha256::try_digest;
+	let hash = try_digest(root_file_name.clone()).map_err(|_| CompilerError::FileNotFound(root_file_name.clone()).to_miette_report())?;
+	let mut map = HashMap::new();
+	map.insert(hash, String::from("root"));
 
+	// tokenize and parse
+	let root:Root;
+	let mut ctx = LogosLexerContext{
+		id_table: IdTable::new(),
+		comment_table: hdllang::lexer::CommentTable::new(),
+		numeric_constants: hdllang::lexer::NumericConstantTable::new(),
+		last_err: None,
+	};
+	let source: String;
+	while let Some(file_name) = file_queue.pop_front() {
+		let current_directory  = Path::new(&file_name).parent().unwrap().to_str().unwrap();
+		debug!("Current directory: {}", current_directory);
+		let code = read_input_from_file(&file_name)?;
+		(root, ctx, source) = parse_file_recover_tables(code,ctx)?;
+		let name = Path::new(&file_name).to_str().unwrap().to_string();
+		let paths = hdllang::analyzer::combine(&ctx.id_table, &ctx.numeric_constants, &root, String::from(current_directory),&mut map)
+			.map_err(|e|e.with_source_code(miette::NamedSource::new( name, source)))?;
+		for path in paths {
+			file_queue.push_back(path);
+		}
+		println!("File queue: {:?}", file_queue);
+		break; // we stop after the first file for now
+	}
+	writeln!(output, "{}", "done").map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
+	Ok(())
+}
+fn main() -> miette::Result<()> {
+	std::env::set_var("RUST_LOG", "debug");
+	init_logging();
+	
 	let matches = command!()
-		.arg(Arg::new("source").required(true))
+		.arg(Arg::new("source"))
 		.arg(Arg::new("output").short('o').long("output"))
+		.arg(arg!(-c --clean "Clean build files"))
 		.arg(
 			arg!(<MODE>)
 				.help("Specify which action should be performed")
@@ -182,17 +240,32 @@ fn main() -> miette::Result<()> {
 					"deserialize",
 					"analyse",
 					"analyze",
+					"combine", // for development only
 					"compile",
 				])
 				.required(false)
 				.short('m')
 				.long("mode"),
 		)
+		.group(
+			ArgGroup::new("clean_or_source")
+				.args(["source", "clean"])
+				.required(true),
+		)
+		.group(ArgGroup::new("mode_or_clean").args(["MODE", "clean"]).required(false))
 		.get_matches();
 
-	let mode = match matches.get_one::<String>("MODE") {
+	let mut mode = match matches.get_one::<String>("MODE") {
 		None => "compile",
 		Some(x) => x,
+	};
+	match matches.get_one::<bool>("clean") {
+	Some(x) => {
+			if *x {
+				mode = "clean";
+			}
+		},
+		None => (),
 	};
 	let output: Box<dyn Write> = match matches.get_one::<String>("output") {
 		None => Box::new(io::stdout()),
@@ -203,11 +276,14 @@ fn main() -> miette::Result<()> {
 			},
 		},
 	};
-	let name = match matches.get_one::<String>("source") {
+	let file_name = match matches.get_one::<String>("source") {
 		Some(x) => x,
 		None => "",
 	};
-	let code = read_input_from_file(String::from(name))?;
+	let code = match mode {
+		"clean" | "combine" => "".to_string(),
+		_ => read_input_from_file(&String::from(file_name))?,
+	};
 	match mode {
 		"tokenize" => {
 			tokenize(code, output)?;
@@ -217,6 +293,9 @@ fn main() -> miette::Result<()> {
 		},
 		"analyse" | "analyze" => {
 			analyze(code, output)?;
+		},
+		"combine" => {
+			combine(String::from(file_name), output)?;
 		},
 		"pretty-print" => {
 			pretty_print(code, output)?;
@@ -231,7 +310,11 @@ fn main() -> miette::Result<()> {
 			println!("Not implemented!");
 			lexer_example()?;
 		},
-		_ => unreachable!(),
+		"clean" => {
+			println!("Not implemented!");
+			println!("Cleaning of build files was requested!")
+		},
+		_ => lexer_example()?,
 	};
 	Ok(())
 }

@@ -27,17 +27,15 @@ impl PrettyPrintable for VariableBlockStatement {
 	fn pretty_print(&self, ctx: &mut PrettyPrinterContext) -> miette::Result<()> {
 		use VariableBlockStatement::*;
 		match self {
-			VariableDeclarationStatement { declaration, .. } => {
-				declaration.pretty_print(ctx)?;
+			VariableDefinition(definition) => {
+				definition.pretty_print(ctx)?;
 				ctx.writeln(";")
 			},
-			VariableBlock { block, .. } => {
+			VariableBlock (block) => {
 				ctx.increase_indent();
-				//ctx.writeln("{")?;
 				block.pretty_print(ctx)?;
 				ctx.decrease_indent();
 				Ok(())
-				//ctx.writeln("}")
 			},
 		}
 	}

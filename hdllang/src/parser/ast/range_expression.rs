@@ -2,8 +2,8 @@ mod pretty_printable;
 
 use crate::core::SourceSpan;
 use crate::parser::ast::{opcodes::*, Expression, SourceLocation};
-use serde::{Deserialize, Serialize};
-#[derive(Serialize, Deserialize, Debug)]
+
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct RangeExpression {
 	pub lhs: Box<Expression>,
 	pub rhs: Box<Expression>,
