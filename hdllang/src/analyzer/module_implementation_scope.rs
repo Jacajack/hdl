@@ -12,7 +12,7 @@ pub struct ModuleImplementationScope{
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Scope{
-	variables: HashMap<IdTableKey, VarriableDefined>,
+	variables: HashMap<IdTableKey, VariableDefined>,
 	parent_scope: Option<usize>
 }
 impl Scope{
@@ -39,7 +39,7 @@ impl ModuleImplementationScope{
 	pub fn get_scope(&self, scope_id: usize) -> &Scope{
 		&self.scopes[scope_id]
 	}
-	pub fn get_variable(&self, scope_id: usize, key: &IdTableKey) -> Option<&VarriableDefined>{
+	pub fn get_variable(&self, scope_id: usize, key: &IdTableKey) -> Option<&VariableDefined>{
 		let scope = &self.scopes[scope_id];
 		if let Some(variable) = scope.variables.get(key){
 			Some(variable)
@@ -51,7 +51,7 @@ impl ModuleImplementationScope{
 			}
 		}
 	}
-	pub fn get_variable_in_scope(&self, scope_id: usize, key: &IdTableKey) -> Option<&VarriableDefined>{
+	pub fn get_variable_in_scope(&self, scope_id: usize, key: &IdTableKey) -> Option<&VariableDefined>{
 		let scope = &self.scopes[scope_id];
 		scope.variables.get(key)
 	}
@@ -61,7 +61,7 @@ impl ModuleImplementationScope{
 
 }
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct VarriableDefined{
+pub struct VariableDefined{
 	pub qualifiers: CombinedQualifiers,
 	pub specifier: TypeSpecifier,
 	pub bus_width: Option<BigInt>,
