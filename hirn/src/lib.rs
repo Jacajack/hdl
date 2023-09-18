@@ -1,4 +1,4 @@
-// pub mod backend;
+pub mod codegen;
 pub mod design;
 
-pub use design::{BinaryOp, Expression, Module, ModuleId, ScopeId, SignalId, UnaryOp};
+pub use design::{BinaryOp, DesignError, Expression, Module, ModuleId, ScopeId, SignalId, UnaryOp, Design};

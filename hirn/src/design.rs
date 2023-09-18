@@ -256,6 +256,10 @@ impl Design {
 	pub fn new_module(&mut self, name: &str) -> Result<ModuleHandle, DesignError> {
 		self.handle.borrow_mut().new_module(name)
 	}
+
+	pub fn get_module_handle(&self, module: ModuleId) -> Option<ModuleHandle> {
+		self.handle.borrow().get_module_handle(module)
+	}
 }
 
 /// Represents an error that can occur during design construction.
