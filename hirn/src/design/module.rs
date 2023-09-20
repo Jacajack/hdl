@@ -133,6 +133,20 @@ impl ModuleHandle {
 	pub fn id(&self) -> ModuleId {
 		self.id
 	}
+
+	/// Returns name of the module
+	pub fn name(&self) -> String {
+		this_module!(self).name.clone()
+	}
+
+	/// Returns path to the module
+	pub fn namespace_path(&self) -> Vec<String> {
+		this_module!(self).namespace_path.clone()
+	}
+
+	pub fn interface(&self) -> Vec<InterfaceSignal> {
+		this_module!(self).interface.clone()
+	}
 }
 
 impl std::fmt::Debug for ModuleHandle {

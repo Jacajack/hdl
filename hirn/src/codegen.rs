@@ -5,12 +5,15 @@ use thiserror::Error;
 use crate::ModuleId;
 use std::fmt;
 
-#[derive(Error, Debug)]
+#[derive(Clone, Error, Debug)]
 pub enum CodegenError {
 	#[error(transparent)]
-	FormatError(fmt::Error),
+	FormatError(#[from] fmt::Error),
+
+	#[error("Invalid module ID")]
+	InvalidModuleId(ModuleId),
 }
 
-trait Codegen {
-	fn emit_module(&mut self, stream: &mut fmt::Formatter<'_>, module: ModuleId) -> Result<(), CodegenError>;
+pub trait Codegen {
+	fn emit_module(&self, w: &mut dyn fmt::Write, module: ModuleId) -> Result<(), CodegenError>;
 }

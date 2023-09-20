@@ -260,6 +260,10 @@ impl Design {
 	pub fn get_module_handle(&self, module: ModuleId) -> Option<ModuleHandle> {
 		self.handle.borrow().get_module_handle(module)
 	}
+
+	pub fn get_signal(&self, signal: SignalId) -> Option<Signal> {
+		self.handle.borrow().get_signal(signal).cloned()
+	}
 }
 
 /// Represents an error that can occur during design construction.
