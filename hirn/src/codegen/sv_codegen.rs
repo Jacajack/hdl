@@ -5,13 +5,30 @@ use super::{Codegen, CodegenError};
 #[derive(Clone)]
 pub struct SVCodegen<'a> {
 	design: &'a Design,
+	indent_level: u32,
+}
+
+macro_rules! emitln {
+	($self:ident, $w:expr, $($arg:tt)*) => {
+		writeln!($w, "{}{}", "\t".repeat($self.indent_level as usize), format!($($arg)*))
+	}
 }
 
 impl<'a> SVCodegen<'a> {
 	pub fn new(design: &'a Design) -> Self {
 		Self {
-			design
+			design,
+			indent_level: 0,
 		}
+	}
+
+	fn begin_indent(&mut self) {
+		self.indent_level += 1;
+	}
+
+	fn end_indent(&mut self) {
+		assert!(self.indent_level > 0);
+		self.indent_level -= 1;
 	}
 
 	fn translate_expression(&self, expr: &Expression) -> String {
@@ -105,46 +122,64 @@ impl<'a> SVCodegen<'a> {
 		format!("{} {}", direction_str, self.format_signal_declaration(s.signal))
 	}
 
-	fn emit_scope(&self, w: &mut dyn fmt::Write, scope: ScopeHandle) -> Result<(), CodegenError> {
-		writeln!(w, "begin")?;
+	fn emit_scope(&mut self, w: &mut dyn fmt::Write, scope: ScopeHandle, naked: bool) -> Result<(), CodegenError> {
+		if !naked {
+			emitln!(self, w, "begin")?;
+			self.begin_indent();
+		}
 
+		emitln!(self, w, "/* signals */")?;
 		for sig_id in scope.signals() {
-			writeln!(w, "{};", self.format_signal_declaration(sig_id))?;
+			emitln!(self, w, "{};", self.format_signal_declaration(sig_id))?;
 		}
 
+		emitln!(self, w, "")?;
+		emitln!(self, w, "/* assignments */")?;
 		for asmt in scope.assignments() {
-			writeln!(w, "assign {} = {};", self.translate_expression(&asmt.lhs), self.translate_expression(&asmt.rhs))?;
+			emitln!(self, w, "assign {} = {};", self.translate_expression(&asmt.lhs), self.translate_expression(&asmt.rhs))?;
 		}
+
 		// TODO loops
 		// TODO conditional scopes
 		// TODO subscopes
 		// TODO assignments
 
-		writeln!(w, "end")?;
+		if !naked {
+			self.end_indent();
+			emitln!(self, w, "end")?;
+		}
 		Ok(())
 	}
 }
 
 impl<'a> Codegen for SVCodegen<'a> {
 
-	fn emit_module(&self, w: &mut dyn fmt::Write, module: ModuleId) -> Result<(), CodegenError> {
+	fn emit_module(&mut self, w: &mut dyn fmt::Write, module: ModuleId) -> Result<(), CodegenError> {
 		let m = self.design.get_module_handle(module).ok_or(CodegenError::InvalidModuleId(module))?;
 		
 		// TODO skip param list if empty
 		// TODO param list
+		// TODO how to check if module is generic
 
-		writeln!(w, "module {} #(", self.mangle_module_name(m.name(), m.namespace_path()))?;
-		writeln!(w, "\t/* parameters */")?;
-		writeln!(w, ")(")?;
-		writeln!(w, "\t/* interface */")?;
+
+		emitln!(self, w, "module {} #(", self.mangle_module_name(m.name(), m.namespace_path()))?;
+		self.begin_indent();
+		emitln!(self, w, "/* parameters */")?;
+		self.end_indent();
+		emitln!(self, w, ")(")?;
+		self.begin_indent();
+		emitln!(self, w, "/* interface */")?;
 		
 		for sig in m.interface() {
-			writeln!(w, "\t{},", self.module_interface_definition(m.clone(), sig))?; // FIXME trailing comma
+			emitln!(self, w, "{},", self.module_interface_definition(m.clone(), sig))?; // FIXME trailing comma
 		}
 		
-		writeln!(w, ");")?;
+		self.end_indent();
+		emitln!(self, w, ");")?;
 
-		self.emit_scope(w, m.scope())?;
+		self.begin_indent();
+		self.emit_scope(w, m.scope(), true)?;
+		self.end_indent();
 
 		writeln!(w, "endmodule;")?;
 		Ok(())

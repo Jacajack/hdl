@@ -13,7 +13,7 @@ fn main() -> Result<(), HirnError> {
 
 
 	let mut source = String::new();
-	let cg = SVCodegen::new(&d);
+	let mut cg = SVCodegen::new(&d);
 	cg.emit_module(&mut source, m.id())?;
 
 	println!("{}", source);
