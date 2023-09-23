@@ -28,6 +28,7 @@ pub struct RangeScope {
 }
 
 /// Assignment of signals
+#[derive(Clone, Debug)]
 pub struct Assignment {
 	/// Left-hand side of the assignment
 	pub lhs: Expression,
@@ -242,5 +243,13 @@ impl ScopeHandle {
 	/// Creates a new module instance in this scope (returns a builder)
 	pub fn new_module(&mut self, module: ModuleHandle) -> Result<ModuleInstanceBuilder, DesignError> {
 		Ok(ModuleInstanceBuilder::new(self.clone(), module))
+	}
+
+	pub fn assignments(&self) -> Vec<Assignment> {
+		this_scope!(self).assignments.clone()
+	}
+
+	pub fn signals(&self) -> Vec<SignalId> {
+		self.design.borrow().get_scope_signals(self.scope).unwrap().clone()
 	}
 }

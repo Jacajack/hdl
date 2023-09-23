@@ -3,7 +3,7 @@ use super::{NumericConstant, SignalId};
 
 /// Binary operators
 /// TODO check if we have all
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum BinaryOp {
 	Add,
 	Subtract,
@@ -27,7 +27,7 @@ pub enum BinaryOp {
 
 /// Unary operators
 /// TODO check if we have all
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub enum UnaryOp {
 	Negate,
 	LogicalNot,
@@ -37,7 +37,7 @@ pub enum UnaryOp {
 	ReductionXor,
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum BuiltinOp {
 	ZeroExtend {
 		expr: Box<Expression>,
@@ -64,7 +64,7 @@ pub enum BuiltinOp {
 }
 
 /// Represents a conditional expression branch
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ConditionalExpressionBranch {
 	/// Condition expression
 	pub condition: Expression,
@@ -75,7 +75,7 @@ pub struct ConditionalExpressionBranch {
 
 /// Conditional expression
 /// Evaluates to the first branch where the condition is true
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct ConditionalExpression {
 	/// Branches
 	pub branches: Vec<ConditionalExpressionBranch>,
@@ -85,7 +85,7 @@ pub struct ConditionalExpression {
 }
 
 /// Cast expression
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct CastExpression {
 	/// Destination signal class
 	pub dest_class: Option<SignalClass>,
@@ -98,7 +98,7 @@ pub struct CastExpression {
 }
 
 /// A binary expression
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct BinaryExpression {
 	/// Binary operator type
 	pub op: BinaryOp,
@@ -111,7 +111,7 @@ pub struct BinaryExpression {
 }
 
 /// A unary expression
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct UnaryExpression {
 	/// Unary operator type
 	pub op: UnaryOp,
@@ -121,7 +121,7 @@ pub struct UnaryExpression {
 }
 
 /// Language expression
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub enum Expression {
 	Conditional(ConditionalExpression),
 	Constant(NumericConstant),

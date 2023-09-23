@@ -9,7 +9,7 @@ pub mod scope;
 pub mod signal;
 pub mod utils;
 
-pub use eval::{EvalContext, EvalError};
+pub use eval::{EvalContext, EvalError, Evaluates, EvaluatesDimensions, EvaluatesType};
 pub use expression::{BinaryOp, Expression, UnaryOp};
 pub use functional_blocks::{Register, RegisterBuilder};
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};

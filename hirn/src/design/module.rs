@@ -115,7 +115,7 @@ impl ModuleHandle {
 	}
 
 	/// Returns a handle to the module's main scope
-	pub fn scope(&mut self) -> ScopeHandle {
+	pub fn scope(&self) -> ScopeHandle {
 		ScopeHandle::new(self.design.clone(), this_module!(self).main_scope)
 	}
 
