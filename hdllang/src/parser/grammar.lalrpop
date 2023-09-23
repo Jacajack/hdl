@@ -38,7 +38,7 @@ pub TopDefinition: TopDefinition={
 			statement,
 			location:SourceSpan::new_between(start,end),
 		})},
-	<start: @L> <mc:MetadataComments ?> "package" <path:ImportPath> ";"  <end: @R> =>
+	<start: @L> <mc:MetadataComments ?> "package" <path:SingleImportPath> ";"  <end: @R> =>
 		{
 			let metadata = match mc{
 				Some(mc) => mc,
@@ -50,7 +50,7 @@ pub TopDefinition: TopDefinition={
 				location:SourceSpan::new_between(start,end),
 			})
 		},
-		<start: @L> <mc:MetadataComments ?> "use" <path:SingleImportPath> ";"  <end: @R> =>
+		<start: @L> <mc:MetadataComments ?> "use" <path:ImportPath> ";"  <end: @R> =>
 		{
 			let metadata = match mc{
 				Some(mc) => mc,
