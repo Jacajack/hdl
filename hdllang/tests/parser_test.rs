@@ -119,7 +119,7 @@ mod top_definition_parser_test {
 	}
 
 	#[test]
-	fn use_multiple_modules(){
+	fn use_multiple_modules() {
 		let s = "use foo::bar::{baz, qux};";
 		parse_top_definition_pass(s);
 	}
