@@ -10,7 +10,7 @@ use hdllang::parser::ParserError;
 use hdllang::serializer::SerializerContext;
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
-use hdllang::{analyzer, parser};
+use hdllang::parser;
 use log::{debug, info};
 use std::collections::HashMap;
 use std::env;
@@ -91,28 +91,6 @@ fn parse_file_recover_tables(
 	Ok((ast, lexer.get_context(), code))
 }
 
-fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
-	let mut lexer = LogosLexer::new(&code);
-	let buf = Box::new(DiagnosticBuffer::new());
-	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
-	let ast = parser::IzuluParser::new()
-		.parse(&mut ctx, Some(&code), &mut lexer)
-		.map_err(|e| {
-			ParserError::new_form_lalrpop_error(e)
-				.to_miette_report()
-				.with_source_code(code.clone())
-		})?;
-	println!("Ids: {:?}", lexer.id_table());
-	println!("Comments: {:?}", lexer.comment_table());
-	let id_table = lexer.id_table().clone();
-	let comment_table = lexer.comment_table().clone();
-	let mut buffer = DiagnosticBuffer::new();
-	let mut analyzer = analyzer::SemanticAnalyzer::new(&id_table, &comment_table, &mut buffer);
-
-	writeln!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
-	analyzer.process(&ast)?;
-	Ok(())
-}
 fn serialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
 	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
@@ -301,9 +279,6 @@ fn main() -> miette::Result<()> {
 		},
 		"parse" => {
 			parse(code, output)?;
-		},
-		"analyse" | "analyze" => {
-			analyze(code, output)?;
 		},
 		"combine" => {
 			combine(String::from(file_name), output)?;

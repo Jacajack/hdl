@@ -8,9 +8,9 @@ use crate::lexer::IdTableKey;
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 #[derive(Debug)]
 pub struct ModuleDeclarationScope {
-	variables: HashMap<IdTableKey, (VariableDeclared, SourceSpan)>,
-	bus_widths: HashMap<IdTableKey, BigInt>,
-	array_sizes: HashMap<IdTableKey, Vec<BigInt>>,
+	pub variables: HashMap<IdTableKey, (VariableDeclared, SourceSpan)>,
+	pub bus_widths: HashMap<IdTableKey, BigInt>,
+	pub array_sizes: HashMap<IdTableKey, Vec<BigInt>>,
 }
 impl ModuleDeclarationScope {
 	pub fn new() -> Self {

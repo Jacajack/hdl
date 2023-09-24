@@ -1,4 +1,4 @@
-use super::{analyzer_pass::preamble::*, CombinedQualifiers, ModuleDeclared, SemanticError};
+use super::{CombinedQualifiers, ModuleDeclared, SemanticError};
 use std::collections::HashMap;
 
 use crate::{
@@ -7,7 +7,7 @@ use crate::{
 	lexer::IdTableKey,
 	parser::ast::{
 		ModuleImplementation, ModuleImplementationBlockStatement, SourceLocation, TypeQualifier, TypeSpecifier,
-		VariableBlock, VariableBlockStatement, VariableDefinition,
+		VariableBlock, VariableBlockStatement, VariableDefinition, Root,
 	},
 	ProvidesCompilerDiagnostic, SourceSpan,
 };
@@ -71,7 +71,7 @@ pub fn combine(
 							.build(),
 					));
 				}
-				modules_implemented.insert(implementation.id, implementation);
+				modules_implemented.insert(implementation.id, &implementation);
 			},
 			PackageDeclaration(package) => {
 				packaged_paths.push(package.analyze(id_table, &path_from_root, present_files)?)
@@ -107,32 +107,48 @@ pub fn combine(
 	}
 
 	// next stage of analysis
-	let mut ctx: AnalyzerContext<'_> = AnalyzerContext {
+	let ctx: AnalyzerContext<'_> = AnalyzerContext {
 		id_table,
 		nc_table,
 		modules_declared: &modules_declared,
 		generic_modules: &generic_modules,
 		scope_map: HashMap::new(),
+		design: hirn::design::Design::new(),
+		current_module: None,
 	};
-	for implementation in modules_implemented.values() {
-		implementation.analyze(&mut ctx)?;
-	}
+	
+	analyze_semantically(ctx, &modules_implemented)?;
+
 	debug!("Modules: {:?}", modules_declared.len());
 	Ok(packaged_paths)
 }
-#[derive(Debug, Clone)]
+
+fn analyze_semantically(mut ctx: AnalyzerContext, modules_implemented: &HashMap<IdTableKey, &ModuleImplementation>) -> miette::Result<()> {
+	for implementation in modules_implemented.values() {
+		implementation.analyze(&mut ctx)?;
+	}
+	Ok(())
+}
 pub struct AnalyzerContext<'a> {
 	pub id_table: &'a IdTable,
 	pub nc_table: &'a crate::lexer::NumericConstantTable,
 	pub modules_declared: &'a HashMap<IdTableKey, (ModuleDeclared, SourceSpan)>,
 	pub generic_modules: &'a HashMap<&'a IdTableKey, &'a ModuleImplementation>,
 	pub scope_map: HashMap<SourceSpan, usize>,
+	pub design: hirn::design::Design,
+	pub current_module: Option<hirn::design::ModuleHandle>,
 }
 
 impl ModuleImplementation {
 	pub fn analyze(&self, ctx: &mut AnalyzerContext) -> miette::Result<()> {
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		let mut scope = ModuleImplementationScope::new();
+		ctx.current_module = Some(ctx.design.new_module(ctx.id_table.get_by_key(&self.id).unwrap()).unwrap());
+		let (decl, _)  = ctx.modules_declared.get(&self.id).unwrap();
+		for var_id in decl.scope.variables.keys() {
+			let (var, loc) = decl.scope.variables.get(var_id).unwrap();
+			// create variable with API
+		}
 		let id = scope.new_scope(None);
 		match &self.statement {
 			ModuleImplementationBlockStatement(block) => block.analyze(ctx, &mut scope, id)?,
@@ -158,7 +174,7 @@ impl ModuleImplementationBlockStatement {
 					definition.analyze(CombinedQualifiers::new(), ctx.id_table, scope, scope_id)?
 				},
 				AssignmentStatement(_) => todo!(),
-				IfElseStatement(_) => todo!(),
+				IfElseStatement(conditional) => todo!(),
 				IterationStatement(_) => todo!(),
 				InstantiationStatement(_) => todo!(),
 				ModuleImplementationBlockStatement(block) => {
