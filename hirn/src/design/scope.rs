@@ -184,7 +184,7 @@ impl ScopeHandle {
 	}
 
 	/// Creates a scope and sets its parent to this scope
-	fn new_subscope(&mut self) -> Result<ScopeHandle, DesignError> {
+	pub fn new_subscope(&mut self) -> Result<ScopeHandle, DesignError> {
 		let module = this_scope!(self).module;
 		let child = self.design.borrow_mut().new_scope(module);
 		this_scope!(self).set_parent(self.scope).unwrap();
