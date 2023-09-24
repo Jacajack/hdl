@@ -1,6 +1,7 @@
 use std::fmt;
-use crate::{Design, ModuleId, DesignError, ModuleHandle, SignalId, design::SignalDirection, design::SignalSignedness, design::InterfaceSignal, Expression, design::EvaluatesDimensions, BinaryOp, UnaryOp, design::ScopeHandle};
+use crate::{Design, ModuleId, DesignError, ModuleHandle, SignalId, design::SignalDirection, design::SignalSignedness, design::InterfaceSignal, Expression, design::EvaluatesDimensions, BinaryOp, UnaryOp, design::{ScopeHandle, functional_blocks::BlockInstance}, ScopeId};
 use super::{Codegen, CodegenError};
+use std::collections::HashSet;
 
 #[derive(Clone)]
 pub struct SVCodegen<'a> {
@@ -122,7 +123,9 @@ impl<'a> SVCodegen<'a> {
 		format!("{} {}", direction_str, self.format_signal_declaration(s.signal))
 	}
 
-	fn emit_scope(&mut self, w: &mut dyn fmt::Write, scope: ScopeHandle, naked: bool) -> Result<(), CodegenError> {
+	fn emit_scope(&mut self, w: &mut dyn fmt::Write, scope_id: ScopeId, naked: bool, skip_signals: HashSet<SignalId>) -> Result<(), CodegenError> {
+		let scope = self.design.get_scope_handle(scope_id).unwrap();
+		
 		if !naked {
 			emitln!(self, w, "begin")?;
 			self.begin_indent();
@@ -130,7 +133,9 @@ impl<'a> SVCodegen<'a> {
 
 		emitln!(self, w, "/* signals */")?;
 		for sig_id in scope.signals() {
-			emitln!(self, w, "{};", self.format_signal_declaration(sig_id))?;
+			if !skip_signals.contains(&sig_id) {
+				emitln!(self, w, "{};", self.format_signal_declaration(sig_id))?;
+			}
 		}
 
 		emitln!(self, w, "")?;
@@ -139,10 +144,57 @@ impl<'a> SVCodegen<'a> {
 			emitln!(self, w, "assign {} = {};", self.translate_expression(&asmt.lhs), self.translate_expression(&asmt.rhs))?;
 		}
 
+		let mut processed_subscopes = HashSet::new();		
+
+		emitln!(self, w, "")?;
+		emitln!(self, w, "/* if-subscopes */")?;
+		for conditional_scope in scope.conditional_subscopes() {
+			emitln!(self, w, "if ({}) begin", self.translate_expression(&conditional_scope.condition))?;
+			self.begin_indent();
+			self.emit_scope(w, conditional_scope.scope, true, HashSet::new())?;
+			self.end_indent();
+			emitln!(self, w, "end")?;
+			processed_subscopes.insert(conditional_scope.scope);
+		}
+		
 		// TODO loops
-		// TODO conditional scopes
-		// TODO subscopes
-		// TODO assignments
+
+
+		emitln!(self, w, "")?;
+		emitln!(self, w, "/* unconditional subscopes */")?;
+		let subscope_ids = scope.subscopes();
+		for subscope_id in subscope_ids {
+			if !processed_subscopes.contains(&subscope_id) {
+				self.emit_scope(w, subscope_id, false, HashSet::new())?;
+			}
+			processed_subscopes.insert(subscope_id);
+		}
+
+		// TODO registers
+
+		emitln!(self, w, "")?;
+		emitln!(self, w, "/* module instances */")?;
+		for block in scope.blocks() {
+			match block {
+				BlockInstance::Module(module_instance) => {
+					emitln!(self, w, "{} #(", module_instance.module.name())?;
+					self.begin_indent();
+					emitln!(self, w, "/* TODO parameters */")?;
+					self.end_indent();
+					emitln!(self, w, ") {} (", "TODO_INSTANCE_NAME")?;
+					self.begin_indent();
+					
+					for binding in module_instance.get_bindings() {
+						emitln!(self, w, ".{}({}),", binding.0, self.translate_expression(&binding.1))?;
+					}
+
+					self.end_indent();
+					emitln!(self, w, ")")?;
+					
+				}
+				_ => {},
+			}
+		}
 
 		if !naked {
 			self.end_indent();
@@ -170,15 +222,17 @@ impl<'a> Codegen for SVCodegen<'a> {
 		self.begin_indent();
 		emitln!(self, w, "/* interface */")?;
 		
+		let mut interface_signal_ids = HashSet::new();
 		for sig in m.interface() {
 			emitln!(self, w, "{},", self.module_interface_definition(m.clone(), sig))?; // FIXME trailing comma
+			interface_signal_ids.insert(sig.signal);
 		}
 		
 		self.end_indent();
 		emitln!(self, w, ");")?;
 
 		self.begin_indent();
-		self.emit_scope(w, m.scope(), true)?;
+		self.emit_scope(w, m.scope().id(), true, interface_signal_ids)?;
 		self.end_indent();
 
 		writeln!(w, "endmodule;")?;

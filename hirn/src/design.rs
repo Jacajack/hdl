@@ -84,6 +84,7 @@ pub struct DesignCore {
 	next_scope_id: usize,
 	next_signal_id: usize,
 	scope_signals: HashMap<ScopeId, Vec<SignalId>>,
+	scope_scopes: HashMap<ScopeId, Vec<ScopeId>>,
 	module_scopes: HashMap<ModuleId, Vec<ScopeId>>,
 }
 
@@ -99,18 +100,27 @@ impl DesignCore {
 			next_scope_id: 1,
 			next_signal_id: 1,
 			scope_signals: HashMap::new(),
+			scope_scopes: HashMap::new(),
 			module_scopes: HashMap::new(),
 		}
 	}
 
 	/// Creates a new scope and adds it to the design
-	fn new_scope(&mut self, module: ModuleId) -> Result<ScopeHandle, DesignError> {
+	fn new_scope(&mut self, module: ModuleId, parent_scope: Option<ScopeId>) -> Result<ScopeHandle, DesignError> {
 		let id = ScopeId { id: self.next_scope_id };
 		self.next_scope_id += 1;
 
-		let scope = Scope::new(id, module);
+		let scope = Scope::new(id, module, parent_scope);
 		self.scopes.push(scope);
 		self.module_scopes.entry(module).or_insert(vec![]).push(id);
+
+		if parent_scope.is_some() {
+			self.scope_scopes
+				.entry(parent_scope.unwrap())
+				.or_insert(vec![])
+				.push(id);
+		}
+
 		Ok(ScopeHandle::new(self.weak.upgrade().unwrap(), id))
 	}
 
@@ -208,11 +218,15 @@ impl DesignCore {
 		self.scope_signals.get(&scope)
 	}
 
+	fn get_scope_scopes(&self, scope: ScopeId) -> Option<&Vec<ScopeId>> {
+		self.scope_scopes.get(&scope)
+	}
+
 	/// Creates a new module in the design
 	pub fn new_module(&mut self, name: &str) -> Result<ModuleHandle, DesignError> {
 		let module = Module::new(name, vec![])?;
 		let handle = self.add_module(module)?;
-		let main_scope = self.new_scope(handle.id())?;
+		let main_scope = self.new_scope(handle.id(), None)?;
 		self.get_module_mut(handle.id()).unwrap().main_scope = main_scope.id();
 		Ok(handle)
 	}
@@ -259,6 +273,10 @@ impl Design {
 
 	pub fn get_module_handle(&self, module: ModuleId) -> Option<ModuleHandle> {
 		self.handle.borrow().get_module_handle(module)
+	}
+
+	pub fn get_scope_handle(&self, scope: ScopeId) -> Option<ScopeHandle> {
+		self.handle.borrow().get_scope_handle(scope)
 	}
 
 	pub fn get_signal(&self, signal: SignalId) -> Option<Signal> {

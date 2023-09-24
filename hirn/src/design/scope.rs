@@ -4,6 +4,7 @@ use super::{DesignError, DesignHandle, ModuleId, RegisterBuilder, ScopeId, Signa
 use super::{Expression, ModuleHandle};
 
 /// Scope associated with an if statement
+#[derive(Clone, Debug)]
 pub struct ConditionalScope {
 	/// Condition expression
 	pub condition: Expression,
@@ -13,6 +14,7 @@ pub struct ConditionalScope {
 }
 
 /// Scope associated with a loop statement
+#[derive(Clone, Debug)]
 pub struct RangeScope {
 	/// Iterator variable
 	pub iterator_var: SignalId,
@@ -63,29 +65,16 @@ pub struct Scope {
 
 impl Scope {
 	/// Creates a new scope
-	pub(super) fn new(id: ScopeId, module: ModuleId) -> Self {
+	pub(super) fn new(id: ScopeId, module: ModuleId, parent_scope: Option<ScopeId>) -> Self {
 		Self {
 			id,
 			module,
-			parent: None,
+			parent: parent_scope,
 			assignments: vec![],
 			loops: vec![],
 			conditionals: vec![],
 			blocks: vec![],
 		}
-	}
-
-	/// Sets parent for this scope
-	/// Returns an error if the parent is already set
-	fn set_parent(&mut self, parent: ScopeId) -> Result<(), DesignError> {
-		self.check_in_design()?;
-
-		if self.parent.is_some() {
-			return Err(DesignError::ScopeAlreadyOwned);
-		}
-
-		self.parent = Some(parent);
-		Ok(())
 	}
 
 	/// Checks if this scope is in a design
@@ -185,10 +174,9 @@ impl ScopeHandle {
 	}
 
 	/// Creates a scope and sets its parent to this scope
-	fn new_subscope(&mut self) -> Result<ScopeHandle, DesignError> {
+	pub fn new_subscope(&mut self) -> Result<ScopeHandle, DesignError> {
 		let module = this_scope!(self).module;
-		let child = self.design.borrow_mut().new_scope(module);
-		this_scope!(self).set_parent(self.scope).unwrap();
+		let child = self.design.borrow_mut().new_scope(module, Some(self.scope));
 		child
 	}
 
@@ -250,6 +238,18 @@ impl ScopeHandle {
 	}
 
 	pub fn signals(&self) -> Vec<SignalId> {
-		self.design.borrow().get_scope_signals(self.scope).unwrap().clone()
+		self.design.borrow().get_scope_signals(self.scope).cloned().unwrap_or(vec![])
+	}
+
+	pub fn subscopes(&self) -> Vec<ScopeId> {
+		self.design.borrow().get_scope_scopes(self.scope).cloned().unwrap_or(vec![])
+	}
+
+	pub fn conditional_subscopes(&self) -> Vec<ConditionalScope> {
+		this_scope!(self).conditionals.clone()
+	}
+
+	pub fn blocks(&self) -> Vec<BlockInstance> {
+		this_scope!(self).blocks.clone()
 	}
 }

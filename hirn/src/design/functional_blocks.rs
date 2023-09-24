@@ -6,6 +6,7 @@ use super::{
 };
 
 /// Register block
+#[derive(Clone, Debug)]
 pub struct Register {
 	/// Asynchronous negated reset input
 	pub input_nreset: Expression,
@@ -150,6 +151,7 @@ pub struct FfSync {
 }
 
 /// Represents an instantiated module
+#[derive(Clone, Debug)]
 pub struct ModuleInstance {
 	/// ID of the instantiated module
 	pub module: ModuleHandle,
@@ -225,6 +227,10 @@ impl ModuleInstance {
 
 		Ok(())
 	}
+
+	pub fn get_bindings(&self) -> &Vec<(String, Expression)> {
+		&self.bindings
+	}
 }
 
 pub struct ModuleInstanceBuilder {
@@ -254,9 +260,10 @@ impl ModuleInstanceBuilder {
 }
 
 /// Represents a functional block instance
+#[derive(Clone, Debug)]
 pub enum BlockInstance {
 	Register(Register),
-	ClockGate(ClockGate),
-	FfSync(FfSync),
+	// ClockGate(ClockGate),
+	// FfSync(FfSync),
 	Module(ModuleInstance),
 }
