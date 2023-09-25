@@ -1,3 +1,5 @@
+use hirn::design::ScopeHandle;
+
 use super::{CombinedQualifiers, ModuleDeclared, SemanticError};
 use std::collections::HashMap;
 
@@ -12,13 +14,13 @@ use crate::{
 	ProvidesCompilerDiagnostic, SourceSpan,
 };
 
-pub fn combine(
-	id_table: &IdTable,
-	nc_table: &crate::lexer::NumericConstantTable,
-	ast: &Root,
+pub fn combine<'a>(
+	id_table: &'a IdTable,
+	nc_table: &'a crate::lexer::NumericConstantTable,
+	ast: &'a Root,
 	mut path_from_root: String,
 	present_files: &mut HashMap<String, String>,
-) -> miette::Result<Vec<String>> {
+) -> miette::Result<(Vec<String>, GlobalAnalyzerContext<'a>, HashMap<IdTableKey, &'a ModuleImplementation>)> {
 	use log::{debug, info};
 
 	info!("Running combining pass");
@@ -29,9 +31,9 @@ pub fn combine(
 	}
 
 	let mut packaged_paths: Vec<String> = Vec::new();
-	let mut modules_declared: HashMap<IdTableKey, (ModuleDeclared, SourceSpan)> = HashMap::new();
+	let mut modules_declared: HashMap<IdTableKey, ModuleDeclared> = HashMap::new();
 	let mut modules_implemented: HashMap<IdTableKey, &ModuleImplementation> = HashMap::new();
-	let mut generic_modules: HashMap<&IdTableKey, &ModuleImplementation> = HashMap::new();
+	let mut generic_modules: HashMap<IdTableKey, &ModuleImplementation> = HashMap::new();
 
 	for def in &ast.definitions {
 		use crate::parser::ast::TopDefinition::*;
@@ -79,19 +81,19 @@ pub fn combine(
 			UseStatement(_) => (),
 		};
 	}
-	for (name, (m, loc)) in &modules_declared {
+	for (name, m) in modules_declared.clone() {
 		if m.is_generic {
-			match modules_implemented.get(name) {
+			match modules_implemented.get(&name) {
 				None => {
 					return Err(miette::Report::new(
 						crate::ProvidesCompilerDiagnostic::to_diagnostic_builder(
 							&crate::analyzer::SemanticError::GenericModuleImplementationNotFound,
 						)
 						.label(
-							*loc,
+							m.location,
 							format!(
 								"Module {:?} is not implemented in the same file as it is declared",
-								id_table.get_by_key(name).unwrap()
+								id_table.get_by_key(&name).unwrap()
 							)
 							.as_str(),
 						)
@@ -99,59 +101,77 @@ pub fn combine(
 					))
 				},
 				Some(implementation) => {
-					generic_modules.insert(name, *implementation);
-					modules_implemented.remove(name);
+					generic_modules.insert(name.clone(), *implementation);
+					modules_implemented.remove(&name);
 				},
 			}
 		}
 	}
+	debug!("Modules: {:?}", modules_declared.len());
 
 	// next stage of analysis
-	let ctx: AnalyzerContext<'_> = AnalyzerContext {
+	let ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext {
 		id_table,
 		nc_table,
-		modules_declared: &modules_declared,
-		generic_modules: &generic_modules,
+		modules_declared,
+		generic_modules,
 		scope_map: HashMap::new(),
 		design: hirn::design::Design::new(),
-		current_module: None,
 	};
 	
-	analyze_semantically(ctx, &modules_implemented)?;
+	//analyze_semantically(ctx, &modules_implemented)?;
 
-	debug!("Modules: {:?}", modules_declared.len());
-	Ok(packaged_paths)
+	Ok((packaged_paths, ctx, modules_implemented))
 }
 
-fn analyze_semantically(mut ctx: AnalyzerContext, modules_implemented: &HashMap<IdTableKey, &ModuleImplementation>) -> miette::Result<()> {
+pub fn analyze_semantically(mut ctx: GlobalAnalyzerContext, modules_implemented: HashMap<IdTableKey, &ModuleImplementation>) -> miette::Result<()> {
+	// all passes are performed per module
 	for implementation in modules_implemented.values() {
 		implementation.analyze(&mut ctx)?;
 	}
 	Ok(())
 }
-pub struct AnalyzerContext<'a> {
+/// Global shared context for semantic analysis
+pub struct GlobalAnalyzerContext<'a> {
 	pub id_table: &'a IdTable,
 	pub nc_table: &'a crate::lexer::NumericConstantTable,
-	pub modules_declared: &'a HashMap<IdTableKey, (ModuleDeclared, SourceSpan)>,
-	pub generic_modules: &'a HashMap<&'a IdTableKey, &'a ModuleImplementation>,
+	/// represents all declared modules
+	pub modules_declared: HashMap<IdTableKey, ModuleDeclared>,
+	/// represents all implemented generic modules
+	pub generic_modules: HashMap<IdTableKey, &'a ModuleImplementation>,
+	/// this should be transferred to local context
 	pub scope_map: HashMap<SourceSpan, usize>,
 	pub design: hirn::design::Design,
-	pub current_module: Option<hirn::design::ModuleHandle>,
 }
-
+/// Per module context for semantic analysis
+pub struct LocalAnalyzerContex {
+	pub scope_map: ModuleImplementationScope,
+	pub module_handle: hirn::design::ModuleHandle,
+}
+impl LocalAnalyzerContex {
+	pub fn new(design_handle: &mut hirn::design::Design, module_name: String) -> Self {
+		LocalAnalyzerContex {
+			scope_map: ModuleImplementationScope::new(),
+			module_handle: design_handle.new_module(&module_name).unwrap(),
+		}
+	}
+}
 impl ModuleImplementation {
-	pub fn analyze(&self, ctx: &mut AnalyzerContext) -> miette::Result<()> {
+	// Performs all passes on module implementation
+	pub fn analyze(&self, ctx: &mut GlobalAnalyzerContext) -> miette::Result<()> {
+		let local_ctx = LocalAnalyzerContex::new(&mut ctx.design, ctx.id_table.get_by_key(&self.id).unwrap().to_string());
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		let mut scope = ModuleImplementationScope::new();
-		ctx.current_module = Some(ctx.design.new_module(ctx.id_table.get_by_key(&self.id).unwrap()).unwrap());
-		let (decl, _)  = ctx.modules_declared.get(&self.id).unwrap();
-		for var_id in decl.scope.variables.keys() {
-			let (var, loc) = decl.scope.variables.get(var_id).unwrap();
+		let mut module_handle = ctx.design.new_module(ctx.id_table.get_by_key(&self.id).unwrap()).unwrap();
+		let module  = ctx.modules_declared.get(&self.id).unwrap();
+		for var_id in module.scope.variables.keys() {
+			let (var, loc) = module.scope.variables.get(var_id).unwrap();
 			// create variable with API
 		}
 		let id = scope.new_scope(None);
+		let mut api_scope = module_handle.scope();
 		match &self.statement {
-			ModuleImplementationBlockStatement(block) => block.analyze(ctx, &mut scope, id)?,
+			ModuleImplementationBlockStatement(block) => block.analyze(ctx, &mut scope, id, &mut api_scope)?,
 			_ => unreachable!(),
 		};
 		Ok(())
@@ -161,9 +181,10 @@ impl ModuleImplementation {
 impl ModuleImplementationBlockStatement {
 	pub fn analyze(
 		&self,
-		ctx: &mut AnalyzerContext,
+		ctx: &mut GlobalAnalyzerContext,
 		scope: &mut ModuleImplementationScope,
 		scope_id: usize,
+		api_scope: &mut ScopeHandle
 	) -> miette::Result<()> {
 		ctx.scope_map.insert(self.location, scope_id);
 		use crate::parser::ast::ModuleImplementationStatement::*;
@@ -174,12 +195,14 @@ impl ModuleImplementationBlockStatement {
 					definition.analyze(CombinedQualifiers::new(), ctx.id_table, scope, scope_id)?
 				},
 				AssignmentStatement(_) => todo!(),
-				IfElseStatement(conditional) => todo!(),
+				IfElseStatement(conditional) => {
+					
+				},
 				IterationStatement(_) => todo!(),
 				InstantiationStatement(_) => todo!(),
 				ModuleImplementationBlockStatement(block) => {
 					let id = scope.new_scope(Some(scope_id));
-					block.analyze(ctx, scope, id)?;
+					block.analyze(ctx, scope, id, api_scope)?;
 				},
 			}
 		}

@@ -193,7 +193,7 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 		let code = read_input_from_file(&file_name)?;
 		(root, ctx, source) = parse_file_recover_tables(code, ctx)?;
 		let name = Path::new(&file_name).to_str().unwrap().to_string();
-		let paths = hdllang::analyzer::combine(
+		let (paths, global_ctx, _) = hdllang::analyzer::combine(
 			&ctx.id_table,
 			&ctx.numeric_constants,
 			&root,
@@ -208,6 +208,31 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 		break; // we stop after the first file for now
 	}
 	writeln!(output, "{}", "done").map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
+	Ok(())
+}
+
+fn analyse(mut code: String, file_name: String, mut output: Box<dyn Write>) -> miette::Result<()> {
+	// tokenize and parse
+	let root: Root;
+	let mut ctx = LogosLexerContext {
+		id_table: IdTable::new(),
+		comment_table: hdllang::lexer::CommentTable::new(),
+		numeric_constants: hdllang::lexer::NumericConstantTable::new(),
+		last_err: None,
+	};
+	let mut map: HashMap<String, String> = HashMap::new();
+	(root, ctx, code) = parse_file_recover_tables(code, ctx)?;
+		let (_, global_ctx, modules) = hdllang::analyzer::combine(
+			&ctx.id_table,
+			&ctx.numeric_constants,
+			&root,
+			String::from("."),
+			&mut map,
+		)
+		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name, code)))?;
+	// analyse semantically
+	hdllang::analyzer::analyze_semantically(global_ctx, modules)?;
+	writeln!(output, "{}", "semantical analysis was perfomed succesfully").map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())
 }
 fn main() -> miette::Result<()> {
@@ -282,6 +307,9 @@ fn main() -> miette::Result<()> {
 		},
 		"combine" => {
 			combine(String::from(file_name), output)?;
+		},
+		"analyze" | "analyse" => {
+			analyse(code, String::from(file_name), output)?;
 		},
 		"pretty-print" => {
 			pretty_print(code, output)?;

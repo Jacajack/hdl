@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use super::{CombinedQualifiers, SemanticError, VariableDeclared};
 use crate::lexer::IdTableKey;
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ModuleDeclarationScope {
 	pub variables: HashMap<IdTableKey, (VariableDeclared, SourceSpan)>,
 	pub bus_widths: HashMap<IdTableKey, BigInt>,
