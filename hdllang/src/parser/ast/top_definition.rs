@@ -28,7 +28,7 @@ impl ModuleDeclaration {
 		&self,
 		id_table: &IdTable,
 		nc_table: &crate::lexer::NumericConstantTable,
-		modules_declared: &mut HashMap<IdTableKey, (ModuleDeclared, SourceSpan)>,
+		modules_declared: &mut HashMap<IdTableKey, ModuleDeclared>,
 	) -> miette::Result<()> {
 		use log::debug;
 
@@ -36,11 +36,11 @@ impl ModuleDeclaration {
 			"Found module declaration for {:?}",
 			id_table.get_by_key(&self.id).unwrap()
 		);
-		if let Some(location1) = modules_declared.get(&self.id) {
+		if let Some(module) = modules_declared.get(&self.id) {
 			return Err(miette::Report::new(
 				SemanticError::MultipleModuleDeclaration
 					.to_diagnostic_builder()
-					.label(location1.1, "Module with this name is already declared here.")
+					.label(module.location, "Module with this name is already declared here.")
 					.label(self.location, "Module with this name is already declared.")
 					.build(),
 			));
@@ -68,8 +68,9 @@ impl ModuleDeclaration {
 			name: self.id,
 			scope,
 			is_generic,
+			location: self.location,
 		};
-		modules_declared.insert(self.id, (m, self.location));
+		modules_declared.insert(self.id, m);
 		Ok(())
 	}
 }
