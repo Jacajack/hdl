@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::{Design, ModuleId, DesignError, ModuleHandle, SignalId, design::SignalDirection, design::SignalSignedness, design::InterfaceSignal, Expression, design::EvaluatesDimensions, BinaryOp, UnaryOp, design::{ScopeHandle, functional_blocks::BlockInstance}, ScopeId};
+use crate::{Design, ModuleId, DesignError, ModuleHandle, SignalId, design::{SignalDirection, functional_blocks::ModuleInstance}, design::SignalSignedness, design::InterfaceSignal, Expression, design::EvaluatesDimensions, BinaryOp, UnaryOp, design::{ScopeHandle, functional_blocks::BlockInstance}, ScopeId};
 use super::{Codegen, CodegenError};
 use std::collections::HashSet;
 
@@ -7,6 +7,7 @@ use std::collections::HashSet;
 pub struct SVCodegen<'a> {
 	design: &'a Design,
 	indent_level: u32,
+
 }
 
 macro_rules! emitln {
@@ -32,6 +33,11 @@ impl<'a> SVCodegen<'a> {
 		self.indent_level -= 1;
 	}
 
+	fn translate_signal_id(&self, id: SignalId) -> String {
+		let sig = self.design.get_signal(id).unwrap();
+		sig.name().into()
+	}
+
 	fn translate_expression(&self, expr: &Expression) -> String {
 		use Expression::*;
 		match expr {
@@ -47,8 +53,7 @@ impl<'a> SVCodegen<'a> {
 				format!("{}'h{}", c.width(), c.to_hex_str())
 			},
 			Signal(s) => {
-				let sig = self.design.get_signal(s.signal).unwrap();
-				let mut str : String = sig.name().into();
+				let mut str : String = self.translate_signal_id(s.signal);
 				for slice in &s.indices {
 					str = format!("{}[{}]", str, self.translate_expression(&slice));
 				}
@@ -123,6 +128,28 @@ impl<'a> SVCodegen<'a> {
 		format!("{} {}", direction_str, self.format_signal_declaration(s.signal))
 	}
 
+	fn emit_assignment(&mut self, w: &mut dyn fmt::Write, lhs: &Expression, rhs: &Expression) -> Result<(), CodegenError> {
+		emitln!(self, w, "assign {} = {};", self.translate_expression(&lhs), self.translate_expression(&rhs))?;
+		Ok(())
+	}
+
+	fn emit_module_instance(&mut self, w: &mut dyn fmt::Write, instance: &ModuleInstance) -> Result<(), CodegenError> {
+		emitln!(self, w, "{} #(", instance.module.name())?;
+		self.begin_indent();
+		emitln!(self, w, "/* TODO parameters */")?;
+		self.end_indent();
+		emitln!(self, w, ") {} (", "TODO_INSTANCE_NAME")?;
+		self.begin_indent();
+		
+		for binding in instance.get_bindings() {
+			emitln!(self, w, ".{}({}),", binding.0, self.translate_expression(&binding.1))?;
+		}
+
+		self.end_indent();
+		emitln!(self, w, ")")?;
+		Ok(())
+	}
+
 	fn emit_scope(&mut self, w: &mut dyn fmt::Write, scope_id: ScopeId, naked: bool, skip_signals: HashSet<SignalId>) -> Result<(), CodegenError> {
 		let scope = self.design.get_scope_handle(scope_id).unwrap();
 		
@@ -141,7 +168,7 @@ impl<'a> SVCodegen<'a> {
 		emitln!(self, w, "")?;
 		emitln!(self, w, "/* assignments */")?;
 		for asmt in scope.assignments() {
-			emitln!(self, w, "assign {} = {};", self.translate_expression(&asmt.lhs), self.translate_expression(&asmt.rhs))?;
+			self.emit_assignment(w, &asmt.lhs, &asmt.rhs)?;
 		}
 
 		let mut processed_subscopes = HashSet::new();		
@@ -149,16 +176,30 @@ impl<'a> SVCodegen<'a> {
 		emitln!(self, w, "")?;
 		emitln!(self, w, "/* if-subscopes */")?;
 		for conditional_scope in scope.conditional_subscopes() {
-			emitln!(self, w, "if ({}) begin", self.translate_expression(&conditional_scope.condition))?;
+			emitln!(self, w, "generate if ({}) begin", self.translate_expression(&conditional_scope.condition))?;
 			self.begin_indent();
 			self.emit_scope(w, conditional_scope.scope, true, HashSet::new())?;
 			self.end_indent();
-			emitln!(self, w, "end")?;
+			emitln!(self, w, "end endgenerate")?;
 			processed_subscopes.insert(conditional_scope.scope);
 		}
-		
-		// TODO loops
 
+		emitln!(self, w, "")?;
+		emitln!(self, w, "/* loop subscopes */")?;
+		for loop_scope in scope.loop_subscopes() {
+			// TODO gb name
+			emitln!(self, w, "generate for (genvar {} = ({}); ({}) <= ({}); ({})++) begin",
+				self.translate_expression(&loop_scope.iterator_var.into()),
+				self.translate_expression(&loop_scope.iterator_begin),
+				self.translate_expression(&loop_scope.iterator_var.into()),
+				self.translate_expression(&loop_scope.iterator_end),
+				self.translate_expression(&loop_scope.iterator_var.into()))?;
+			self.begin_indent();
+			self.emit_scope(w, loop_scope.scope, true, HashSet::from([loop_scope.iterator_var]))?;
+			self.end_indent();
+			emitln!(self, w, "end endgenerate")?;
+			processed_subscopes.insert(loop_scope.scope);
+		}
 
 		emitln!(self, w, "")?;
 		emitln!(self, w, "/* unconditional subscopes */")?;
@@ -176,23 +217,8 @@ impl<'a> SVCodegen<'a> {
 		emitln!(self, w, "/* module instances */")?;
 		for block in scope.blocks() {
 			match block {
-				BlockInstance::Module(module_instance) => {
-					emitln!(self, w, "{} #(", module_instance.module.name())?;
-					self.begin_indent();
-					emitln!(self, w, "/* TODO parameters */")?;
-					self.end_indent();
-					emitln!(self, w, ") {} (", "TODO_INSTANCE_NAME")?;
-					self.begin_indent();
-					
-					for binding in module_instance.get_bindings() {
-						emitln!(self, w, ".{}({}),", binding.0, self.translate_expression(&binding.1))?;
-					}
-
-					self.end_indent();
-					emitln!(self, w, ")")?;
-					
-				}
-				_ => {},
+				BlockInstance::Module(instance) => self.emit_module_instance(w, &instance)?,
+				_ => todo!(),
 			}
 		}
 

@@ -249,6 +249,10 @@ impl ScopeHandle {
 		this_scope!(self).conditionals.clone()
 	}
 
+	pub fn loop_subscopes(&self) -> Vec<RangeScope> {
+		this_scope!(self).loops.clone()
+	}
+
 	pub fn blocks(&self) -> Vec<BlockInstance> {
 		this_scope!(self).blocks.clone()
 	}
