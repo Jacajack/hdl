@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::{Design, ModuleId, DesignError, ModuleHandle, SignalId, design::{SignalDirection, functional_blocks::ModuleInstance}, design::SignalSignedness, design::InterfaceSignal, Expression, design::EvaluatesDimensions, BinaryOp, UnaryOp, design::{ScopeHandle, functional_blocks::BlockInstance}, ScopeId};
+use crate::{Design, ModuleId, DesignError, ModuleHandle, SignalId, design::{SignalDirection, SignalSensitivity, functional_blocks::ModuleInstance}, design::SignalSignedness, design::InterfaceSignal, Expression, design::EvaluatesDimensions, BinaryOp, UnaryOp, design::{ScopeHandle, functional_blocks::BlockInstance}, ScopeId};
 use super::{Codegen, CodegenError};
 use std::collections::HashSet;
 
@@ -128,6 +128,10 @@ impl<'a> SVCodegen<'a> {
 		format!("{} {}", direction_str, self.format_signal_declaration(s.signal))
 	}
 
+	fn module_parameter_definition(&self, s: InterfaceSignal) -> String {
+		format!("parameter {} = 'x", self.translate_expression(&s.signal.into()))
+	}
+
 	fn emit_assignment(&mut self, w: &mut dyn fmt::Write, lhs: &Expression, rhs: &Expression) -> Result<(), CodegenError> {
 		emitln!(self, w, "assign {} = {};", self.translate_expression(&lhs), self.translate_expression(&rhs))?;
 		Ok(())
@@ -239,19 +243,30 @@ impl<'a> Codegen for SVCodegen<'a> {
 		// TODO param list
 		// TODO how to check if module is generic
 
+		let mut interface_signal_ids = HashSet::new();
+		for sig in m.interface() {
+			interface_signal_ids.insert(sig.signal);
+		}
 
 		emitln!(self, w, "module {} #(", self.mangle_module_name(m.name(), m.namespace_path()))?;
 		self.begin_indent();
 		emitln!(self, w, "/* parameters */")?;
+
+		for sig in m.interface() {
+			if matches!(self.design.get_signal(sig.signal).unwrap().sensitivity, SignalSensitivity::Const) {
+				emitln!(self, w, "{},", self.module_parameter_definition(sig))?; // FIXME trailing comma
+			}
+		}
+
 		self.end_indent();
 		emitln!(self, w, ")(")?;
 		self.begin_indent();
 		emitln!(self, w, "/* interface */")?;
 		
-		let mut interface_signal_ids = HashSet::new();
 		for sig in m.interface() {
-			emitln!(self, w, "{},", self.module_interface_definition(m.clone(), sig))?; // FIXME trailing comma
-			interface_signal_ids.insert(sig.signal);
+			if !matches!(self.design.get_signal(sig.signal).unwrap().sensitivity, SignalSensitivity::Const) {
+				emitln!(self, w, "{},", self.module_interface_definition(m.clone(), sig))?; // FIXME trailing comma
+			}
 		}
 		
 		self.end_indent();

@@ -12,8 +12,10 @@ fn main() -> Result<(), HirnError> {
 	let m_clk = m.scope().new_signal()?.name("clk").clock().wire().build()?;
 	let m_clkout = m.scope().new_signal()?.name("clkout").clock().wire().build()?;
 	let m_bus = m.scope().new_signal()?.name("basdasd").asynchronous().unsigned(8.into()).build()?;
+	let m_param = m.scope().new_signal()?.name("bingo").constant().unsigned(8.into()).build()?;
 	m.expose(m_clk, SignalDirection::Input)?;
 	m.expose(m_clkout, SignalDirection::Output)?;
+	m.expose(m_param, SignalDirection::Input)?; // TODO do not allow output const signals or move to interface?
 	m.scope().assign(m_clk.into(),  hirn::design::Expression::from(m_clkout) + m_clkout.into())?;
 
 
