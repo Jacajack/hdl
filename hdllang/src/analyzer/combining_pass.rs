@@ -1,4 +1,5 @@
-use hirn::design::ScopeHandle;
+use hirn::{design::{ScopeHandle, SignalDirection}, Expression};
+use log::debug;
 
 use super::{CombinedQualifiers, ModuleDeclared, SemanticError};
 use std::collections::HashMap;
@@ -21,7 +22,7 @@ pub fn combine<'a>(
 	mut path_from_root: String,
 	present_files: &mut HashMap<String, String>,
 ) -> miette::Result<(Vec<String>, GlobalAnalyzerContext<'a>, HashMap<IdTableKey, &'a ModuleImplementation>)> {
-	use log::{debug, info};
+	use log::info;
 
 	info!("Running combining pass");
 	info!("Path from root: {}", path_from_root);
@@ -73,6 +74,7 @@ pub fn combine<'a>(
 							.build(),
 					));
 				}
+
 				modules_implemented.insert(implementation.id, &implementation);
 			},
 			PackageDeclaration(package) => {
@@ -109,7 +111,7 @@ pub fn combine<'a>(
 	}
 	debug!("Modules: {:?}", modules_declared.len());
 
-	// next stage of analysis
+	// prepare for next stage of analysis
 	let ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext {
 		id_table,
 		nc_table,
@@ -119,16 +121,42 @@ pub fn combine<'a>(
 		design: hirn::design::Design::new(),
 	};
 	
-	//analyze_semantically(ctx, &modules_implemented)?;
-
 	Ok((packaged_paths, ctx, modules_implemented))
 }
-
-pub fn analyze_semantically(mut ctx: GlobalAnalyzerContext, modules_implemented: HashMap<IdTableKey, &ModuleImplementation>) -> miette::Result<()> {
-	// all passes are performed per module
-	for implementation in modules_implemented.values() {
-		implementation.analyze(&mut ctx)?;
+pub struct SemanticalAnalyzer<'a> {
+	ctx: GlobalAnalyzerContext<'a>,
+	modules_implemented: &'a HashMap< IdTableKey, &'a ModuleImplementation>,
+	passes: Vec<for<'b> fn(&mut GlobalAnalyzerContext<'a>, &mut LocalAnalyzerContex, &ModuleImplementation) -> miette::Result<()>>,
+}
+impl <'a> SemanticalAnalyzer<'a>{
+	pub fn new(ctx: GlobalAnalyzerContext<'a>, modules_implemented: &'a HashMap<IdTableKey, &ModuleImplementation>)->Self{
+		let mut n = Self { ctx,  modules_implemented, passes: Vec::new() };
+		//n.passes.push(initial_pass);
+		n.passes.push(codegen_pass);
+		n
 	}
+	pub fn process(&mut self) -> miette::Result<()> {
+		for module in self.modules_implemented.values(){
+			let mut local_ctx = LocalAnalyzerContex::new(&mut self.ctx.design, self.ctx.id_table.get_by_key(&module.id).unwrap().to_string());
+			for pass in &self.passes {
+				pass(&mut self.ctx, &mut local_ctx, *module)?;
+			}
+		}
+		Ok(())
+	}
+}
+pub fn codegen_pass(ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex, module: &ModuleImplementation) -> miette::Result<()> {
+	// all passes are performed per module
+	debug!("Running codegen pass");
+	module.codegen_pass(ctx, local_ctx)?;
+	debug!("Codegen pass done");
+	Ok(())
+}
+pub fn initial_pass(ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex, module: &ModuleImplementation) -> miette::Result<()> {
+	// all passes are performed per module
+	debug!("Running initial pass");
+	module.analyze(ctx, local_ctx)?;
+	debug!("Initial pass done");
 	Ok(())
 }
 /// Global shared context for semantic analysis
@@ -157,42 +185,94 @@ impl LocalAnalyzerContex {
 	}
 }
 impl ModuleImplementation {
-	// Performs all passes on module implementation
-	pub fn analyze(&self, ctx: &mut GlobalAnalyzerContext) -> miette::Result<()> {
-		let local_ctx = LocalAnalyzerContex::new(&mut ctx.design, ctx.id_table.get_by_key(&self.id).unwrap().to_string());
+	// Performs first pass on module implementation
+	pub fn analyze(&self, ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex) -> miette::Result<()> {
+		debug!("Analyzing module implementation {}", ctx.id_table.get_by_key(&self.id).unwrap());
 		use crate::parser::ast::ModuleImplementationStatement::*;
-		let mut scope = ModuleImplementationScope::new();
-		let mut module_handle = ctx.design.new_module(ctx.id_table.get_by_key(&self.id).unwrap()).unwrap();
 		let module  = ctx.modules_declared.get(&self.id).unwrap();
 		for var_id in module.scope.variables.keys() {
 			let (var, loc) = module.scope.variables.get(var_id).unwrap();
 			// create variable with API
 		}
-		let id = scope.new_scope(None);
-		let mut api_scope = module_handle.scope();
+		let id = local_ctx.scope_map.new_scope(None);
 		match &self.statement {
-			ModuleImplementationBlockStatement(block) => block.analyze(ctx, &mut scope, id, &mut api_scope)?,
+			ModuleImplementationBlockStatement(block) => block.analyze(ctx, local_ctx, id)?,
 			_ => unreachable!(),
 		};
+		debug!("Done analyzing module implementation {}", ctx.id_table.get_by_key(&self.id).unwrap());
+		Ok(())
+	}
+	pub fn codegen_pass(&self, ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex) -> miette::Result<()> {
+		debug!("Codegen pass for module implementation {}", ctx.id_table.get_by_key(&self.id).unwrap());
+		let module  = ctx.modules_declared.get(&self.id).unwrap();
+		let mut api_scope: ScopeHandle = local_ctx.module_handle.scope();
+
+		for var_id in module.scope.variables.keys() {
+			let (var, loc) = module.scope.variables.get(var_id).unwrap();
+			// create variable with API
+			var.register(ctx, local_ctx, &mut api_scope)?;
+		}
+		use crate::parser::ast::ModuleImplementationStatement::*;
+		match &self.statement {
+			ModuleImplementationBlockStatement(block) => (),
+			_ => unreachable!(),
+		};
+		debug!("Done codegen pass for module implementation {}", ctx.id_table.get_by_key(&self.id).unwrap());
 		Ok(())
 	}
 }
+impl super::VariableDeclared {
+	// This function is called to register the variable in the api design
+	pub fn register(
+		&self,
+		ctx: & GlobalAnalyzerContext,
+		local_ctx: &mut LocalAnalyzerContex,
+		scope_handle: &mut ScopeHandle) -> miette::Result<()> {
+		let mut builder = scope_handle.new_signal().unwrap();
+		builder = builder.name(ctx.id_table.get_by_key(&self.name).unwrap());
+		if let Some(_) = self.qualifiers.signed {
+			// FIXME
+			builder = builder.signed(Expression::new_one());
+		}
+		else if let Some(_) = self.qualifiers.unsigned {
+			// FIXME
+			builder = builder.unsigned(Expression::new_one());
+		}
+		if let Some(_) = self.qualifiers.constant {
+			builder = builder.constant();
+		}
+		use TypeSpecifier::*;
 
+		match self.specifier{
+    		Wire { .. } => builder = builder.wire(),
+    		Bus(_) => (),
+			_ => unreachable!(),
+		};
+
+		let id = builder.build().unwrap();
+		if let Some(_) = self.qualifiers.input {
+			local_ctx.module_handle.expose(id, SignalDirection::Input).unwrap();
+		}
+		else if let Some(_) = self.qualifiers.output {
+			local_ctx.module_handle.expose(id, SignalDirection::Output).unwrap();		
+		}
+		Ok(())
+	}
+}
 impl ModuleImplementationBlockStatement {
 	pub fn analyze(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		scope: &mut ModuleImplementationScope,
+		local_ctx: &mut LocalAnalyzerContex,
 		scope_id: usize,
-		api_scope: &mut ScopeHandle
 	) -> miette::Result<()> {
 		ctx.scope_map.insert(self.location, scope_id);
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		for statement in &self.statements {
 			match statement {
-				VariableBlock(block) => block.analyze(CombinedQualifiers::new(), ctx.id_table, scope, scope_id)?,
+				VariableBlock(block) => block.analyze(ctx, local_ctx, CombinedQualifiers::new(), scope_id)?,
 				VariableDefinition(definition) => {
-					definition.analyze(CombinedQualifiers::new(), ctx.id_table, scope, scope_id)?
+					definition.analyze(CombinedQualifiers::new(), ctx, local_ctx, scope_id)?
 				},
 				AssignmentStatement(_) => todo!(),
 				IfElseStatement(conditional) => {
@@ -201,26 +281,32 @@ impl ModuleImplementationBlockStatement {
 				IterationStatement(_) => todo!(),
 				InstantiationStatement(_) => todo!(),
 				ModuleImplementationBlockStatement(block) => {
-					let id = scope.new_scope(Some(scope_id));
-					block.analyze(ctx, scope, id, api_scope)?;
+					let id = local_ctx.scope_map.new_scope(Some(scope_id));
+					block.analyze(ctx, local_ctx, id)?;
 				},
 			}
 		}
 		Ok(())
+	}
+	pub fn codegen_pass(
+		ctx: &mut GlobalAnalyzerContext,
+		local_ctx: &mut LocalAnalyzerContex,
+		api_scope: &mut ScopeHandle) -> miette::Result<()> {
+		todo!()
 	}
 }
 impl VariableDefinition {
 	pub fn analyze(
 		&self,
 		mut already_combined: CombinedQualifiers,
-		id_table: &IdTable,
-		scope: &mut ModuleImplementationScope,
+		ctx: &mut GlobalAnalyzerContext,
+		local_ctx: &mut LocalAnalyzerContex,
 		scope_id: usize,
 	) -> miette::Result<()> {
 		already_combined = analyze_qualifiers(&self.type_declarator.qualifiers, already_combined)?;
 		analyze_specifier_implementation(&self.type_declarator.specifier, &already_combined)?;
 		for direct_initializer in &self.initializer_list {
-			if let Some(variable) = scope.get_variable_in_scope(scope_id, &direct_initializer.declarator.name) {
+			if let Some(variable) = local_ctx.scope_map.get_variable_in_scope(scope_id, &direct_initializer.declarator.name) {
 				return Err(miette::Report::new(
 					SemanticError::DuplicateVariableDeclaration
 						.to_diagnostic_builder()
@@ -228,7 +314,7 @@ impl VariableDefinition {
 							direct_initializer.declarator.get_location(),
 							format!(
 								"Variable with name \"{}\" declared here, was already declared before.",
-								id_table.get_by_key(&direct_initializer.declarator.name).unwrap()
+								ctx.id_table.get_by_key(&direct_initializer.declarator.name).unwrap()
 							)
 							.as_str(),
 						)
@@ -236,7 +322,7 @@ impl VariableDefinition {
 							variable.location,
 							format!(
 								"Here variable \"{}\" was declared before.",
-								id_table.get_by_key(&direct_initializer.declarator.name).unwrap()
+								ctx.id_table.get_by_key(&direct_initializer.declarator.name).unwrap()
 							)
 							.as_str(),
 						)
@@ -250,14 +336,14 @@ impl VariableDefinition {
 impl VariableBlock {
 	pub fn analyze(
 		&self,
+		ctx: &mut GlobalAnalyzerContext,
+		local_ctx: &mut LocalAnalyzerContex,
 		mut already_combined: CombinedQualifiers,
-		id_table: &IdTable,
-		scope: &mut ModuleImplementationScope,
 		scope_id: usize,
 	) -> miette::Result<()> {
 		already_combined = analyze_qualifiers(&self.types, already_combined)?;
 		for statement in &self.statements {
-			statement.analyze(already_combined.clone(), id_table, scope, scope_id)?;
+			statement.analyze(already_combined.clone(), ctx, local_ctx, scope_id)?;
 		}
 		Ok(())
 	}
@@ -266,16 +352,16 @@ impl VariableBlockStatement {
 	pub fn analyze(
 		&self,
 		already_combined: CombinedQualifiers,
-		id_table: &IdTable,
-		scope: &mut ModuleImplementationScope,
+		ctx: &mut GlobalAnalyzerContext,
+		local_ctx: &mut LocalAnalyzerContex,
 		scope_id: usize,
 	) -> miette::Result<()> {
 		match self {
 			VariableBlockStatement::VariableBlock(block) => {
-				block.analyze(already_combined, id_table, scope, scope_id)?
+				block.analyze(ctx, local_ctx, already_combined, scope_id)?;
 			},
 			VariableBlockStatement::VariableDefinition(definition) => {
-				definition.analyze(already_combined, id_table, scope, scope_id)?
+				definition.analyze(already_combined, ctx, local_ctx, scope_id)?;
 			},
 		}
 		Ok(())

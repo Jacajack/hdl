@@ -6,7 +6,7 @@ use crate::{
 };
 
 use super::CombinedQualifiers;
-
+// TODO store width he
 #[derive(Debug, Clone)]
 pub struct VariableDeclared {
 	pub name: IdTableKey,

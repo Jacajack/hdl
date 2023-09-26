@@ -193,7 +193,7 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 		let code = read_input_from_file(&file_name)?;
 		(root, ctx, source) = parse_file_recover_tables(code, ctx)?;
 		let name = Path::new(&file_name).to_str().unwrap().to_string();
-		let (paths, global_ctx, _) = hdllang::analyzer::combine(
+		let (paths, _, _) = hdllang::analyzer::combine(
 			&ctx.id_table,
 			&ctx.numeric_constants,
 			&root,
@@ -231,12 +231,14 @@ fn analyse(mut code: String, file_name: String, mut output: Box<dyn Write>) -> m
 		)
 		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name, code)))?;
 	// analyse semantically
-	hdllang::analyzer::analyze_semantically(global_ctx, modules)?;
+	hdllang::analyzer::SemanticalAnalyzer::new(global_ctx, &modules).process()?;
+	//hdllang::analyzer::analyze_semantically(&mut global_ctx, &modules)?;
 	writeln!(output, "{}", "semantical analysis was perfomed succesfully").map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())
 }
 fn main() -> miette::Result<()> {
 	std::env::set_var("RUST_LOG", "debug");
+	std::env::set_var("RUST_BACKTRACE", "1");
 	init_logging();
 
 	let matches = command!()
