@@ -1,7 +1,90 @@
-use crate::{parser::ast::Expression, ProvidesCompilerDiagnostic, SourceSpan};
+use std::collections::HashSet;
+
+use num_bigint::BigInt;
+
+use crate::{parser::ast::Expression, ProvidesCompilerDiagnostic, SourceSpan, lexer::IdTableKey};
 
 use super::SemanticError;
+#[derive(Debug, Clone)]
+pub enum SignalSignedness {
+	Signed(SourceSpan),
+	Unsigned(SourceSpan),
+	None,
+}
+#[derive(Debug, Clone)]
+pub enum Direction {
+	Input(SourceSpan),
+	Output(SourceSpan),
+	Tristate(SourceSpan),
+	None
+}
 
+#[derive(Debug, Clone)]
+pub enum SignalType {
+	Bus {
+		width: BigInt,
+		signedness: SignalSignedness,
+	},
+	Wire
+}
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+pub struct EdgeSensitivity {
+	pub clock_signal: IdTableKey,
+	pub on_rising: bool,
+}
+
+/// Determines sensitivity of a signal to certain clocks
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ClockSensitivityList(HashSet<EdgeSensitivity>);
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum SignalSensitivity {
+	Async(SourceSpan),
+	Comb{
+		sensitivity_list: ClockSensitivityList,
+		location: SourceSpan
+	},
+	Sync{
+		sensitivity_list: ClockSensitivityList,
+		location: SourceSpan
+	},
+	Clock(SourceSpan),
+	Const(SourceSpan),
+	/// if at the end of the analysis this is still None, it is an error
+	None
+}
+
+#[derive(Clone, Debug)]
+pub struct Signal{
+	pub signal_type: SignalType,
+	pub sensitivity: SignalSensitivity,
+	pub direction: Direction,
+}
+#[derive(Clone, Debug)]
+pub struct Variable{
+	pub name: IdTableKey,
+	pub dimensions: Vec<BigInt>,
+	/// location of the variable declaration
+	pub location: SourceSpan,
+	pub kind: VariableKind,
+
+}
+#[derive(Clone, Debug)]
+pub enum GenericVariableKind{
+	Auto,
+	Int,
+	Bool,
+}
+#[derive(Clone, Debug)]
+pub struct GenericVariable{
+	pub value: Option<BigInt>,
+	pub kind: GenericVariableKind
+}
+#[derive(Clone, Debug)]
+pub enum VariableKind{
+	Signal(Signal),
+	Generic(GenericVariable),
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CombinedQualifiers {
 	pub signed: Option<SourceSpan>,
@@ -120,7 +203,7 @@ impl CombinedQualifiers {
 		Ok(())
 	}
 }
-fn report_contradicting_qualifier(
+pub fn report_contradicting_qualifier(
 	location_first: &SourceSpan,
 	location_second: &SourceSpan,
 	name_first: &str,
