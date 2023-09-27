@@ -1,4 +1,4 @@
-use hirn::{design::{ScopeHandle, SignalDirection}, Expression};
+use hirn::{design::{ScopeHandle, SignalDirection, NumericConstant}, Expression};
 use log::debug;
 
 use super::{CombinedQualifiers, ModuleDeclared, SemanticError};
@@ -137,7 +137,7 @@ impl <'a> SemanticalAnalyzer<'a>{
 	}
 	pub fn process(&mut self) -> miette::Result<()> {
 		for module in self.modules_implemented.values(){
-			let mut local_ctx = LocalAnalyzerContex::new(&mut self.ctx.design, self.ctx.id_table.get_by_key(&module.id).unwrap().to_string());
+			let mut local_ctx = LocalAnalyzerContex::new(&mut self.ctx.design, self.ctx.id_table.get_by_key(&module.id).unwrap().to_string(), module.id);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
@@ -175,12 +175,14 @@ pub struct GlobalAnalyzerContext<'a> {
 pub struct LocalAnalyzerContex {
 	pub scope_map: ModuleImplementationScope,
 	pub module_handle: hirn::design::ModuleHandle,
+	pub module_id: IdTableKey,
 }
 impl LocalAnalyzerContex {
-	pub fn new(design_handle: &mut hirn::design::Design, module_name: String) -> Self {
+	pub fn new(design_handle: &mut hirn::design::Design, module_name: String, module_id: IdTableKey) -> Self {
 		LocalAnalyzerContex {
 			scope_map: ModuleImplementationScope::new(),
 			module_handle: design_handle.new_module(&module_name).unwrap(),
+			module_id,
 		}
 	}
 }
@@ -232,11 +234,11 @@ impl super::VariableDeclared {
 		builder = builder.name(ctx.id_table.get_by_key(&self.name).unwrap());
 		if let Some(_) = self.qualifiers.signed {
 			// FIXME
-			builder = builder.signed(Expression::new_one());
+			builder = builder.signed(Expression::from(NumericConstant::new_signed(ctx.modules_declared.get(&local_ctx.module_id).unwrap().scope.bus_widths.get(&self.name).unwrap().clone())));
 		}
 		else if let Some(_) = self.qualifiers.unsigned {
 			// FIXME
-			builder = builder.unsigned(Expression::new_one());
+			builder = builder.unsigned(Expression::from(NumericConstant::new_unsigned(ctx.modules_declared.get(&local_ctx.module_id).unwrap().scope.bus_widths.get(&self.name).unwrap().clone())))
 		}
 		if let Some(_) = self.qualifiers.constant {
 			builder = builder.constant();
@@ -367,31 +369,33 @@ impl VariableBlockStatement {
 		Ok(())
 	}
 }
+
 pub fn analyze_qualifiers(
 	type_qualifiers: &Vec<TypeQualifier>,
 	mut already_combined: CombinedQualifiers,
 ) -> miette::Result<CombinedQualifiers> {
 	for q in type_qualifiers {
+		use TypeQualifier::*;
 		match q {
-			TypeQualifier::Signed { location } => {
+			Signed { location } => {
 				if let Some(prev) = &already_combined.signed {
 					report_duplicated_qualifier(location, prev, "signed")?;
 				}
 				already_combined.signed = Some(*location);
 			},
-			TypeQualifier::Unsigned { location } => {
+			Unsigned { location } => {
 				if let Some(prev) = &already_combined.unsigned {
 					report_duplicated_qualifier(location, prev, "unsigned")?;
 				}
 				already_combined.unsigned = Some(*location);
 			},
-			TypeQualifier::Const { location } => {
+			Const { location } => {
 				if let Some(prev) = &already_combined.constant {
 					report_duplicated_qualifier(location, prev, "const")?;
 				}
 				already_combined.constant = Some(*location);
 			},
-			TypeQualifier::Clock { location } => {
+			Clock { location } => {
 				if let Some(prev) = &already_combined.clock {
 					report_duplicated_qualifier(location, prev, "clock")?;
 				}
@@ -409,25 +413,25 @@ pub fn analyze_qualifiers(
 				}
 				already_combined.synchronous = Some((sync.expressions.clone(), sync.location));
 			},
-			TypeQualifier::Input { location } => {
+			Input { location } => {
 				if let Some(prev) = &already_combined.input {
 					report_duplicated_qualifier(location, prev, "input")?;
 				}
 				already_combined.input = Some(*location);
 			},
-			TypeQualifier::Output { location } => {
+			Output { location } => {
 				if let Some(prev) = &already_combined.output {
 					report_duplicated_qualifier(location, prev, "output")?;
 				}
 				already_combined.output = Some(*location);
 			},
-			TypeQualifier::Async { location } => {
+			Async { location } => {
 				if let Some(prev) = &already_combined.asynchronous {
 					report_duplicated_qualifier(location, prev, "async")?;
 				}
 				already_combined.asynchronous = Some(*location);
 			},
-			TypeQualifier::Tristate { location: _ } => (),
+			Tristate { location: _ } => (),
 		};
 	}
 	already_combined.check_for_contradicting()?;
