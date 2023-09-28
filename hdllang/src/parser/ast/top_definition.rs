@@ -1,6 +1,6 @@
 mod pretty_printable;
 
-use crate::analyzer::{CombinedQualifiers, ModuleDeclarationScope, ModuleDeclared, SemanticError};
+use crate::analyzer::{CombinedQualifiers, ModuleDeclarationScope, ModuleDeclared, SemanticError, Variable, AlreadyCreated, SignalSensitivity};
 use crate::lexer::IdTable;
 use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
 use crate::ProvidesCompilerDiagnostic;
@@ -15,6 +15,66 @@ pub enum TopDefinition {
 	UseStatement(UseStatement),
 }
 
+pub struct DeclarationScope{
+	pub signals: HashMap<IdTableKey, Variable>,
+	pub generics: HashMap<IdTableKey, Variable>,
+}
+impl DeclarationScope{
+	pub fn new() -> Self{
+		DeclarationScope{
+			signals: HashMap::new(),
+			generics: HashMap::new(),
+		}
+	}
+	pub fn is_declared(&self, name: &IdTableKey) -> bool{
+		self.signals.contains_key(name) || self.generics.contains_key(name)
+	}
+	pub fn declare(&mut self, variable: Variable)-> miette::Result<()>{
+		if let Some(var) = self.signals.get(&variable.name){
+			return Err(miette::Report::new(
+				SemanticError::DuplicateVariableDeclaration
+					.to_diagnostic_builder()
+					.label(variable.location, "Second declaration of this variable.")
+					.label(var.location, "Signal with this name is already declared here.")
+					.build(),
+			));
+		}
+		if let Some(var) = self.generics.get(&variable.name){
+			return Err(miette::Report::new(
+				SemanticError::DuplicateVariableDeclaration
+					.to_diagnostic_builder()
+					.label(variable.location, "Second declaration of this variable.")
+					.label(var.location, "Generic with this name is already declared here.")
+					.build(),
+			));
+		}
+		match variable.kind{
+			crate::analyzer::VariableKind::Signal(_) => self.signals.insert(variable.name, variable),
+			crate::analyzer::VariableKind::Generic(_) => self.generics.insert(variable.name, variable),
+		};
+		Ok(())
+	}
+	pub fn is_generic(&self) -> bool{
+		self.generics.len() > 0
+	}
+	pub fn analyze(&self) -> miette::Result<()>{
+		for (name, var) in &self.signals{
+			use crate::analyzer::VariableKind::*;
+			match &var.kind{
+    			Signal(signal) => {
+					use SignalSensitivity::*;
+					match &signal.sensitivity{
+        				Async(_) | Clock(_) | Const(_) | None => (),
+        				Comb(list, _) => todo!(),
+        				Sync(_, _) => todo!(),
+    				}
+				},
+    			Generic(_) => unreachable!(),
+			}
+		}
+		Ok(())
+	}
+}
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ModuleDeclaration {
 	pub metadata: Vec<CommentTableKey>,
@@ -46,11 +106,18 @@ impl ModuleDeclaration {
 			));
 		}
 		let mut scope = ModuleDeclarationScope::new();
+		let mut new_scope = DeclarationScope::new();
+		for statement in &self.statements{
+			let vars = statement.create_variable_declaration(AlreadyCreated::new(), nc_table)?;
+			for var in vars{
+				new_scope.declare(var)?;
+			}
+		}
 		for statement in &self.statements {
 			statement.analyze(CombinedQualifiers::new(), &mut scope, id_table)?;
 		}
 
-		let is_generic = scope.is_generic();
+		let is_generic = new_scope.is_generic();
 		if is_generic {
 			debug!(
 				"Found generic module declaration for {:?}",
