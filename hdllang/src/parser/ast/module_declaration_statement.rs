@@ -1,12 +1,14 @@
 mod pretty_printable;
 
-use crate::analyzer::{analyze_qualifiers, analyze_specifier, ModuleDeclarationScope, SemanticError, VariableDeclared, VariableKind, GenericVariable, GenericVariableKind, Signal, SignalType, SignalSensitivity, SignalSignedness, report_contradicting_qualifier, Direction};
+use num_bigint::BigInt;
+
+use crate::analyzer::*;
 use crate::lexer::IdTable;
 use crate::parser::ast::SourceLocation;
 use crate::{analyzer::CombinedQualifiers, lexer::CommentTableKey};
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 
-use super::{DirectDeclarator, TypeDeclarator, TypeQualifier, TypeSpecifier, type_declarator};
+use super::{DirectDeclarator, TypeDeclarator, TypeQualifier, TypeSpecifier};
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct VariableDeclarationStatement {
 	pub metadata: Vec<CommentTableKey>,
@@ -17,83 +19,76 @@ pub struct VariableDeclarationStatement {
 use crate::analyzer::Variable;
 use crate::lexer::NumericConstantTable;
 impl VariableDeclarationStatement{
-	pub fn create_variable_declaration(&self, nc_table: &NumericConstantTable) -> miette::Result<Vec<Variable>>{
+	pub fn create_variable_declaration(&self, mut already_created: AlreadyCreated, nc_table: &NumericConstantTable) -> miette::Result<Vec<Variable>>{
 		use TypeSpecifier::*;
 		let kind: VariableKind = 	match &self.type_declarator.specifier{
     		Auto { location } => return Err(miette::Report::new(SemanticError::AutoSpecifierInDeclaration.to_diagnostic_builder().label(*location, "Auto specifier is not allowed in variable declaration").build())),
-    		Int { .. } => {
-				VariableKind::Generic(GenericVariable { value: None, kind: GenericVariableKind::Int })
+    		Int { location } => {
+				VariableKind::Generic(GenericVariable { value: None, kind: GenericVariableKind::Int(*location) })
 			},
-    		Wire { .. } => {
-				todo!()
-			},
-    		Bool { .. } => {
-				VariableKind::Generic(GenericVariable { value: None, kind: GenericVariableKind::Bool })
-			},
-    		Bus(bus) => {
-				let mut sensitivity = SignalSensitivity::None;
-				let mut direction = Direction::None;
-				let mut signedness = SignalSignedness::None;
+    		Wire { location } => {
+				let wire_location = location;
+				match &already_created.signedness{
+        			SignalSignedness::Signed(prev) => report_qualifier_contradicting_specifier(location, prev, "signed", "wire")?,
+        			SignalSignedness::Unsigned(prev) => report_qualifier_contradicting_specifier(location, prev, "unsigned", "wire")?,
+        			SignalSignedness::None => (),
+    			};
 				use TypeQualifier::*;
 				for qualifier in &self.type_declarator.qualifiers{
 					match qualifier{
-        				Signed { location } => {
-							match signedness{
-								SignalSignedness::None => (),
-								SignalSignedness::Signed(_) => (),
-								_ => return Err(miette::Report::new(SemanticError::ContradictingQualifier.to_diagnostic_builder().label(*location, "Contradicting signedness").build())),
-							};
-							signedness = SignalSignedness::Signed(*location);
-						},
-        				Unsigned { location } => {
-							match signedness{
-								SignalSignedness::None => (),
-								SignalSignedness::Unsigned(_) => (),
-								_ => return Err(miette::Report::new(SemanticError::ContradictingQualifier.to_diagnostic_builder().label(*location, "Contradicting signedness").build())),
-							};
-							signedness = SignalSignedness::Unsigned(*location);
-						},
-        				Tristate { .. } => (),
-        				Const { location } => todo!(),
-        				Clock { location } => todo!(),
+        				Signed { location } => report_qualifier_contradicting_specifier(location, wire_location, "signed", "wire")?,
+        				Unsigned { location } => report_qualifier_contradicting_specifier(location, wire_location, "unsigned", "wire")?,
+        				Tristate { location } => already_created.add_direction(Direction::Tristate(*location))?,
+        				Const { location } => already_created.add_sensitivity(SignalSensitivity::Const(*location))?,
+        				Clock { location } => already_created.add_sensitivity(SignalSensitivity::Clock(*location))?,
         				Comb(_) => todo!(),
         				Sync(_) => todo!(),
-        				Input { location } => {
-							match direction{
-								Direction::None => (),
-								Direction::Input(_) => (),
-								_ => return Err(miette::Report::new(SemanticError::ContradictingQualifier.to_diagnostic_builder().label(*location, "Contradicting direction").build())),
-							};
-							direction = Direction::Input(*location);
-						},
-        				Output { location } => {
-							match direction{
-								Direction::None => (),
-								Direction::Output(_) => (),
-								_ => return Err(miette::Report::new(SemanticError::ContradictingQualifier.to_diagnostic_builder().label(*location, "Contradicting direction").build())),
-							};
-							direction = Direction::Output(*location);
-						},
-        				Async { location } => {
-							match sensitivity{
-								SignalSensitivity::None => (),
-								SignalSensitivity::Async(_) => (),
-								_ => return Err(miette::Report::new(SemanticError::ContradictingQualifier.to_diagnostic_builder().label(*location, "Contradicting signal sensitivity").build())),
-							};
-							sensitivity = SignalSensitivity::Async(*location);
-						},
+        				Input { location } => already_created.add_direction(Direction::Input(*location))?,
+        				Output { location } => already_created.add_direction(Direction::Output(*location))?,
+        				Async { location } => already_created.add_sensitivity(SignalSensitivity::Async(*location))?,
     				}
+				}
+				if already_created.direction == Direction::None{
+					return Err(miette::Report::new(SemanticError::MissingDirectionQualifier.to_diagnostic_builder().label(*location, "Wire must be either input or output").build()));
+				}
+				VariableKind::Signal(Signal { signal_type: SignalType::Wire(*location), sensitivity: already_created.sensitivity, direction: already_created.direction })
+			},
+    		Bool { location } => {
+				VariableKind::Generic(GenericVariable { value: None, kind: GenericVariableKind::Bool(*location) })
+			},
+    		Bus(bus) => {
+				use TypeQualifier::*;
+				for qualifier in &self.type_declarator.qualifiers{
+					match qualifier{
+        				Signed { location } => already_created.add_signedness(SignalSignedness::Signed(*location))?,
+        				Unsigned { location } => already_created.add_signedness(SignalSignedness::Unsigned(*location))?,
+        				Tristate { location } => already_created.add_direction(Direction::Tristate(*location))?,
+        				Const { location } => already_created.add_sensitivity(SignalSensitivity::Const(*location))?,
+        				Clock { location } => already_created.add_sensitivity(SignalSensitivity::Clock(*location))?,
+        				Comb(_) => todo!(),
+        				Sync(_) => todo!(),
+        				Input { location } => already_created.add_direction(Direction::Input(*location))?,
+        				Output { location } => already_created.add_direction(Direction::Output(*location))?,
+        				Async { location } => already_created.add_sensitivity(SignalSensitivity::Async(*location))?,
+    				}
+				}
+				if already_created.direction == Direction::None{
+					return Err(miette::Report::new(SemanticError::MissingDirectionQualifier.to_diagnostic_builder().label(bus.location, "Bus must be either input or output").build()));
+				}
+				let width = bus.width.evaluate_in_declaration(nc_table)?.value;
+				if width <= BigInt::from(0) {
+					return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(bus.location, "Bus width must be positive").build()));
 				}
 				VariableKind::Signal(Signal{
 					signal_type: SignalType::Bus{
-						width: bus.width.evaluate_in_declaration(nc_table)?.value,
-						signedness: SignalSignedness::None
+						width,
+						signedness: already_created.signedness,
+						location: bus.location,
 					},
-					sensitivity,
-					direction,
+					sensitivity: already_created.sensitivity,
+					direction: already_created.direction,
 				})
 			},
-		
 		};
 
 		let mut variables = Vec::new();
@@ -101,6 +96,10 @@ impl VariableDeclarationStatement{
 		for direct_declarator in &self.direct_declarators{
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_declarator.array_declarators{
+				let size = array_declarator.evaluate_in_declaration(nc_table)?.value;
+				if size <= BigInt::from(0){
+					return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(array_declarator.get_location(), "Array size must be positive").build()));
+				}
 				dimensions.push(array_declarator.evaluate_in_declaration(nc_table)?.value);
 			}
 			variables.push(Variable{
@@ -120,6 +119,30 @@ pub struct ModuleDeclarationVariableBlock {
 	pub statements: Vec<ModuleDeclarationStatement>,
 	pub location: SourceSpan,
 }
+impl ModuleDeclarationVariableBlock {
+	pub fn create_variable_declaration(&self, mut already_created: AlreadyCreated, nc_table: &NumericConstantTable) -> miette::Result<Vec<Variable>>{
+		use TypeQualifier::*;
+		for qualifier in &self.types{
+			match qualifier{
+				Signed { location } => already_created.add_signedness(SignalSignedness::Signed(*location))?,
+				Unsigned { location } => already_created.add_signedness(SignalSignedness::Unsigned(*location))?,
+				Tristate { location } => already_created.add_direction(Direction::Tristate(*location))?,
+				Const { location } => already_created.add_sensitivity(SignalSensitivity::Const(*location))?,
+				Clock { location } => already_created.add_sensitivity(SignalSensitivity::Clock(*location))?,
+				Comb(_) => todo!(),
+				Sync(_) => todo!(),
+				Input { location } => already_created.add_direction(Direction::Input(*location))?,
+				Output { location } => already_created.add_direction(Direction::Output(*location))?,
+				Async { location } => already_created.add_sensitivity(SignalSensitivity::Async(*location))?,
+			}
+		}
+		let mut variables = Vec::new();
+		for statement in &self.statements{
+			variables.append(&mut statement.create_variable_declaration(already_created.clone(), nc_table)?);
+		}
+		Ok(variables)
+	}
+}
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub enum ModuleDeclarationStatement {
 	VariableDeclarationStatement(VariableDeclarationStatement),
@@ -127,6 +150,13 @@ pub enum ModuleDeclarationStatement {
 }
 
 impl ModuleDeclarationStatement {
+	pub fn create_variable_declaration(&self, already_created: AlreadyCreated, nc_table: &NumericConstantTable) -> miette::Result<Vec<Variable>>{
+		use ModuleDeclarationStatement::*;
+		match self{
+			VariableDeclarationStatement(declaration) => declaration.create_variable_declaration(already_created, nc_table),
+			VariableBlock(block) => block.create_variable_declaration(already_created, nc_table),
+		}
+	}
 	pub fn analyze(
 		&self,
 		mut already_combined: CombinedQualifiers,

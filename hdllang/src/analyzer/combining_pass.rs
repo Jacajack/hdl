@@ -477,8 +477,8 @@ pub fn analyze_specifier_implementation(
 	Ok(())
 }
 pub fn report_qualifier_contradicting_specifier(
-	location1: &SourceSpan,
-	location2: &SourceSpan,
+	qualifier_location: &SourceSpan,
+	specifier_location: &SourceSpan,
 	qualifier_name: &str,
 	specifier_name: &str,
 ) -> miette::Result<()> {
@@ -486,7 +486,7 @@ pub fn report_qualifier_contradicting_specifier(
 		SemanticError::ContradictingSpecifier
 			.to_diagnostic_builder()
 			.label(
-				*location1,
+				*qualifier_location,
 				format!(
 					"This \"{}\"qualifier contradicts the \"{}\" specifier of this variable",
 					qualifier_name, specifier_name
@@ -494,7 +494,7 @@ pub fn report_qualifier_contradicting_specifier(
 				.as_str(),
 			)
 			.label(
-				*location2,
+				*specifier_location,
 				format!("This is the \"{}\" specifier of this variable", specifier_name).as_str(),
 			)
 			.build(),
