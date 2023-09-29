@@ -43,6 +43,8 @@ pub enum SemanticError {
 	GenericModuleImplementationNotFound,
 	#[error("This expression is not allowed in a non-generic module declaration")]
 	ExpressionNotAllowedInNonGenericModuleDeclaration,
+	#[error("This signal is missing a sensitivity qualifier")]
+	MissingSensitivityQualifier,
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -108,6 +110,9 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
 			ExpressionNotAllowedInNonGenericModuleDeclaration => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please only allowed expressions in non-generic module declarations.")
+				.build(),
+    		MissingSensitivityQualifier => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please add sensitivity qualifier to this signal.")
 				.build(),
 		}
 	}

@@ -1,5 +1,8 @@
 mod pretty_printable;
 
+use hirn::SignalId;
+use hirn::design::Design;
+
 use crate::analyzer::{CombinedQualifiers, ModuleDeclarationScope, ModuleDeclared, SemanticError, Variable, AlreadyCreated, SignalSensitivity};
 use crate::lexer::IdTable;
 use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
@@ -14,15 +17,17 @@ pub enum TopDefinition {
 	PackageDeclaration(PackageDeclaration),
 	UseStatement(UseStatement),
 }
-
+#[derive(Debug, Clone)]
 pub struct DeclarationScope{
 	pub signals: HashMap<IdTableKey, Variable>,
+	pub signals_id: HashMap<IdTableKey, SignalId>,
 	pub generics: HashMap<IdTableKey, Variable>,
 }
 impl DeclarationScope{
 	pub fn new() -> Self{
 		DeclarationScope{
 			signals: HashMap::new(),
+			signals_id: HashMap::new(),
 			generics: HashMap::new(),
 		}
 	}
@@ -57,16 +62,111 @@ impl DeclarationScope{
 	pub fn is_generic(&self) -> bool{
 		self.generics.len() > 0
 	}
-	pub fn analyze(&self) -> miette::Result<()>{
-		for (name, var) in &self.signals{
+	pub fn analyze(&self, id_table: &IdTable) -> miette::Result<()>{
+		for (_, var) in &self.signals{
 			use crate::analyzer::VariableKind::*;
 			match &var.kind{
     			Signal(signal) => {
 					use SignalSensitivity::*;
 					match &signal.sensitivity{
-        				Async(_) | Clock(_) | Const(_) | None => (),
-        				Comb(list, _) => todo!(),
-        				Sync(_, _) => todo!(),
+        				Async(_) | Clock(_) | Const(_) | NoSensitivity => (),
+        				Comb(list, qualifier_location) => {
+							for expr in &list.list{
+								let name = expr.clock_signal;
+								if name == var.name{
+									return Err(miette::Report::new(SemanticError::VariableReferencingItself
+										.to_diagnostic_builder()
+										.label(var.location, format!("This variable's {:?} sync list contains itself", id_table.get_by_key(&var.name).unwrap()).as_str())
+										.label(*qualifier_location, "\"comb\" qualifier must have at most consists of one variable and its negation")
+										.build(),
+									));
+								}
+								match self.signals.get(&name){
+									None => return Err(miette::Report::new(SemanticError::VariableNotDeclared.to_diagnostic_builder()
+										.label(*qualifier_location, format!("This variable's {:?} qualifier \"comb\" references a variable {:?} that is not declared", id_table.get_by_key(&var.name).unwrap(), id_table.get_by_key(&name).unwrap()).as_str())
+										.build())),
+									Some(var2) => {
+										if ! var.is_clock() {
+											return  Err(miette::Report::new(SemanticError::NotClockSignalInSync.to_diagnostic_builder()
+												.label(var.location, format!("This variable's {:?} sync list contains non-clock signals", id_table.get_by_key(&var.name).unwrap()).as_str())
+												.label(*qualifier_location, "This is the sync list")
+												.label(var2.location, format!("This variable {:?} is not a clock signal", id_table.get_by_key(&var2.name).unwrap()).as_str())
+												.build()))
+										}
+									},
+								}
+							}
+						},
+        				Sync(list, qualifier_location) => {
+							match list.list.len(){
+								1 => {
+									let name = list.list[0].clock_signal;
+									match self.signals.get(&name){
+										None => return Err(miette::Report::new(SemanticError::VariableNotDeclared.to_diagnostic_builder()
+										.label(*qualifier_location, format!("This variable's {:?} qualifier \"comb\" references a variable {:?} that is not declared", id_table.get_by_key(&var.name).unwrap(), id_table.get_by_key(&name).unwrap()).as_str())
+										.build())),
+										Some(var2) => {
+											if ! var.is_clock() {
+												return  Err(miette::Report::new(SemanticError::NotClockSignalInSync.to_diagnostic_builder()
+													.label(var.location, format!("This variable's {:?} sync list contains non-clock signals",id_table.get_by_key(&var.name).unwrap()).as_str())
+													.label(*qualifier_location, "This is the sync list")
+													.label(var2.location, format!("This variable {:?} is not a clock signal", id_table.get_by_key(&var2.name).unwrap()).as_str())
+													.build()))
+											}
+										},
+									}
+								},
+								2 => {
+									let first = list.list[0].clock_signal;
+									let second = list.list[1].clock_signal;
+									match self.signals.get(&first){
+										None => return Err(miette::Report::new(SemanticError::VariableNotDeclared.to_diagnostic_builder()
+										.label(*qualifier_location, format!("This variable's {:?} qualifier \"comb\" references a variable {:?} that is not declared", id_table.get_by_key(&var.name).unwrap(), id_table.get_by_key(&first).unwrap()).as_str())
+										.build())),
+										Some(var2) => {
+											if ! var.is_clock() {
+												return  Err(miette::Report::new(SemanticError::NotClockSignalInSync.to_diagnostic_builder()
+													.label(var.location, format!("This variable's {:?} sync list contains non-clock signals",id_table.get_by_key(&var.name).unwrap()).as_str())
+													.label(*qualifier_location, "This is the sync list")
+													.label(var2.location, format!("This variable {:?} is not a clock signal", id_table.get_by_key(&var2.name).unwrap()).as_str())
+													.build()))
+											}
+										},
+									}
+									if first != second {
+										return Err(miette::Report::new(SemanticError::ForbiddenExpressionInSyncOrComb
+											.to_diagnostic_builder()
+											.label(var.location, format!("This variable's {:?} sync list contains two different variables",id_table.get_by_key(&var.name).unwrap()).as_str())
+											.label(*qualifier_location, "\"sync\" qualifier must have at most consists of one variable and its negation")
+											.build(),
+										));
+									} else if list.list[0].on_rising != list.list[1].on_rising {
+										return Err(miette::Report::new(SemanticError::ForbiddenExpressionInSyncOrComb
+											.to_diagnostic_builder()
+											.label(var.location, format!("This variable's {:?} sync list contains two variables with different negation",id_table.get_by_key(&var.name).unwrap()).as_str())
+											.label(*qualifier_location, "\"sync\" qualifier must have at most consists of one variable and its negation")
+											.build(),
+										));
+									}
+								},
+								_ => return Err(miette::Report::new(
+									SemanticError::ForbiddenExpressionInSyncOrComb
+										.to_diagnostic_builder()
+										.label(
+										var.location,
+											format!(
+												"This variable's {:?} sync list contains more than two variables",
+												id_table.get_by_key(&var.name).unwrap()
+											)
+											.as_str(),
+										)
+										.label(
+											*qualifier_location,
+											"\"sync\" qualifier must have at most consists of one variable and its negation",
+										)
+										.build())),
+							}
+						},
     				}
 				},
     			Generic(_) => unreachable!(),
@@ -86,6 +186,7 @@ pub struct ModuleDeclaration {
 impl ModuleDeclaration {
 	pub fn analyze(
 		&self,
+		design_handle: &mut Design,
 		id_table: &IdTable,
 		nc_table: &crate::lexer::NumericConstantTable,
 		modules_declared: &mut HashMap<IdTableKey, ModuleDeclared>,
@@ -105,6 +206,7 @@ impl ModuleDeclaration {
 					.build(),
 			));
 		}
+		let mut handle = design_handle.new_module(id_table.get_by_key(&self.id).unwrap()).unwrap();
 		let mut scope = ModuleDeclarationScope::new();
 		let mut new_scope = DeclarationScope::new();
 		for statement in &self.statements{
@@ -126,6 +228,11 @@ impl ModuleDeclaration {
 		}
 		else {
 			scope.analyze(id_table, nc_table)?;
+			new_scope.analyze(id_table)?;
+			for var in new_scope.signals.values() {
+				// create variable with API
+				new_scope.signals_id.insert(var.name, var.register(id_table, &mut handle)?);
+			}
 			debug!(
 				"Found module declaration for {:?}",
 				id_table.get_by_key(&self.id).unwrap()
@@ -133,7 +240,8 @@ impl ModuleDeclaration {
 		}
 		let m = ModuleDeclared {
 			name: self.id,
-			scope,
+			scope: new_scope,
+			handle,
 			is_generic,
 			location: self.location,
 		};
