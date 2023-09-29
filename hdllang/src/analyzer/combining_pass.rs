@@ -1,4 +1,4 @@
-use hirn::{design::{ScopeHandle, SignalDirection, NumericConstant}, Expression};
+use hirn::design::{ScopeHandle, SignalDirection};
 use log::debug;
 
 use super::{CombinedQualifiers, ModuleDeclared, SemanticError};
@@ -30,7 +30,7 @@ pub fn combine<'a>(
 	if path_from_root.as_str() == "" {
 		path_from_root = ".".to_string();
 	}
-
+	let mut design =  hirn::design::Design::new();
 	let mut packaged_paths: Vec<String> = Vec::new();
 	let mut modules_declared: HashMap<IdTableKey, ModuleDeclared> = HashMap::new();
 	let mut modules_implemented: HashMap<IdTableKey, &ModuleImplementation> = HashMap::new();
@@ -44,7 +44,8 @@ pub fn combine<'a>(
 					"Found module declaration for {:?}",
 					id_table.get_by_key(&declaration.id).unwrap()
 				);
-				declaration.analyze(id_table, nc_table, &mut modules_declared)?
+				
+				declaration.analyze(&mut design, id_table, nc_table, &mut modules_declared)?
 			},
 			ModuleImplementation(implementation) => {
 				debug!(
@@ -118,7 +119,7 @@ pub fn combine<'a>(
 		modules_declared,
 		generic_modules,
 		scope_map: HashMap::new(),
-		design: hirn::design::Design::new(),
+		design,
 	};
 	
 	Ok((packaged_paths, ctx, modules_implemented))
@@ -192,10 +193,10 @@ impl ModuleImplementation {
 		debug!("Analyzing module implementation {}", ctx.id_table.get_by_key(&self.id).unwrap());
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		let module  = ctx.modules_declared.get(&self.id).unwrap();
-		for var_id in module.scope.variables.keys() {
-			let (var, loc) = module.scope.variables.get(var_id).unwrap();
-			// create variable with API
-		}
+		//for var_id in module.scope.variables.keys() {
+		//	let (var, loc) = module.scope.variables.get(var_id).unwrap();
+		//	// create variable with API
+		//}
 		let id = local_ctx.scope_map.new_scope(None);
 		match &self.statement {
 			ModuleImplementationBlockStatement(block) => block.analyze(ctx, local_ctx, id)?,
@@ -209,55 +210,17 @@ impl ModuleImplementation {
 		let module  = ctx.modules_declared.get(&self.id).unwrap();
 		let mut api_scope: ScopeHandle = local_ctx.module_handle.scope();
 
-		for var_id in module.scope.variables.keys() {
-			let (var, loc) = module.scope.variables.get(var_id).unwrap();
-			// create variable with API
-			var.register(ctx, local_ctx, &mut api_scope)?;
-		}
+		//for var in module.scope.signals.values() {
+		//	// create variable with API
+		//	var.register(ctx, local_ctx, &mut api_scope)?;
+		//}
+
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		match &self.statement {
 			ModuleImplementationBlockStatement(block) => (),
 			_ => unreachable!(),
 		};
 		debug!("Done codegen pass for module implementation {}", ctx.id_table.get_by_key(&self.id).unwrap());
-		Ok(())
-	}
-}
-impl super::VariableDeclared {
-	// This function is called to register the variable in the api design
-	pub fn register(
-		&self,
-		ctx: & GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
-		scope_handle: &mut ScopeHandle) -> miette::Result<()> {
-		let mut builder = scope_handle.new_signal().unwrap();
-		builder = builder.name(ctx.id_table.get_by_key(&self.name).unwrap());
-		if let Some(_) = self.qualifiers.signed {
-			// FIXME
-			builder = builder.signed(Expression::from(NumericConstant::new_signed(ctx.modules_declared.get(&local_ctx.module_id).unwrap().scope.bus_widths.get(&self.name).unwrap().clone())));
-		}
-		else if let Some(_) = self.qualifiers.unsigned {
-			// FIXME
-			builder = builder.unsigned(Expression::from(NumericConstant::new_unsigned(ctx.modules_declared.get(&local_ctx.module_id).unwrap().scope.bus_widths.get(&self.name).unwrap().clone())))
-		}
-		if let Some(_) = self.qualifiers.constant {
-			builder = builder.constant();
-		}
-		use TypeSpecifier::*;
-
-		match self.specifier{
-    		Wire { .. } => builder = builder.wire(),
-    		Bus(_) => (),
-			_ => unreachable!(),
-		};
-
-		let id = builder.build().unwrap();
-		if let Some(_) = self.qualifiers.input {
-			local_ctx.module_handle.expose(id, SignalDirection::Input).unwrap();
-		}
-		else if let Some(_) = self.qualifiers.output {
-			local_ctx.module_handle.expose(id, SignalDirection::Output).unwrap();		
-		}
 		Ok(())
 	}
 }
@@ -290,11 +253,31 @@ impl ModuleImplementationBlockStatement {
 		}
 		Ok(())
 	}
-	pub fn codegen_pass(
+	pub fn codegen_pass(&self,
 		ctx: &mut GlobalAnalyzerContext,
 		local_ctx: &mut LocalAnalyzerContex,
 		api_scope: &mut ScopeHandle) -> miette::Result<()> {
-		todo!()
+		use crate::parser::ast::ModuleImplementationStatement::*;
+		for statement in &self.statements {
+			//match statement{
+			//	VariableBlock(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
+			//	VariableDefinition(definition) => {
+			//		definition.codegen_pass(ctx, local_ctx, api_scope)?
+			//	},
+			//	AssignmentStatement(_) => todo!(),
+			//	IfElseStatement(conditional) => {
+					
+			//	},
+			//	IterationStatement(_) => todo!(),
+			//	InstantiationStatement(inst) => {
+			//		api_scope.new_module(module)
+			//	},
+			//	ModuleImplementationBlockStatement(block) => {
+			//		block.codegen_pass(ctx, local_ctx, api_scope)?;
+			//	},
+			//}
+		}
+		Ok(())
 	}
 }
 impl VariableDefinition {

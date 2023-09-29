@@ -41,15 +41,18 @@ impl VariableDeclarationStatement{
         				Tristate { location } => already_created.add_direction(Direction::Tristate(*location))?,
         				Const { location } => already_created.add_sensitivity(SignalSensitivity::Const(*location))?,
         				Clock { location } => already_created.add_sensitivity(SignalSensitivity::Clock(*location))?,
-        				Comb(_) => todo!(),
-        				Sync(_) => todo!(),
+        				Comb(_) => println!("Not implemented yet"),
+        				Sync(_) => println!("Not implemented yet"),
         				Input { location } => already_created.add_direction(Direction::Input(*location))?,
         				Output { location } => already_created.add_direction(Direction::Output(*location))?,
         				Async { location } => already_created.add_sensitivity(SignalSensitivity::Async(*location))?,
     				}
 				}
 				if already_created.direction == Direction::None{
-					return Err(miette::Report::new(SemanticError::MissingDirectionQualifier.to_diagnostic_builder().label(*location, "Wire must be either input or output").build()));
+					return Err(miette::Report::new(SemanticError::MissingDirectionQualifier.to_diagnostic_builder().label(self.location, "Wire must be either input or output").build()));
+				}
+				if already_created.sensitivity == SignalSensitivity::NoSensitivity{
+					return Err(miette::Report::new(SemanticError::MissingSensitivityQualifier.to_diagnostic_builder().label(self.location, "Signal must be either const, clock, comb, sync or async").build()));
 				}
 				VariableKind::Signal(Signal { signal_type: SignalType::Wire(*location), sensitivity: already_created.sensitivity, direction: already_created.direction })
 			},
@@ -74,6 +77,9 @@ impl VariableDeclarationStatement{
 				}
 				if already_created.direction == Direction::None{
 					return Err(miette::Report::new(SemanticError::MissingDirectionQualifier.to_diagnostic_builder().label(bus.location, "Bus must be either input or output").build()));
+				}
+				if already_created.sensitivity == SignalSensitivity::NoSensitivity{
+					return Err(miette::Report::new(SemanticError::MissingSensitivityQualifier.to_diagnostic_builder().label(self.location, "Signal must be either const, clock, comb, sync or async").build()));
 				}
 				let width = bus.width.evaluate_in_declaration(nc_table)?.value;
 				if width <= BigInt::from(0) {

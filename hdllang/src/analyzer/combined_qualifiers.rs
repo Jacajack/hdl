@@ -1,10 +1,10 @@
-use std::collections::HashSet;
 
+use hirn::{design::{ScopeHandle, NumericConstant, ModuleHandle}, SignalId};
 use num_bigint::BigInt;
 
-use crate::{parser::ast::Expression, ProvidesCompilerDiagnostic, SourceSpan, lexer::IdTableKey, analyzer::report_duplicated_qualifier};
+use crate::{parser::ast::{Expression, DeclarationScope}, ProvidesCompilerDiagnostic, SourceSpan, lexer::IdTableKey, analyzer::report_duplicated_qualifier, core::id_table};
 
-use super::SemanticError;
+use super::{SemanticError, GlobalAnalyzerContext, LocalAnalyzerContex};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SignalSignedness {
 	Signed(SourceSpan),
@@ -55,7 +55,9 @@ pub struct EdgeSensitivity {
 
 /// Determines sensitivity of a signal to certain clocks
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ClockSensitivityList(HashSet<EdgeSensitivity>);
+pub struct ClockSensitivityList{
+	pub list: Vec<EdgeSensitivity>
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum SignalSensitivity {
 	Async(SourceSpan),
@@ -64,7 +66,7 @@ pub enum SignalSensitivity {
 	Clock(SourceSpan),
 	Const(SourceSpan),
 	/// if at the end of the analysis this is still None, it is an error
-	None
+	NoSensitivity
 }
 impl SignalSensitivity{
 	pub fn name(&self) -> &'static str{
@@ -75,7 +77,7 @@ impl SignalSensitivity{
 			Sync(_, _) => "sync",
 			Clock(_) => "clock",
 			Const(_) => "const",
-			None => "none",
+			NoSensitivity => "none",
 		}
 	}
 	pub fn location(&self) -> Option<&SourceSpan>{
@@ -85,7 +87,7 @@ impl SignalSensitivity{
 			SignalSensitivity::Sync(_, x) => Some(x),
 			SignalSensitivity::Clock(x) => Some(x),
 			SignalSensitivity::Const(x) => Some(x),
-			SignalSensitivity::None => None,
+			SignalSensitivity::NoSensitivity => None,
 		}
 	}
 }
@@ -101,7 +103,7 @@ impl AlreadyCreated{
 		Self{
 			signedness: SignalSignedness::None,
 			direction: Direction::None,
-			sensitivity: SignalSensitivity::None,
+			sensitivity: SignalSensitivity::NoSensitivity,
 		}
 	}
 	pub fn add_direction(&mut self, direction: Direction)->miette::Result<()>{
@@ -127,8 +129,8 @@ impl AlreadyCreated{
 		use SignalSensitivity::*;
 		match (&self.sensitivity, &sensitivity){
     		(Async(prev), Async(incoming)) | (Comb(_, prev), Comb(_, incoming)) | (Sync(_, prev), Sync(_, incoming)) | (Clock(prev), Clock(incoming)) | (Const(prev), Const(incoming)) => report_duplicated_qualifier(incoming, prev, sensitivity.name())?,
-    		(None, _)=> self.sensitivity = sensitivity,
-    		(_, None) => (),
+    		(NoSensitivity, _)=> self.sensitivity = sensitivity,
+    		(_, NoSensitivity) => (),
 			(_,_) => report_contradicting_qualifier(self.sensitivity.location().unwrap(), sensitivity.location().unwrap(), self.sensitivity.name(), sensitivity.name())?,
 
 		};
@@ -159,6 +161,51 @@ pub struct Variable{
 	pub location: SourceSpan,
 	pub kind: VariableKind,
 
+}
+impl Variable{
+	pub fn is_clock(&self) -> bool {
+		match &self.kind{
+			VariableKind::Signal(signal) => {
+				match &signal.sensitivity{
+					SignalSensitivity::Clock(_) => true,
+					_ => false,
+				}
+			},
+			VariableKind::Generic(_) => false,
+		}
+	}
+	pub fn register(&self,
+		id_table: &id_table::IdTable,
+		module_handle: &mut ModuleHandle) -> miette::Result<SignalId> {
+		
+		let mut builder = module_handle.scope().new_signal().unwrap();
+		builder = builder.name(id_table.get_by_key(&self.name).unwrap());
+		let id: SignalId;
+		match &self.kind{
+    		VariableKind::Signal(signal) => {
+				match &signal.signal_type{
+        			SignalType::Bus { width, signedness, location } => {
+						match signedness{
+							SignalSignedness::Signed(_) => builder = builder.signed(hirn::Expression::from(NumericConstant::new_signed(width.clone()))),
+							SignalSignedness::Unsigned(_) => builder = builder.unsigned(hirn::Expression::from(NumericConstant::new_signed(width.clone()))),
+							SignalSignedness::None => unreachable!(),
+						}
+					},
+        			SignalType::Wire(_) => builder = builder.wire(),
+    			}
+				id = builder.build().unwrap();
+				match &signal.direction{
+        			Direction::Input(_) => module_handle.expose(id, hirn::design::SignalDirection::Input).unwrap(),
+        			Direction::Output(_) => module_handle.expose(id, hirn::design::SignalDirection::Output).unwrap(),
+        			Direction::Tristate(_) => (),
+        			Direction::None => unreachable!(),
+    			};
+
+			},
+    		VariableKind::Generic(_) => todo!("generic variables") ,
+		}
+		Ok(id)
+	}
 }
 #[derive(Clone, Debug)]
 pub enum GenericVariableKind{
