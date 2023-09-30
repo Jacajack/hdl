@@ -210,7 +210,7 @@ impl ModuleDeclaration {
 		let mut scope = ModuleDeclarationScope::new();
 		let mut new_scope = DeclarationScope::new();
 		for statement in &self.statements{
-			let vars = statement.create_variable_declaration(AlreadyCreated::new(), nc_table)?;
+			let vars = statement.create_variable_declaration(AlreadyCreated::new(), nc_table, &new_scope)?;
 			for var in vars{
 				new_scope.declare(var)?;
 			}
