@@ -1,10 +1,10 @@
 
-use hirn::{design::{ScopeHandle, NumericConstant, ModuleHandle}, SignalId};
+use hirn::{design::{NumericConstant, ModuleHandle}, SignalId};
 use num_bigint::BigInt;
 
-use crate::{parser::ast::{Expression, DeclarationScope}, ProvidesCompilerDiagnostic, SourceSpan, lexer::IdTableKey, analyzer::report_duplicated_qualifier, core::id_table};
+use crate::{parser::ast::Expression, ProvidesCompilerDiagnostic, SourceSpan, lexer::IdTableKey, analyzer::report_duplicated_qualifier, core::id_table};
 
-use super::{SemanticError, GlobalAnalyzerContext, LocalAnalyzerContex};
+use super::*;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SignalSignedness {
 	Signed(SourceSpan),
@@ -36,8 +36,27 @@ pub enum Direction {
 	Tristate(SourceSpan),
 	None
 }
+impl Direction{
+	pub fn name(&self) -> &'static str{
+		use Direction::*;
+		match self{
+			Input(_) => "input",
+			Output(_) => "output",
+			Tristate(_) => "tristate",
+			None => "none",
+		}
+	}
+	pub fn location(&self) -> Option<&SourceSpan>{
+		match self{
+			Direction::Input(x) => Some(x),
+			Direction::Output(x) => Some(x),
+			Direction::Tristate(x) => Some(x),
+			Direction::None => None,
+		}
+	}
+}
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SignalType {
 	Bus {
 		width: BigInt,
@@ -108,20 +127,11 @@ impl AlreadyCreated{
 	}
 	pub fn add_direction(&mut self, direction: Direction)->miette::Result<()>{
 		use Direction::*;
-		match (&self.direction, direction){
-    		(Input(prev), Input(incoming)) => report_duplicated_qualifier(&incoming, prev, "input")?,
-    		(Input(prev), Output(incoming)) => report_contradicting_qualifier(prev, &incoming, "input", "output")?,
-    		(Input(prev), Tristate(incoming)) => report_contradicting_qualifier(prev, &incoming, "input", "tristate")?,
-    		(Output(prev), Input(incoming)) => report_contradicting_qualifier(prev, &incoming, "output", "input")?,
-    		(Output(prev), Output(incoming)) => report_duplicated_qualifier(&incoming, prev, "input")?,
-    		(Output(prev), Tristate(incoming)) => report_contradicting_qualifier(prev, &incoming, "output", "tristate")?,
-    		(Tristate(prev), Input(incoming)) => report_contradicting_qualifier(prev, &incoming, "tristate", "input")?,
-    		(Tristate(prev), Output(incoming)) => report_contradicting_qualifier(prev, &incoming, "tristate", "output")?,
-    		(Tristate(prev), Tristate(incoming)) => report_duplicated_qualifier(&incoming, prev, "input")?,
-    		(None, Input(incoming)) => self.direction = Input(incoming),
-    		(None, Output(incoming)) => self.direction = Output(incoming),
-    		(None, Tristate(incoming)) => self.direction = Tristate(incoming),
-    		(_, _) => (),
+		match (&self.direction, &direction){
+    		(Input(prev), Input(incoming)) | (Output(prev), Output(incoming)) | (Tristate(prev), Tristate(incoming))  => report_duplicated_qualifier(&incoming, prev, direction.name())?,
+    		(None, _) => self.direction = direction,
+			(_, None) => (),
+    		(_, _) => report_contradicting_qualifier(self.direction.location().unwrap(), direction.location().unwrap(),  self.direction.name(), direction.name())?,
 		}
 		Ok(())
 	}
@@ -147,13 +157,13 @@ impl AlreadyCreated{
 		Ok(())
 	}
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signal{
 	pub signal_type: SignalType,
 	pub sensitivity: SignalSensitivity,
 	pub direction: Direction,
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Variable{
 	pub name: IdTableKey,
 	pub dimensions: Vec<BigInt>,
@@ -207,18 +217,18 @@ impl Variable{
 		Ok(id)
 	}
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GenericVariableKind{
 	Auto(SourceSpan),
 	Int(SourceSpan),
 	Bool(SourceSpan),
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GenericVariable{
 	pub value: Option<BigInt>,
 	pub kind: GenericVariableKind
 }
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum VariableKind{
 	Signal(Signal),
 	Generic(GenericVariable),

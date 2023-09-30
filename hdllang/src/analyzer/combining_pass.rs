@@ -138,7 +138,7 @@ impl <'a> SemanticalAnalyzer<'a>{
 	}
 	pub fn process(&mut self) -> miette::Result<()> {
 		for module in self.modules_implemented.values(){
-			let mut local_ctx = LocalAnalyzerContex::new(&mut self.ctx.design, self.ctx.id_table.get_by_key(&module.id).unwrap().to_string(), module.id);
+			let mut local_ctx = LocalAnalyzerContex::new(&mut self.ctx.design, module.id);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
@@ -175,14 +175,12 @@ pub struct GlobalAnalyzerContext<'a> {
 /// Per module context for semantic analysis
 pub struct LocalAnalyzerContex {
 	pub scope_map: ModuleImplementationScope,
-	pub module_handle: hirn::design::ModuleHandle,
 	pub module_id: IdTableKey,
 }
 impl LocalAnalyzerContex {
-	pub fn new(design_handle: &mut hirn::design::Design, module_name: String, module_id: IdTableKey) -> Self {
+	pub fn new(design_handle: &mut hirn::design::Design,  module_id: IdTableKey) -> Self {
 		LocalAnalyzerContex {
 			scope_map: ModuleImplementationScope::new(),
-			module_handle: design_handle.new_module(&module_name).unwrap(),
 			module_id,
 		}
 	}
@@ -207,8 +205,8 @@ impl ModuleImplementation {
 	}
 	pub fn codegen_pass(&self, ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex) -> miette::Result<()> {
 		debug!("Codegen pass for module implementation {}", ctx.id_table.get_by_key(&self.id).unwrap());
-		let module  = ctx.modules_declared.get(&self.id).unwrap();
-		let mut api_scope: ScopeHandle = local_ctx.module_handle.scope();
+		//let module  = ctx.modules_declared.get(&self.id).unwrap();
+		let mut api_scope = ctx.modules_declared.get_mut(&local_ctx.module_id).unwrap().handle.scope();
 
 		//for var in module.scope.signals.values() {
 		//	// create variable with API
@@ -217,7 +215,7 @@ impl ModuleImplementation {
 
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		match &self.statement {
-			ModuleImplementationBlockStatement(block) => (),
+			ModuleImplementationBlockStatement(block) => block.codegen_pass(ctx, local_ctx, &mut api_scope)?,
 			_ => unreachable!(),
 		};
 		debug!("Done codegen pass for module implementation {}", ctx.id_table.get_by_key(&self.id).unwrap());
@@ -259,7 +257,7 @@ impl ModuleImplementationBlockStatement {
 		api_scope: &mut ScopeHandle) -> miette::Result<()> {
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		for statement in &self.statements {
-			//match statement{
+			match statement{
 			//	VariableBlock(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
 			//	VariableDefinition(definition) => {
 			//		definition.codegen_pass(ctx, local_ctx, api_scope)?
@@ -272,10 +270,11 @@ impl ModuleImplementationBlockStatement {
 			//	InstantiationStatement(inst) => {
 			//		api_scope.new_module(module)
 			//	},
-			//	ModuleImplementationBlockStatement(block) => {
-			//		block.codegen_pass(ctx, local_ctx, api_scope)?;
-			//	},
-			//}
+			ModuleImplementationBlockStatement(block) => {
+					block.codegen_pass(ctx, local_ctx, &mut api_scope.new_subscope().unwrap())?;
+			}
+			_ => (),
+			}
 		}
 		Ok(())
 	}
@@ -304,7 +303,7 @@ impl VariableDefinition {
 							.as_str(),
 						)
 						.label(
-							variable.location,
+							variable.var.location,
 							format!(
 								"Here variable \"{}\" was declared before.",
 								ctx.id_table.get_by_key(&direct_initializer.declarator.name).unwrap()

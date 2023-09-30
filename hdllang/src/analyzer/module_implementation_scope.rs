@@ -4,7 +4,7 @@ use num_bigint::BigInt;
 
 use crate::{lexer::IdTableKey, parser::ast::TypeSpecifier, SourceSpan};
 
-use super::CombinedQualifiers;
+use super::{CombinedQualifiers, Variable};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleImplementationScope {
@@ -56,14 +56,11 @@ impl ModuleImplementationScope {
 		scope.variables.get(key)
 	}
 	pub fn is_declared(&self, scope_key: usize, key: &IdTableKey) -> Option<SourceSpan> {
-		self.scopes[scope_key].variables.get(key).map(|x| x.location)
+		self.scopes[scope_key].variables.get(key).map(|x| x.var.location)
 	}
 }
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct VariableDefined {
-	pub qualifiers: CombinedQualifiers,
-	pub specifier: TypeSpecifier,
-	pub bus_width: Option<BigInt>,
-	pub dimensions: Vec<BigInt>,
-	pub location: SourceSpan,
+	pub var: Variable,
+	pub id: hirn::SignalId,
 }
