@@ -1,8 +1,9 @@
 
-use hirn::{design::{NumericConstant, ModuleHandle}, SignalId};
+use hirn::{design::{NumericConstant, ModuleHandle, ScopeHandle}, SignalId, Expression};
+use log::debug;
 use num_bigint::BigInt;
 
-use crate::{parser::ast::Expression, ProvidesCompilerDiagnostic, SourceSpan, lexer::IdTableKey, analyzer::report_duplicated_qualifier, core::id_table};
+use crate::{ ProvidesCompilerDiagnostic, SourceSpan, lexer::IdTableKey, analyzer::report_duplicated_qualifier, core::id_table};
 
 use super::*;
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -70,6 +71,7 @@ pub enum SignalType {
 pub struct EdgeSensitivity {
 	pub clock_signal: IdTableKey,
 	pub on_rising: bool,
+	pub location: SourceSpan,
 }
 
 /// Determines sensitivity of a signal to certain clocks
@@ -163,6 +165,32 @@ pub struct Signal{
 	pub sensitivity: SignalSensitivity,
 	pub direction: Direction,
 }
+impl Signal{
+	pub fn is_sensititivity_specified(&self) -> bool {
+		match &self.sensitivity{
+			SignalSensitivity::NoSensitivity => false,
+			_ => true,
+		}
+	}
+	pub fn is_direction_specified(&self) -> bool {
+		match &self.direction{
+			Direction::None => false,
+			_ => true,
+		}
+	}
+	/// only if needed
+	pub fn is_signedness_specified(&self) -> bool {
+		match &self.signal_type{
+			SignalType::Bus { signedness, .. } => {
+				match signedness{
+					SignalSignedness::None => false,
+					_ => true,
+				}
+			},
+			SignalType::Wire(_) => true,
+		}
+	}
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Variable{
 	pub name: IdTableKey,
@@ -186,19 +214,39 @@ impl Variable{
 	}
 	pub fn register(&self,
 		id_table: &id_table::IdTable,
+		scope: &ModuleImplementationScope,
 		module_handle: &mut ModuleHandle) -> miette::Result<SignalId> {
-		
+		debug!("registering variable {}", id_table.get_by_key(&self.name).unwrap());
 		let mut builder = module_handle.scope().new_signal().unwrap();
 		builder = builder.name(id_table.get_by_key(&self.name).unwrap());
 		let id: SignalId;
 		match &self.kind{
     		VariableKind::Signal(signal) => {
+				use SignalSensitivity::*;
+				match &signal.sensitivity{
+        			Async(_) => builder = builder.asynchronous(),
+        			Comb(list, _) => {
+						for edge in &list.list{
+							let id = scope.get_api_id(edge.clock_signal).unwrap();
+							builder = builder.comb(id,edge.on_rising);
+						}
+					},
+        			Sync(list, _) => {
+						for edge in &list.list{
+							let id = scope.get_api_id(self.name).unwrap();
+							builder = builder.sync(id, edge.on_rising);
+						}
+					},
+        			Clock(_) => builder = builder.clock(),
+        			Const(_) => builder = builder.constant(),
+        			NoSensitivity => unreachable!(),
+    			}
 				match &signal.signal_type{
         			SignalType::Bus { width, signedness, location } => {
 						match signedness{
 							SignalSignedness::Signed(_) => builder = builder.signed(hirn::Expression::from(NumericConstant::new_signed(width.clone()))),
 							SignalSignedness::Unsigned(_) => builder = builder.unsigned(hirn::Expression::from(NumericConstant::new_signed(width.clone()))),
-							SignalSignedness::None => unreachable!(),
+							SignalSignedness::None => unreachable!(), // report an error
 						}
 					},
         			SignalType::Wire(_) => builder = builder.wire(),
@@ -212,7 +260,20 @@ impl Variable{
     			};
 
 			},
-    		VariableKind::Generic(_) => todo!("generic variables") ,
+    		VariableKind::Generic(generic) => {
+				match generic.kind{
+					GenericVariableKind::Auto(_) => unreachable!(),
+					GenericVariableKind::Int(_) => {
+						// todo: add signedness FIXME
+						builder = builder.signed(Expression::from(NumericConstant::new_signed(BigInt::from(64))));
+					},
+					GenericVariableKind::Bool(_) =>{
+						builder = builder.wire();
+					} 
+				}
+				builder = builder.constant();
+				id = builder.build().unwrap();
+			},
 		}
 		Ok(id)
 	}
@@ -233,124 +294,124 @@ pub enum VariableKind{
 	Signal(Signal),
 	Generic(GenericVariable),
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct CombinedQualifiers {
-	pub signed: Option<SourceSpan>,
-	pub unsigned: Option<SourceSpan>,
-	pub constant: Option<SourceSpan>,
-	pub comb: Option<(Vec<Expression>, SourceSpan)>,
-	pub input: Option<SourceSpan>,
-	pub output: Option<SourceSpan>,
-	pub clock: Option<SourceSpan>,
-	pub asynchronous: Option<SourceSpan>,
-	pub synchronous: Option<(Vec<Expression>, SourceSpan)>,
-}
+//#[derive(Clone, Debug, PartialEq, Eq)]
+//pub struct CombinedQualifiers {
+//	pub signed: Option<SourceSpan>,
+//	pub unsigned: Option<SourceSpan>,
+//	pub constant: Option<SourceSpan>,
+//	pub comb: Option<(Vec<Expression>, SourceSpan)>,
+//	pub input: Option<SourceSpan>,
+//	pub output: Option<SourceSpan>,
+//	pub clock: Option<SourceSpan>,
+//	pub asynchronous: Option<SourceSpan>,
+//	pub synchronous: Option<(Vec<Expression>, SourceSpan)>,
+//}
 
-impl CombinedQualifiers {
-	pub fn new() -> Self {
-		Self {
-			signed: None,
-			unsigned: None,
-			constant: None,
-			comb: None,
-			input: None,
-			output: None,
-			clock: None,
-			asynchronous: None,
-			synchronous: None,
-		}
-	}
-	pub fn check_for_contradicting(&self) -> miette::Result<()> {
-		match self {
-			CombinedQualifiers {
-				signed: Some(x),
-				unsigned: Some(y),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "signed", "unsigned")?;
-			},
-			CombinedQualifiers {
-				input: Some(x),
-				output: Some(y),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "input", "output")?;
-			},
-			CombinedQualifiers {
-				constant: Some(x),
-				comb: Some((_, y)),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "const", "comb")?;
-			},
-			CombinedQualifiers {
-				constant: Some(x),
-				synchronous: Some((_, y)),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "const", "sync")?;
-			},
-			CombinedQualifiers {
-				constant: Some(x),
-				asynchronous: Some(y),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "const", "async")?;
-			},
-			CombinedQualifiers {
-				constant: Some(x),
-				clock: Some(y),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "const", "clock")?;
-			},
-			CombinedQualifiers {
-				comb: Some((_, x)),
-				synchronous: Some((_, y)),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "comb", "sync")?;
-			},
-			CombinedQualifiers {
-				comb: Some((_, x)),
-				asynchronous: Some(y),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "comb", "async")?;
-			},
-			CombinedQualifiers {
-				comb: Some((_, x)),
-				clock: Some(y),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "comb", "clock")?;
-			},
-			CombinedQualifiers {
-				synchronous: Some((_, x)),
-				clock: Some(y),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "sync", "clock")?;
-			},
-			CombinedQualifiers {
-				synchronous: Some((_, x)),
-				asynchronous: Some(y),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "sync", "async")?;
-			},
-			CombinedQualifiers {
-				asynchronous: Some(x),
-				clock: Some(y),
-				..
-			} => {
-				report_contradicting_qualifier(x, y, "async", "clock")?;
-			},
-			_ => (),
-		};
-		Ok(())
-	}
-}
+//impl CombinedQualifiers {
+//	pub fn new() -> Self {
+//		Self {
+//			signed: None,
+//			unsigned: None,
+//			constant: None,
+//			comb: None,
+//			input: None,
+//			output: None,
+//			clock: None,
+//			asynchronous: None,
+//			synchronous: None,
+//		}
+//	}
+//	pub fn check_for_contradicting(&self) -> miette::Result<()> {
+//		match self {
+//			CombinedQualifiers {
+//				signed: Some(x),
+//				unsigned: Some(y),
+//				..
+//			} => {
+//				report_contradicting_qualifier(x, y, "signed", "unsigned")?;
+//			},
+//			CombinedQualifiers {
+//				input: Some(x),
+//				output: Some(y),
+//				..
+//			} => {
+//				report_contradicting_qualifier(x, y, "input", "output")?;
+//			},
+//			CombinedQualifiers {
+//				constant: Some(x),
+//				comb: Some((_, y)),
+//				..
+//			} => {
+//				report_contradicting_qualifier(x, y, "const", "comb")?;
+//			},
+//			CombinedQualifiers {
+//				constant: Some(x),
+//				synchronous: Some((_, y)),
+//				..
+//			} => {
+//				report_contradicting_qualifier(x, y, "const", "sync")?;
+//			},
+//			CombinedQualifiers {
+//				constant: Some(x),
+//				asynchronous: Some(y),
+//				..
+//			} => {
+//				report_contradicting_qualifier(x, y, "const", "async")?;
+//			},
+//			CombinedQualifiers {
+//				constant: Some(x),
+//				clock: Some(y),
+//				..
+//			} => {
+//				report_contradicting_qualifier(x, y, "const", "clock")?;
+//			},
+//			CombinedQualifiers {
+//				comb: Some((_, x)),
+//				synchronous: Some((_, y)),
+//				..
+//			} => {
+//				report_contradicting_qualifier(x, y, "comb", "sync")?;
+//			},
+//			CombinedQualifiers {
+//				comb: Some((_, x)),
+//				asynchronous: Some(y),
+//				..
+//			} => {
+//				report_contradicting_qualifier(x, y, "comb", "async")?;
+//			},
+//			CombinedQualifiers {
+//				comb: Some((_, x)),
+//				clock: Some(y),
+//				..
+//			} => {
+//				report_contradicting_qualifier(x, y, "comb", "clock")?;
+//			},
+//			CombinedQualifiers {
+//				synchronous: Some((_, x)),
+//				clock: Some(y),
+//				..
+//			} => {
+//				report_contradicting_qualifier(x, y, "sync", "clock")?;
+//			},
+//			CombinedQualifiers {
+//				synchronous: Some((_, x)),
+//				asynchronous: Some(y),
+//				..
+//			} => {
+//				report_contradicting_qualifier(x, y, "sync", "async")?;
+//			},
+//			CombinedQualifiers {
+//				asynchronous: Some(x),
+//				clock: Some(y),
+//				..
+//			} => {
+//				report_contradicting_qualifier(x, y, "async", "clock")?;
+//			},
+//			_ => (),
+//		};
+//		Ok(())
+//	}
+//}
 pub fn report_contradicting_qualifier(
 	location_first: &SourceSpan,
 	location_second: &SourceSpan,

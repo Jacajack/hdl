@@ -229,9 +229,10 @@ fn analyse(mut code: String, file_name: String, mut output: Box<dyn Write>) -> m
 			String::from("."),
 			&mut map,
 		)
-		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name, code)))?;
+		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
 	// analyse semantically
-	hdllang::analyzer::SemanticalAnalyzer::new(global_ctx, &modules).process()?;
+	hdllang::analyzer::SemanticalAnalyzer::new(global_ctx, &modules).process()
+	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name, code)))?;
 	//hdllang::analyzer::analyze_semantically(&mut global_ctx, &modules)?;
 	writeln!(output, "{}", "semantical analysis was perfomed succesfully").map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())

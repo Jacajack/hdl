@@ -45,6 +45,12 @@ pub enum SemanticError {
 	ExpressionNotAllowedInNonGenericModuleDeclaration,
 	#[error("This signal is missing a sensitivity qualifier")]
 	MissingSensitivityQualifier,
+	#[error("This signal is missing a signedness qualifier")]
+	MissingSignednessQualifier,
+	#[error("Recursive module instantiation is not allowed")]
+	RecursiveModuleInstantiation,
+	#[error("This module is not declared")]
+	ModuleNotDeclared,
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -114,6 +120,15 @@ impl ProvidesCompilerDiagnostic for SemanticError {
     		MissingSensitivityQualifier => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please add sensitivity qualifier to this signal.")
 				.build(),
+    		RecursiveModuleInstantiation => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please remove this module from its own instantiation.")
+				.build(),
+    		ModuleNotDeclared => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please declare this module.")
+				.build(),
+    		MissingSignednessQualifier => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please add signedness qualifier to this signal.")
+				.build(),		
 		}
 	}
 }
