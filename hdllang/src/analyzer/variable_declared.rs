@@ -5,13 +5,12 @@ use crate::{
 	parser::ast::{Expression, TypeSpecifier},
 };
 
-use super::CombinedQualifiers;
-// TODO store width he
-#[derive(Debug, Clone)]
-pub struct VariableDeclared {
-	pub name: IdTableKey,
-	pub qualifiers: CombinedQualifiers,
-	pub specifier: TypeSpecifier,
-	pub array: Vec<Expression>,
-	pub array_compiled: Option<Vec<BigInt>>,
-}
+//// TODO store width he
+//#[derive(Debug, Clone)]
+//pub struct VariableDeclared {
+//	pub name: IdTableKey,
+//	pub qualifiers: CombinedQualifiers,
+//	pub specifier: TypeSpecifier,
+//	pub array: Vec<Expression>,
+//	pub array_compiled: Option<Vec<BigInt>>,
+//}

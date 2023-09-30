@@ -3,7 +3,7 @@ mod pretty_printable;
 use hirn::SignalId;
 use hirn::design::Design;
 
-use crate::analyzer::{CombinedQualifiers, ModuleDeclarationScope, ModuleDeclared, SemanticError, Variable, AlreadyCreated, SignalSensitivity};
+use crate::analyzer::{ModuleDeclared, SemanticError, Variable, AlreadyCreated, SignalSensitivity, ModuleImplementationScope};
 use crate::lexer::IdTable;
 use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
 use crate::ProvidesCompilerDiagnostic;
@@ -16,6 +16,9 @@ pub enum TopDefinition {
 	ModuleImplementation(ModuleImplementation),
 	PackageDeclaration(PackageDeclaration),
 	UseStatement(UseStatement),
+}
+pub trait Scope{
+	fn get_variable(&self, name: &IdTableKey) -> Option<Variable>;
 }
 #[derive(Debug, Clone)]
 pub struct DeclarationScope{
@@ -175,6 +178,11 @@ impl DeclarationScope{
 		Ok(())
 	}
 }
+impl Scope for DeclarationScope{
+    fn get_variable(&self, name: &IdTableKey) -> Option<Variable> {
+        self.signals.get(name).cloned()
+    }
+}
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
 pub struct ModuleDeclaration {
 	pub metadata: Vec<CommentTableKey>,
@@ -193,10 +201,6 @@ impl ModuleDeclaration {
 	) -> miette::Result<()> {
 		use log::debug;
 
-		debug!(
-			"Found module declaration for {:?}",
-			id_table.get_by_key(&self.id).unwrap()
-		);
 		if let Some(module) = modules_declared.get(&self.id) {
 			return Err(miette::Report::new(
 				SemanticError::MultipleModuleDeclaration
@@ -207,17 +211,17 @@ impl ModuleDeclaration {
 			));
 		}
 		let mut handle = design_handle.new_module(id_table.get_by_key(&self.id).unwrap()).unwrap();
-		let mut scope = ModuleDeclarationScope::new();
-		let mut new_scope = DeclarationScope::new();
+		//let mut scope = ModuleDeclarationScope::new();
+		let mut new_scope = ModuleImplementationScope::new();
 		for statement in &self.statements{
-			let vars = statement.create_variable_declaration(AlreadyCreated::new(), nc_table, &new_scope)?;
+			let vars = statement.create_variable_declaration(AlreadyCreated::new(), nc_table, id_table, &new_scope)?;
 			for var in vars{
-				new_scope.declare(var)?;
+				new_scope.declare_variable(var, id_table, &mut handle)?;
 			}
 		}
-		for statement in &self.statements {
-			statement.analyze(CombinedQualifiers::new(), &mut scope, id_table)?;
-		}
+		//for statement in &self.statements {
+		//	statement.analyze(CombinedQualifiers::new(), &mut scope, id_table)?;
+		//}
 
 		let is_generic = new_scope.is_generic();
 		if is_generic {
@@ -227,12 +231,8 @@ impl ModuleDeclaration {
 			);
 		}
 		else {
-			scope.analyze(id_table, nc_table)?;
-			new_scope.analyze(id_table)?;
-			for var in new_scope.signals.values() {
-				// create variable with API
-				new_scope.signals_id.insert(var.name, var.register(id_table, &mut handle)?);
-			}
+			//scope.analyze(id_table, nc_table)?;
+			//new_scope.analyze(id_table)?;
 			debug!(
 				"Found module declaration for {:?}",
 				id_table.get_by_key(&self.id).unwrap()

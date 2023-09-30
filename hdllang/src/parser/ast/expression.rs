@@ -13,7 +13,7 @@ mod ternary_expression;
 mod tuple;
 mod unary_cast_expression;
 mod unary_operator_expression;
-use crate::analyzer::{ModuleImplementationScope, SemanticError};
+use crate::analyzer::{ModuleImplementationScope, SemanticError, EdgeSensitivity};
 use crate::core::id_table;
 use crate::lexer::{IdTableKey, NumericConstantBase};
 use crate::parser::ast::{opcodes::*, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName};
@@ -181,6 +181,38 @@ impl Expression {
 				))
 			},
 		}
+	}
+	pub fn create_edge_sensitivity(&self) -> miette::Result<EdgeSensitivity>{
+		use self::Expression::*;
+		match self{
+    		Identifier(id) => Ok(EdgeSensitivity{clock_signal: id.id, on_rising: true, location: id.location}),
+    		UnaryOperatorExpression(unary) => {
+				use crate::parser::ast::UnaryOpcode::*;
+				match unary.code {
+					LogicalNot => unary.expression.create_edge_sensitivity().map(|mut edge| {edge.on_rising = !edge.on_rising; edge}),
+					_ => {
+						return Err(miette::Report::new(
+							SemanticError::ForbiddenExpressionInSyncOrComb
+								.to_diagnostic_builder()
+								.label(
+									unary.location,
+									"This expression is not allowed in sync or comb qualifier",
+								)
+								.build(),
+						))
+					},
+				}
+			},
+			_ => return Err(miette::Report::new(
+				SemanticError::ForbiddenExpressionInSyncOrComb
+					.to_diagnostic_builder()
+					.label(
+						self.get_location(),
+						"This expression is not allowed in sync or comb qualifier",
+					)
+					.build(),
+			))
+	}
 	}
 	pub fn evaluate_in_declaration(
 		&self,
