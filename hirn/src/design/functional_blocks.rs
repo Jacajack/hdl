@@ -5,6 +5,10 @@ use super::{
 	ModuleHandle, ModuleId, ScopeHandle, ScopeId,
 };
 
+pub trait HasInstanceName {
+	fn instance_name(&self) -> &str;
+}
+
 /// Register block
 pub struct Register {
 	/// Asynchronous negated reset input
@@ -21,6 +25,15 @@ pub struct Register {
 
 	/// Output value
 	pub output_data: Expression,
+
+	/// Instance name
+	pub name: String,
+}
+
+impl HasInstanceName for Register {
+	fn instance_name(&self) -> &str {
+		&self.name
+	}
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -39,10 +52,11 @@ pub struct RegisterBuilder {
 	input_clk: Option<Expression>,
 	input_next: Option<Expression>,
 	output_data: Option<Expression>,
+	name: String,
 }
 
 impl RegisterBuilder {
-	pub fn new(scope: ScopeHandle) -> Self {
+	pub fn new(scope: ScopeHandle, name: &str) -> Self {
 		Self {
 			scope,
 			input_nreset: None,
@@ -50,6 +64,7 @@ impl RegisterBuilder {
 			input_clk: None,
 			input_next: None,
 			output_data: None,
+			name: name.into(),
 		}
 	}
 
@@ -112,6 +127,7 @@ impl RegisterBuilder {
 			output_data: self
 				.output_data
 				.ok_or(DesignError::RequiredRegisterSignalNotConnected(Output))?,
+			name: self.name,
 		}))
 	}
 }
@@ -126,6 +142,12 @@ pub struct ClockGate {
 
 	/// Output clock
 	pub output_clk: Expression,
+}
+
+impl HasInstanceName for ClockGate {
+	fn instance_name(&self) -> &str {
+		todo!();
+	}
 }
 
 // FF synchronizer block
@@ -149,18 +171,32 @@ pub struct FfSync {
 	pub output_data: Expression,
 }
 
+impl HasInstanceName for FfSync {
+	fn instance_name(&self) -> &str {
+		todo!();
+	}
+}
+
 /// Represents an instantiated module
 pub struct ModuleInstance {
 	/// ID of the instantiated module
 	pub module: ModuleHandle,
 
+	name: String,
 	bindings: Vec<(String, Expression)>,
 }
 
+impl HasInstanceName for ModuleInstance {
+	fn instance_name(&self) -> &str {
+		&self.name
+	}
+}
+
 impl ModuleInstance {
-	fn new(module: ModuleHandle, bindings: Vec<(String, Expression)>) -> Result<Self, DesignError> {
+	fn new(module: ModuleHandle, name: &str, bindings: Vec<(String, Expression)>) -> Result<Self, DesignError> {
 		let new = Self {
 			module: module.clone(),
+			name: name.into(),
 			bindings,
 		};
 
@@ -231,14 +267,16 @@ pub struct ModuleInstanceBuilder {
 	module: ModuleHandle,
 	scope: ScopeHandle,
 	bindings: Vec<(String, Expression)>,
+	name: String,
 }
 
 impl ModuleInstanceBuilder {
-	pub fn new(scope: ScopeHandle, module: ModuleHandle) -> Self {
+	pub fn new(scope: ScopeHandle, module: ModuleHandle, name: &str) -> Self {
 		Self {
 			scope,
 			module,
 			bindings: vec![],
+			name: name.into(),
 		}
 	}
 
@@ -249,7 +287,7 @@ impl ModuleInstanceBuilder {
 
 	pub fn build(mut self) -> Result<(), DesignError> {
 		self.scope
-			.add_block(BlockInstance::Module(ModuleInstance::new(self.module, self.bindings)?))
+			.add_block(BlockInstance::Module(ModuleInstance::new(self.module, &self.name, self.bindings)?))
 	}
 }
 
@@ -259,4 +297,16 @@ pub enum BlockInstance {
 	ClockGate(ClockGate),
 	FfSync(FfSync),
 	Module(ModuleInstance),
+}
+
+impl HasInstanceName for BlockInstance {
+	fn instance_name(&self) -> &str {
+		use BlockInstance::*;
+		match self {
+			Register(r) => r.instance_name(),
+			ClockGate(c) => c.instance_name(),
+			FfSync(f) => f.instance_name(),
+			Module(m) => m.instance_name(),
+		}
+	}
 }

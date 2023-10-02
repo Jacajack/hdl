@@ -363,7 +363,7 @@ mod test {
 		let mut scope2 = m.scope().if_scope(Expression::new_zero())?;
 
 		scope2
-			.new_register()?
+			.new_register("fancy_reg")?
 			.clk(sig.into())
 			.nreset(expr.clone())
 			.next(Expression::new_zero())
@@ -472,7 +472,7 @@ mod test {
 
 		let _register = m
 			.scope()
-			.new_register()?
+			.new_register("useless_reg")?
 			.clk(clk.into())
 			.nreset(nreset.into())
 			.next(next.into())
@@ -496,7 +496,7 @@ mod test {
 
 		m_parent
 			.scope()
-			.new_module(m)?
+			.new_module(m, "child_module")?
 			.bind("clk", m_parent_clk.into())
 			.build()?;
 
@@ -523,7 +523,7 @@ mod test {
 
 		let err = m_parent
 			.scope()
-			.new_module(m)?
+			.new_module(m, "disappointing_child")?
 			.bind("clk", m_parent_async.into())
 			.build();
 
