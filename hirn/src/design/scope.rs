@@ -4,6 +4,7 @@ use super::{DesignError, DesignHandle, ModuleId, RegisterBuilder, ScopeId, Signa
 use super::{Expression, ModuleHandle};
 
 /// Scope associated with an if statement
+#[derive(Debug)]
 pub struct ConditionalScope {
 	/// Condition expression
 	pub condition: Expression,
@@ -13,6 +14,7 @@ pub struct ConditionalScope {
 }
 
 /// Scope associated with a loop statement
+#[derive(Debug)]
 pub struct RangeScope {
 	/// Iterator variable
 	pub iterator_var: SignalId,
@@ -28,6 +30,7 @@ pub struct RangeScope {
 }
 
 /// Assignment of signals
+#[derive(Debug)]
 pub struct Assignment {
 	/// Left-hand side of the assignment
 	pub lhs: Expression,
@@ -37,6 +40,7 @@ pub struct Assignment {
 }
 
 /// Scope representation
+#[derive(Debug)]
 pub struct Scope {
 	/// Self-reference
 	pub(super) id: ScopeId,
@@ -242,5 +246,11 @@ impl ScopeHandle {
 	/// Creates a new module instance in this scope (returns a builder)
 	pub fn new_module(&mut self, module: ModuleHandle, name: &str) -> Result<ModuleInstanceBuilder, DesignError> {
 		Ok(ModuleInstanceBuilder::new(self.clone(), module, name))
+	}
+}
+
+impl std::fmt::Debug for ScopeHandle {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{:?}", this_scope!(self))
 	}
 }
