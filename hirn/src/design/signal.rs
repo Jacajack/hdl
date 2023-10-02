@@ -16,7 +16,7 @@ pub enum SignalSignedness {
 }
 
 /// Determines representation of a signal
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SignalClass {
 	pub signedness: SignalSignedness, // TODO make priv
 	pub width: Box<Expression>,
@@ -128,7 +128,7 @@ impl SignalSensitivity {
 }
 
 /// Determines which part of a signal (or signal array) is accessed
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SignalSlice {
 	/// Signal being accessed
 	pub signal: SignalId,
@@ -147,6 +147,7 @@ impl From<SignalId> for SignalSlice {
 }
 
 /// Physical signal representation
+#[derive(Debug)]
 pub struct Signal {
 	/// Self-reference
 	pub(super) id: SignalId,
