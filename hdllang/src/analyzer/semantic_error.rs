@@ -51,6 +51,10 @@ pub enum SemanticError {
 	RecursiveModuleInstantiation,
 	#[error("This module is not declared")]
 	ModuleNotDeclared,
+	#[error("Unexpected API error")]
+	UnexpectedApiError, // transfer to CompilerError FIXME
+	#[error("Interface's signal declared in module implementation")]
+	SignalDirectionSpecified
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -128,6 +132,12 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
     		MissingSignednessQualifier => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please add signedness qualifier to this signal.")
+				.build(),
+    		UnexpectedApiError => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please report this error to the developers.")
+				.build(),
+    		SignalDirectionSpecified => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please remove this signal's direction qualifier.")
 				.build(),		
 		}
 	}

@@ -1,5 +1,5 @@
 
-use hirn::{design::{NumericConstant, ModuleHandle, ScopeHandle}, SignalId, Expression};
+use hirn::{design::{NumericConstant, ModuleHandle, ScopeHandle, signal::SignalBuilder}, SignalId, Expression};
 use log::debug;
 use num_bigint::BigInt;
 
@@ -215,9 +215,8 @@ impl Variable{
 	pub fn register(&self,
 		id_table: &id_table::IdTable,
 		scope: &ModuleImplementationScope,
-		module_handle: &mut ModuleHandle) -> miette::Result<SignalId> {
-		debug!("registering variable {}", id_table.get_by_key(&self.name).unwrap());
-		let mut builder = module_handle.scope().new_signal().unwrap();
+		mut builder: SignalBuilder) -> miette::Result<SignalId> {
+		debug!("registering variable {}\n {:?}", id_table.get_by_key(&self.name).unwrap(), self);
 		builder = builder.name(id_table.get_by_key(&self.name).unwrap());
 		let id: SignalId;
 		match &self.kind{
@@ -239,7 +238,7 @@ impl Variable{
 					},
         			Clock(_) => builder = builder.clock(),
         			Const(_) => builder = builder.constant(),
-        			NoSensitivity => unreachable!(),
+        			NoSensitivity => unreachable!("No sensitivity should not be possible")
     			}
 				match &signal.signal_type{
         			SignalType::Bus { width, signedness, location } => {
@@ -252,20 +251,16 @@ impl Variable{
         			SignalType::Wire(_) => builder = builder.wire(),
     			}
 				id = builder.build().unwrap();
-				match &signal.direction{
-        			Direction::Input(_) => module_handle.expose(id, hirn::design::SignalDirection::Input).unwrap(),
-        			Direction::Output(_) => module_handle.expose(id, hirn::design::SignalDirection::Output).unwrap(),
-        			Direction::Tristate(_) => (),
-        			Direction::None => unreachable!(),
-    			};
-
 			},
     		VariableKind::Generic(generic) => {
-				match generic.kind{
+				match &generic.kind{
 					GenericVariableKind::Auto(_) => unreachable!(),
-					GenericVariableKind::Int(_) => {
-						// todo: add signedness FIXME
-						builder = builder.signed(Expression::from(NumericConstant::new_signed(BigInt::from(64))));
+					GenericVariableKind::Int(sign,_) => {
+						match &sign{
+        					SignalSignedness::Unsigned(_) => builder = builder.unsigned(Expression::from(NumericConstant::new_signed(BigInt::from(64)))),
+        					_ => builder = builder.signed(Expression::from(NumericConstant::new_signed(BigInt::from(64)))),
+    					}
+						
 					},
 					GenericVariableKind::Bool(_) =>{
 						builder = builder.wire();
@@ -281,7 +276,7 @@ impl Variable{
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GenericVariableKind{
 	Auto(SourceSpan),
-	Int(SourceSpan),
+	Int(SignalSignedness,SourceSpan),
 	Bool(SourceSpan),
 }
 #[derive(Clone, Debug, PartialEq, Eq)]

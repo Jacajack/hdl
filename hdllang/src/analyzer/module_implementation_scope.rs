@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use hirn::{SignalId, design::ModuleHandle};
+use log::debug;
 
 use crate::{lexer::{IdTableKey, IdTable}, SourceSpan, parser::ast::Scope};
 
@@ -90,7 +91,17 @@ impl ModuleImplementationScope {
 		self.variable_counter += 1;
 		let name = var.name.clone();
 		self.internal_ids.insert(id, (0, name));
-		self.api_ids.insert(id, var.register(id_table, &self, handle)?);
+		self.api_ids.insert(id, var.register(id_table, &self, handle.scope().new_signal().unwrap())?);
+		match &var.kind{
+			VariableKind::Generic(_) => handle.expose(self.api_ids.get(&id).unwrap().clone(), hirn::design::SignalDirection::Input).unwrap(),
+			VariableKind::Signal(sig) => {
+				match &sig.direction{
+        		super::Direction::Input(_) => handle.expose(self.api_ids.get(&id).unwrap().clone(), hirn::design::SignalDirection::Input).unwrap(),
+        		super::Direction::Output(_) =>handle.expose(self.api_ids.get(&id).unwrap().clone(), hirn::design::SignalDirection::Output).unwrap(),
+        		_ => unreachable!("Only input and output signals can be declared in module implementation scope"),
+    		}
+			}
+		}
 		let defined = VariableDefined { var, id };
 		self.scopes[0].variables.insert(name, defined);
 		Ok(())

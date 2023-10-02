@@ -200,7 +200,7 @@ impl ModuleDeclaration {
 		modules_declared: &mut HashMap<IdTableKey, ModuleDeclared>,
 	) -> miette::Result<()> {
 		use log::debug;
-
+		debug!("Analyzing module declaration {:?}", id_table.get_by_key(&self.id).unwrap());
 		if let Some(module) = modules_declared.get(&self.id) {
 			return Err(miette::Report::new(
 				SemanticError::MultipleModuleDeclaration
@@ -213,12 +213,14 @@ impl ModuleDeclaration {
 		let mut handle = design_handle.new_module(id_table.get_by_key(&self.id).unwrap()).unwrap();
 		//let mut scope = ModuleDeclarationScope::new();
 		let mut new_scope = ModuleImplementationScope::new();
+		debug!("Registering variables for module declaration {:?}:", id_table.get_by_key(&self.id).unwrap());
 		for statement in &self.statements{
 			let vars = statement.create_variable_declaration(AlreadyCreated::new(), nc_table, id_table, &new_scope)?;
 			for var in vars{
 				new_scope.declare_variable(var, id_table, &mut handle)?;
 			}
 		}
+		debug!("Module {:?} in api: {:?}", id_table.get_by_key(&self.id).unwrap(), handle);
 		//for statement in &self.statements {
 		//	statement.analyze(CombinedQualifiers::new(), &mut scope, id_table)?;
 		//}
@@ -226,15 +228,7 @@ impl ModuleDeclaration {
 		let is_generic = new_scope.is_generic();
 		if is_generic {
 			debug!(
-				"Found generic module declaration for {:?}",
-				id_table.get_by_key(&self.id).unwrap()
-			);
-		}
-		else {
-			//scope.analyze(id_table, nc_table)?;
-			//new_scope.analyze(id_table)?;
-			debug!(
-				"Found module declaration for {:?}",
+				"Module declaration for {:?} is generic",
 				id_table.get_by_key(&self.id).unwrap()
 			);
 		}
@@ -244,6 +238,7 @@ impl ModuleDeclaration {
 			handle,
 			is_generic,
 			location: self.location,
+			instatiaed: Vec::new(),
 		};
 		modules_declared.insert(self.id, m);
 		Ok(())
