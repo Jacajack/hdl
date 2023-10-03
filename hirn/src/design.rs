@@ -8,6 +8,7 @@ pub mod numeric_constant;
 pub mod scope;
 pub mod signal;
 pub mod utils;
+pub mod comment;
 
 pub use eval::{EvalContext, EvalError};
 pub use expression::{BinaryOp, Expression, UnaryOp};
@@ -16,6 +17,7 @@ pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
 pub use numeric_constant::NumericConstant;
 pub use scope::{Scope, ScopeHandle};
 pub use signal::{Signal, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice};
+pub use comment::HasComment;
 
 use std::cell::RefCell;
 use std::collections::HashMap;

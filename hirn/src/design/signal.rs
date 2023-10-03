@@ -1,6 +1,7 @@
 use super::DesignError;
 use super::DesignHandle;
 use super::Expression;
+use super::HasComment;
 use super::ScopeId;
 use super::SignalId;
 use std::collections::HashSet;
@@ -188,6 +189,15 @@ pub struct Signal {
 
 	/// Variability level
 	pub sensitivity: SignalSensitivity,
+
+	/// Source code comment
+	comment: Option<String>,
+}
+
+impl HasComment for Signal {
+	fn get_comment(&self) -> Option<String> {
+		self.comment.clone()
+	}
 }
 
 impl Signal {
@@ -198,6 +208,7 @@ impl Signal {
 		dimensions: Vec<Expression>,
 		class: SignalClass,
 		sensitivity: SignalSensitivity,
+		comment: Option<String>,
 	) -> Result<Self, DesignError> {
 		// Check name valid
 		if !super::utils::is_name_valid(name) {
@@ -215,12 +226,26 @@ impl Signal {
 			dimensions,
 			class,
 			sensitivity,
+			comment: None,
 		})
 	}
 
 	pub fn is_scalar(&self) -> bool {
 		self.dimensions.is_empty()
 	}
+
+	pub fn is_array(&self) -> bool {
+		!self.is_scalar()
+	}
+
+	pub fn is_wire(&self) -> bool {
+		self.class.is_wire()
+	}
+
+	pub fn comment(&mut self, comment: &str) {
+		self.comment = Some(comment.into());
+	}
+
 }
 
 /// Signal builder helper
@@ -248,6 +273,9 @@ pub struct SignalBuilder {
 
 	/// Clocking list (for synchronous signals)
 	sync_clocking: Option<ClockSensitivityList>,
+
+	/// Source code comment
+	comment: Option<String>,
 }
 
 impl SignalBuilder {
@@ -262,6 +290,7 @@ impl SignalBuilder {
 			sensitivity: None,
 			comb_clocking: None,
 			sync_clocking: None,
+			comment: None,
 		}
 	}
 
@@ -358,6 +387,12 @@ impl SignalBuilder {
 		Ok(self)
 	}
 
+	/// Adds a source code comment
+	pub fn comment(mut self, comment: &str) -> Self {
+		self.comment = Some(comment.into());
+		self
+	}
+
 	/// Creates the signal and adds it to the design. Returns the signal ID.
 	pub fn build(self) -> Result<SignalId, DesignError> {
 		let sensitivity = match (self.sensitivity, self.comb_clocking, self.sync_clocking) {
@@ -375,6 +410,7 @@ impl SignalBuilder {
 			self.dimensions,
 			self.class.ok_or(DesignError::SignalClassNotSpecified)?,
 			sensitivity,
+			self.comment,
 		)?)
 	}
 }
