@@ -2,6 +2,7 @@ mod pretty_printable;
 
 use hirn::SignalId;
 use hirn::design::Design;
+use log::info;
 
 use crate::analyzer::{ModuleDeclared, SemanticError, Variable, AlreadyCreated, SignalSensitivity, ModuleImplementationScope};
 use crate::lexer::IdTable;
@@ -215,10 +216,17 @@ impl ModuleDeclaration {
 		let mut new_scope = ModuleImplementationScope::new();
 		debug!("Registering variables for module declaration {:?}:", id_table.get_by_key(&self.id).unwrap());
 		for statement in &self.statements{
-			let vars = statement.create_variable_declaration(AlreadyCreated::new(), nc_table, id_table, &new_scope)?;
+			if new_scope.is_generic(){
+				break;
+			}
+			let vars = statement.create_variable_declaration(AlreadyCreated::new(), nc_table, id_table, &mut new_scope)?;
 			for var in vars{
 				new_scope.declare_variable(var, id_table, &mut handle)?;
 			}
+		}
+		if new_scope.is_generic(){
+			info!("Module {:?} is generic, skipping variable declaration and clearing scope", id_table.get_by_key(&self.id).unwrap());
+			new_scope = ModuleImplementationScope::new();
 		}
 		debug!("Module {:?} in api: {:?}", id_table.get_by_key(&self.id).unwrap(), handle);
 		//for statement in &self.statements {
@@ -226,12 +234,6 @@ impl ModuleDeclaration {
 		//}
 
 		let is_generic = new_scope.is_generic();
-		if is_generic {
-			debug!(
-				"Module declaration for {:?} is generic",
-				id_table.get_by_key(&self.id).unwrap()
-			);
-		}
 		let m = ModuleDeclared {
 			name: self.id,
 			scope: new_scope,

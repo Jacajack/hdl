@@ -60,7 +60,7 @@ impl Direction{
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SignalType {
 	Bus {
-		width: BigInt,
+		width: Option<BigInt>,
 		signedness: SignalSignedness,
 		location: SourceSpan,
 	},
@@ -162,6 +162,7 @@ impl AlreadyCreated{
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signal{
 	pub signal_type: SignalType,
+	pub dimensions: Vec<BigInt>,
 	pub sensitivity: SignalSensitivity,
 	pub direction: Direction,
 }
@@ -188,6 +189,32 @@ impl Signal{
 				}
 			},
 			SignalType::Wire(_) => true,
+		}
+	}
+	pub fn new_from_constant(constant: &crate::lexer::NumericConstant, location: SourceSpan) -> Self{
+		let signedness = match constant.signed{
+			Some(value) => {
+				if value{
+					SignalSignedness::Signed(location)
+				}else{
+					SignalSignedness::Unsigned(location)
+				}
+			}
+			None => SignalSignedness::None,
+			};
+		let width = match constant.width{
+			Some(value) => Some(value.into()),
+			None => None,
+		};
+		Self{
+			signal_type: SignalType::Bus{
+				width,
+				signedness,
+				location,
+			},
+			dimensions: Vec::new(),
+			sensitivity: SignalSensitivity::Const(location),
+			direction: Direction::None,
 		}
 	}
 }
@@ -243,18 +270,21 @@ impl Variable{
 				match &signal.signal_type{
         			SignalType::Bus { width, signedness, location } => {
 						match signedness{
-							SignalSignedness::Signed(_) => builder = builder.signed(hirn::Expression::from(NumericConstant::new_signed(width.clone()))),
-							SignalSignedness::Unsigned(_) => builder = builder.unsigned(hirn::Expression::from(NumericConstant::new_signed(width.clone()))),
+							SignalSignedness::Signed(_) => builder = builder.signed(hirn::Expression::from(NumericConstant::new_signed(width.clone().unwrap().clone()))), // FIXME
+							SignalSignedness::Unsigned(_) => builder = builder.unsigned(hirn::Expression::from(NumericConstant::new_signed(width.clone().unwrap().clone()))), // FIXME
 							SignalSignedness::None => unreachable!(), // report an error
 						}
 					},
         			SignalType::Wire(_) => builder = builder.wire(),
     			}
+				for dimension in &signal.dimensions{
+					builder = builder.array(Expression::from(NumericConstant::new_unsigned(dimension.clone()))).unwrap();
+				}
 				id = builder.build().unwrap();
 			},
     		VariableKind::Generic(generic) => {
 				match &generic.kind{
-					GenericVariableKind::Auto(_) => unreachable!(),
+					GenericVariableKind::Auto(_) => unreachable!(), // FIXME report an error
 					GenericVariableKind::Int(sign,_) => {
 						match &sign{
         					SignalSignedness::Unsigned(_) => builder = builder.unsigned(Expression::from(NumericConstant::new_signed(BigInt::from(64)))),
@@ -281,7 +311,8 @@ pub enum GenericVariableKind{
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GenericVariable{
-	pub value: Option<BigInt>,
+	pub value: Option<crate::lexer::NumericConstant>,
+	pub dimensions: Vec<BigInt>,
 	pub kind: GenericVariableKind
 }
 #[derive(Clone, Debug, PartialEq, Eq)]

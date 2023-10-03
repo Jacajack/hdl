@@ -6,7 +6,7 @@ use num_bigint::BigInt;
 use crate::analyzer::*;
 use crate::lexer::IdTable;
 use crate::parser::ast::SourceLocation;
-use crate::{lexer::CommentTableKey};
+use crate::lexer::CommentTableKey;
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 
 use super::{DirectDeclarator, TypeDeclarator, TypeQualifier, TypeSpecifier};
@@ -20,8 +20,11 @@ pub struct VariableDeclarationStatement {
 use crate::analyzer::Variable;
 use crate::lexer::NumericConstantTable;
 impl VariableDeclarationStatement{
-	pub fn create_variable_declaration(&self, already_created: AlreadyCreated, nc_table: &NumericConstantTable, id_table: &IdTable, scope: &ModuleImplementationScope) -> miette::Result<Vec<Variable>>{
-		let kind = VariableKind::from_type_declarator(&self.type_declarator, 0, already_created, nc_table, id_table, scope)?;
+	pub fn create_variable_declaration(&self, already_created: AlreadyCreated, nc_table: &NumericConstantTable, id_table: &IdTable, scope: &mut ModuleImplementationScope) -> miette::Result<Vec<Variable>>{
+		if scope.is_generic(){
+			return Ok(vec![]);
+		}
+		let mut kind = VariableKind::from_type_declarator(&self.type_declarator, 0, already_created, nc_table, id_table, scope)?;
 		match &kind{
    			VariableKind::Signal(sig) => {
 				if ! sig.is_direction_specified() {
@@ -34,19 +37,32 @@ impl VariableDeclarationStatement{
 					return Err(miette::Report::new(SemanticError::MissingSignednessQualifier.to_diagnostic_builder().label(self.location, "Bus signal must be either signed or unsigned").build()));
 				}
 			},
-    		VariableKind::Generic(_) => (),
+    		VariableKind::Generic(_) => {
+				scope.mark_as_generic();
+				return  Ok(vec![]);
+			},
 		}
 		let mut variables = Vec::new();
 
 		for direct_declarator in &self.direct_declarators{
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_declarator.array_declarators{
-				let size = array_declarator.evaluate_in_declaration(nc_table)?.value;
+				let size = array_declarator.evaluate(nc_table, 0, scope)?.value;
 				if size <= BigInt::from(0){
 					return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(array_declarator.get_location(), "Array size must be positive").build()));
 				}
-				dimensions.push(array_declarator.evaluate_in_declaration(nc_table)?.value);
+				dimensions.push(size);
 			}
+			kind = match kind{
+    			VariableKind::Signal(mut sig) => {
+					sig.dimensions = dimensions.clone();
+					VariableKind::Signal(sig)
+				},
+    			VariableKind::Generic(mut gen) => {
+					gen.dimensions = dimensions.clone();
+					VariableKind::Generic(gen)
+				},
+			};
 			variables.push(Variable{
 				name: direct_declarator.name,
 				dimensions,
@@ -70,7 +86,7 @@ impl VariableKind{
     		Auto { location } => return Err(miette::Report::new(SemanticError::AutoSpecifierInDeclaration.to_diagnostic_builder().label(*location, "Auto specifier is not allowed in variable declaration").build())),
     		Int { location } => {
 
-				Ok(VariableKind::Generic(GenericVariable { value: None, kind: GenericVariableKind::Int(already_created.signedness, *location) }))
+				Ok(VariableKind::Generic(GenericVariable { value: None, kind: GenericVariableKind::Int(already_created.signedness, *location), dimensions: Vec::new() }))
 			},
     		Wire { location } => {
 				already_created = analyze_qualifiers(&type_declarator.qualifiers, already_created, scope, current_scope, id_table)?;
@@ -78,23 +94,24 @@ impl VariableKind{
         			SignalSignedness::None => (),
 					_ => return Err(miette::Report::new(SemanticError::ContradictingSpecifier.to_diagnostic_builder().label(*location, "Wire cannot be signed or unsigned").build())),
     			}
-				Ok(VariableKind::Signal(Signal { signal_type: SignalType::Wire(*location), sensitivity: already_created.sensitivity, direction: already_created.direction }))
+				Ok(VariableKind::Signal(Signal { signal_type: SignalType::Wire(*location), sensitivity: already_created.sensitivity, direction: already_created.direction, dimensions: Vec::new() }))
 			},
     		Bool { location } => {
-				Ok(VariableKind::Generic(GenericVariable { value: None, kind: GenericVariableKind::Bool(*location) }))
+				Ok(VariableKind::Generic(GenericVariable { value: None, kind: GenericVariableKind::Bool(*location), dimensions: Vec::new() }))
 			},
     		Bus(bus) => {
 				already_created = analyze_qualifiers(&type_declarator.qualifiers, already_created, scope, current_scope, id_table)?;
-				let width = bus.width.evaluate_in_declaration(nc_table)?.value;
+				let width = bus.width.evaluate(nc_table, current_scope, scope)?.value; //FIXME This cannot be evaluated while analyzing declaration of generic module
 				if width <= BigInt::from(0) {
 					return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(bus.location, "Bus width must be positive").build()));
 				}
 				Ok(VariableKind::Signal(Signal{
 					signal_type: SignalType::Bus{
-						width,
+						width: Some(width),
 						signedness: already_created.signedness,
 						location: bus.location,
 					},
+					dimensions: Vec::new(),
 					sensitivity: already_created.sensitivity,
 					direction: already_created.direction,
 				}))
@@ -215,7 +232,7 @@ pub struct ModuleDeclarationVariableBlock {
 	pub location: SourceSpan,
 }
 impl ModuleDeclarationVariableBlock {
-	pub fn create_variable_declaration(&self, mut already_created: AlreadyCreated, nc_table: &NumericConstantTable, id_table: &IdTable, declaration_scope: &ModuleImplementationScope) -> miette::Result<Vec<Variable>>{
+	pub fn create_variable_declaration(&self, mut already_created: AlreadyCreated, nc_table: &NumericConstantTable, id_table: &IdTable, declaration_scope: &mut ModuleImplementationScope) -> miette::Result<Vec<Variable>>{
 		already_created = analyze_qualifiers(&self.types, already_created, declaration_scope, 0 /*FIXME */, id_table)?;
 		let mut variables = Vec::new();
 		for statement in &self.statements{
@@ -231,7 +248,7 @@ pub enum ModuleDeclarationStatement {
 }
 
 impl ModuleDeclarationStatement {
-	pub fn create_variable_declaration(&self, already_created: AlreadyCreated, nc_table: &NumericConstantTable, id_table: &IdTable, scope: &ModuleImplementationScope) -> miette::Result<Vec<Variable>>{
+	pub fn create_variable_declaration(&self, already_created: AlreadyCreated, nc_table: &NumericConstantTable, id_table: &IdTable, scope: &mut ModuleImplementationScope) -> miette::Result<Vec<Variable>>{
 		use ModuleDeclarationStatement::*;
 		match self{
 			VariableDeclarationStatement(declaration) => declaration.create_variable_declaration(already_created, nc_table, id_table, scope),

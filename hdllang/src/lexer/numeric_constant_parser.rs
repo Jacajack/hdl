@@ -131,7 +131,7 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 		if !width_str.is_empty() {
 			let n = parse_pure_decimal(width_str)?.try_into().unwrap();
 
-			// Is the number of bits reasonable?
+			// Is the number of bits reasonable? // FIXME TO BE DELETED
 			if n > 64 {
 				return Err(NumberParseError {
 					kind: NumericConstantParseErrorKind::TooManyBits,
@@ -185,6 +185,7 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 		}
 	}
 	else if s.starts_with("0b") {
+		// ADD WITDH
 		base = NumericConstantBase::Binary;
 		match is_signed {
 			Some(true) => {

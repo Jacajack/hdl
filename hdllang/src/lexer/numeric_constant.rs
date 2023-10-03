@@ -10,7 +10,7 @@ pub enum NumericConstantBase {
 	Boolean,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
 pub struct NumericConstant {
 	pub value: BigInt,
 	pub width: Option<u32>,

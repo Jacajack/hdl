@@ -3,20 +3,21 @@ use std::collections::HashMap;
 use hirn::{SignalId, design::ModuleHandle};
 use log::debug;
 
-use crate::{lexer::{IdTableKey, IdTable}, SourceSpan, parser::ast::Scope};
+use crate::{lexer::{IdTableKey, IdTable}, SourceSpan, parser::ast::Scope, ProvidesCompilerDiagnostic};
 
-use super::{Variable, VariableKind};
+use super::{Variable, VariableKind, GlobalAnalyzerContext, SemanticError};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleImplementationScope {
 	scopes: Vec<InternalScope>,
+	is_generic: bool,
 	api_ids: HashMap<usize, SignalId>,
 	internal_ids: HashMap<usize, (usize, IdTableKey)>,
 	variable_counter: usize,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InternalScope {
-	variables: HashMap<IdTableKey, VariableDefined>,
+	pub variables: HashMap<IdTableKey, VariableDefined>,
 	parent_scope: Option<usize>,
 }
 impl InternalScope {
@@ -32,23 +33,17 @@ impl InternalScope {
 }
 impl ModuleImplementationScope {
 	pub fn new() -> Self {
-		Self { scopes: vec![InternalScope::new(None)], api_ids: HashMap::new() , variable_counter: 0, internal_ids: HashMap::new()}
+		Self { scopes: vec![InternalScope::new(None)], api_ids: HashMap::new() , variable_counter: 0, internal_ids: HashMap::new(), is_generic: false}
 	}
 	pub fn new_scope(&mut self, parent_scope: Option<usize>) -> usize {
 		self.scopes.push(InternalScope::new(parent_scope));
 		self.scopes.len() - 1
 	}
+	pub fn mark_as_generic(&mut self){
+		self.is_generic = true;
+	}
 	pub fn is_generic(&self) -> bool {
-		if self.scopes.len() == 0 {
-			return false;
-		}
-		 for var in self.scopes[0].variables.values() {
-			if matches!(var.var.kind, VariableKind::Generic(_) ){
-				true;
-			}
-		}
-		false
-
+		self.is_generic
 	}
 	pub fn get_scope(&self, scope_id: usize) -> &InternalScope {
 		&self.scopes[scope_id]
@@ -104,6 +99,40 @@ impl ModuleImplementationScope {
 		}
 		let defined = VariableDefined { var, id };
 		self.scopes[0].variables.insert(name, defined);
+		Ok(())
+	}
+	pub fn second_pass(&self, ctx: &GlobalAnalyzerContext) -> miette::Result<()>{
+		for scope in &self.scopes {
+			for var in scope.variables.values() {
+				match &var.var.kind{
+					VariableKind::Signal(sig) => {
+						if ! sig.is_sensititivity_specified(){
+							return Err(miette::Report::new(
+								SemanticError::MissingSensitivityQualifier
+									.to_diagnostic_builder()
+									.label(
+										var.var.location,
+										"Signal must be either const, clock, comb, sync or async"
+									)
+									.build(),
+							));
+						}
+						if ! sig.is_signedness_specified() {
+							return Err(miette::Report::new(
+								SemanticError::MissingSignednessQualifier
+									.to_diagnostic_builder()
+									.label(
+										var.var.location,
+										"Bus signal must be either signed or unsigned"
+									)
+									.build(),
+							));
+						}
+					},
+					VariableKind::Generic(_) => (),
+				}
+			}
+		}
 		Ok(())
 	}
 }

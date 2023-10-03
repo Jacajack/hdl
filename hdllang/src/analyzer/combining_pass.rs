@@ -100,7 +100,7 @@ pub fn combine<'a>(
 				},
 				Some(implementation) => {
 					generic_modules.insert(name.clone(), *implementation);
-					modules_implemented.remove(&name);
+					//modules_implemented.remove(&name);
 				},
 			}
 		}
@@ -127,7 +127,8 @@ pub struct SemanticalAnalyzer<'a> {
 impl <'a> SemanticalAnalyzer<'a>{
 	pub fn new(ctx: GlobalAnalyzerContext<'a>, modules_implemented: &'a HashMap<IdTableKey, &ModuleImplementation>)->Self{
 		let mut n = Self { ctx,  modules_implemented, passes: Vec::new() };
-		n.passes.push(initial_pass);
+		n.passes.push(first_pass);
+		n.passes.push(second_pass);
 		n.passes.push(codegen_pass);
 		n
 	}
@@ -141,18 +142,28 @@ impl <'a> SemanticalAnalyzer<'a>{
 		Ok(())
 	}
 }
+/// This pass collects all variables
+pub fn first_pass(ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex, module: &ModuleImplementation) -> miette::Result<()> {
+	// all passes are performed per module
+	debug!("Running initial pass");
+	module.first_pass(ctx, local_ctx)?;
+	debug!("Initial pass done");
+	Ok(())
+}
+/// This pass checks if all variables have specified sensitivity and width if needed
+pub fn second_pass(ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex, module: &ModuleImplementation) -> miette::Result<()> {
+	// all passes are performed per module
+	debug!("Running second pass");
+	module.second_pass(ctx, local_ctx)?;
+	debug!("Second pass done");
+	Ok(())
+}
+/// This pass invokes HIRN API and creates proper module
 pub fn codegen_pass(ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex, module: &ModuleImplementation) -> miette::Result<()> {
 	// all passes are performed per module
 	debug!("Running codegen pass");
 	module.codegen_pass(ctx, local_ctx)?;
 	debug!("Codegen pass done");
-	Ok(())
-}
-pub fn initial_pass(ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex, module: &ModuleImplementation) -> miette::Result<()> {
-	// all passes are performed per module
-	debug!("Running initial pass");
-	module.analyze(ctx, local_ctx)?;
-	debug!("Initial pass done");
 	Ok(())
 }
 /// Global shared context for semantic analysis
@@ -186,7 +197,7 @@ impl LocalAnalyzerContex {
 }
 impl ModuleImplementation {
 	// Performs first pass on module implementation
-	pub fn analyze(&self, ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex) -> miette::Result<()> {
+	pub fn first_pass(&self, ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex) -> miette::Result<()> {
 		debug!("Analyzing module implementation {}", ctx.id_table.get_by_key(&self.id).unwrap());
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		match ctx.modules_declared.get(&self.id) {
@@ -204,11 +215,7 @@ impl ModuleImplementation {
 					)
 					.build())),
 		}
-		let module  = ctx.modules_declared.get(&self.id).unwrap();
-		//for var_id in module.scope.variables.keys() {
-		//	let (var, loc) = module.scope.variables.get(var_id).unwrap();
-		//	// create variable with API
-		//}
+
 		let id = 0;
 		match &self.statement {
 			ModuleImplementationBlockStatement(block) => block.analyze(ctx, local_ctx, id)?,
@@ -217,6 +224,11 @@ impl ModuleImplementation {
 		debug!("Done analyzing module implementation {}", ctx.id_table.get_by_key(&self.id).unwrap());
 		Ok(())
 	}
+	pub fn second_pass(&self, ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex) -> miette::Result<()> {
+		local_ctx.scope.second_pass(ctx)?;
+		Ok(())
+	}
+	
 	pub fn codegen_pass(&self, ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex) -> miette::Result<()> {
 		debug!("Codegen pass for module implementation {}", ctx.id_table.get_by_key(&self.id).unwrap());
 		//let module  = ctx.modules_declared.get(&self.id).unwrap();
@@ -391,11 +403,11 @@ impl VariableDefinition {
 			}
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_initializer.declarator.array_declarators{
-				let size = array_declarator.evaluate_in_declaration(ctx.nc_table)?.value;
+				let size = array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?.value;
 				if size <= num_bigint::BigInt::from(0){
 					return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(array_declarator.get_location(), "Array size must be positive").build()));
 				}
-				dimensions.push(array_declarator.evaluate_in_declaration(ctx.nc_table)?.value);
+				dimensions.push(size);
 			}
 			local_ctx.scope.define_variable(scope_id, Variable{
 				name: direct_initializer.declarator.name,
@@ -438,36 +450,10 @@ impl VariableDefinition {
 		ctx: &mut GlobalAnalyzerContext,
 		local_ctx: &mut LocalAnalyzerContex,
 		api_scope: &mut ScopeHandle) -> miette::Result<()> {
-			let scope_id = local_ctx.scope_map.get(&self.location).unwrap().to_owned();
+		let scope_id = local_ctx.scope_map.get(&self.location).unwrap().to_owned();
 		for direct_initializer in &self.initializer_list{
 			let variable = local_ctx.scope.get_variable_in_scope(scope_id, &direct_initializer.declarator.name).unwrap();
-			match &variable.var.kind{
-    			VariableKind::Signal(sig) => {
-					if ! sig.is_sensititivity_specified(){
-						return Err(miette::Report::new(
-							SemanticError::MissingSensitivityQualifier
-								.to_diagnostic_builder()
-								.label(
-									self.location,
-									"Signal must be either const, clock, comb, sync or async"
-								)
-								.build(),
-						));
-					}
-					if ! sig.is_signedness_specified() {
-						return Err(miette::Report::new(
-							SemanticError::MissingSignednessQualifier
-								.to_diagnostic_builder()
-								.label(
-									self.location,
-									"Bus signal must be either signed or unsigned"
-								)
-								.build(),
-						));
-					}
-				},
-    			VariableKind::Generic(_) => (),
-			}
+			
 			variable.var.register(ctx.id_table, &local_ctx.scope, api_scope.new_signal().unwrap())?;
 		}
 		Ok(())
