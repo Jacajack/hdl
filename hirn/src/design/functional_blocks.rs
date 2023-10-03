@@ -4,7 +4,7 @@ use crate::SignalId;
 
 use super::{
 	eval::EvaluatesType, module::SignalDirection, DesignCore, DesignError, DesignHandle, EvalContext, Expression,
-	ModuleHandle, ModuleId, ScopeHandle, ScopeId,
+	ModuleHandle, ModuleId, ScopeHandle, ScopeId, HasComment,
 };
 
 pub trait HasInstanceName {
@@ -31,11 +31,20 @@ pub struct Register {
 
 	/// Instance name
 	pub name: String,
+
+	/// Comment
+	pub comment: Option<String>,
 }
 
 impl HasInstanceName for Register {
 	fn instance_name(&self) -> &str {
 		&self.name
+	}
+}
+
+impl HasComment for Register {
+	fn get_comment(&self) -> Option<String> {
+		self.comment.clone()
 	}
 }
 
@@ -49,7 +58,7 @@ pub enum ReqiuredRegisterSignal {
 }
 
 /// A builder for register blocks
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct RegisterBuilder {
 	scope: ScopeHandle,
 	input_nreset: Option<SignalId>,
@@ -58,6 +67,7 @@ pub struct RegisterBuilder {
 	input_next: Option<SignalId>,
 	output_data: Option<SignalId>,
 	name: String,
+	comment: Option<String>,
 }
 
 impl RegisterBuilder {
@@ -70,6 +80,7 @@ impl RegisterBuilder {
 			input_next: None,
 			output_data: None,
 			name: name.into(),
+			comment: None,
 		}
 	}
 
@@ -108,6 +119,11 @@ impl RegisterBuilder {
 		self
 	}
 
+	pub fn comment(mut self, comment: &str) -> Self {
+		self.name = comment.into();
+		self
+	}
+
 	/// Creates the register
 	pub fn build(mut self) -> Result<(), DesignError> {
 		// TODO assert clock is a clock
@@ -135,12 +151,13 @@ impl RegisterBuilder {
 				.output_data
 				.ok_or(DesignError::RequiredRegisterSignalNotConnected(Output))?,
 			name: self.name,
+			comment: self.comment,
 		}))
 	}
 }
 
 /// Clock gating block
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ClockGate {
 	/// Enable input
 	pub input_en: SignalId,
@@ -158,8 +175,14 @@ impl HasInstanceName for ClockGate {
 	}
 }
 
+impl HasComment for ClockGate {
+	fn get_comment(&self) -> Option<String> {
+		todo!();
+	}
+}
+
 // FF synchronizer block
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct FfSync {
 	/// Asynchronous negated reset input
 	pub input_nreset: Option<SignalId>,
@@ -186,19 +209,32 @@ impl HasInstanceName for FfSync {
 	}
 }
 
+impl HasComment for FfSync {
+	fn get_comment(&self) -> Option<String> {
+		todo!();
+	}
+}
+
 /// Represents an instantiated module
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct ModuleInstance {
 	/// ID of the instantiated module
 	pub module: ModuleHandle,
 
 	name: String,
 	bindings: Vec<(String, SignalId)>,
+	comment: Option<String>,
 }
 
 impl HasInstanceName for ModuleInstance {
 	fn instance_name(&self) -> &str {
 		&self.name
+	}
+}
+
+impl HasComment for ModuleInstance {
+	fn get_comment(&self) -> Option<String> {
+		self.comment.clone()
 	}
 }
 
@@ -208,6 +244,7 @@ impl ModuleInstance {
 			module: module.clone(),
 			name: name.into(),
 			bindings,
+			comment: None,
 		};
 
 		new.verify_bindings()?;
@@ -347,6 +384,18 @@ pub enum BlockInstance {
 	ClockGate(ClockGate),
 	FfSync(FfSync),
 	Module(ModuleInstance),
+}
+
+impl HasComment for BlockInstance {
+	fn get_comment(&self) -> Option<String> {
+		use BlockInstance::*;
+		match self {
+			Register(r) => r.get_comment(),
+			ClockGate(c) => c.get_comment(),
+			FfSync(f) => f.get_comment(),
+			Module(m) => m.get_comment(),
+		}
+	}
 }
 
 impl HasInstanceName for BlockInstance {
