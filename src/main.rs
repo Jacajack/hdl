@@ -238,8 +238,8 @@ fn analyse(mut code: String, file_name: String, mut output: Box<dyn Write>) -> m
 	Ok(())
 }
 fn main() -> miette::Result<()> {
-	std::env::set_var("RUST_LOG", "debug");
-	std::env::set_var("RUST_BACKTRACE", "1");
+	//std::env::set_var("RUST_LOG", "info");
+	//std::env::set_var("RUST_BACKTRACE", "1");
 	init_logging();
 
 	let matches = command!()
@@ -251,10 +251,13 @@ fn main() -> miette::Result<()> {
 				.help("Specify which action should be performed")
 				.value_parser([
 					"tokenize",
+					"tokenise",
 					"parse",
 					"pretty-print",
 					"serialize",
+					"serialise",
 					"deserialize",
+					"deserialise",
 					"analyse",
 					"analyze",
 					"combine", // for development only
@@ -302,7 +305,7 @@ fn main() -> miette::Result<()> {
 		_ => read_input_from_file(&String::from(file_name))?,
 	};
 	match mode {
-		"tokenize" => {
+		"tokenize" | "tokenise" => {
 			tokenize(code, output)?;
 		},
 		"parse" => {
@@ -317,10 +320,10 @@ fn main() -> miette::Result<()> {
 		"pretty-print" => {
 			pretty_print(code, output)?;
 		},
-		"serialize" => {
+		"serialize" | "serialise"=> {
 			serialize(code, output)?;
 		},
-		"deserialize" => {
+		"deserialize" | "deserialise"=> {
 			deserialize(code, output)?;
 		},
 		"compile" => {

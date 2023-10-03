@@ -13,7 +13,7 @@ mod ternary_expression;
 mod tuple;
 mod unary_cast_expression;
 mod unary_operator_expression;
-use crate::analyzer::{ModuleImplementationScope, SemanticError, EdgeSensitivity};
+use crate::analyzer::{ModuleImplementationScope, SemanticError, EdgeSensitivity, Signal, VariableKind, GenericVariable, GenericVariableKind};
 use crate::core::id_table;
 use crate::lexer::{IdTableKey, NumericConstantBase};
 use crate::parser::ast::{opcodes::*, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName};
@@ -40,16 +40,16 @@ use num_bigint::{BigInt, Sign};
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub enum Expression {
 	Number(Number),
-	Identifier(Identifier),
+	Identifier(Identifier), // takes in part in two-sided type deduction  as a rhs
 	ParenthesizedExpression(ParenthesizedExpression),
 	MatchExpression(MatchExpression),
 	ConditionalExpression(ConditionalExpression),
 	Tuple(Tuple),
 	TernaryExpression(TernaryExpression),
-	PostfixWithIndex(PostfixWithIndex),
-	PostfixWithRange(PostfixWithRange),
-	PostfixWithArgs(PostfixWithArgs),
-	PostfixWithId(PostfixWithId),
+	PostfixWithIndex(PostfixWithIndex), // takes in part in two-sided type deduction as a rhs
+	PostfixWithRange(PostfixWithRange), // takes in part in two-sided type deduction as a rhs
+	PostfixWithArgs(PostfixWithArgs), // takes in part in two-sided type deduction as a rhs
+	PostfixWithId(PostfixWithId), // takes in part in two-sided type deduction as a rhs
 	UnaryOperatorExpression(UnaryOperatorExpression),
 	UnaryCastExpression(UnaryCastExpression),
 	BinaryExpression(BinaryExpression),
@@ -148,6 +148,7 @@ impl Value {
 	}
 }
 impl Expression {
+	/// deprecated, not used
 	pub fn get_name_sync_or_comb(&self) -> miette::Result<IdTableKey> {
 		use self::Expression::*;
 		match self {
@@ -214,9 +215,11 @@ impl Expression {
 			))
 	}
 	}
-	pub fn evaluate_in_declaration(
+	pub fn evaluate(
 		&self,
 		nc_table: &crate::lexer::NumericConstantTable,
+		scope_id: usize,
+		scope: &ModuleImplementationScope,
 	) -> miette::Result<NumericConstant> {
 		match self {
 			Expression::Number(nc_key) => {
@@ -224,26 +227,53 @@ impl Expression {
 				Ok(constant.clone())
 			},
 			Expression::Identifier(id) => {
-				return Err(miette::Report::new(
-					SemanticError::NonGenericTypeVariableInExpression
-						.to_diagnostic_builder()
-						.label(
-							id.location,
-							"This variable is used in expression but its value its not known at compile time",
-						)
-						.build(),
-				))
+				let var =  match scope.get_variable(scope_id, &id.id) {
+        			Some(var) => var,
+        			None => return Err(miette::Report::new(
+						SemanticError::VariableNotDeclared
+							.to_diagnostic_builder()
+							.label(id.location, "This variable is not defined in this scope")
+							.build(),
+					)),
+    			};
+				use crate::analyzer::VariableKind::*;
+				match &var.var.kind {
+        			Signal(_) => Err(miette::Report::new(
+						SemanticError::NonGenericTypeVariableInExpression
+							.to_diagnostic_builder()
+							.label(
+								id.location,
+								"This variable is used in expression but its value its not known at compile time",
+							)
+							.build(),
+					)),
+        			Generic(generic) => {
+						match &generic.value {
+        					Some(val) => Ok(val.clone()),
+        					None => Err(miette::Report::new(
+								SemanticError::NonGenericTypeVariableInExpression
+									.to_diagnostic_builder()
+									.label(
+										id.location,
+										"This variable is used in expression but its value its not known at compile time",
+									)
+									.build(),
+							)),
+    					}
+					},
+    			}
+				
 			},
-			Expression::ParenthesizedExpression(expr) => expr.expression.evaluate_in_declaration(nc_table),
+			Expression::ParenthesizedExpression(expr) => expr.expression.evaluate(nc_table, scope_id, scope),
 			Expression::MatchExpression(expr) => report_not_allowed_expression(expr.location, "match"),
 			Expression::ConditionalExpression(expr) => report_not_allowed_expression(expr.location, "conditional"),
 			Expression::Tuple(_) => unreachable!(),
 			Expression::TernaryExpression(tern) => Ok(
-				if tern.condition.evaluate_in_declaration(nc_table)?.value != BigInt::from(0) {
-					tern.true_branch.evaluate_in_declaration(nc_table)?
+				if tern.condition.evaluate(nc_table, scope_id, scope)?.value != BigInt::from(0) {
+					tern.true_branch.evaluate(nc_table, scope_id, scope)?
 				}
 				else {
-					tern.false_branch.evaluate_in_declaration(nc_table)?
+					tern.false_branch.evaluate(nc_table, scope_id, scope)?
 				},
 			),
 			Expression::PostfixWithIndex(expr) => report_not_allowed_expression(expr.location, "index"),
@@ -254,7 +284,7 @@ impl Expression {
 				use crate::parser::ast::UnaryOpcode::*;
 				match unary.code {
 					LogicalNot => Ok(
-						if unary.expression.evaluate_in_declaration(nc_table)?.value == BigInt::from(0) {
+						if unary.expression.evaluate(nc_table, scope_id, scope)?.value == BigInt::from(0) {
 							NumericConstant::new(BigInt::from(1), None, None, Some(NumericConstantBase::Boolean))
 						}
 						else {
@@ -262,18 +292,18 @@ impl Expression {
 						},
 					),
 					BitwiseNot => Ok(NumericConstant::new_from_unary(
-						unary.expression.evaluate_in_declaration(nc_table)?,
+						unary.expression.evaluate(nc_table, scope_id, scope)?,
 						|e| !e,
 					)),
 					Minus => {
-						let other = unary.expression.evaluate_in_declaration(nc_table)?;
+						let other = unary.expression.evaluate(nc_table, scope_id, scope)?;
 						if let Some(false) = other.signed {
 							// report an error
 						}
 						Ok(NumericConstant::new_from_unary(other, |e| -e))
 					},
 					Plus => Ok(NumericConstant::new_from_unary(
-						unary.expression.evaluate_in_declaration(nc_table)?,
+						unary.expression.evaluate(nc_table, scope_id, scope)?,
 						|e| e * (-1),
 					)),
 				}
@@ -283,12 +313,12 @@ impl Expression {
 				use crate::parser::ast::BinaryOpcode::*;
 				match binop.code {
 					Multiplication => Ok(NumericConstant::new_from_binary(
-						binop.lhs.evaluate_in_declaration(nc_table)?,
-						binop.rhs.evaluate_in_declaration(nc_table)?,
+						binop.lhs.evaluate(nc_table, scope_id, scope)?,
+						binop.rhs.evaluate(nc_table, scope_id, scope)?,
 						|e1, e2| e1 * e2,
 					)),
 					Division => {
-						let rhs = binop.rhs.evaluate_in_declaration(nc_table)?;
+						let rhs = binop.rhs.evaluate(nc_table, scope_id, scope)?;
 						if rhs.value.is_zero() {
 							return Err(miette::Report::new(
 								SemanticError::DivisionByZero
@@ -298,23 +328,23 @@ impl Expression {
 							));
 						}
 						Ok(NumericConstant::new_from_binary(
-							binop.lhs.evaluate_in_declaration(nc_table)?,
+							binop.lhs.evaluate(nc_table, scope_id, scope)?,
 							rhs,
 							|e1, e2| e1 / e2,
 						))
 					},
 					Addition => Ok(NumericConstant::new_from_binary(
-						binop.lhs.evaluate_in_declaration(nc_table)?,
-						binop.rhs.evaluate_in_declaration(nc_table)?,
+						binop.lhs.evaluate(nc_table, scope_id, scope)?,
+						binop.rhs.evaluate(nc_table, scope_id, scope)?,
 						|e1, e2| e1 + e2,
 					)),
 					Subtraction => Ok(NumericConstant::new_from_binary(
-						binop.lhs.evaluate_in_declaration(nc_table)?,
-						binop.rhs.evaluate_in_declaration(nc_table)?,
+						binop.lhs.evaluate(nc_table, scope_id, scope)?,
+						binop.rhs.evaluate(nc_table, scope_id, scope)?,
 						|e1, e2| e1 - e2,
 					)),
 					Modulo => {
-						let rhs = binop.rhs.evaluate_in_declaration(nc_table)?;
+						let rhs = binop.rhs.evaluate(nc_table, scope_id, scope)?;
 						if rhs.value.is_zero() {
 							return Err(miette::Report::new(
 								SemanticError::DivisionByZero
@@ -324,14 +354,14 @@ impl Expression {
 							));
 						}
 						Ok(NumericConstant::new_from_binary(
-							binop.lhs.evaluate_in_declaration(nc_table)?,
+							binop.lhs.evaluate(nc_table, scope_id, scope)?,
 							rhs,
 							|e1, e2| e1 / e2,
 						))
 					},
 					Equal => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?.value
-							== binop.rhs.evaluate_in_declaration(nc_table)?.value
+						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value
+							== binop.rhs.evaluate(nc_table, scope_id, scope)?.value
 						{
 							NumericConstant::from_u64(1, Some(1), Some(false), Some(NumericConstantBase::Boolean))
 						}
@@ -340,8 +370,8 @@ impl Expression {
 						},
 					),
 					NotEqual => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?.value
-							!= binop.rhs.evaluate_in_declaration(nc_table)?.value
+						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value
+							!= binop.rhs.evaluate(nc_table, scope_id, scope)?.value
 						{
 							NumericConstant::from_u64(1, Some(1), Some(false), Some(NumericConstantBase::Boolean))
 						}
@@ -350,8 +380,8 @@ impl Expression {
 						},
 					),
 					LShift => {
-						let mut lhs = binop.lhs.evaluate_in_declaration(nc_table)?;
-						let rhs = binop.rhs.evaluate_in_declaration(nc_table)?;
+						let mut lhs = binop.lhs.evaluate(nc_table, scope_id, scope)?;
+						let rhs = binop.rhs.evaluate(nc_table, scope_id, scope)?;
 						if rhs.value.sign() == Sign::Minus {
 							return Err(miette::Report::new(
 								SemanticError::ShiftByNegativeNumber
@@ -370,8 +400,8 @@ impl Expression {
 						}
 					},
 					RShift => {
-						let mut lhs = binop.lhs.evaluate_in_declaration(nc_table)?;
-						let rhs = binop.rhs.evaluate_in_declaration(nc_table)?;
+						let mut lhs = binop.lhs.evaluate(nc_table, scope_id, scope)?;
+						let rhs = binop.rhs.evaluate(nc_table, scope_id, scope)?;
 						if rhs.value.sign() == Sign::Minus {
 							return Err(miette::Report::new(
 								SemanticError::ShiftByNegativeNumber
@@ -390,23 +420,23 @@ impl Expression {
 						}
 					},
 					BitwiseAnd => Ok(NumericConstant::new_from_binary(
-						binop.lhs.evaluate_in_declaration(nc_table)?,
-						binop.rhs.evaluate_in_declaration(nc_table)?,
+						binop.lhs.evaluate(nc_table, scope_id, scope)?,
+						binop.rhs.evaluate(nc_table, scope_id, scope)?,
 						|e1, e2| e1 & e2,
 					)),
 					BitwiseOr => Ok(NumericConstant::new_from_binary(
-						binop.lhs.evaluate_in_declaration(nc_table)?,
-						binop.rhs.evaluate_in_declaration(nc_table)?,
+						binop.lhs.evaluate(nc_table, scope_id, scope)?,
+						binop.rhs.evaluate(nc_table, scope_id, scope)?,
 						|e1, e2| e1 | e2,
 					)),
 					BitwiseXor => Ok(NumericConstant::new_from_binary(
-						binop.lhs.evaluate_in_declaration(nc_table)?,
-						binop.rhs.evaluate_in_declaration(nc_table)?,
+						binop.lhs.evaluate(nc_table, scope_id, scope)?,
+						binop.rhs.evaluate(nc_table, scope_id, scope)?,
 						|e1, e2| e1 ^ e2,
 					)),
 					Less => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?.value
-							< binop.rhs.evaluate_in_declaration(nc_table)?.value
+						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value
+							< binop.rhs.evaluate(nc_table, scope_id, scope)?.value
 						{
 							NumericConstant::new_true()
 						}
@@ -415,8 +445,8 @@ impl Expression {
 						},
 					),
 					Greater => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?.value
-							> binop.rhs.evaluate_in_declaration(nc_table)?.value
+						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value
+							> binop.rhs.evaluate(nc_table, scope_id, scope)?.value
 						{
 							NumericConstant::new_true()
 						}
@@ -425,8 +455,8 @@ impl Expression {
 						},
 					),
 					LessEqual => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?.value
-							<= binop.rhs.evaluate_in_declaration(nc_table)?.value
+						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value
+							<= binop.rhs.evaluate(nc_table, scope_id, scope)?.value
 						{
 							NumericConstant::new_true()
 						}
@@ -435,8 +465,8 @@ impl Expression {
 						},
 					),
 					GreaterEqual => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?.value
-							>= binop.rhs.evaluate_in_declaration(nc_table)?.value
+						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value
+							>= binop.rhs.evaluate(nc_table, scope_id, scope)?.value
 						{
 							NumericConstant::new_true()
 						}
@@ -445,8 +475,8 @@ impl Expression {
 						},
 					),
 					LogicalAnd => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?.value != BigInt::from(0)
-							&& binop.rhs.evaluate_in_declaration(nc_table)?.value != BigInt::from(0)
+						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value != BigInt::from(0)
+							&& binop.rhs.evaluate(nc_table, scope_id, scope)?.value != BigInt::from(0)
 						{
 							NumericConstant::new_true()
 						}
@@ -455,8 +485,8 @@ impl Expression {
 						},
 					),
 					LogicalOr => Ok(
-						if binop.lhs.evaluate_in_declaration(nc_table)?.value != BigInt::from(0)
-							|| binop.rhs.evaluate_in_declaration(nc_table)?.value != BigInt::from(0)
+						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value != BigInt::from(0)
+							|| binop.rhs.evaluate(nc_table, scope_id, scope)?.value != BigInt::from(0)
 						{
 							NumericConstant::new_true()
 						}
@@ -468,28 +498,79 @@ impl Expression {
 			},
 		}
 	}
-	pub fn evaluate(
-		&self,
-		scope: ModuleImplementationScope,
+	pub fn evaluate_type(&self,
 		nc_table: &crate::lexer::NumericConstantTable,
-		id_table: &id_table::IdTable,
-	) -> miette::Result<Value> {
-		use self::Expression::*;
+		scope_id: usize,
+		scope: &ModuleImplementationScope,
+	) -> miette::Result<Signal> {
+		use Expression::*;
 		match self {
-			Number(num) => Ok(Value::new_from_constant(nc_table.get_by_key(&num.key).unwrap())),
-			Identifier(_) => todo!(),
-			ParenthesizedExpression(expr) => expr.expression.evaluate(scope, nc_table, id_table),
-			MatchExpression(_) => todo!(),
-			ConditionalExpression(_) => todo!(),
-			Tuple(_) => todo!(),
-			TernaryExpression(_) => todo!(),
-			PostfixWithIndex(_) => todo!(),
-			PostfixWithRange(_) => todo!(),
-			PostfixWithArgs(_) => todo!(),
-			PostfixWithId(_) => todo!(),
-			UnaryOperatorExpression(_) => todo!(),
-			UnaryCastExpression(_) => todo!(),
-			BinaryExpression(_) => todo!(),
+    		Number(num) => {
+				let key = &num.key;
+				let constant = nc_table.get_by_key(key).unwrap();
+				Ok(Signal::new_from_constant(constant, num.location))
+			},
+    		Identifier(_) => todo!(),
+    		ParenthesizedExpression(expr) => expr.expression.evaluate_type(nc_table, scope_id, scope),
+    		MatchExpression(_) => todo!(),
+    		ConditionalExpression(_) => todo!(),
+    		Tuple(_) => todo!(),
+    		TernaryExpression(ternary) => {
+				let type_first = ternary.true_branch.evaluate_type(nc_table, scope_id, scope)?;
+				let type_second = ternary.false_branch.evaluate_type(nc_table, scope_id, scope)?;
+				let type_condition = ternary.condition.evaluate_type(nc_table, scope_id, scope)?;
+				Ok(type_first) // FIXME
+			},
+    		PostfixWithIndex(_) => todo!(),
+    		PostfixWithRange(_) => todo!(),
+    		PostfixWithArgs(_) => todo!(),
+    		PostfixWithId(_) => todo!(),
+    		UnaryOperatorExpression(_) => todo!(),
+    		UnaryCastExpression(_) => todo!(),
+    		BinaryExpression(_) => todo!(),
+		}
+	}
+	//pub fn evaluate(
+	//	&self,
+	//	scope: ModuleImplementationScope,
+	//	nc_table: &crate::lexer::NumericConstantTable,
+	//	id_table: &id_table::IdTable,
+	//) -> miette::Result<Value> {
+	//	use self::Expression::*;
+	//	match self {
+	//		Number(num) => Ok(Value::new_from_constant(nc_table.get_by_key(&num.key).unwrap())),
+	//		Identifier(_) => todo!(),
+	//		ParenthesizedExpression(expr) => expr.expression.evaluate(scope, nc_table, id_table),
+	//		MatchExpression(_) => todo!(),
+	//		ConditionalExpression(_) => todo!(),
+	//		Tuple(_) => todo!(),
+	//		TernaryExpression(_) => todo!(),
+	//		PostfixWithIndex(_) => todo!(),
+	//		PostfixWithRange(_) => todo!(),
+	//		PostfixWithArgs(_) => todo!(),
+	//		PostfixWithId(_) => todo!(),
+	//		UnaryOperatorExpression(_) => todo!(),
+	//		UnaryCastExpression(_) => todo!(),
+	//		BinaryExpression(_) => todo!(),
+	//	}
+	//}
+	pub fn can_create_binding_as_rhs(&self) -> bool {
+		use Expression::*;
+		match &self {
+    		Number(_) => false,
+    		Identifier(_) => true,
+    		ParenthesizedExpression(expr) => expr.expression.can_create_binding_as_rhs(),
+    		MatchExpression(_) => todo!(),
+    		ConditionalExpression(_) => todo!(),
+    		Tuple(_) => false,
+    		TernaryExpression(_) => false,
+    		PostfixWithIndex(_) => true,
+    		PostfixWithRange(_) => true,
+    		PostfixWithArgs(_) => true,
+    		PostfixWithId(_) => true,
+    		UnaryOperatorExpression(_) => true,
+    		UnaryCastExpression(_) => false,
+    		BinaryExpression(_) => false,
 		}
 	}
 }
