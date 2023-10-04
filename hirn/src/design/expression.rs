@@ -93,20 +93,23 @@ impl ConditionalExpression {
 	}
 
 	fn add_branch(&mut self, condition: Expression, value: Expression) {
-		self.branches.push(ConditionalExpressionBranch { condition, value });
+		self.branches.push(ConditionalExpressionBranch {
+			condition,
+			value,
+		});
 	}
 }
 
 /// A helper class for constructing conditional/match expressions
 #[derive(Clone, Debug)]
 pub struct ConditionalExpressionBuilder {
-	expr: ConditionalExpression,
+	expr: ConditionalExpression
 }
 
 impl ConditionalExpressionBuilder {
 	pub fn new(default: Expression) -> Self {
 		Self {
-			expr: ConditionalExpression::new(default),
+			expr: ConditionalExpression::new(default)
 		}
 	}
 

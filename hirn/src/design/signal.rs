@@ -59,7 +59,7 @@ impl SignalClass {
 
 	pub fn is_wire(&self) -> bool {
 		self.is_wire
-	}
+	} 
 }
 
 /// Determines sensitivity of a signal to certain clock edges
@@ -251,6 +251,7 @@ impl Signal {
 	pub fn comment(&mut self, comment: &str) {
 		self.comment = Some(comment.into());
 	}
+
 }
 
 /// Signal builder helper
@@ -424,3 +425,4 @@ impl SignalBuilder {
 		)?)
 	}
 }
+
