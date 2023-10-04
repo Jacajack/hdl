@@ -15,19 +15,19 @@ pub trait HasInstanceName {
 #[derive(Debug)]
 pub struct Register {
 	/// Asynchronous negated reset input
-	pub input_nreset: SignalId,
+	pub input_nreset: Expression,
 
 	/// Enable input
-	pub input_en: SignalId,
+	pub input_en: Expression,
 
 	/// Clock input
-	pub input_clk: SignalId,
+	pub input_clk: Expression,
 
 	/// Next value input
-	pub input_next: SignalId,
+	pub input_next: Expression,
 
 	/// Output value
-	pub output_data: SignalId,
+	pub output_data: Expression,
 
 	/// Instance name
 	pub name: String,
@@ -45,18 +45,17 @@ pub enum ReqiuredRegisterSignal {
 	Clk,
 	Next,
 	Output,
-	En,
 }
 
 /// A builder for register blocks
 #[derive(Debug)]
 pub struct RegisterBuilder {
 	scope: ScopeHandle,
-	input_nreset: Option<SignalId>,
-	input_en: Option<SignalId>,
-	input_clk: Option<SignalId>,
-	input_next: Option<SignalId>,
-	output_data: Option<SignalId>,
+	input_nreset: Option<Expression>,
+	input_en: Option<Expression>,
+	input_clk: Option<Expression>,
+	input_next: Option<Expression>,
+	output_data: Option<Expression>,
 	name: String,
 }
 
@@ -74,35 +73,35 @@ impl RegisterBuilder {
 	}
 
 	/// Connects a negated reset signal
-	pub fn nreset(mut self, signal: SignalId) -> Self {
+	pub fn nreset(mut self, expr: Expression) -> Self {
 		assert!(self.input_nreset.is_none());
-		self.input_nreset = Some(signal);
+		self.input_nreset = Some(expr);
 		self
 	}
 
 	/// Connects an enable signal
-	pub fn en(mut self, signal: SignalId) -> Self {
+	pub fn en(mut self, expr: Expression) -> Self {
 		assert!(self.input_en.is_none());
-		self.input_en = Some(signal);
+		self.input_en = Some(expr);
 		self
 	}
 
 	/// Connects a clock signal
-	pub fn clk(mut self, signal: SignalId) -> Self {
+	pub fn clk(mut self, signal: Expression) -> Self {
 		assert!(self.input_clk.is_none());
 		self.input_clk = Some(signal);
 		self
 	}
 
 	/// Connects a next value signal
-	pub fn next(mut self, signal: SignalId) -> Self {
+	pub fn next(mut self, expr: Expression) -> Self {
 		assert!(self.input_next.is_none());
-		self.input_next = Some(signal);
+		self.input_next = Some(expr);
 		self
 	}
 
 	/// Connects an output signal
-	pub fn output(mut self, signal: SignalId) -> Self {
+	pub fn output(mut self, signal: Expression) -> Self {
 		assert!(self.output_data.is_none());
 		self.output_data = Some(signal);
 		self
@@ -122,9 +121,7 @@ impl RegisterBuilder {
 			input_clk: self
 				.input_clk
 				.ok_or(DesignError::RequiredRegisterSignalNotConnected(Clk))?,
-			input_en:
-				self.input_en
-				.ok_or(DesignError::RequiredRegisterSignalNotConnected(En))?,
+			input_en: self.input_en.unwrap_or(Expression::new_one()),
 			input_nreset: self
 				.input_nreset
 				.ok_or(DesignError::RequiredRegisterSignalNotConnected(Nreset))?,
@@ -143,13 +140,13 @@ impl RegisterBuilder {
 #[derive(Debug)]
 pub struct ClockGate {
 	/// Enable input
-	pub input_en: SignalId,
+	pub input_en: Expression,
 
 	/// Clock input
-	pub input_clk: SignalId,
+	pub input_clk: Expression,
 
 	/// Output clock
-	pub output_clk: SignalId,
+	pub output_clk: Expression,
 }
 
 impl HasInstanceName for ClockGate {
@@ -162,22 +159,22 @@ impl HasInstanceName for ClockGate {
 #[derive(Debug)]
 pub struct FfSync {
 	/// Asynchronous negated reset input
-	pub input_nreset: Option<SignalId>,
+	pub input_nreset: Option<Expression>,
 
 	/// Enable input
-	pub input_en: Option<SignalId>,
+	pub input_en: Option<Expression>,
 
 	/// Input clock signal input
-	pub input_clk1: SignalId,
+	pub input_clk1: Expression,
 
 	/// Output clock signal input
-	pub input_clk2: SignalId,
+	pub input_clk2: Expression,
 
 	/// Next value input
-	pub input_next: SignalId,
+	pub input_next: Expression,
 
 	/// Output value
-	pub output_data: SignalId,
+	pub output_data: Expression,
 }
 
 impl HasInstanceName for FfSync {

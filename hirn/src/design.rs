@@ -362,35 +362,11 @@ mod test {
 
 		let mut scope2 = m.scope().if_scope(Expression::new_zero())?;
 
-		let sig_fancy_reg_en = scope2
-			.new_signal()?
-			.name("fancy_reg_en")
-			.unsigned(Expression::new_one())
-			.constant()
-			.build()?;
-
-		let sig_fancy_reg_next = scope2
-			.new_signal()?
-			.name("fancy_reg_next")
-			.unsigned(Expression::new_zero())
-			.comb(sig, true)
-			.build()?;
-
-		let sig_fancy_reg_nreset = scope2
-			.new_signal()?
-			.name("fancy_reg_nreset")
-			.unsigned(Expression::new_one())
-			.asynchronous()
-			.build()?;
-
-
-
 		scope2
 			.new_register("fancy_reg")?
 			.clk(sig.into())
-			.nreset(sig_fancy_reg_nreset)
-			.next(sig_fancy_reg_next)
-			.en(sig_fancy_reg_en)
+			.nreset(expr.clone())
+			.next(Expression::new_zero())
 			.output(sig2.into())
 			.build()?;
 
@@ -486,14 +462,6 @@ mod test {
 			.comb(clk, true)
 			.build()?;
 
-		let en = m
-			.scope()
-			.new_signal()?
-			.name("en")
-			.unsigned(Expression::new_one())
-			.comb(clk, true)
-			.build()?;
-
 		let output = m
 			.scope()
 			.new_signal()?
@@ -505,11 +473,10 @@ mod test {
 		let _register = m
 			.scope()
 			.new_register("useless_reg")?
-			.clk(clk)
-			.en(en)
-			.nreset(nreset)
-			.next(next)
-			.output(output)
+			.clk(clk.into())
+			.nreset(nreset.into())
+			.next(next.into())
+			.output(output.into())
 			.build()?;
 
 		Ok(())
