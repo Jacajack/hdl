@@ -1,6 +1,6 @@
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::SignalBuilder;
-use super::{DesignError, DesignHandle, HasComment, ModuleId, RegisterBuilder, ScopeId, SignalId};
+use super::{DesignError, DesignHandle, ModuleId, RegisterBuilder, ScopeId, SignalId, HasComment};
 use super::{Expression, ModuleHandle};
 
 /// Scope associated with an if statement
@@ -186,6 +186,7 @@ impl Scope {
 		Ok(self.assignments.last_mut().unwrap())
 	}
 
+
 	/// Assigns to a signal in this scope
 	fn assign_signal(&mut self, lhs: Expression, rhs: Expression) -> Result<(), DesignError> {
 		self.assign_signal_impl(lhs, rhs)?;
@@ -193,12 +194,7 @@ impl Scope {
 	}
 
 	/// Assigns to a signal and adds a comment
-	fn assign_signal_with_comment(
-		&mut self,
-		lhs: Expression,
-		rhs: Expression,
-		comment: &str,
-	) -> Result<(), DesignError> {
+	fn assign_signal_with_comment(&mut self, lhs: Expression, rhs: Expression, comment: &str) -> Result<(), DesignError> {
 		let a = self.assign_signal_impl(lhs, rhs)?;
 		a.comment(comment);
 		Ok(())
@@ -308,12 +304,7 @@ impl ScopeHandle {
 	}
 
 	/// Assigns an expression to a drivable expression and adds a comment
-	pub fn assign_with_comment(
-		&mut self,
-		signal: Expression,
-		expr: Expression,
-		comment: &str,
-	) -> Result<(), DesignError> {
+	pub fn assign_with_comment(&mut self, signal: Expression, expr: Expression, comment: &str) -> Result<(), DesignError> {
 		this_scope!(self).assign_signal_with_comment(signal, expr, comment)
 	}
 
