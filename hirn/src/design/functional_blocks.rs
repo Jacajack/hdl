@@ -1,7 +1,5 @@
 use std::collections::HashSet;
 
-use crate::SignalId;
-
 use super::{
 	eval::EvaluatesType, module::SignalDirection, DesignCore, DesignError, DesignHandle, EvalContext, Expression,
 	ModuleHandle, ModuleId, ScopeHandle, ScopeId,
@@ -190,7 +188,7 @@ pub struct ModuleInstance {
 	pub module: ModuleHandle,
 
 	name: String,
-	bindings: Vec<(String, SignalId)>,
+	bindings: Vec<(String, Expression)>,
 }
 
 impl HasInstanceName for ModuleInstance {
@@ -200,7 +198,7 @@ impl HasInstanceName for ModuleInstance {
 }
 
 impl ModuleInstance {
-	fn new(module: ModuleHandle, name: &str, bindings: Vec<(String, SignalId)>) -> Result<Self, DesignError> {
+	fn new(module: ModuleHandle, name: &str, bindings: Vec<(String, Expression)>) -> Result<Self, DesignError> {
 		let new = Self {
 			module: module.clone(),
 			name: name.into(),
@@ -214,8 +212,8 @@ impl ModuleInstance {
 	fn verify_bindings(&self) -> Result<(), DesignError> {
 		let mut names = HashSet::new();
 
-		for (name, signal) in &self.bindings {
-			self.verify_binding(name, *signal)?;
+		for (name, expr) in &self.bindings {
+			self.verify_binding(name, expr)?;
 
 			// Catch duplicate bindings
 			if names.contains(name) {
@@ -228,43 +226,6 @@ impl ModuleInstance {
 		Ok(())
 	}
 
-	fn verify_binding(&self, name: &str, extern_sig: SignalId) -> Result<(), DesignError> {
-		let intern_sig = self
-			.module
-			.get_interface_signal_by_name(name)
-			.ok_or(DesignError::InvalidInterfaceSignalName(self.module.id()))?;
-
-		// TODO defer this logic to assignment checker
-		let eval_ctx = EvalContext::without_assumptions(self.module.design());
-		let extern_type = extern_sig.eval_type(&eval_ctx)?;
-		let intern_type = intern_sig.signal.eval_type(&eval_ctx)?;
-
-		let lhs_type;
-		let rhs_type;
-		if intern_sig.direction == SignalDirection::Output {
-			lhs_type = &extern_type;
-			rhs_type = &intern_type;
-		}
-		else {
-			lhs_type = &intern_type;
-			rhs_type = &extern_type;
-		}
-
-		// Interface drives the expression
-		if !rhs_type.can_drive(&lhs_type) {
-			return Err(DesignError::IncompatibleBindingType {
-				module: self.module.id(),
-				signal: intern_sig.signal,
-				interface_type: intern_type,
-				binding_type: extern_type,
-			});
-		}
-
-		Ok(())
-	}
-
-	// FIXME Leaving this here for now cause it has some useful logic
-	/*
 	fn verify_binding(&self, name: &str, expr: &Expression) -> Result<(), DesignError> {
 		let sig = self
 			.module
@@ -305,14 +266,13 @@ impl ModuleInstance {
 
 		Ok(())
 	}
-	*/
 }
 
 #[derive(Debug)]
 pub struct ModuleInstanceBuilder {
 	module: ModuleHandle,
 	scope: ScopeHandle,
-	bindings: Vec<(String, SignalId)>,
+	bindings: Vec<(String, Expression)>,
 	name: String,
 }
 
@@ -326,8 +286,8 @@ impl ModuleInstanceBuilder {
 		}
 	}
 
-	pub fn bind(mut self, name: &str, signal: SignalId) -> Self {
-		self.bindings.push((name.into(), signal));
+	pub fn bind(mut self, name: &str, expr: Expression) -> Self {
+		self.bindings.push((name.into(), expr));
 		self
 	}
 
