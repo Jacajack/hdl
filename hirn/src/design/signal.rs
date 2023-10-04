@@ -18,9 +18,8 @@ pub enum SignalSignedness {
 /// Determines representation of a signal
 #[derive(Clone, Debug)]
 pub struct SignalClass {
-	signedness: SignalSignedness,
-	width: Box<Expression>,
-	is_wire: bool,
+	pub signedness: SignalSignedness, // TODO make priv
+	pub width: Box<Expression>,
 }
 
 impl SignalClass {
@@ -28,7 +27,6 @@ impl SignalClass {
 		Self {
 			signedness,
 			width: Box::new(expr),
-			is_wire: false,
 		}
 	}
 
@@ -39,26 +37,6 @@ impl SignalClass {
 	pub fn new_unsigned(expr: Expression) -> SignalClass {
 		Self::new(expr, SignalSignedness::Unsigned)
 	}
-
-	pub fn new_wire() -> SignalClass {
-		Self {
-			signedness: SignalSignedness::Unsigned,
-			width: Box::new(Expression::new_one()),
-			is_wire: true,
-		}
-	}
-
-	pub fn width(&self) -> &Expression {
-		&self.width
-	}
-
-	pub fn signedness(&self) -> SignalSignedness {
-		self.signedness
-	}
-
-	pub fn is_wire(&self) -> bool {
-		self.is_wire
-	} 
 }
 
 /// Determines sensitivity of a signal to certain clock edges
@@ -265,13 +243,6 @@ impl SignalBuilder {
 		}
 	}
 
-	/// Creates a wire signal
-	pub fn wire(mut self) -> Self {
-		assert!(self.class.is_none());
-		self.class = Some(SignalClass::new_wire());
-		self
-	}
-
 	/// Sets type to unsigned and specifies width
 	pub fn unsigned(mut self, width: Expression) -> Self {
 		assert!(self.class.is_none());
@@ -284,6 +255,10 @@ impl SignalBuilder {
 		assert!(self.class.is_none());
 		self.class = Some(SignalClass::new_signed(width));
 		self
+	}
+
+	pub fn wire(self) -> Self {
+		self.unsigned(Expression::new_one())
 	}
 
 	/// Marks signal as constant
