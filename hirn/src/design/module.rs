@@ -1,4 +1,4 @@
-use super::{HasComment, Design, DesignCore, DesignError, DesignHandle, ModuleId, ScopeHandle, ScopeId, SignalId};
+use super::{Design, DesignCore, DesignError, DesignHandle, ModuleId, ScopeHandle, ScopeId, SignalId};
 
 /// Specifies direction for signals in module interface
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -37,9 +37,6 @@ pub struct Module {
 
 	/// Signals exposed to the module interface
 	pub interface: Vec<InterfaceSignal>, // TODO set?
-
-	/// Metadata comment
-	pub comment: Option<String>,
 }
 
 impl Module {
@@ -55,7 +52,6 @@ impl Module {
 			name: name.into(),
 			main_scope: ScopeId { id: 0 },
 			interface: vec![],
-			comment: None,
 		})
 	}
 
@@ -73,10 +69,6 @@ impl Module {
 		Ok(())
 	}
 
-	fn comment(&mut self, comment: &str) {
-		self.comment = Some(comment.into());
-	}
-
 	fn get_interface_signal_by_name(&self, design: &DesignCore, name: &str) -> Option<InterfaceSignal> {
 		for sig in &self.interface {
 			if design.get_signal(sig.signal).unwrap().name == name {
@@ -85,12 +77,6 @@ impl Module {
 		}
 
 		None
-	}
-}
-
-impl HasComment for Module {
-	fn get_comment(&self) -> Option<String> {
-		self.comment.clone()
 	}
 }
 
@@ -143,19 +129,9 @@ impl ModuleHandle {
 		this_module_mut!(self).expose(signal, direction)
 	}
 
-	pub fn comment(&mut self, comment: &str) {
-		this_module_mut!(self).comment(comment);
-	}
-
 	/// Returns the ID of the scope
 	pub fn id(&self) -> ModuleId {
 		self.id
-	}
-}
-
-impl HasComment for ModuleHandle {
-	fn get_comment(&self) -> Option<String> {
-		this_module!(self).get_comment()
 	}
 }
 
