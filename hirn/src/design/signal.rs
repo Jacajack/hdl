@@ -110,8 +110,11 @@ pub enum SignalSensitivity {
 	/// A clock signal
 	Clock,
 
-	/// A compile-time constant signal
+	/// An invariable signal. When used in interface, does not become a generic parameter.
 	Const,
+
+	/// Compile-time known signal. When used in interface, becomes a generic parameter.
+	Generic,
 }
 
 impl SignalSensitivity {
@@ -120,15 +123,16 @@ impl SignalSensitivity {
 	pub fn combine(&self, other: &SignalSensitivity) -> Option<Self> {
 		use SignalSensitivity::*;
 		Some(match (self, other) {
-			(Const, Const) => Const,
 			(Async, _) | (_, Async) => Async,
-			(Clock, _) | (_, Clock) => None?,
-			(Sync(lhs), Sync(rhs)) => Sync(lhs.combine(rhs)),
+			(Sync(lhs), Sync(rhs)) => Comb(lhs.combine(rhs)),
 			(Sync(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
 			(Comb(lhs), Sync(rhs)) => Comb(lhs.combine(rhs)),
 			(Comb(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
-			(Sync(lhs), _) | (_, Sync(lhs)) => Sync(lhs.clone()),
-			(Comb(lhs), _) | (_, Comb(lhs)) => Comb(lhs.clone()),
+			(Comb(lhs), Const | Generic) | (Const | Generic, Comb(lhs)) => Comb(lhs.clone()),
+			(Sync(lhs), Const | Generic) | (Const | Generic, Sync(lhs)) => Comb(lhs.clone()),
+			(Clock, _) | (_, Clock) => None?,
+			(Const, Const) | (Const, Generic) | (Generic, Const) => Const,
+			(Generic, Generic) => Generic,
 		})
 	}
 
@@ -137,6 +141,8 @@ impl SignalSensitivity {
 	pub fn can_drive(&self, dest: &SignalSensitivity) -> bool {
 		use SignalSensitivity::*;
 		match (dest, self) {
+			(Generic, Generic) => true,
+			(Const, Generic) => true,
 			(Const, Const) => true,
 			(Clock, Clock) => true,
 			(Sync(_), Const) => true,
@@ -318,6 +324,11 @@ impl SignalBuilder {
 	/// Marks signal as constant
 	pub fn constant(self) -> Self {
 		self.sensitivity(SignalSensitivity::Const)
+	}
+
+	/// Marks signal as generic constant
+	pub fn generic(self) -> Self {
+		self.sensitivity(SignalSensitivity::Generic)
 	}
 
 	/// Marks signal as asynchronous
