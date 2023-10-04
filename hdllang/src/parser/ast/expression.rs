@@ -530,7 +530,8 @@ impl Expression {
 		nc_table: &crate::lexer::NumericConstantTable,
 		scope_id: usize,
 		scope: &mut ModuleImplementationScope,
-		coupling_type: Option<Signal>,					// bus<4> x , y; bus<3> a; // y = 2 // y = a + 2 // y = a + 2u2; 
+		coupling_type: Option<Signal>,				
+			// bus<4> x , y; bus<3> a; // y = 2 // y = a + 2 // y = a + 2u2; 
 		location: SourceSpan // FIXME change to borrow // x = a + 2
 	) -> miette::Result<Option<Signal>> { // None means auto type
 		use Expression::*;
