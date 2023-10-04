@@ -11,7 +11,7 @@ impl EvaluatesType for NumericConstant {
 	fn eval_type(&self, _ctx: &EvalContext) -> Result<EvalType, EvalError> {
 		Ok(EvalType {
 			signedness: self.signedness(),
-			sensitivity: SignalSensitivity::Generic,
+			sensitivity: SignalSensitivity::Const,
 		})
 	}
 }
