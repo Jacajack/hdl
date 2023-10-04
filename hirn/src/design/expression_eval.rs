@@ -11,7 +11,7 @@ impl EvaluatesType for NumericConstant {
 	fn eval_type(&self, _ctx: &EvalContext) -> Result<EvalType, EvalError> {
 		Ok(EvalType {
 			signedness: self.signedness(),
-			sensitivity: SignalSensitivity::Const,
+			sensitivity: SignalSensitivity::Generic,
 		})
 	}
 }
@@ -36,7 +36,7 @@ impl EvaluatesDimensions for SignalId {
 		if let Some(design) = ctx.design() {
 			let design = design.borrow();
 			let signal = design.get_signal(*self).unwrap();
-			let width = signal.class.width.eval(ctx)?.try_into_u64().unwrap(); // FIXME unwrap
+			let width = signal.class.width().eval(ctx)?.try_into_u64().unwrap(); // FIXME unwrap
 
 			// TODO check the width I guess???
 
@@ -64,7 +64,7 @@ impl EvaluatesType for SignalId {
 			let design = design.borrow();
 			let signal = design.get_signal(*self).unwrap();
 			Ok(EvalType {
-				signedness: signal.class.signedness,
+				signedness: signal.class.signedness(),
 				sensitivity: signal.sensitivity.clone(),
 			})
 		}

@@ -8,6 +8,7 @@ pub mod numeric_constant;
 pub mod scope;
 pub mod signal;
 pub mod utils;
+pub mod comment;
 
 pub use eval::{EvalContext, EvalError};
 pub use expression::{BinaryOp, Expression, UnaryOp};
@@ -16,6 +17,7 @@ pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
 pub use numeric_constant::NumericConstant;
 pub use scope::{Scope, ScopeHandle};
 pub use signal::{Signal, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice};
+pub use comment::HasComment;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -344,8 +346,7 @@ mod test {
 
 		let sig = m
 			.scope()
-			.new_signal()?
-			.name("test_signal")
+			.new_signal("test_signal")?
 			.unsigned(Expression::new_zero())
 			.constant()
 			.build()?;
@@ -354,19 +355,44 @@ mod test {
 
 		let sig2 = m
 			.scope()
-			.new_signal()?
-			.name("test_signal_2")
+			.new_signal("test_signal_2")?
 			.unsigned(expr.clone())
 			.constant()
 			.build()?;
 
 		let mut scope2 = m.scope().if_scope(Expression::new_zero())?;
 
+		let sig_fancy_reg_en = scope2
+			.new_signal("fancy_reg_en")?
+			.unsigned(Expression::new_one())
+			.constant()
+			.build()?;
+
+		let sig_fancy_reg_next = scope2
+			.new_signal("fancy_reg_next")?
+			.unsigned(Expression::new_zero())
+			.comb(sig, true)
+			.build()?;
+
+		scope2.assign(sig_fancy_reg_next.into(),
+			Expression::new_conditional(0.into())
+				.branch(1.into(), 7.into())
+				.build())?;
+
+		let sig_fancy_reg_nreset = scope2
+			.new_signal("fancy_reg_nreset")?
+			.unsigned(Expression::new_one())
+			.asynchronous()
+			.build()?;
+
+
+
 		scope2
-			.new_register()?
+			.new_register("fancy_reg")?
 			.clk(sig.into())
-			.nreset(expr.clone())
-			.next(Expression::new_zero())
+			.nreset(sig_fancy_reg_nreset)
+			.next(sig_fancy_reg_next)
+			.en(sig_fancy_reg_en)
 			.output(sig2.into())
 			.build()?;
 
@@ -383,16 +409,14 @@ mod test {
 
 		let _sig = m
 			.scope()
-			.new_signal()?
-			.name("name")
+			.new_signal("name")?
 			.unsigned(Expression::new_one())
 			.constant()
 			.build()?;
 
 		let sig2 = m
 			.scope()
-			.new_signal()?
-			.name("name")
+			.new_signal("name")?
 			.unsigned(Expression::new_one())
 			.constant()
 			.build();
@@ -440,43 +464,47 @@ mod test {
 
 		let clk = m
 			.scope()
-			.new_signal()?
-			.name("clk")
+			.new_signal("clk")?
 			.clock()
 			.unsigned(Expression::new_one())
 			.build()?;
 
 		let nreset = m
 			.scope()
-			.new_signal()?
-			.name("nreset")
+			.new_signal("nreset")?
 			.asynchronous()
 			.unsigned(Expression::new_one())
 			.build()?;
 
 		let next = m
 			.scope()
-			.new_signal()?
-			.name("next")
+			.new_signal("next")?
+			.unsigned(Expression::new_one())
+			.comb(clk, true)
+			.build()?;
+
+		let en = m
+			.scope()
+			.new_signal("en")?
 			.unsigned(Expression::new_one())
 			.comb(clk, true)
 			.build()?;
 
 		let output = m
 			.scope()
-			.new_signal()?
-			.name("output")
+			.new_signal("output")?
 			.unsigned(Expression::new_one())
 			.sync(clk, true)
 			.build()?;
 
 		let _register = m
 			.scope()
-			.new_register()?
-			.clk(clk.into())
-			.nreset(nreset.into())
-			.next(next.into())
-			.output(output.into())
+			.new_register("useless_reg")?
+			.clk(clk)
+			.en(en)
+			.nreset(nreset)
+			.next(next)
+			.output(output)
 			.build()?;
 
 		Ok(())
@@ -487,16 +515,16 @@ mod test {
 	fn test_interfaces() -> Result<(), DesignError> {
 		let mut d = Design::new();
 		let mut m = d.new_module("foo")?;
-		let m_clk = m.scope().new_signal()?.name("clk").clock().wire().build()?;
+		let m_clk = m.scope().new_signal("clk")?.clock().wire().build()?;
 
 		m.expose(m_clk, SignalDirection::Input)?;
 
 		let mut m_parent = d.new_module("bar")?;
-		let m_parent_clk = m_parent.scope().new_signal()?.name("clk").clock().wire().build()?;
+		let m_parent_clk = m_parent.scope().new_signal("clk")?.clock().wire().build()?;
 
 		m_parent
 			.scope()
-			.new_module(m)?
+			.new_module(m, "child_module")?
 			.bind("clk", m_parent_clk.into())
 			.build()?;
 
@@ -508,22 +536,21 @@ mod test {
 	fn test_bad_interface_binding() -> Result<(), DesignError> {
 		let mut d = Design::new();
 		let mut m = d.new_module("foo")?;
-		let m_clk = m.scope().new_signal()?.name("clk").clock().wire().build()?;
+		let m_clk = m.scope().new_signal("clk")?.clock().wire().build()?;
 
 		m.expose(m_clk, SignalDirection::Input)?;
 
 		let mut m_parent = d.new_module("bar")?;
 		let m_parent_async = m_parent
 			.scope()
-			.new_signal()?
-			.name("async")
+			.new_signal("async")?
 			.asynchronous()
 			.wire()
 			.build()?;
 
 		let err = m_parent
 			.scope()
-			.new_module(m)?
+			.new_module(m, "disappointing_child")?
 			.bind("clk", m_parent_async.into())
 			.build();
 
@@ -538,16 +565,14 @@ mod test {
 
 		let a = m
 			.scope()
-			.new_signal()?
-			.name("a")
+			.new_signal("a")?
 			.unsigned(8.into())
 			.constant()
 			.build()?;
 
 		let b = m
 			.scope()
-			.new_signal()?
-			.name("b")
+			.new_signal("b")?
 			.unsigned(12.into())
 			.constant()
 			.build()?;
@@ -571,8 +596,7 @@ mod test {
 
 		let a = m
 			.scope()
-			.new_signal()?
-			.name("a")
+			.new_signal("a")?
 			.unsigned(8.into())
 			.constant()
 			.array(4.into())?

@@ -1,6 +1,7 @@
 use super::DesignError;
 use super::DesignHandle;
 use super::Expression;
+use super::HasComment;
 use super::ScopeId;
 use super::SignalId;
 use std::collections::HashSet;
@@ -16,10 +17,11 @@ pub enum SignalSignedness {
 }
 
 /// Determines representation of a signal
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SignalClass {
-	pub signedness: SignalSignedness, // TODO make priv
-	pub width: Box<Expression>,
+	signedness: SignalSignedness,
+	width: Box<Expression>,
+	is_wire: bool,
 }
 
 impl SignalClass {
@@ -27,6 +29,7 @@ impl SignalClass {
 		Self {
 			signedness,
 			width: Box::new(expr),
+			is_wire: false,
 		}
 	}
 
@@ -37,6 +40,26 @@ impl SignalClass {
 	pub fn new_unsigned(expr: Expression) -> SignalClass {
 		Self::new(expr, SignalSignedness::Unsigned)
 	}
+
+	pub fn new_wire() -> SignalClass {
+		Self {
+			signedness: SignalSignedness::Unsigned,
+			width: Box::new(Expression::new_one()),
+			is_wire: true,
+		}
+	}
+
+	pub fn width(&self) -> &Expression {
+		&self.width
+	}
+
+	pub fn signedness(&self) -> SignalSignedness {
+		self.signedness
+	}
+
+	pub fn is_wire(&self) -> bool {
+		self.is_wire
+	} 
 }
 
 /// Determines sensitivity of a signal to certain clock edges
@@ -87,8 +110,11 @@ pub enum SignalSensitivity {
 	/// A clock signal
 	Clock,
 
-	/// A compile-time constant signal
+	/// An invariable signal. When used in interface, does not become a generic parameter.
 	Const,
+
+	/// Compile-time known signal. When used in interface, becomes a generic parameter.
+	Generic,
 }
 
 impl SignalSensitivity {
@@ -97,15 +123,16 @@ impl SignalSensitivity {
 	pub fn combine(&self, other: &SignalSensitivity) -> Option<Self> {
 		use SignalSensitivity::*;
 		Some(match (self, other) {
-			(Const, Const) => Const,
 			(Async, _) | (_, Async) => Async,
-			(Clock, _) | (_, Clock) => None?,
-			(Sync(lhs), Sync(rhs)) => Sync(lhs.combine(rhs)),
+			(Sync(lhs), Sync(rhs)) => Comb(lhs.combine(rhs)),
 			(Sync(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
 			(Comb(lhs), Sync(rhs)) => Comb(lhs.combine(rhs)),
 			(Comb(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
-			(Sync(lhs), _) | (_, Sync(lhs)) => Sync(lhs.clone()),
-			(Comb(lhs), _) | (_, Comb(lhs)) => Comb(lhs.clone()),
+			(Comb(lhs), Const | Generic) | (Const | Generic, Comb(lhs)) => Comb(lhs.clone()),
+			(Sync(lhs), Const | Generic) | (Const | Generic, Sync(lhs)) => Comb(lhs.clone()),
+			(Clock, _) | (_, Clock) => None?,
+			(Const, Const) | (Const, Generic) | (Generic, Const) => Const,
+			(Generic, Generic) => Generic,
 		})
 	}
 
@@ -114,6 +141,8 @@ impl SignalSensitivity {
 	pub fn can_drive(&self, dest: &SignalSensitivity) -> bool {
 		use SignalSensitivity::*;
 		match (dest, self) {
+			(Generic, Generic) => true,
+			(Const, Generic) => true,
 			(Const, Const) => true,
 			(Clock, Clock) => true,
 			(Sync(_), Const) => true,
@@ -128,7 +157,7 @@ impl SignalSensitivity {
 }
 
 /// Determines which part of a signal (or signal array) is accessed
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct SignalSlice {
 	/// Signal being accessed
 	pub signal: SignalId,
@@ -147,6 +176,7 @@ impl From<SignalId> for SignalSlice {
 }
 
 /// Physical signal representation
+#[derive(Debug)]
 pub struct Signal {
 	/// Self-reference
 	pub(super) id: SignalId,
@@ -165,6 +195,15 @@ pub struct Signal {
 
 	/// Variability level
 	pub sensitivity: SignalSensitivity,
+
+	/// Source code comment
+	comment: Option<String>,
+}
+
+impl HasComment for Signal {
+	fn get_comment(&self) -> Option<String> {
+		self.comment.clone()
+	}
 }
 
 impl Signal {
@@ -175,6 +214,7 @@ impl Signal {
 		dimensions: Vec<Expression>,
 		class: SignalClass,
 		sensitivity: SignalSensitivity,
+		comment: Option<String>,
 	) -> Result<Self, DesignError> {
 		// Check name valid
 		if !super::utils::is_name_valid(name) {
@@ -192,12 +232,26 @@ impl Signal {
 			dimensions,
 			class,
 			sensitivity,
+			comment: None,
 		})
 	}
 
 	pub fn is_scalar(&self) -> bool {
 		self.dimensions.is_empty()
 	}
+
+	pub fn is_array(&self) -> bool {
+		!self.is_scalar()
+	}
+
+	pub fn is_wire(&self) -> bool {
+		self.class.is_wire()
+	}
+
+	pub fn comment(&mut self, comment: &str) {
+		self.comment = Some(comment.into());
+	}
+
 }
 
 /// Signal builder helper
@@ -209,7 +263,7 @@ pub struct SignalBuilder {
 	scope: ScopeId,
 
 	/// Name for the signal
-	name: Option<String>,
+	name: String,
 
 	/// Dimensions (arrays only)
 	dimensions: Vec<Expression>,
@@ -225,26 +279,31 @@ pub struct SignalBuilder {
 
 	/// Clocking list (for synchronous signals)
 	sync_clocking: Option<ClockSensitivityList>,
+
+	/// Source code comment
+	comment: Option<String>,
 }
 
 impl SignalBuilder {
 	/// Starts building a new signal
-	pub fn new(design: DesignHandle, scope: ScopeId) -> Self {
+	pub fn new(design: DesignHandle, scope: ScopeId, name: &str) -> Self {
 		Self {
 			design,
 			scope,
-			name: None,
+			name: name.into(),
 			dimensions: vec![],
 			class: None,
 			sensitivity: None,
 			comb_clocking: None,
 			sync_clocking: None,
+			comment: None,
 		}
 	}
 
-	/// Sets name of the signal (required)
-	pub fn name(mut self, name: &str) -> Self {
-		self.name = Some(name.to_string());
+	/// Creates a wire signal
+	pub fn wire(mut self) -> Self {
+		assert!(self.class.is_none());
+		self.class = Some(SignalClass::new_wire());
 		self
 	}
 
@@ -262,13 +321,14 @@ impl SignalBuilder {
 		self
 	}
 
-	pub fn wire(self) -> Self {
-		self.unsigned(Expression::new_one())
-	}
-
 	/// Marks signal as constant
 	pub fn constant(self) -> Self {
 		self.sensitivity(SignalSensitivity::Const)
+	}
+
+	/// Marks signal as generic constant
+	pub fn generic(self) -> Self {
+		self.sensitivity(SignalSensitivity::Generic)
 	}
 
 	/// Marks signal as asynchronous
@@ -304,7 +364,7 @@ impl SignalBuilder {
 			list.push(edge);
 		}
 		else {
-			self.sync_clocking = Some(ClockSensitivityList::new(&edge));
+			self.comb_clocking = Some(ClockSensitivityList::new(&edge));
 		}
 
 		self
@@ -338,6 +398,12 @@ impl SignalBuilder {
 		Ok(self)
 	}
 
+	/// Adds a source code comment
+	pub fn comment(mut self, comment: &str) -> Self {
+		self.comment = Some(comment.into());
+		self
+	}
+
 	/// Creates the signal and adds it to the design. Returns the signal ID.
 	pub fn build(self) -> Result<SignalId, DesignError> {
 		let sensitivity = match (self.sensitivity, self.comb_clocking, self.sync_clocking) {
@@ -351,10 +417,12 @@ impl SignalBuilder {
 		self.design.borrow_mut().add_signal(Signal::new(
 			SignalId { id: 0 },
 			self.scope,
-			self.name.ok_or(DesignError::InvalidName)?.as_str(),
+			&self.name,
 			self.dimensions,
 			self.class.ok_or(DesignError::SignalClassNotSpecified)?,
 			sensitivity,
+			self.comment,
 		)?)
 	}
 }
+
