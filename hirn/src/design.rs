@@ -344,7 +344,8 @@ mod test {
 
 		let sig = m
 			.scope()
-			.new_signal("test_signal")?
+			.new_signal()?
+			.name("test_signal")
 			.unsigned(Expression::new_zero())
 			.constant()
 			.build()?;
@@ -353,7 +354,8 @@ mod test {
 
 		let sig2 = m
 			.scope()
-			.new_signal("test_signal_2")?
+			.new_signal()?
+			.name("test_signal_2")
 			.unsigned(expr.clone())
 			.constant()
 			.build()?;
@@ -361,19 +363,22 @@ mod test {
 		let mut scope2 = m.scope().if_scope(Expression::new_zero())?;
 
 		let sig_fancy_reg_en = scope2
-			.new_signal("fancy_reg_en")?
+			.new_signal()?
+			.name("fancy_reg_en")
 			.unsigned(Expression::new_one())
 			.constant()
 			.build()?;
 
 		let sig_fancy_reg_next = scope2
-			.new_signal("fancy_reg_next")?
+			.new_signal()?
+			.name("fancy_reg_next")
 			.unsigned(Expression::new_zero())
 			.comb(sig, true)
 			.build()?;
 
 		let sig_fancy_reg_nreset = scope2
-			.new_signal("fancy_reg_nreset")?
+			.new_signal()?
+			.name("fancy_reg_nreset")
 			.unsigned(Expression::new_one())
 			.asynchronous()
 			.build()?;
@@ -402,14 +407,16 @@ mod test {
 
 		let _sig = m
 			.scope()
-			.new_signal("name")?
+			.new_signal()?
+			.name("name")
 			.unsigned(Expression::new_one())
 			.constant()
 			.build()?;
 
 		let sig2 = m
 			.scope()
-			.new_signal("name")?
+			.new_signal()?
+			.name("name")
 			.unsigned(Expression::new_one())
 			.constant()
 			.build();
@@ -457,35 +464,40 @@ mod test {
 
 		let clk = m
 			.scope()
-			.new_signal("clk")?
+			.new_signal()?
+			.name("clk")
 			.clock()
 			.unsigned(Expression::new_one())
 			.build()?;
 
 		let nreset = m
 			.scope()
-			.new_signal("nreset")?
+			.new_signal()?
+			.name("nreset")
 			.asynchronous()
 			.unsigned(Expression::new_one())
 			.build()?;
 
 		let next = m
 			.scope()
-			.new_signal("next")?
+			.new_signal()?
+			.name("next")
 			.unsigned(Expression::new_one())
 			.comb(clk, true)
 			.build()?;
 
 		let en = m
 			.scope()
-			.new_signal("en")?
+			.new_signal()?
+			.name("en")
 			.unsigned(Expression::new_one())
 			.comb(clk, true)
 			.build()?;
 
 		let output = m
 			.scope()
-			.new_signal("output")?
+			.new_signal()?
+			.name("output")
 			.unsigned(Expression::new_one())
 			.sync(clk, true)
 			.build()?;
@@ -508,12 +520,12 @@ mod test {
 	fn test_interfaces() -> Result<(), DesignError> {
 		let mut d = Design::new();
 		let mut m = d.new_module("foo")?;
-		let m_clk = m.scope().new_signal("clk")?.clock().wire().build()?;
+		let m_clk = m.scope().new_signal()?.name("clk").clock().wire().build()?;
 
 		m.expose(m_clk, SignalDirection::Input)?;
 
 		let mut m_parent = d.new_module("bar")?;
-		let m_parent_clk = m_parent.scope().new_signal("clk")?.clock().wire().build()?;
+		let m_parent_clk = m_parent.scope().new_signal()?.name("clk").clock().wire().build()?;
 
 		m_parent
 			.scope()
@@ -529,14 +541,15 @@ mod test {
 	fn test_bad_interface_binding() -> Result<(), DesignError> {
 		let mut d = Design::new();
 		let mut m = d.new_module("foo")?;
-		let m_clk = m.scope().new_signal("clk")?.clock().wire().build()?;
+		let m_clk = m.scope().new_signal()?.name("clk").clock().wire().build()?;
 
 		m.expose(m_clk, SignalDirection::Input)?;
 
 		let mut m_parent = d.new_module("bar")?;
 		let m_parent_async = m_parent
 			.scope()
-			.new_signal("async")?
+			.new_signal()?
+			.name("async")
 			.asynchronous()
 			.wire()
 			.build()?;
@@ -558,14 +571,16 @@ mod test {
 
 		let a = m
 			.scope()
-			.new_signal("a")?
+			.new_signal()?
+			.name("a")
 			.unsigned(8.into())
 			.constant()
 			.build()?;
 
 		let b = m
 			.scope()
-			.new_signal("b")?
+			.new_signal()?
+			.name("b")
 			.unsigned(12.into())
 			.constant()
 			.build()?;
@@ -589,7 +604,8 @@ mod test {
 
 		let a = m
 			.scope()
-			.new_signal("a")?
+			.new_signal()?
+			.name("a")
 			.unsigned(8.into())
 			.constant()
 			.array(4.into())?
