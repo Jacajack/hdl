@@ -78,49 +78,10 @@ pub struct ConditionalExpressionBranch {
 #[derive(Clone, Debug)]
 pub struct ConditionalExpression {
 	/// Branches
-	branches: Vec<ConditionalExpressionBranch>,
+	pub branches: Vec<ConditionalExpressionBranch>,
 
 	/// Default value if all conditions are false
-	default: Box<Expression>,
-}
-
-impl ConditionalExpression {
-	fn new(default: Expression) -> Self {
-		Self {
-			branches: Vec::new(),
-			default: Box::new(default),
-		}
-	}
-
-	fn add_branch(&mut self, condition: Expression, value: Expression) {
-		self.branches.push(ConditionalExpressionBranch {
-			condition,
-			value,
-		});
-	}
-}
-
-/// A helper class for constructing conditional/match expressions
-#[derive(Clone, Debug)]
-pub struct ConditionalExpressionBuilder {
-	expr: ConditionalExpression
-}
-
-impl ConditionalExpressionBuilder {
-	pub fn new(default: Expression) -> Self {
-		Self {
-			expr: ConditionalExpression::new(default)
-		}
-	}
-
-	pub fn branch(mut self, condition: Expression, value: Expression) -> Self {
-		self.expr.add_branch(condition, value);
-		self
-	}
-
-	pub fn build(self) -> Expression {
-		self.expr.into()
-	}
+	pub default: Box<Expression>,
 }
 
 /// Cast expression
@@ -180,11 +141,6 @@ impl Expression {
 	/// Returns a new one-valued expression
 	pub fn new_one() -> Self {
 		Self::Constant(NumericConstant::one())
-	}
-
-	/// Returns a conditional expression builder
-	pub fn new_conditional(default: Expression) -> ConditionalExpressionBuilder {
-		ConditionalExpressionBuilder::new(default)
 	}
 
 	/// Cassts expression to a different type
@@ -247,12 +203,6 @@ impl From<SignalId> for Expression {
 impl From<NumericConstant> for Expression {
 	fn from(constant: NumericConstant) -> Self {
 		Self::Constant(constant)
-	}
-}
-
-impl From<ConditionalExpression> for Expression {
-	fn from(expr: ConditionalExpression) -> Self {
-		Self::Conditional(expr)
 	}
 }
 
