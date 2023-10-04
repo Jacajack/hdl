@@ -52,9 +52,13 @@ pub enum SemanticError {
 	#[error("This module is not declared")]
 	ModuleNotDeclared,
 	#[error("Unexpected API error")]
-	UnexpectedApiError, // transfer to CompilerError FIXME
-	#[error("Interface's signal declared in module implementation")]
-	SignalDirectionSpecified
+	SignalDirectionSpecified,
+	#[error("Differing dimensions")]
+	DifferingDimensions,
+	#[error("Differing bus widths")]
+	DifferingBusWidths,
+	#[error("It is not allowed to bind a wire signal to a bus")]
+	BoundingWireWithBus,
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -133,11 +137,17 @@ impl ProvidesCompilerDiagnostic for SemanticError {
     		MissingSignednessQualifier => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please add signedness qualifier to this signal.")
 				.build(),
-    		UnexpectedApiError => CompilerDiagnosticBuilder::from_error(&self)
-				.help("Please report this error to the developers.")
-				.build(),
     		SignalDirectionSpecified => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please remove this signal's direction qualifier.")
+				.build(),
+    		DifferingDimensions => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all combined signals have the same dimensions.")
+				.build(),
+    		DifferingBusWidths => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all bound signals have the same bus widths.")
+				.build(),
+    		BoundingWireWithBus => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all no buses are binded with wires")
 				.build(),		
 		}
 	}

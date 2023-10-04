@@ -11,20 +11,18 @@ use thiserror::Error;
 pub enum CompilerError {
 	#[error(transparent)]
 	LexerError(#[from] LexerError),
-
 	#[error(transparent)]
 	ParserError(#[from] ParserError),
-
-	#[error(transparent)]
-	IoError(#[from] std::io::Error),
-
-	#[error("File not found")]
-	FileNotFound(String),
-
-	#[error(transparent)]
-	JsonError(#[from] serde_json::Error),
 	#[error(transparent)]
 	SemanticError(SemanticError),
+	#[error(transparent)]
+	HirnApiError(#[from] hirn::design::DesignError),
+	#[error(transparent)]
+	IoError(#[from] std::io::Error),
+	#[error("File not found")]
+	FileNotFound(String),
+	#[error(transparent)]
+	JsonError(#[from] serde_json::Error),
 }
 
 impl ProvidesCompilerDiagnostic for CompilerError {
@@ -32,11 +30,8 @@ impl ProvidesCompilerDiagnostic for CompilerError {
 		use CompilerError::*;
 		match self {
 			LexerError(lexer_error) => lexer_error.into(),
-
 			ParserError(parser_error) => parser_error.into(),
-
 			SemanticError(semantic_error) => semantic_error.into(),
-
 			IoError(ref io_error) => CompilerDiagnosticBuilder::from_error(&self)
 				.help(&io_error.to_string())
 				.build(),
@@ -45,6 +40,9 @@ impl ProvidesCompilerDiagnostic for CompilerError {
 				.build(),
 			FileNotFound(file_name) => CompilerDiagnosticBuilder::from_error(&self)
 				.help(&format!("Make sure this file exists: {}", file_name))
+				.build(),
+			HirnApiError(err) => CompilerDiagnosticBuilder::from_error(&self)
+				.help(&err.to_string())
 				.build(),
 		}
 	}

@@ -1,5 +1,6 @@
-use hirn::design::ScopeHandle;
-use log::debug;
+use hirn::design::{ScopeHandle, expression::UnaryExpression};
+use log::{debug, info};
+use serde::de;
 
 use super::{ ModuleDeclared, SemanticError, VariableKind, AlreadyCreated, Variable};
 use std::collections::HashMap;
@@ -10,9 +11,9 @@ use crate::{
 	lexer::IdTableKey,
 	parser::ast::{
 		ModuleImplementation, ModuleImplementationBlockStatement, SourceLocation, TypeQualifier,
-		VariableBlock, VariableBlockStatement, VariableDefinition, Root, Scope,
+		VariableBlock, VariableBlockStatement, VariableDefinition, Root, Scope, analyze_qualifiers, ModuleImplementationStatement,
 	},
-	ProvidesCompilerDiagnostic, SourceSpan,
+	ProvidesCompilerDiagnostic, SourceSpan, CompilerError,
 };
 
 pub fn combine<'a>(
@@ -248,6 +249,115 @@ impl ModuleImplementation {
 		Ok(())
 	}
 }
+impl ModuleImplementationStatement{
+	pub fn first_pass(&self,
+		ctx: &mut GlobalAnalyzerContext,
+		local_ctx: &mut LocalAnalyzerContex,
+		scope_id: usize,
+	) -> miette::Result<()>{
+		local_ctx.scope_map.insert(self.get_location(), scope_id);
+		use ModuleImplementationStatement::*;
+		match self {
+			VariableBlock(block) => block.analyze(ctx, local_ctx, AlreadyCreated::new(), scope_id)?,
+			VariableDefinition(definition) => {
+				definition.analyze(AlreadyCreated::new(), ctx, local_ctx, scope_id)?
+			},
+			AssignmentStatement(assignment) => {
+				let lhs_type: Option<crate::analyzer::Signal> = assignment.lhs.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, None, assignment.location)?;
+				info!("Lhs type at the beginning: {:?}",lhs_type);
+				let rhs_type = assignment.rhs.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, lhs_type, assignment.location)?;
+				info!("Rhs type at the end: {:?}",rhs_type);
+				info!("Lhs type at the and: {:?}",assignment.lhs.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, rhs_type, assignment.location)?);
+			},	
+			IfElseStatement(conditional) => {
+				
+			},
+			IterationStatement(iteration) => todo!(),
+			InstantiationStatement(inst) => {
+				let name = inst.module_name.get_last_module();
+				ctx.modules_declared.get_mut(&local_ctx.module_id).unwrap().instatiaed.push(name.clone());
+				if name == local_ctx.module_id {
+					return Err(miette::Report::new(
+						SemanticError::RecursiveModuleInstantiation
+							.to_diagnostic_builder()
+							.label(
+								inst.module_name.location,
+								format!(
+									"Module \"{}\" is instantiated recursively",
+									ctx.id_table.get_by_key(&name).unwrap()
+								)
+								.as_str(),
+							)
+							.build(),
+					));
+				}
+				if !ctx.modules_declared.contains_key(&name){
+					return Err(miette::Report::new(
+						SemanticError::ModuleNotDeclared
+							.to_diagnostic_builder()
+							.label(
+								inst.module_name.location,
+								format!(
+									"Module \"{}\" is not declared",
+									ctx.id_table.get_by_key(&name).unwrap()
+								)
+								.as_str(),
+							)
+							.build(),
+					));
+				}
+				let module = ctx.modules_declared.get(&name).unwrap();
+				for stmt in &inst.port_bind{
+					// stmt.bind(ctx, local_ctx, scope_id, module.scope.get_scope(0))?;
+				}
+			},
+			ModuleImplementationBlockStatement(block) => {
+				let id = local_ctx.scope.new_scope(Some(scope_id));
+				block.analyze(ctx, local_ctx, id)?;
+			},
+		}
+		Ok(())
+	}
+	pub fn codegen_pass(&self, ctx: &mut GlobalAnalyzerContext,
+		local_ctx: &mut LocalAnalyzerContex,
+		api_scope: &mut ScopeHandle) -> miette::Result<()>
+	{
+		let scope_id = local_ctx.scope_map.get(&self.get_location()).unwrap().to_owned();
+		use ModuleImplementationStatement::*;
+		match self {
+    		VariableBlock(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
+    		VariableDefinition(definition) => {
+				definition.codegen_pass(ctx, local_ctx, api_scope)? 
+			},
+    		AssignmentStatement(assignment) => {
+				let lhs = assignment.lhs.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?;
+				let rhs = assignment.rhs.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?;
+				api_scope.assign(lhs, rhs).map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
+				debug!("Assignment done");
+				debug!("Module: {:?}", ctx.modules_declared.get(&local_ctx.module_id).unwrap().handle);
+			},
+    		IfElseStatement(conditional) => {
+				let mut inner_scope = api_scope.if_scope(conditional.condition.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?).unwrap();
+				conditional.if_statement.codegen_pass(ctx, local_ctx, &mut inner_scope)?;
+				match conditional.else_statement{
+					Some(ref else_statement) => {
+						let expr = conditional.condition.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?;
+						let mut else_scope = api_scope.if_scope(hirn::Expression::Unary(UnaryExpression{
+							op: hirn::UnaryOp::LogicalNot,
+							operand: Box::new(expr),
+						})).unwrap();
+						else_statement.codegen_pass(ctx, local_ctx, &mut else_scope)?
+					},
+					None => (),
+				}
+			},
+    		IterationStatement(_) => todo!(),
+    		InstantiationStatement(_) => todo!(),
+    		ModuleImplementationBlockStatement(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
+		};
+		Ok(())
+	}
+	}
 impl ModuleImplementationBlockStatement {
 	pub fn analyze(
 		&self,
@@ -255,62 +365,10 @@ impl ModuleImplementationBlockStatement {
 		local_ctx: &mut LocalAnalyzerContex,
 		scope_id: usize,
 	) -> miette::Result<()> {
-		local_ctx.scope_map.insert(self.location, scope_id);
-		use crate::parser::ast::ModuleImplementationStatement::*;
+		let new_id = local_ctx.scope.new_scope(Some(scope_id));
+		local_ctx.scope_map.insert(self.location, new_id);
 		for statement in &self.statements {
-			match statement {
-				VariableBlock(block) => block.analyze(ctx, local_ctx, AlreadyCreated::new(), scope_id)?,
-				VariableDefinition(definition) => {
-					definition.analyze(AlreadyCreated::new(), ctx, local_ctx, scope_id)?
-				},
-				AssignmentStatement(assignment) => todo!(),
-				IfElseStatement(conditional) => {
-					
-				},
-				IterationStatement(iteration) => todo!(),
-				InstantiationStatement(inst) => {
-					let name = inst.module_name.get_last_module();
-					ctx.modules_declared.get_mut(&local_ctx.module_id).unwrap().instatiaed.push(name.clone());
-					if name == local_ctx.module_id {
-						return Err(miette::Report::new(
-							SemanticError::RecursiveModuleInstantiation
-								.to_diagnostic_builder()
-								.label(
-									inst.module_name.location,
-									format!(
-										"Module \"{}\" is instantiated recursively",
-										ctx.id_table.get_by_key(&name).unwrap()
-									)
-									.as_str(),
-								)
-								.build(),
-						));
-					}
-					if !ctx.modules_declared.contains_key(&name){
-						return Err(miette::Report::new(
-							SemanticError::ModuleNotDeclared
-								.to_diagnostic_builder()
-								.label(
-									inst.module_name.location,
-									format!(
-										"Module \"{}\" is not declared",
-										ctx.id_table.get_by_key(&name).unwrap()
-									)
-									.as_str(),
-								)
-								.build(),
-						));
-					}
-					let module = ctx.modules_declared.get(&name).unwrap();
-					for stmt in &inst.port_bind{
-						// stmt.bind(ctx, local_ctx, scope_id, module.scope.get_scope(0))?;
-					}
-				},
-				ModuleImplementationBlockStatement(block) => {
-					let id = local_ctx.scope.new_scope(Some(scope_id));
-					block.analyze(ctx, local_ctx, id)?;
-				},
-			}
+			statement.first_pass(ctx, local_ctx, new_id)?;
 		}
 		Ok(())
 	}
@@ -318,35 +376,9 @@ impl ModuleImplementationBlockStatement {
 		ctx: &mut GlobalAnalyzerContext,
 		local_ctx: &mut LocalAnalyzerContex,
 		api_scope: &mut ScopeHandle) -> miette::Result<()> {
-		let scope_id = local_ctx.scope_map.get(&self.location).unwrap().to_owned();
-		use crate::parser::ast::ModuleImplementationStatement::*;
+		let mut subscope = api_scope.new_subscope().unwrap();
 		for statement in &self.statements {
-			match statement{
-				VariableBlock(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
-				VariableDefinition(definition) => {
-					definition.codegen_pass(ctx, local_ctx, api_scope)? 
-				},
-			//	AssignmentStatement(_) => todo!(),
-				//IfElseStatement(conditional) => {
-				//	let inner_scope = api_scope.if_scope(conditional.condition).unwrap();
-				//},
-			//	IterationStatement(_) => todo!(),
-				InstantiationStatement(inst) => {
-					let mut  builder = api_scope.new_module(ctx.modules_declared.get(&inst.module_name.get_last_module()).unwrap().handle.to_owned()).unwrap();
-					for port_bind in &inst.port_bind{
-						use crate::parser::ast::PortBindStatement::*;
-						match  port_bind{
-        					OnlyId(only) => builder = builder.bind( ctx.id_table.get_by_key(&only.id).unwrap().as_str(), local_ctx.scope.get_api_id(only.id).unwrap().into()),
-        					IdWithExpression(_) => todo!(),
-        					IdWithDeclaration(_) => todo!(),
-    					}
-					}
-				},
-				ModuleImplementationBlockStatement(block) => {
-					block.codegen_pass(ctx, local_ctx, &mut api_scope.new_subscope().unwrap())?;
-				}
-			_ => (),
-			}
+			statement.codegen_pass(ctx, local_ctx, &mut subscope)?;
 		}
 		Ok(())
 	}
@@ -415,35 +447,16 @@ impl VariableDefinition {
 				dimensions,
 				location: direct_initializer.declarator.get_location(),
 			})?;
+			match &direct_initializer.expression{
+    			Some(expr) => {
+					let lhs = kind.to_signal();
+					let rhs = expr.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, lhs, direct_initializer.declarator.get_location())?; // FIXME
+					
+				},
+    			None => (),
+			}
 			debug!("Defined variable {:?} in scope {}", ctx.id_table.get_by_key(&direct_initializer.declarator.name).unwrap(), scope_id);
 		}
-		//already_combined = analyze_qualifiers(&self.type_declarator.qualifiers, already_combined)?;
-		//analyze_specifier_implementation(&self.type_declarator.specifier, &already_combined)?;
-		//for direct_initializer in &self.initializer_list {
-		//	if let Some(variable) = local_ctx.scope.get_variable_in_scope(scope_id, &direct_initializer.declarator.name) {
-		//		return Err(miette::Report::new(
-		//			SemanticError::DuplicateVariableDeclaration
-		//				.to_diagnostic_builder()
-		//				.label(
-		//					direct_initializer.declarator.get_location(),
-		//					format!(
-		//						"Variable with name \"{}\" declared here, was already declared before.",
-		//						ctx.id_table.get_by_key(&direct_initializer.declarator.name).unwrap()
-		//					)
-		//					.as_str(),
-		//				)
-		//				.label(
-		//					variable.var.location,
-		//					format!(
-		//						"Here variable \"{}\" was declared before.",
-		//						ctx.id_table.get_by_key(&direct_initializer.declarator.name).unwrap()
-		//					)
-		//					.as_str(),
-		//				)
-		//				.build(),
-		//		));
-		//	}
-		//}
 		Ok(())
 	}
 	pub fn codegen_pass(&self,
@@ -453,8 +466,13 @@ impl VariableDefinition {
 		let scope_id = local_ctx.scope_map.get(&self.location).unwrap().to_owned();
 		for direct_initializer in &self.initializer_list{
 			let variable = local_ctx.scope.get_variable_in_scope(scope_id, &direct_initializer.declarator.name).unwrap();
+			let api_id = variable.var.register(ctx.id_table, scope_id, &local_ctx.scope, api_scope.new_signal().unwrap())?;
+			match &direct_initializer.expression {
+    			Some(expr) => api_scope.assign(api_id.into(), expr.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?).unwrap(),
+    			None => (),
+			}
 			
-			variable.var.register(ctx.id_table, &local_ctx.scope, api_scope.new_signal().unwrap())?;
+			local_ctx.scope.insert_api_id(variable.id, api_id)
 		}
 		Ok(())
 	}
@@ -467,21 +485,7 @@ impl VariableBlock {
 		mut already_created: AlreadyCreated,
 		scope_id: usize,
 	) -> miette::Result<()> {
-		for qualifier in &self.types{
-			use TypeQualifier::*;
-			match qualifier{
-				Signed { location } => already_created.add_signedness(SignalSignedness::Signed(*location))?,
-				Unsigned { location } => already_created.add_signedness(SignalSignedness::Unsigned(*location))?,
-				Tristate { location } => already_created.add_direction(Direction::Tristate(*location))?,
-				Const { location } => already_created.add_sensitivity(SignalSensitivity::Const(*location))?,
-				Clock { location } => already_created.add_sensitivity(SignalSensitivity::Clock(*location))?,
-				Comb(_) => todo!(),
-				Sync(_) => todo!(),
-				Input { location } => already_created.add_direction(Direction::Input(*location))?,
-				Output { location } => already_created.add_direction(Direction::Output(*location))?,
-				Async { location } => already_created.add_sensitivity(SignalSensitivity::Async(*location))?,
-			}
-		}
+		already_created = analyze_qualifiers(&self.types, already_created, &local_ctx.scope, scope_id, ctx.id_table)?;
 		for statement in &self.statements {
 			statement.analyze(already_created.clone(), ctx, local_ctx, scope_id)?;
 		}
@@ -532,112 +536,6 @@ impl VariableBlockStatement {
 	}
 }
 
-//pub fn analyze_qualifiers(
-//	type_qualifiers: &Vec<TypeQualifier>,
-//	mut already_combined: CombinedQualifiers,
-//) -> miette::Result<CombinedQualifiers> {
-//	for q in type_qualifiers {
-//		use TypeQualifier::*;
-//		match q {
-//			Signed { location } => {
-//				if let Some(prev) = &already_combined.signed {
-//					report_duplicated_qualifier(location, prev, "signed")?;
-//				}
-//				already_combined.signed = Some(*location);
-//			},
-//			Unsigned { location } => {
-//				if let Some(prev) = &already_combined.unsigned {
-//					report_duplicated_qualifier(location, prev, "unsigned")?;
-//				}
-//				already_combined.unsigned = Some(*location);
-//			},
-//			Const { location } => {
-//				if let Some(prev) = &already_combined.constant {
-//					report_duplicated_qualifier(location, prev, "const")?;
-//				}
-//				already_combined.constant = Some(*location);
-//			},
-//			Clock { location } => {
-//				if let Some(prev) = &already_combined.clock {
-//					report_duplicated_qualifier(location, prev, "clock")?;
-//				}
-//				already_combined.clock = Some(*location);
-//			},
-//			TypeQualifier::Comb(comb) => {
-//				if let Some(prev) = &already_combined.comb {
-//					report_duplicated_qualifier(&comb.location, &prev.1, "comb")?;
-//				}
-//				already_combined.comb = Some((comb.expressions.clone(), comb.location));
-//			},
-//			TypeQualifier::Sync(sync) => {
-//				if let Some(prev) = &already_combined.synchronous {
-//					report_duplicated_qualifier(&sync.location, &prev.1, "sync")?;
-//				}
-//				already_combined.synchronous = Some((sync.expressions.clone(), sync.location));
-//			},
-//			Input { location } => {
-//				if let Some(prev) = &already_combined.input {
-//					report_duplicated_qualifier(location, prev, "input")?;
-//				}
-//				already_combined.input = Some(*location);
-//			},
-//			Output { location } => {
-//				if let Some(prev) = &already_combined.output {
-//					report_duplicated_qualifier(location, prev, "output")?;
-//				}
-//				already_combined.output = Some(*location);
-//			},
-//			Async { location } => {
-//				if let Some(prev) = &already_combined.asynchronous {
-//					report_duplicated_qualifier(location, prev, "async")?;
-//				}
-//				already_combined.asynchronous = Some(*location);
-//			},
-//			Tristate { location: _ } => (),
-//		};
-//	}
-//	already_combined.check_for_contradicting()?;
-//	Ok(already_combined)
-//}
-//pub fn analyze_specifier(type_specifier: &TypeSpecifier, already_combined: &CombinedQualifiers) -> miette::Result<()> {
-//	match type_specifier {
-//		TypeSpecifier::Auto { location } => {
-//			return Err(miette::Report::new(
-//				SemanticError::AutoSpecifierInDeclaration
-//					.to_diagnostic_builder()
-//					.label(*location, "This specifier is not allowed in a declaration")
-//					.build(),
-//			))
-//		},
-//		TypeSpecifier::Wire { location } => {
-//			if let Some(location2) = &already_combined.signed {
-//				report_qualifier_contradicting_specifier(location2, location, "unsigned", "wire")?;
-//			}
-//			else if let Some(location2) = &already_combined.unsigned {
-//				report_qualifier_contradicting_specifier(location2, location, "unsigned", "wire")?;
-//			}
-//			Ok(())
-//		},
-//		_ => Ok(()),
-//	}
-//}
-//pub fn analyze_specifier_implementation(
-//	type_specifier: &TypeSpecifier,
-//	already_combined: &CombinedQualifiers,
-//) -> miette::Result<()> {
-//	match type_specifier {
-//		TypeSpecifier::Wire { location } => {
-//			if let Some(location2) = &already_combined.signed {
-//				report_qualifier_contradicting_specifier(location2, location, "unsigned", "wire")?;
-//			}
-//			else if let Some(location2) = &already_combined.unsigned {
-//				report_qualifier_contradicting_specifier(location2, location, "unsigned", "wire")?;
-//			}
-//		},
-//		_ => (),
-//	};
-//	Ok(())
-//}
 pub fn report_qualifier_contradicting_specifier(
 	qualifier_location: &SourceSpan,
 	specifier_location: &SourceSpan,
