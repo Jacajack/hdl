@@ -372,11 +372,6 @@ mod test {
 			.comb(sig, true)
 			.build()?;
 
-		scope2.assign(sig_fancy_reg_next.into(),
-			Expression::new_conditional(0.into())
-				.branch(1.into(), 7.into())
-				.build())?;
-
 		let sig_fancy_reg_nreset = scope2
 			.new_signal("fancy_reg_nreset")?
 			.unsigned(Expression::new_one())
