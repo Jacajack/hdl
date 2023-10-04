@@ -1,3 +1,4 @@
+pub mod comment;
 pub mod eval;
 pub mod expression;
 pub mod expression_eval;
@@ -8,8 +9,8 @@ pub mod numeric_constant;
 pub mod scope;
 pub mod signal;
 pub mod utils;
-pub mod comment;
 
+pub use comment::HasComment;
 pub use eval::{EvalContext, EvalError};
 pub use expression::{BinaryOp, Expression, UnaryOp};
 pub use functional_blocks::{Register, RegisterBuilder};
@@ -17,7 +18,6 @@ pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
 pub use numeric_constant::NumericConstant;
 pub use scope::{Scope, ScopeHandle};
 pub use signal::{Signal, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice};
-pub use comment::HasComment;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -374,18 +374,16 @@ mod test {
 			.comb(sig, true)
 			.build()?;
 
-		scope2.assign(sig_fancy_reg_next.into(),
-			Expression::new_conditional(0.into())
-				.branch(1.into(), 7.into())
-				.build())?;
+		scope2.assign(
+			sig_fancy_reg_next.into(),
+			Expression::new_conditional(0.into()).branch(1.into(), 7.into()).build(),
+		)?;
 
 		let sig_fancy_reg_nreset = scope2
 			.new_signal("fancy_reg_nreset")?
 			.unsigned(Expression::new_one())
 			.asynchronous()
 			.build()?;
-
-
 
 		scope2
 			.new_register("fancy_reg")?
@@ -541,12 +539,7 @@ mod test {
 		m.expose(m_clk, SignalDirection::Input)?;
 
 		let mut m_parent = d.new_module("bar")?;
-		let m_parent_async = m_parent
-			.scope()
-			.new_signal("async")?
-			.asynchronous()
-			.wire()
-			.build()?;
+		let m_parent_async = m_parent.scope().new_signal("async")?.asynchronous().wire().build()?;
 
 		let err = m_parent
 			.scope()
@@ -563,19 +556,9 @@ mod test {
 		let mut d = Design::new();
 		let mut m = d.new_module("test")?;
 
-		let a = m
-			.scope()
-			.new_signal("a")?
-			.unsigned(8.into())
-			.constant()
-			.build()?;
+		let a = m.scope().new_signal("a")?.unsigned(8.into()).constant().build()?;
 
-		let b = m
-			.scope()
-			.new_signal("b")?
-			.unsigned(12.into())
-			.constant()
-			.build()?;
+		let b = m.scope().new_signal("b")?.unsigned(12.into()).constant().build()?;
 
 		let expr = Expression::from(a) + b.into();
 

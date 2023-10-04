@@ -4,7 +4,7 @@ use crate::SignalId;
 
 use super::{
 	eval::EvaluatesType, module::SignalDirection, DesignCore, DesignError, DesignHandle, EvalContext, Expression,
-	ModuleHandle, ModuleId, ScopeHandle, ScopeId, HasComment,
+	HasComment, ModuleHandle, ModuleId, ScopeHandle, ScopeId,
 };
 
 pub trait HasInstanceName {
@@ -138,8 +138,8 @@ impl RegisterBuilder {
 			input_clk: self
 				.input_clk
 				.ok_or(DesignError::RequiredRegisterSignalNotConnected(Clk))?,
-			input_en:
-				self.input_en
+			input_en: self
+				.input_en
 				.ok_or(DesignError::RequiredRegisterSignalNotConnected(En))?,
 			input_nreset: self
 				.input_nreset
@@ -372,8 +372,11 @@ impl ModuleInstanceBuilder {
 	}
 
 	pub fn build(mut self) -> Result<(), DesignError> {
-		self.scope
-			.add_block(BlockInstance::Module(ModuleInstance::new(self.module, &self.name, self.bindings)?))
+		self.scope.add_block(BlockInstance::Module(ModuleInstance::new(
+			self.module,
+			&self.name,
+			self.bindings,
+		)?))
 	}
 }
 
