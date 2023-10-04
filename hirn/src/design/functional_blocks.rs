@@ -10,7 +10,6 @@ pub trait HasInstanceName {
 }
 
 /// Register block
-#[derive(Debug)]
 pub struct Register {
 	/// Asynchronous negated reset input
 	pub input_nreset: Expression,
@@ -46,7 +45,6 @@ pub enum ReqiuredRegisterSignal {
 }
 
 /// A builder for register blocks
-#[derive(Debug)]
 pub struct RegisterBuilder {
 	scope: ScopeHandle,
 	input_nreset: Option<Expression>,
@@ -135,7 +133,6 @@ impl RegisterBuilder {
 }
 
 /// Clock gating block
-#[derive(Debug)]
 pub struct ClockGate {
 	/// Enable input
 	pub input_en: Expression,
@@ -154,7 +151,6 @@ impl HasInstanceName for ClockGate {
 }
 
 // FF synchronizer block
-#[derive(Debug)]
 pub struct FfSync {
 	/// Asynchronous negated reset input
 	pub input_nreset: Option<Expression>,
@@ -182,7 +178,6 @@ impl HasInstanceName for FfSync {
 }
 
 /// Represents an instantiated module
-#[derive(Debug)]
 pub struct ModuleInstance {
 	/// ID of the instantiated module
 	pub module: ModuleHandle,
@@ -268,7 +263,6 @@ impl ModuleInstance {
 	}
 }
 
-#[derive(Debug)]
 pub struct ModuleInstanceBuilder {
 	module: ModuleHandle,
 	scope: ScopeHandle,
@@ -298,7 +292,6 @@ impl ModuleInstanceBuilder {
 }
 
 /// Represents a functional block instance
-#[derive(Debug)]
 pub enum BlockInstance {
 	Register(Register),
 	ClockGate(ClockGate),
