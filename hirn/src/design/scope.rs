@@ -220,8 +220,8 @@ impl ScopeHandle {
 	}
 
 	/// Returns a new register builder
-	pub fn new_register(&mut self, name: &str) -> Result<RegisterBuilder, DesignError> {
-		Ok(RegisterBuilder::new(self.clone(), name))
+	pub fn new_register(&mut self) -> Result<RegisterBuilder, DesignError> {
+		Ok(RegisterBuilder::new(self.clone()))
 	}
 
 	/// Adds a functional block
@@ -240,7 +240,7 @@ impl ScopeHandle {
 	}
 
 	/// Creates a new module instance in this scope (returns a builder)
-	pub fn new_module(&mut self, module: ModuleHandle, name: &str) -> Result<ModuleInstanceBuilder, DesignError> {
-		Ok(ModuleInstanceBuilder::new(self.clone(), module, name))
+	pub fn new_module(&mut self, module: ModuleHandle) -> Result<ModuleInstanceBuilder, DesignError> {
+		Ok(ModuleInstanceBuilder::new(self.clone(), module))
 	}
 }
