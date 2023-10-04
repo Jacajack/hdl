@@ -6,13 +6,23 @@ use log::debug;
 use crate::{lexer::{IdTableKey, IdTable}, SourceSpan, parser::ast::Scope, ProvidesCompilerDiagnostic};
 
 use super::{Variable, VariableKind, GlobalAnalyzerContext, SemanticError};
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
+pub struct InternalVariableId {
+	id: usize,
+}
+
+impl InternalVariableId {
+	pub fn new(id: usize) -> Self {
+		Self { id }
+	}
+}
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleImplementationScope {
 	scopes: Vec<InternalScope>,
 	is_generic: bool,
-	api_ids: HashMap<usize, SignalId>,
-	internal_ids: HashMap<usize, (usize, IdTableKey)>,
+	api_ids: HashMap<InternalVariableId, SignalId>,
+	internal_ids: HashMap<InternalVariableId, (usize, IdTableKey)>,
 	variable_counter: usize,
 }
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -74,7 +84,7 @@ impl ModuleImplementationScope {
 	pub fn is_declared(&self, scope_key: usize, key: &IdTableKey) -> Option<SourceSpan> {
 		self.scopes[scope_key].variables.get(key).map(|x| x.var.location)
 	}
-	pub fn insert_api_id(&mut self, id: usize, api_id: SignalId) {
+	pub fn insert_api_id(&mut self, id: InternalVariableId, api_id: SignalId) {
 		self.api_ids.insert(id, api_id);
 	}
 	pub fn get_api_id(&self, scope_id: usize, key: &IdTableKey) -> Option<SignalId> {
@@ -92,7 +102,7 @@ impl ModuleImplementationScope {
 		}
 	}
 	pub fn define_variable(&mut self, scope_id: usize, var: Variable) -> miette::Result<()> {
-		let id = self.variable_counter;
+		let id = InternalVariableId::new(self.variable_counter);
 		self.variable_counter += 1;
 		let name = var.name.clone();
 		let defined = VariableDefined { var, id };
@@ -101,7 +111,7 @@ impl ModuleImplementationScope {
 		Ok(())
 	}
 	pub fn declare_variable(&mut self, var: Variable, id_table: &IdTable, handle: &mut ModuleHandle) ->miette::Result<()>{
-		let id = self.variable_counter;
+		let id = InternalVariableId::new(self.variable_counter);
 		self.variable_counter += 1;
 		let name = var.name.clone();
 		self.internal_ids.insert(id, (0, name));
@@ -163,7 +173,7 @@ impl Scope for ModuleImplementationScope {
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct VariableDefined {
 	pub var: Variable,
-	pub id: usize,
+	pub id: InternalVariableId,
 }
 
 impl VariableDefined {

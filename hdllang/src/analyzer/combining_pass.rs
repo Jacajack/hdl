@@ -175,8 +175,6 @@ pub struct GlobalAnalyzerContext<'a> {
 	pub modules_declared: HashMap<IdTableKey, ModuleDeclared>,
 	/// represents all implemented generic modules
 	pub generic_modules: HashMap<IdTableKey, &'a ModuleImplementation>,
-	/// this should be transferred to local context
-	//pub scope: HashMap<SourceSpan, usize>,
 	pub design: hirn::design::Design,
 }
 /// Per module context for semantic analysis
