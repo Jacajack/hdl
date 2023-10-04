@@ -279,8 +279,8 @@ impl ScopeHandle {
 		let mut child = self.new_subscope()?;
 
 		let iter_var = child.new_signal(iter_name)?
-			.signed(64.into()) // TODO is that right? Maybe we want semantic analyzer to provide that signal and not create it here???
-			.generic()
+			.signed(Expression::new_one()) // TODO signed 64-bit
+			.constant()
 			.build()?;
 
 		this_scope!(self).add_loop_scope(iter_var, from, to, child.id())?;
