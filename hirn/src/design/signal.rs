@@ -304,7 +304,7 @@ impl SignalBuilder {
 			list.push(edge);
 		}
 		else {
-			self.comb_clocking = Some(ClockSensitivityList::new(&edge));
+			self.sync_clocking = Some(ClockSensitivityList::new(&edge));
 		}
 
 		self
