@@ -13,14 +13,15 @@ mod ternary_expression;
 mod tuple;
 mod unary_cast_expression;
 mod unary_operator_expression;
-use crate::analyzer::{ModuleImplementationScope, SemanticError, EdgeSensitivity, Signal, VariableKind, GenericVariable, GenericVariableKind};
-use crate::core::id_table;
+
+use crate::analyzer::{ModuleImplementationScope, SemanticError, EdgeSensitivity, Signal};
 use crate::lexer::{IdTableKey, NumericConstantBase};
 use crate::parser::ast::{opcodes::*, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName};
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 pub use binary_expression::BinaryExpression;
 pub use conditional_expression::ConditionalExpression;
 pub use identifier::Identifier;
+use log::{debug, info};
 pub use match_expression::MatchExpression;
 use num_traits::Zero;
 pub use number::Number;
@@ -215,7 +216,7 @@ impl Expression {
 			))
 	}
 	}
-	pub fn evaluate(
+	pub fn evaluate( // 1) jest, bo jest 2) jest, tu masz wartośc 3) nie może być bo nie wiadomo
 		&self,
 		nc_table: &crate::lexer::NumericConstantTable,
 		scope_id: usize,
@@ -498,27 +499,95 @@ impl Expression {
 			},
 		}
 	}
+	pub fn codegen(&self, nc_table: &crate::lexer::NumericConstantTable, scope_id: usize, scope: &ModuleImplementationScope) -> miette::Result<hirn::Expression> {
+		use self::Expression::*;
+		match self{
+    		Number(num) => {
+				
+				todo!()
+			},
+    		Identifier(id) => {
+				let signal_id = scope.get_api_id(scope_id, &id.id).unwrap();
+				Ok(signal_id.into())
+			},
+    		ParenthesizedExpression(expr) => {
+				expr.expression.codegen(nc_table, scope_id, scope)
+			},
+    		MatchExpression(_) => todo!(),
+    		ConditionalExpression(_) => todo!(),
+    		Tuple(_) => todo!(),
+    		TernaryExpression(_) => todo!(),
+    		PostfixWithIndex(_) => todo!(),
+    		PostfixWithRange(_) => todo!(),
+    		PostfixWithArgs(_) => todo!(),
+    		PostfixWithId(_) => todo!(),
+    		UnaryOperatorExpression(_) => todo!(),
+    		UnaryCastExpression(_) => todo!(),
+    		BinaryExpression(_) => todo!(),
+		}
+	}
 	pub fn evaluate_type(&self,
 		nc_table: &crate::lexer::NumericConstantTable,
 		scope_id: usize,
-		scope: &ModuleImplementationScope,
-	) -> miette::Result<Signal> {
+		scope: &mut ModuleImplementationScope,
+		coupling_type: Option<Signal>,					// bus<4> x , y; bus<3> a; // y = 2 // y = a + 2 // y = a + 2u2; 
+		location: SourceSpan // FIXME change to borrow // x = a + 2
+	) -> miette::Result<Option<Signal>> { // None means auto type
 		use Expression::*;
 		match self {
     		Number(num) => {
+				// if coupling type is none, width must be known
 				let key = &num.key;
 				let constant = nc_table.get_by_key(key).unwrap();
-				Ok(Signal::new_from_constant(constant, num.location))
+				Ok(Some(Signal::new_from_constant(constant, num.location)))
 			},
-    		Identifier(_) => todo!(),
-    		ParenthesizedExpression(expr) => expr.expression.evaluate_type(nc_table, scope_id, scope),
+    		Identifier(identifier) => {
+				let var =  match scope.get_variable(scope_id, &identifier.id) {
+					Some(var) => var,
+					None => return Err(miette::Report::new(
+						SemanticError::VariableNotDeclared
+							.to_diagnostic_builder()
+							.label(identifier.location, "This variable is not defined in this scope")
+							.build(),
+					)),
+				};
+				let sig = match &var.var.kind{
+					crate::analyzer::VariableKind::Signal(signal) => Some(signal.clone()),
+					crate::analyzer::VariableKind::Generic(generic) => {
+						match &generic.value {
+							Some(val) => Some(Signal::new_from_constant(val, identifier.location)),
+							None => None,
+						}
+					},
+				};
+				match (sig, coupling_type) {
+        			(None, None) => Ok(None),
+        			(None, Some(signal)) => {
+						let mut new = var.clone();
+						new.var.kind = crate::analyzer::VariableKind::Signal(signal.clone());
+						scope.redeclare_variable(new);
+						Ok(Some(signal.clone()))
+					},
+        			(Some(signal), None) => Ok(Some(signal)),
+        			(Some(mut signal), Some(coming)) => {
+						info!("Combining two signals:\n{:?}\n{:?}", signal, coming);
+						signal.combine_two(&coming, location)?;
+						let mut new = var.clone();
+						new.var.kind = crate::analyzer::VariableKind::Signal(signal.clone());
+						scope.redeclare_variable(new);
+						Ok(Some(signal.clone()))
+					},
+    			}
+
+			}
+    		ParenthesizedExpression(expr) => expr.expression.evaluate_type(nc_table, scope_id, scope, coupling_type, location),
     		MatchExpression(_) => todo!(),
     		ConditionalExpression(_) => todo!(),
     		Tuple(_) => todo!(),
     		TernaryExpression(ternary) => {
-				let type_first = ternary.true_branch.evaluate_type(nc_table, scope_id, scope)?;
-				let type_second = ternary.false_branch.evaluate_type(nc_table, scope_id, scope)?;
-				let type_condition = ternary.condition.evaluate_type(nc_table, scope_id, scope)?;
+				let type_first = ternary.true_branch.evaluate_type(nc_table, scope_id, scope, None, location)?;
+				let type_second = ternary.false_branch.evaluate_type(nc_table, scope_id, scope, coupling_type.clone(), location)?;
+				let type_condition = ternary.condition.evaluate_type(nc_table, scope_id, scope, coupling_type, location)?;
 				Ok(type_first) // FIXME
 			},
     		PostfixWithIndex(_) => todo!(),
@@ -530,30 +599,7 @@ impl Expression {
     		BinaryExpression(_) => todo!(),
 		}
 	}
-	//pub fn evaluate(
-	//	&self,
-	//	scope: ModuleImplementationScope,
-	//	nc_table: &crate::lexer::NumericConstantTable,
-	//	id_table: &id_table::IdTable,
-	//) -> miette::Result<Value> {
-	//	use self::Expression::*;
-	//	match self {
-	//		Number(num) => Ok(Value::new_from_constant(nc_table.get_by_key(&num.key).unwrap())),
-	//		Identifier(_) => todo!(),
-	//		ParenthesizedExpression(expr) => expr.expression.evaluate(scope, nc_table, id_table),
-	//		MatchExpression(_) => todo!(),
-	//		ConditionalExpression(_) => todo!(),
-	//		Tuple(_) => todo!(),
-	//		TernaryExpression(_) => todo!(),
-	//		PostfixWithIndex(_) => todo!(),
-	//		PostfixWithRange(_) => todo!(),
-	//		PostfixWithArgs(_) => todo!(),
-	//		PostfixWithId(_) => todo!(),
-	//		UnaryOperatorExpression(_) => todo!(),
-	//		UnaryCastExpression(_) => todo!(),
-	//		BinaryExpression(_) => todo!(),
-	//	}
-	//}
+
 	pub fn can_create_binding_as_rhs(&self) -> bool {
 		use Expression::*;
 		match &self {

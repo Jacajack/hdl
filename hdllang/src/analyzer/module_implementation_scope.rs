@@ -62,6 +62,11 @@ impl ModuleImplementationScope {
 			}
 		}
 	}
+	pub fn redeclare_variable(&mut self, var: VariableDefined){
+		let (scope_id, name) = self.internal_ids.get(&var.id).unwrap();
+		debug!("Redeclared variable {:?} in scope {}", var, scope_id);
+		self.scopes[*scope_id].variables.insert(*name, var);
+	}
 	pub fn get_variable_in_scope(&self, scope_id: usize, key: &IdTableKey) -> Option<&VariableDefined> {
 		let scope = &self.scopes[scope_id];
 		scope.variables.get(key)
@@ -69,8 +74,22 @@ impl ModuleImplementationScope {
 	pub fn is_declared(&self, scope_key: usize, key: &IdTableKey) -> Option<SourceSpan> {
 		self.scopes[scope_key].variables.get(key).map(|x| x.var.location)
 	}
-	pub fn get_api_id(&self, id: IdTableKey) -> Option<SignalId> {
-		self.api_ids.get(&self.get_variable(0, &id).unwrap().id).cloned()
+	pub fn insert_api_id(&mut self, id: usize, api_id: SignalId) {
+		self.api_ids.insert(id, api_id);
+	}
+	pub fn get_api_id(&self, scope_id: usize, key: &IdTableKey) -> Option<SignalId> {
+		let scope = &self.scopes[scope_id];
+		if let Some(variable) = scope.variables.get(key) {
+			Some(self.api_ids.get(&variable.id).unwrap().clone())
+		}
+		else {
+			if let Some(parent_scope) = scope.parent_scope {
+				self.get_api_id(parent_scope, key)
+			}
+			else {
+				None
+			}
+		}
 	}
 	pub fn define_variable(&mut self, scope_id: usize, var: Variable) -> miette::Result<()> {
 		let id = self.variable_counter;
@@ -86,7 +105,7 @@ impl ModuleImplementationScope {
 		self.variable_counter += 1;
 		let name = var.name.clone();
 		self.internal_ids.insert(id, (0, name));
-		self.api_ids.insert(id, var.register(id_table, &self, handle.scope().new_signal().unwrap())?);
+		self.api_ids.insert(id, var.register(id_table, 0, &self, handle.scope().new_signal().unwrap())?);
 		match &var.kind{
 			VariableKind::Generic(_) => handle.expose(self.api_ids.get(&id).unwrap().clone(), hirn::design::SignalDirection::Input).unwrap(),
 			VariableKind::Signal(sig) => {

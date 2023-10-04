@@ -1,6 +1,7 @@
 
 use hirn::{design::{NumericConstant, ModuleHandle, ScopeHandle, signal::SignalBuilder}, SignalId, Expression};
 use log::debug;
+use logos::Source;
 use num_bigint::BigInt;
 
 use crate::{ ProvidesCompilerDiagnostic, SourceSpan, lexer::IdTableKey, analyzer::report_duplicated_qualifier, core::id_table};
@@ -56,14 +57,15 @@ impl Direction{
 		}
 	}
 }
-
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct BusType {
+	pub width: Option<BigInt>,
+	pub signedness: SignalSignedness,
+	pub location: SourceSpan,
+}
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SignalType {
-	Bus {
-		width: Option<BigInt>,
-		signedness: SignalSignedness,
-		location: SourceSpan,
-	},
+	Bus(BusType),
 	Wire(SourceSpan)
 }
 
@@ -167,6 +169,26 @@ pub struct Signal{
 	pub direction: Direction,
 }
 impl Signal{
+	pub fn new_bus(width: Option<BigInt>, signedness: SignalSignedness, location: SourceSpan) -> Self{
+		Self{
+			signal_type: SignalType::Bus(BusType{
+				width,
+				signedness,
+				location,
+			}),
+			dimensions: Vec::new(),
+			sensitivity: SignalSensitivity::NoSensitivity,
+			direction: Direction::None,
+		}
+	}
+	pub fn new_wire(location: SourceSpan) -> Self{
+		Self{
+			signal_type: SignalType::Wire(location),
+			dimensions: Vec::new(),
+			sensitivity: SignalSensitivity::NoSensitivity,
+			direction: Direction::None,
+		}
+	}
 	pub fn is_sensititivity_specified(&self) -> bool {
 		match &self.sensitivity{
 			SignalSensitivity::NoSensitivity => false,
@@ -182,8 +204,8 @@ impl Signal{
 	/// only if needed
 	pub fn is_signedness_specified(&self) -> bool {
 		match &self.signal_type{
-			SignalType::Bus { signedness, .. } => {
-				match signedness{
+			SignalType::Bus(bus) => {
+				match bus.signedness{
 					SignalSignedness::None => false,
 					_ => true,
 				}
@@ -204,18 +226,98 @@ impl Signal{
 			};
 		let width = match constant.width{
 			Some(value) => Some(value.into()),
-			None => None,
+			None => None, // error
 		};
 		Self{
-			signal_type: SignalType::Bus{
+			signal_type: SignalType::Bus(BusType{
 				width,
 				signedness,
 				location,
-			},
+			}),
 			dimensions: Vec::new(),
 			sensitivity: SignalSensitivity::Const(location),
 			direction: Direction::None,
 		}
+	}
+	pub fn combine_two(&mut self, other: &Signal, location: SourceSpan) -> miette::Result<()>{
+		if self.dimensions != other.dimensions {
+			return Err(miette::Report::new(SemanticError::DifferingDimensions
+				.to_diagnostic_builder()
+				//.label(self.signal_type.location, "This signal has these dimensions") // FIXME PROPER LABELING
+				//.label(other.signal_type.location, "This signal has these dimensions")
+				.build()));
+		}
+		self.sensitivity = match (&self.sensitivity, &other.sensitivity) {
+    		(SignalSensitivity::Async(_), _) => self.sensitivity.clone(),
+    		(_, SignalSensitivity::Async(_)) => other.sensitivity.clone(),
+    		(SignalSensitivity::Comb(_, _), _) => self.sensitivity.clone(),
+    		(_, SignalSensitivity::Comb(_, _)) => other.sensitivity.clone(),
+    		(SignalSensitivity::Sync(_, _), _) => self.sensitivity.clone(),
+    		(_, SignalSensitivity::Sync(_, _)) => other.sensitivity.clone(),
+    		(SignalSensitivity::Clock(_),_) => self.sensitivity.clone(),
+    		(_, SignalSensitivity::Clock(_)) => other.sensitivity.clone(),
+    		(SignalSensitivity::Const(_), _) => self.sensitivity.clone(),
+    		(_, SignalSensitivity::Const(_)) => other.sensitivity.clone(),
+    		(_, _) => SignalSensitivity::NoSensitivity,
+		};
+		match (&self.direction, &other.direction) {
+    		(Direction::Input(_), Direction::Input(_)) => (),
+    		(Direction::Input(_), Direction::Output(_)) => (), // warn
+    		(Direction::Output(_), Direction::Input(_)) => (), // warn
+    		(Direction::Output(_), Direction::Output(_)) => (),
+    		(_, Direction::Tristate(_)) => (),
+    		(Direction::Tristate(_), _) => (),
+    		(_, Direction::None) => (),
+			(Direction::None, _) => (),
+		}
+		self.signal_type = match (&self.signal_type, &other.signal_type) {
+    		(SignalType::Bus(bus1), SignalType::Bus(bus2)) => {
+				let mut new = bus1.clone();
+				new.signedness = match (&bus1.signedness, &bus2.signedness) {
+        			(SignalSignedness::Signed(_), SignalSignedness::Signed(_)) |(SignalSignedness::Unsigned(_), SignalSignedness::Unsigned(_)) => new.signedness,
+        			(SignalSignedness::Signed(_), SignalSignedness::Unsigned(_)) | (SignalSignedness::Unsigned(_), SignalSignedness::Signed(_)) => todo!(), // report an erro
+        			(_, SignalSignedness::None) => new.signedness,
+					(SignalSignedness::None, _) => bus2.signedness.clone(),
+    			};
+				new.width = match (&bus1.width, &bus2.width) {
+        			(None, None) => None,
+        			(None, Some(_)) => bus2.width.clone(),
+        			(Some(_), None) => bus1.width.clone(),
+        			(Some(val1), Some(val2)) => {
+						if val1 == val2{
+							bus1.width.clone()
+						} else {
+							return Err(miette::Report::new(SemanticError::DifferingBusWidths
+								.to_diagnostic_builder()
+								//.label(location,"Cannot assign signals - width mismatch")
+								.label(location, format!("Cannot assign signals - width mismatch. {} bits vs {} bits", val1, val2).as_str())
+								.label(bus1.location, "First width specified here") 
+								.label(bus2.location, "Second width specified here")
+								.build()));
+						}
+					}
+    			};
+				SignalType::Bus(new)
+			},
+    		(SignalType::Bus(bus), SignalType::Wire(wire)) => 
+			{
+				return Err(miette::Report::new(SemanticError::BoundingWireWithBus.to_diagnostic_builder()
+					.label(location, "Cannot assign bus to a wire")
+					.label(*wire, "Signal specified as wire here")
+					.label(bus.location, "Signal specified as a bus here")
+					.build()));
+			},
+    		(SignalType::Wire(wire), SignalType::Bus(bus)) => {
+				return Err(miette::Report::new(SemanticError::BoundingWireWithBus.to_diagnostic_builder()
+				.label(location, "Cannot assign signals - type mismatch")
+				.label(*wire, "Wire type specified here")
+				.label(bus.location, "Bus type specified here")
+				.build()));
+			},
+    		(SignalType::Wire(_), SignalType::Wire(_)) => self.signal_type.clone(),
+		};
+
+		Ok(())
 	}
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -241,6 +343,7 @@ impl Variable{
 	}
 	pub fn register(&self,
 		id_table: &id_table::IdTable,
+		scope_id: usize,
 		scope: &ModuleImplementationScope,
 		mut builder: SignalBuilder) -> miette::Result<SignalId> {
 		debug!("registering variable {}\n {:?}", id_table.get_by_key(&self.name).unwrap(), self);
@@ -253,13 +356,13 @@ impl Variable{
         			Async(_) => builder = builder.asynchronous(),
         			Comb(list, _) => {
 						for edge in &list.list{
-							let id = scope.get_api_id(edge.clock_signal).unwrap();
+							let id = scope.get_api_id(scope_id, &edge.clock_signal).unwrap();
 							builder = builder.comb(id,edge.on_rising);
 						}
 					},
         			Sync(list, _) => {
 						for edge in &list.list{
-							let id = scope.get_api_id(self.name).unwrap();
+							let id = scope.get_api_id(scope_id, &edge.clock_signal).unwrap();
 							builder = builder.sync(id, edge.on_rising);
 						}
 					},
@@ -268,10 +371,10 @@ impl Variable{
         			NoSensitivity => unreachable!("No sensitivity should not be possible")
     			}
 				match &signal.signal_type{
-        			SignalType::Bus { width, signedness, location } => {
-						match signedness{
-							SignalSignedness::Signed(_) => builder = builder.signed(hirn::Expression::from(NumericConstant::new_signed(width.clone().unwrap().clone()))), // FIXME
-							SignalSignedness::Unsigned(_) => builder = builder.unsigned(hirn::Expression::from(NumericConstant::new_signed(width.clone().unwrap().clone()))), // FIXME
+        			SignalType::Bus(bus) => {
+						match bus.signedness{
+							SignalSignedness::Signed(_) => builder = builder.signed(hirn::Expression::from(NumericConstant::new_signed(bus.width.clone().unwrap().clone()))), // FIXME
+							SignalSignedness::Unsigned(_) => builder = builder.unsigned(hirn::Expression::from(NumericConstant::new_signed(bus.width.clone().unwrap().clone()))), // FIXME
 							SignalSignedness::None => unreachable!(), // report an error
 						}
 					},
@@ -309,6 +412,16 @@ pub enum GenericVariableKind{
 	Int(SignalSignedness,SourceSpan),
 	Bool(SourceSpan),
 }
+impl GenericVariableKind {
+	pub fn location(&self) -> SourceSpan {
+		use GenericVariableKind::*;
+		match self {
+			Auto(x) => *x,
+			Int(_, x) => *x,
+			Bool(x) => *x,
+		}
+	}
+}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GenericVariable{
 	pub value: Option<crate::lexer::NumericConstant>,
@@ -319,6 +432,27 @@ pub struct GenericVariable{
 pub enum VariableKind{
 	Signal(Signal),
 	Generic(GenericVariable),
+}
+
+impl VariableKind {
+	pub fn to_signal(&self) -> Option<Signal> {
+		match self {
+			VariableKind::Signal(signal) => Some(signal.clone()),
+			VariableKind::Generic(gen) => {
+				match &gen.value{
+					None => (),
+					Some(val) => {
+						return Some(Signal::new_from_constant(val, gen.kind.location()));
+					}
+				}
+				match &gen.kind{
+        			GenericVariableKind::Auto(_) => None,
+        			GenericVariableKind::Int(signedness, location) => Some(Signal::new_bus(Some(BigInt::from(64)), signedness.clone(), *location)),
+        			GenericVariableKind::Bool(location) => Some(Signal::new_wire(*location)),
+    			}
+			},
+		}
+	}
 }
 //#[derive(Clone, Debug, PartialEq, Eq)]
 //pub struct CombinedQualifiers {

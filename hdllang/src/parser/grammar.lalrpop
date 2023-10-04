@@ -159,7 +159,7 @@ pub ModuleImplStmt: ModuleImplementationStatement = {
 		ModuleImplementationStatement::VariableBlock(block),
 	<definition:VarDef> =>
 		ModuleImplementationStatement::VariableDefinition(definition),
-	<start: @L>  <lhs:PostfixExpr> <assignment_opcode:AssignmentOP> <rhs:ExprWithTuple> ";" <end: @R> =>
+	  <lhs:PostfixExpr> <start: @L> <assignment_opcode:AssignmentOP> <end: @R> <rhs:ExprWithTuple> ";" =>
 		ModuleImplementationStatement::AssignmentStatement(AssignmentStatement{
 			lhs,
 			assignment_opcode,
