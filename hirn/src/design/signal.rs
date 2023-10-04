@@ -210,7 +210,7 @@ pub struct SignalBuilder {
 	scope: ScopeId,
 
 	/// Name for the signal
-	name: String,
+	name: Option<String>,
 
 	/// Dimensions (arrays only)
 	dimensions: Vec<Expression>,
@@ -230,17 +230,23 @@ pub struct SignalBuilder {
 
 impl SignalBuilder {
 	/// Starts building a new signal
-	pub fn new(design: DesignHandle, scope: ScopeId, name: &str) -> Self {
+	pub fn new(design: DesignHandle, scope: ScopeId) -> Self {
 		Self {
 			design,
 			scope,
-			name: name.into(),
+			name: None,
 			dimensions: vec![],
 			class: None,
 			sensitivity: None,
 			comb_clocking: None,
 			sync_clocking: None,
 		}
+	}
+
+	/// Sets name of the signal (required)
+	pub fn name(mut self, name: &str) -> Self {
+		self.name = Some(name.to_string());
+		self
 	}
 
 	/// Sets type to unsigned and specifies width
@@ -346,11 +352,10 @@ impl SignalBuilder {
 		self.design.borrow_mut().add_signal(Signal::new(
 			SignalId { id: 0 },
 			self.scope,
-			&self.name,
+			self.name.ok_or(DesignError::InvalidName)?.as_str(),
 			self.dimensions,
 			self.class.ok_or(DesignError::SignalClassNotSpecified)?,
 			sensitivity,
 		)?)
 	}
 }
-

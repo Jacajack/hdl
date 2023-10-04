@@ -212,7 +212,8 @@ impl ScopeHandle {
 	) -> Result<(ScopeHandle, SignalId), DesignError> {
 		let mut child = self.new_subscope()?;
 
-		let iter_var = child.new_signal(iter_name)?
+		let iter_var = child.new_signal()?
+			.name(iter_name)
 			.signed(Expression::new_one()) // TODO signed 64-bit
 			.constant()
 			.build()?;
@@ -238,8 +239,8 @@ impl ScopeHandle {
 	}
 
 	/// Creates a new signal in this scope (returns a builder)
-	pub fn new_signal(&mut self, name: &str) -> Result<SignalBuilder, DesignError> {
-		Ok(SignalBuilder::new(self.design.clone(), self.scope, name))
+	pub fn new_signal(&mut self) -> Result<SignalBuilder, DesignError> {
+		Ok(SignalBuilder::new(self.design.clone(), self.scope))
 	}
 
 	/// Creates a new module instance in this scope (returns a builder)
