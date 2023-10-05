@@ -23,6 +23,8 @@ pub enum BinaryOp {
 	LessEqual,
 	Greater,
 	GreaterEqual,
+	Max,
+	Min,
 }
 
 /// Unary operators
@@ -47,12 +49,12 @@ pub enum BuiltinOp {
 		expr: Box<Expression>,
 		width: Box<Expression>,
 	},
-	BitSelect {
+	BusSelect {
 		expr: Box<Expression>,
 		msb: Box<Expression>,
 		lsb: Box<Expression>,
 	},
-	BusSelect {
+	BitSelect {
 		expr: Box<Expression>,
 		index: Box<Expression>,
 	},
@@ -61,6 +63,7 @@ pub enum BuiltinOp {
 		count: Box<Expression>,
 	},
 	Join(Vec<Expression>),
+	Width(Box<Expression>),
 }
 
 /// Represents a conditional expression branch
@@ -195,6 +198,7 @@ impl Expression {
 
 	/// Performs zero extension
 	pub fn zero_extend(self, width: Expression) -> Self {
+		// TODO rewrite as join(rep(width - this_width, 0u1), this)
 		Self::Builtin(BuiltinOp::ZeroExtend {
 			expr: Box::new(self),
 			width: Box::new(width),
@@ -203,23 +207,69 @@ impl Expression {
 
 	/// Performs sign extension
 	pub fn sign_extend(self, width: Expression) -> Self {
+		// TODO rewrite as join(rep(width - this_width, this[this_width - 1]), this)
 		Self::Builtin(BuiltinOp::SignExtend {
 			expr: Box::new(self),
 			width: Box::new(width),
 		})
 	}
 
+	/// Get max of two expressions
+	pub fn max(self, rhs: Expression) -> Self {
+		// TODO rewrite as conditional?
+		Self::Binary(BinaryExpression{
+			op: BinaryOp::Max,
+			lhs: Box::new(self),
+			rhs: Box::new(rhs),
+		})
+	}
+
+	/// Get min of two expressions
+	pub fn min(self, rhs: Expression) -> Self {
+		// TODO rewrite as conditional?
+		Self::Binary(BinaryExpression{
+			op: BinaryOp::Min,
+			lhs: Box::new(self),
+			rhs: Box::new(rhs),
+		})
+	}
+
+	/// Join bits with another expression
+	pub fn join(self, rhs: Expression) -> Self {
+		Self::Builtin(BuiltinOp::Join(vec![self, rhs]))
+	}
+
+	/// Joins bits with provided expressions
+	pub fn join_many(self, expressions: Vec<Expression>) -> Self {
+		let mut list = vec![self];
+		list.extend(expressions);
+		Self::Builtin(BuiltinOp::Join(list))
+	}
+
 	/// Selects range of bits from the expression
-	pub fn bit_select(self, msb: u32, lsb: u32) -> Self {
-		assert!(msb >= lsb);
-		todo!();
+	pub fn select_bits(self, msb: Expression, lsb: Expression) -> Self {
+		Self::Builtin(BuiltinOp::BusSelect {
+			expr: Box::new(self),
+			msb: Box::new(msb),
+			lsb: Box::new(lsb),
+		})
 	}
 
 	/// Attempt to drive the expression if possible.
 	/// Returns affected signal slice if drivable.
+	/// TODO is it necessary to return a slice here?
 	pub fn try_drive(&self) -> Option<SignalSlice> {
 		match self {
 			Self::Signal(slice) => Some(slice.clone()),
+			// Self::Builtin(BuiltinOp::BusSelect { expr, msb, lsb }) => {
+			// 	SingalSlice{
+
+			// 	}
+			// },
+
+			// Self::Builtin(BuiltinOp::BitSelect { expr, index }) => {
+
+			// }
 			// TODO index/range expression drive
 			_ => None,
 		}
