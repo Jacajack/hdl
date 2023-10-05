@@ -2,7 +2,7 @@ use log::debug;
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum NumericConstantBase {
 	Binary,
 	Decimal,
@@ -10,7 +10,7 @@ pub enum NumericConstantBase {
 	Boolean,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct NumericConstant {
 	pub value: BigInt,
 	pub width: Option<u32>,

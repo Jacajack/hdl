@@ -41,6 +41,7 @@ impl VariableDeclarationStatement{
 				scope.mark_as_generic();
 				return  Ok(vec![]);
 			},
+			VariableKind::ModuleInstantion(_) => unreachable!(""),
 		}
 		let mut variables = Vec::new();
 
@@ -62,6 +63,7 @@ impl VariableDeclarationStatement{
 					gen.dimensions = dimensions.clone();
 					VariableKind::Generic(gen)
 				},
+				VariableKind::ModuleInstantion(_) => unreachable!(),
 			};
 			variables.push(Variable{
 				name: direct_declarator.name,
@@ -91,7 +93,7 @@ impl VariableKind{
     		Wire { location } => {
 				already_created = analyze_qualifiers(&type_declarator.qualifiers, already_created, scope, current_scope, id_table)?;
 				match already_created.signedness{
-        			SignalSignedness::None => (),
+        			SignalSignedness::NoSignedness => (),
 					_ => return Err(miette::Report::new(SemanticError::ContradictingSpecifier.to_diagnostic_builder().label(*location, "Wire cannot be signed or unsigned").build())),
     			}
 				Ok(VariableKind::Signal(Signal { signal_type: SignalType::Wire(*location), sensitivity: already_created.sensitivity, direction: already_created.direction, dimensions: Vec::new() }))

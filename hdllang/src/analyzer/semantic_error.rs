@@ -59,6 +59,14 @@ pub enum SemanticError {
 	DifferingBusWidths,
 	#[error("It is not allowed to bind a wire signal to a bus")]
 	BoundingWireWithBus,
+	#[error("It is not allowed to acces members of other type than module")]
+	IdNotSubscriptable,
+	#[error("It is not allowed to acces slice of non-bus type")]
+	AccesingRangeOfNonBus,
+	#[error("It is not allowed to acces via index types other than array or a bus")]
+	IndexingWrongType,
+	#[error("It is not allowed to use this expression in the left-hand side of an assignment")]
+	ForbiddenExpressionInLhs
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -148,6 +156,18 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
     		BoundingWireWithBus => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all no buses are binded with wires")
+				.build(),
+    		IdNotSubscriptable => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all accessed members are modules")
+				.build(),
+    		AccesingRangeOfNonBus => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all accessed members are buses")
+				.build(),
+    		IndexingWrongType => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all accessed members are arrays or buses")
+				.build(),
+    		ForbiddenExpressionInLhs => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all only allowed expressions are on left hand sight of assignment")
 				.build(),		
 		}
 	}

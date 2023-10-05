@@ -261,19 +261,28 @@ impl ModuleImplementationStatement{
 				definition.analyze(AlreadyCreated::new(), ctx, local_ctx, scope_id)?
 			},
 			AssignmentStatement(assignment) => {
-				let lhs_type: Option<crate::analyzer::Signal> = assignment.lhs.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, None, assignment.location)?;
+				let lhs_type: Option<crate::analyzer::Signal> = assignment.lhs.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, None, true, assignment.location)?;
 				info!("Lhs type at the beginning: {:?}",lhs_type);
-				let rhs_type = assignment.rhs.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, lhs_type, assignment.location)?;
+				let rhs_type = assignment.rhs.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, lhs_type, false, assignment.location)?;
 				info!("Rhs type at the end: {:?}",rhs_type);
-				info!("Lhs type at the and: {:?}",assignment.lhs.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, rhs_type, assignment.location)?);
+				info!("Lhs type at the and: {:?}",assignment.lhs.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, rhs_type, true, assignment.location)?);
 			},	
 			IfElseStatement(conditional) => {
-				
+				let condition_type = conditional.condition.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?;
+				let if_scope = local_ctx.scope.new_scope(Some(scope_id));
+				conditional.if_statement.first_pass(ctx, local_ctx, if_scope)?;
+				match &conditional.else_statement{
+        			Some(stmt) =>{
+						let else_scope = local_ctx.scope.new_scope(Some(scope_id));
+						stmt.first_pass(ctx, local_ctx, else_scope)?;
+					},
+        			None => (),
+    			}
 			},
 			IterationStatement(iteration) => todo!(),
 			InstantiationStatement(inst) => {
 				let name = inst.module_name.get_last_module();
-				ctx.modules_declared.get_mut(&local_ctx.module_id).unwrap().instatiaed.push(name.clone());
+				ctx.modules_declared.get_mut(&local_ctx.module_id).unwrap().instantiates.push(name.clone());
 				if name == local_ctx.module_id {
 					return Err(miette::Report::new(
 						SemanticError::RecursiveModuleInstantiation
@@ -406,6 +415,7 @@ impl VariableDefinition {
 				}
 			},
     		VariableKind::Generic(_) => (),
+			VariableKind::ModuleInstantion(_) => (),
 		}
 		for direct_initializer in &self.initializer_list{
 			if let Some(variable) = local_ctx.scope.get_variable_in_scope(scope_id, &direct_initializer.declarator.name) {
@@ -448,8 +458,8 @@ impl VariableDefinition {
 			match &direct_initializer.expression{
     			Some(expr) => {
 					let lhs = kind.to_signal();
-					let rhs = expr.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, lhs, direct_initializer.declarator.get_location())?; // FIXME
-					
+					let rhs = expr.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, lhs, false, direct_initializer.declarator.get_location())?; // FIXME
+					// todo finish this assignment
 				},
     			None => (),
 			}

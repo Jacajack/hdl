@@ -131,13 +131,13 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 		if !width_str.is_empty() {
 			let n = parse_pure_decimal(width_str)?.try_into().unwrap();
 
-			// Is the number of bits reasonable? // FIXME TO BE DELETED
-			if n > 64 {
-				return Err(NumberParseError {
-					kind: NumericConstantParseErrorKind::TooManyBits,
-					range: (0, token_len),
-				});
-			}
+			//// Is the number of bits reasonable? // FIXME TO BE DELETED
+			//if n > 64 {
+			//	return Err(NumberParseError {
+			//		kind: NumericConstantParseErrorKind::TooManyBits,
+			//		range: (0, token_len),
+			//	});
+			//}
 
 			num_bits = Some(n);
 		}

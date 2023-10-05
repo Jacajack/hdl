@@ -460,9 +460,9 @@ IndexExpr : Expression ={
 	"[" <Expr> "]"
 }
 PostfixExpr : Expression = {
-	<start:@L> <expression:PostfixExpr> "." <id:"Id"> <end:@R> =>
+	<start:@L> <expression:"Id"> "." <id:"Id"> <end:@R> =>
 		Expression::PostfixWithId(PostfixWithId{
-			expression: Box::new(expression),
+			expression,
 			id,
 			location:SourceSpan::new_between(start,end),
 		}),

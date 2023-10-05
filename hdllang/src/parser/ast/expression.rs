@@ -21,7 +21,7 @@ use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 pub use binary_expression::BinaryExpression;
 pub use conditional_expression::ConditionalExpression;
 pub use identifier::Identifier;
-use log::{debug, info};
+use log::*;
 pub use match_expression::MatchExpression;
 use num_traits::Zero;
 pub use number::Number;
@@ -130,24 +130,7 @@ impl SourceLocation for Expression {
 		}
 	}
 }
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub struct Value {
-	pub value: Option<BigInt>,
-	pub signed: Option<bool>,
-	pub width: Option<u32>,
-	pub dimensions: Vec<BigInt>,
-	// sensitivity ?
-}
-impl Value {
-	pub fn new_from_constant(constant: &NumericConstant) -> Self {
-		Self {
-			value: Some(constant.value.clone()),
-			signed: constant.signed,
-			width: constant.width,
-			dimensions: vec![],
-		}
-	}
-}
+
 impl Expression {
 	/// deprecated, not used
 	pub fn get_name_sync_or_comb(&self) -> miette::Result<IdTableKey> {
@@ -262,6 +245,7 @@ impl Expression {
 							)),
     					}
 					},
+					ModuleInstantion(_) => unreachable!(),
     			}
 				
 			},
@@ -503,7 +487,8 @@ impl Expression {
 		use self::Expression::*;
 		match self{
     		Number(num) => {
-				
+				let constant = nc_table.get_by_key(&num.key).unwrap();
+
 				todo!()
 			},
     		Identifier(id) => {
@@ -515,15 +500,106 @@ impl Expression {
 			},
     		MatchExpression(_) => todo!(),
     		ConditionalExpression(_) => todo!(),
-    		Tuple(_) => todo!(),
-    		TernaryExpression(_) => todo!(),
+    		Tuple(_) => unreachable!(),
+    		TernaryExpression(ternary) => {
+				let cond = ternary.condition.codegen(nc_table, scope_id, scope)?;
+				let true_branch = ternary.true_branch.codegen(nc_table, scope_id, scope)?;
+				let false_branch = ternary.false_branch.codegen(nc_table, scope_id, scope)?;
+				todo!("codegen ternary")
+			},
     		PostfixWithIndex(_) => todo!(),
     		PostfixWithRange(_) => todo!(),
-    		PostfixWithArgs(_) => todo!(),
+    		PostfixWithArgs(builtin) => todo!(),
     		PostfixWithId(_) => todo!(),
-    		UnaryOperatorExpression(_) => todo!(),
+    		UnaryOperatorExpression(unary) => {
+				use crate::parser::ast::UnaryOpcode::*;
+				let operand = unary.expression.codegen(nc_table, scope_id, scope)?;
+				match unary.code {
+					LogicalNot => Ok(!operand),
+					BitwiseNot =>  Ok(
+						hirn::Expression::Unary(hirn::design::expression::UnaryExpression{
+							op: hirn::design::expression::UnaryOp::BitwiseNot,
+							operand: Box::new(operand),
+						})
+					),
+					Minus => Ok(-operand),
+					Plus => Ok(operand),
+				}
+			},
     		UnaryCastExpression(_) => todo!(),
-    		BinaryExpression(_) => todo!(),
+    		BinaryExpression(binop) => {
+				use crate::parser::ast::BinaryOpcode::*;
+				let lhs = binop.lhs.codegen(nc_table, scope_id, scope)?;
+				let rhs = binop.rhs.codegen(nc_table, scope_id, scope)?;
+				match binop.code{
+        			Multiplication => Ok(lhs * rhs),
+        			Division => Ok(lhs / rhs),
+        			Addition => Ok(lhs + rhs),
+        			Subtraction => Ok(lhs - rhs),
+        			Modulo => Ok(lhs % rhs),
+        			Equal =>  Ok(
+						hirn::Expression::Binary(hirn::design::expression::BinaryExpression{
+							lhs: Box::new(lhs),
+							op: hirn::design::expression::BinaryOp::Equal,
+							rhs: Box::new(rhs),
+						})
+					),
+        			NotEqual =>  Ok(
+						hirn::Expression::Binary(hirn::design::expression::BinaryExpression{
+							lhs: Box::new(lhs),
+							op: hirn::design::expression::BinaryOp::NotEqual,
+							rhs: Box::new(rhs),
+						})
+					),
+        			LShift => Ok(lhs << rhs),
+        			RShift => Ok(lhs >> rhs),
+        			BitwiseAnd => Ok(lhs & rhs),
+        			BitwiseOr => Ok(lhs | rhs),
+        			BitwiseXor => Ok(lhs ^ rhs),
+        			Less =>  Ok(
+						hirn::Expression::Binary(hirn::design::expression::BinaryExpression{
+							lhs: Box::new(lhs),
+							op: hirn::design::expression::BinaryOp::Less,
+							rhs: Box::new(rhs),
+						})
+					),
+        			Greater =>  Ok(
+						hirn::Expression::Binary(hirn::design::expression::BinaryExpression{
+							lhs: Box::new(lhs),
+							op: hirn::design::expression::BinaryOp::Greater,
+							rhs: Box::new(rhs),
+						})
+					),
+        			LessEqual =>  Ok(
+						hirn::Expression::Binary(hirn::design::expression::BinaryExpression{
+							lhs: Box::new(lhs),
+							op: hirn::design::expression::BinaryOp::LessEqual,
+							rhs: Box::new(rhs),
+						})
+					),
+        			GreaterEqual =>  Ok(
+						hirn::Expression::Binary(hirn::design::expression::BinaryExpression{
+							lhs: Box::new(lhs),
+							op: hirn::design::expression::BinaryOp::GreaterEqual,
+							rhs: Box::new(rhs),
+						})
+					),
+        			LogicalAnd => Ok(
+						hirn::Expression::Binary(hirn::design::expression::BinaryExpression{
+							lhs: Box::new(lhs),
+							op: hirn::design::expression::BinaryOp::LogicalAnd,
+							rhs: Box::new(rhs),
+						})
+					),
+        			LogicalOr => Ok(
+						hirn::Expression::Binary(hirn::design::expression::BinaryExpression{
+							lhs: Box::new(lhs),
+							op: hirn::design::expression::BinaryOp::LogicalOr,
+							rhs: Box::new(rhs),
+						})
+					),
+    			}
+			},
 		}
 	}
 	pub fn evaluate_type(&self,
@@ -531,13 +607,14 @@ impl Expression {
 		scope_id: usize,
 		scope: &mut ModuleImplementationScope,
 		coupling_type: Option<Signal>,				
-			// bus<4> x , y; bus<3> a; // y = 2 // y = a + 2 // y = a + 2u2; 
-		location: SourceSpan // FIXME change to borrow // x = a + 2
-	) -> miette::Result<Option<Signal>> { // None means auto type
+		is_lhs: bool,
+		location: SourceSpan // FIXME change to borrow
+	) -> miette::Result<Option<Signal>> { 
 		use Expression::*;
 		match self {
     		Number(num) => {
 				// if coupling type is none, width must be known
+				report_not_allowed_lhs(is_lhs, self.get_location())?;
 				let key = &num.key;
 				let constant = nc_table.get_by_key(key).unwrap();
 				Ok(Some(Signal::new_from_constant(constant, num.location)))
@@ -552,15 +629,7 @@ impl Expression {
 							.build(),
 					)),
 				};
-				let sig = match &var.var.kind{
-					crate::analyzer::VariableKind::Signal(signal) => Some(signal.clone()),
-					crate::analyzer::VariableKind::Generic(generic) => {
-						match &generic.value {
-							Some(val) => Some(Signal::new_from_constant(val, identifier.location)),
-							None => None,
-						}
-					},
-				};
+				let sig = var.var.kind.to_signal();
 				match (sig, coupling_type) {
         			(None, None) => Ok(None),
         			(None, Some(signal)) => {
@@ -581,23 +650,87 @@ impl Expression {
     			}
 
 			}
-    		ParenthesizedExpression(expr) => expr.expression.evaluate_type(nc_table, scope_id, scope, coupling_type, location),
-    		MatchExpression(_) => todo!(),
-    		ConditionalExpression(_) => todo!(),
-    		Tuple(_) => todo!(),
+    		ParenthesizedExpression(expr) => expr.expression.evaluate_type(nc_table, scope_id, scope, coupling_type, is_lhs, location),
+    		MatchExpression(_) => {
+				report_not_allowed_lhs(is_lhs, self.get_location())?;
+				todo!()
+			},
+    		ConditionalExpression(_) =>  {
+				report_not_allowed_lhs(is_lhs, self.get_location())?;
+				todo!()
+			},
+    		Tuple(tuple) => return Err(miette::Report::new(crate::CompilerError::FeatureNotImplementedYet.to_diagnostic_builder().label(tuple.location, "Tuple is not implemented yet").build())),
     		TernaryExpression(ternary) => {
-				let type_first = ternary.true_branch.evaluate_type(nc_table, scope_id, scope, None, location)?;
-				let type_second = ternary.false_branch.evaluate_type(nc_table, scope_id, scope, coupling_type.clone(), location)?;
-				let type_condition = ternary.condition.evaluate_type(nc_table, scope_id, scope, coupling_type, location)?;
+				report_not_allowed_lhs(is_lhs, self.get_location())?;
+				let type_first = ternary.true_branch.evaluate_type(nc_table, scope_id, scope, None, is_lhs, location)?;
+				let type_second = ternary.false_branch.evaluate_type(nc_table, scope_id, scope, coupling_type.clone(), is_lhs, location)?;
+				let type_condition = ternary.condition.evaluate_type(nc_table, scope_id, scope, coupling_type, is_lhs, location)?;
 				Ok(type_first) // FIXME
 			},
     		PostfixWithIndex(_) => todo!(),
-    		PostfixWithRange(_) => todo!(),
+    		PostfixWithRange(range) => todo!(),
     		PostfixWithArgs(_) => todo!(),
-    		PostfixWithId(_) => todo!(),
-    		UnaryOperatorExpression(_) => todo!(),
-    		UnaryCastExpression(_) => todo!(),
-    		BinaryExpression(_) => todo!(),
+    		PostfixWithId(module) => {
+				let m = scope.get_variable(scope_id, &module.expression);
+				match m {
+					Some(var) => {
+						match &var.var.kind {
+							crate::analyzer::VariableKind::ModuleInstantion(module) => {
+								todo!()
+							},
+							_ => return Err(miette::Report::new(
+								SemanticError::IdNotSubscriptable
+									.to_diagnostic_builder()
+									.label(module.location, "This variable cannot be subscripted")
+									.build()
+							)),
+						}
+					},
+					None => return Err(miette::Report::new(
+						SemanticError::VariableNotDeclared
+							.to_diagnostic_builder()
+							.label(module.location, "This variable is not defined in this scope")
+							.build(),
+					)),
+				}
+			},
+    		UnaryOperatorExpression(_) => {
+				report_not_allowed_lhs(is_lhs, self.get_location())?;
+				todo!()
+			},
+    		UnaryCastExpression(_) => {
+				report_not_allowed_lhs(is_lhs, self.get_location())?;
+				todo!()
+			},
+    		BinaryExpression(binop) => {
+				report_not_allowed_lhs(is_lhs, self.get_location())?;
+				use crate::parser::ast::BinaryOpcode::*;
+				let type_first = binop.lhs.evaluate_type(nc_table, scope_id, scope, None, is_lhs, location)?;
+				let type_second = binop.rhs.evaluate_type(nc_table, scope_id, scope, None, is_lhs, location)?;
+				match &binop.code{
+        			Multiplication => {
+						
+					},
+        			Division => todo!(),
+        			Addition => todo!(),
+        			Subtraction => todo!(),
+        			Modulo => todo!(),
+        			Equal => todo!(),
+        			NotEqual => todo!(),
+        			LShift => todo!(),
+        			RShift => todo!(),
+        			BitwiseAnd => todo!(),
+        			BitwiseOr => todo!(),
+        			BitwiseXor => todo!(),
+        			Less => todo!(),
+        			Greater => todo!(),
+        			LessEqual => todo!(),
+        			GreaterEqual => todo!(),
+        			LogicalAnd => todo!(),
+        			LogicalOr => todo!(),
+    			}
+				todo!()
+			},
 		}
 	}
 
@@ -636,4 +769,18 @@ fn report_not_allowed_expression(span: SourceSpan, expr_name: &str) -> miette::R
 			)
 			.build(),
 	))
+}
+fn report_not_allowed_lhs(is_lhs: bool, location: SourceSpan)->miette::Result<()>{
+	if is_lhs {
+		return Err(miette::Report::new(
+			SemanticError::ForbiddenExpressionInLhs
+				.to_diagnostic_builder()
+				.label(
+					location,
+					"This expression is not allowed in the left hand sight of assignment",
+				)
+				.build(),
+		));
+	}
+	Ok(())
 }

@@ -23,6 +23,8 @@ pub enum CompilerError {
 	FileNotFound(String),
 	#[error(transparent)]
 	JsonError(#[from] serde_json::Error),
+	#[error("Feature not implemented yet")]
+	FeatureNotImplementedYet,
 }
 
 impl ProvidesCompilerDiagnostic for CompilerError {
@@ -43,6 +45,9 @@ impl ProvidesCompilerDiagnostic for CompilerError {
 				.build(),
 			HirnApiError(err) => CompilerDiagnosticBuilder::from_error(&self)
 				.help(&err.to_string())
+				.build(),
+    		FeatureNotImplementedYet => CompilerDiagnosticBuilder::from_error(&self)
+				.help("This feature is not implemented yet")
 				.build(),
 		}
 	}

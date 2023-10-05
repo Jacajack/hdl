@@ -25,10 +25,18 @@ pub struct ModuleImplementationScope {
 	internal_ids: HashMap<InternalVariableId, (usize, IdTableKey)>,
 	variable_counter: usize,
 }
+pub trait InternalScopeTrait {
+	fn contains_key(&self, key: &IdTableKey) -> bool;
+}
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InternalScope {
-	pub variables: HashMap<IdTableKey, VariableDefined>,
+	variables: HashMap<IdTableKey, VariableDefined>,
 	parent_scope: Option<usize>,
+}
+impl InternalScopeTrait for InternalScope {
+	fn contains_key(&self, key: &IdTableKey) -> bool {
+		self.variables.contains_key(key)
+	}
 }
 impl InternalScope {
 	pub fn new(parent_scope: Option<usize>) -> Self {
@@ -37,9 +45,12 @@ impl InternalScope {
 			parent_scope,
 		}
 	}
-	pub fn contains_key(&self, key: &IdTableKey) -> bool {
-		self.variables.contains_key(key)
-	}
+}
+pub trait ScopeTrait {
+	fn get_variable(&self, scope_id: usize, key: &IdTableKey) -> Option<&VariableDefined>;
+	fn new_subscope(&mut self, parent_scope: Option<usize>) -> usize;
+	fn mark_as_generic(&mut self);
+	fn is_generic(&self) -> bool;
 }
 impl ModuleImplementationScope {
 	pub fn new() -> Self {
@@ -123,8 +134,9 @@ impl ModuleImplementationScope {
         		super::Direction::Input(_) => handle.expose(self.api_ids.get(&id).unwrap().clone(), hirn::design::SignalDirection::Input).unwrap(),
         		super::Direction::Output(_) =>handle.expose(self.api_ids.get(&id).unwrap().clone(), hirn::design::SignalDirection::Output).unwrap(),
         		_ => unreachable!("Only input and output signals can be declared in module implementation scope"),
-    		}
-			}
+    			}
+			},
+			VariableKind::ModuleInstantion(_) => unreachable!("Module instantion can't be declared in module implementation scope"),
 		}
 		let defined = VariableDefined { var, id };
 		self.scopes[0].variables.insert(name, defined);
@@ -159,6 +171,7 @@ impl ModuleImplementationScope {
 						}
 					},
 					VariableKind::Generic(_) => (),
+					VariableKind::ModuleInstantion(_) => (),
 				}
 			}
 		}

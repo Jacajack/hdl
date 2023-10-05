@@ -1,7 +1,8 @@
 
-use hirn::{design::{NumericConstant, ModuleHandle, ScopeHandle, signal::SignalBuilder}, SignalId, Expression};
+use std::collections::HashSet;
+
+use hirn::{design::{NumericConstant, signal::SignalBuilder}, SignalId, Expression};
 use log::debug;
-use logos::Source;
 use num_bigint::BigInt;
 
 use crate::{ ProvidesCompilerDiagnostic, SourceSpan, lexer::IdTableKey, analyzer::report_duplicated_qualifier, core::id_table};
@@ -11,7 +12,7 @@ use super::*;
 pub enum SignalSignedness {
 	Signed(SourceSpan),
 	Unsigned(SourceSpan),
-	None,
+	NoSignedness,
 }
 impl SignalSignedness{
 	pub fn name(&self) -> &'static str{
@@ -19,14 +20,15 @@ impl SignalSignedness{
 		match self{
 			Signed(_) => "signed",
 			Unsigned(_) => "unsigned",
-			None => "none",
+			NoSignedness => "none",
 		}
 	}
 	pub fn location(&self) -> Option<&SourceSpan>{
+		use SignalSignedness::*;
 		match self{
-			SignalSignedness::Signed(x) => Some(x),
-			SignalSignedness::Unsigned(x) => Some(x),
-			SignalSignedness::None => None,
+			Signed(x) => Some(x),
+			Unsigned(x) => Some(x),
+			NoSignedness => None,
 		}
 	}
 
@@ -66,7 +68,8 @@ pub struct BusType {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SignalType {
 	Bus(BusType),
-	Wire(SourceSpan)
+	Wire(SourceSpan),
+	Auto(SourceSpan),
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
@@ -77,11 +80,11 @@ pub struct EdgeSensitivity {
 }
 
 /// Determines sensitivity of a signal to certain clocks
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ClockSensitivityList{
 	pub list: Vec<EdgeSensitivity>
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum SignalSensitivity {
 	Async(SourceSpan),
 	Comb(ClockSensitivityList, SourceSpan),
@@ -124,7 +127,7 @@ pub struct AlreadyCreated{
 impl AlreadyCreated{
 	pub fn new() -> Self{
 		Self{
-			signedness: SignalSignedness::None,
+			signedness: SignalSignedness::NoSignedness,
 			direction: Direction::None,
 			sensitivity: SignalSensitivity::NoSensitivity,
 		}
@@ -154,14 +157,14 @@ impl AlreadyCreated{
 		use SignalSignedness::*;
 		match (&self.signedness, &signedness){
 			(Signed(prev), Signed(incoming)) | (Unsigned(prev), Unsigned(incoming)) => report_duplicated_qualifier(incoming, prev, signedness.name())?,
-			(None, _) => self.signedness = signedness,
-			(_, None) => (),
+			(NoSignedness, _) => self.signedness = signedness,
+			(_, NoSignedness) => (),
 			(_, _) => report_contradicting_qualifier(self.signedness.location().unwrap(), signedness.location().unwrap(), self.signedness.name(), signedness.name())?,
 		};
 		Ok(())
 	}
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Signal{
 	pub signal_type: SignalType,
 	pub dimensions: Vec<BigInt>,
@@ -203,14 +206,17 @@ impl Signal{
 	}
 	/// only if needed
 	pub fn is_signedness_specified(&self) -> bool {
+		use SignalType::*;
 		match &self.signal_type{
-			SignalType::Bus(bus) => {
+			Bus(bus) => {
+				use SignalSignedness::*;
 				match bus.signedness{
-					SignalSignedness::None => false,
+					NoSignedness => false,
 					_ => true,
 				}
 			},
-			SignalType::Wire(_) => true,
+			Auto(_) => false,
+			Wire(_) => true,
 		}
 	}
 	pub fn new_from_constant(constant: &crate::lexer::NumericConstant, location: SourceSpan) -> Self{
@@ -222,11 +228,11 @@ impl Signal{
 					SignalSignedness::Unsigned(location)
 				}
 			}
-			None => SignalSignedness::None,
+			None => SignalSignedness::NoSignedness,
 			};
 		let width = match constant.width{
 			Some(value) => Some(value.into()),
-			None => None, // error
+			None => None, // error FIXME
 		};
 		Self{
 			signal_type: SignalType::Bus(BusType{
@@ -270,14 +276,15 @@ impl Signal{
     		(_, Direction::None) => (),
 			(Direction::None, _) => (),
 		}
+		use SignalType::*;
 		self.signal_type = match (&self.signal_type, &other.signal_type) {
-    		(SignalType::Bus(bus1), SignalType::Bus(bus2)) => {
+    		(Bus(bus1), Bus(bus2)) => {
 				let mut new = bus1.clone();
 				new.signedness = match (&bus1.signedness, &bus2.signedness) {
         			(SignalSignedness::Signed(_), SignalSignedness::Signed(_)) |(SignalSignedness::Unsigned(_), SignalSignedness::Unsigned(_)) => new.signedness,
         			(SignalSignedness::Signed(_), SignalSignedness::Unsigned(_)) | (SignalSignedness::Unsigned(_), SignalSignedness::Signed(_)) => todo!(), // report an erro
-        			(_, SignalSignedness::None) => new.signedness,
-					(SignalSignedness::None, _) => bus2.signedness.clone(),
+        			(_, SignalSignedness::NoSignedness) => new.signedness,
+					(SignalSignedness::NoSignedness, _) => bus2.signedness.clone(),
     			};
 				new.width = match (&bus1.width, &bus2.width) {
         			(None, None) => None,
@@ -289,7 +296,6 @@ impl Signal{
 						} else {
 							return Err(miette::Report::new(SemanticError::DifferingBusWidths
 								.to_diagnostic_builder()
-								//.label(location,"Cannot assign signals - width mismatch")
 								.label(location, format!("Cannot assign signals - width mismatch. {} bits vs {} bits", val1, val2).as_str())
 								.label(bus1.location, "First width specified here") 
 								.label(bus2.location, "Second width specified here")
@@ -299,7 +305,7 @@ impl Signal{
     			};
 				SignalType::Bus(new)
 			},
-    		(SignalType::Bus(bus), SignalType::Wire(wire)) => 
+    		(Bus(bus), Wire(wire)) => 
 			{
 				return Err(miette::Report::new(SemanticError::BoundingWireWithBus.to_diagnostic_builder()
 					.label(location, "Cannot assign bus to a wire")
@@ -307,20 +313,21 @@ impl Signal{
 					.label(bus.location, "Signal specified as a bus here")
 					.build()));
 			},
-    		(SignalType::Wire(wire), SignalType::Bus(bus)) => {
+    		(Wire(wire), Bus(bus)) => {
 				return Err(miette::Report::new(SemanticError::BoundingWireWithBus.to_diagnostic_builder()
 				.label(location, "Cannot assign signals - type mismatch")
 				.label(*wire, "Wire type specified here")
 				.label(bus.location, "Bus type specified here")
 				.build()));
 			},
-    		(SignalType::Wire(_), SignalType::Wire(_)) => self.signal_type.clone(),
+    		(Wire(_), Wire(_)) => self.signal_type.clone(),
+			(_,_) => todo!(),
 		};
 
 		Ok(())
 	}
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Variable{
 	pub name: IdTableKey,
 	pub dimensions: Vec<BigInt>,
@@ -339,6 +346,7 @@ impl Variable{
 				}
 			},
 			VariableKind::Generic(_) => false,
+			VariableKind::ModuleInstantion(_) => false,
 		}
 	}
 	pub fn register(&self,
@@ -375,10 +383,11 @@ impl Variable{
 						match bus.signedness{
 							SignalSignedness::Signed(_) => builder = builder.signed(hirn::Expression::from(NumericConstant::new_signed(bus.width.clone().unwrap().clone()))), // FIXME
 							SignalSignedness::Unsigned(_) => builder = builder.unsigned(hirn::Expression::from(NumericConstant::new_signed(bus.width.clone().unwrap().clone()))), // FIXME
-							SignalSignedness::None => unreachable!(), // report an error
+							SignalSignedness::NoSignedness => unreachable!(), // report an error
 						}
 					},
         			SignalType::Wire(_) => builder = builder.wire(),
+					_ => unreachable!("Only bus and wire types are allowed")
     			}
 				for dimension in &signal.dimensions{
 					builder = builder.array(Expression::from(NumericConstant::new_unsigned(dimension.clone()))).unwrap();
@@ -387,7 +396,6 @@ impl Variable{
 			},
     		VariableKind::Generic(generic) => {
 				match &generic.kind{
-					GenericVariableKind::Auto(_) => unreachable!(), // FIXME report an error
 					GenericVariableKind::Int(sign,_) => {
 						match &sign{
         					SignalSignedness::Unsigned(_) => builder = builder.unsigned(Expression::from(NumericConstant::new_signed(BigInt::from(64)))),
@@ -402,13 +410,13 @@ impl Variable{
 				builder = builder.constant();
 				id = builder.build().unwrap();
 			},
+			VariableKind::ModuleInstantion(_) => unreachable!("Module instantion should not be possible here"),
 		}
 		Ok(id)
 	}
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum GenericVariableKind{
-	Auto(SourceSpan),
 	Int(SignalSignedness,SourceSpan),
 	Bool(SourceSpan),
 }
@@ -416,22 +424,28 @@ impl GenericVariableKind {
 	pub fn location(&self) -> SourceSpan {
 		use GenericVariableKind::*;
 		match self {
-			Auto(x) => *x,
 			Int(_, x) => *x,
 			Bool(x) => *x,
 		}
 	}
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GenericVariable{
 	pub value: Option<crate::lexer::NumericConstant>,
 	pub dimensions: Vec<BigInt>,
 	pub kind: GenericVariableKind
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ModuleInstantion{
+	pub module_name: IdTableKey,
+	pub location: SourceSpan,
+	pub interface: Vec<Variable> // FIXME change to HashSet
+}
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum VariableKind{
 	Signal(Signal),
 	Generic(GenericVariable),
+	ModuleInstantion(ModuleInstantion),
 }
 
 impl VariableKind {
@@ -446,132 +460,15 @@ impl VariableKind {
 					}
 				}
 				match &gen.kind{
-        			GenericVariableKind::Auto(_) => None,
         			GenericVariableKind::Int(signedness, location) => Some(Signal::new_bus(Some(BigInt::from(64)), signedness.clone(), *location)),
         			GenericVariableKind::Bool(location) => Some(Signal::new_wire(*location)),
     			}
 			},
+    		VariableKind::ModuleInstantion(_) => None // ERROR,
 		}
 	}
 }
-//#[derive(Clone, Debug, PartialEq, Eq)]
-//pub struct CombinedQualifiers {
-//	pub signed: Option<SourceSpan>,
-//	pub unsigned: Option<SourceSpan>,
-//	pub constant: Option<SourceSpan>,
-//	pub comb: Option<(Vec<Expression>, SourceSpan)>,
-//	pub input: Option<SourceSpan>,
-//	pub output: Option<SourceSpan>,
-//	pub clock: Option<SourceSpan>,
-//	pub asynchronous: Option<SourceSpan>,
-//	pub synchronous: Option<(Vec<Expression>, SourceSpan)>,
-//}
 
-//impl CombinedQualifiers {
-//	pub fn new() -> Self {
-//		Self {
-//			signed: None,
-//			unsigned: None,
-//			constant: None,
-//			comb: None,
-//			input: None,
-//			output: None,
-//			clock: None,
-//			asynchronous: None,
-//			synchronous: None,
-//		}
-//	}
-//	pub fn check_for_contradicting(&self) -> miette::Result<()> {
-//		match self {
-//			CombinedQualifiers {
-//				signed: Some(x),
-//				unsigned: Some(y),
-//				..
-//			} => {
-//				report_contradicting_qualifier(x, y, "signed", "unsigned")?;
-//			},
-//			CombinedQualifiers {
-//				input: Some(x),
-//				output: Some(y),
-//				..
-//			} => {
-//				report_contradicting_qualifier(x, y, "input", "output")?;
-//			},
-//			CombinedQualifiers {
-//				constant: Some(x),
-//				comb: Some((_, y)),
-//				..
-//			} => {
-//				report_contradicting_qualifier(x, y, "const", "comb")?;
-//			},
-//			CombinedQualifiers {
-//				constant: Some(x),
-//				synchronous: Some((_, y)),
-//				..
-//			} => {
-//				report_contradicting_qualifier(x, y, "const", "sync")?;
-//			},
-//			CombinedQualifiers {
-//				constant: Some(x),
-//				asynchronous: Some(y),
-//				..
-//			} => {
-//				report_contradicting_qualifier(x, y, "const", "async")?;
-//			},
-//			CombinedQualifiers {
-//				constant: Some(x),
-//				clock: Some(y),
-//				..
-//			} => {
-//				report_contradicting_qualifier(x, y, "const", "clock")?;
-//			},
-//			CombinedQualifiers {
-//				comb: Some((_, x)),
-//				synchronous: Some((_, y)),
-//				..
-//			} => {
-//				report_contradicting_qualifier(x, y, "comb", "sync")?;
-//			},
-//			CombinedQualifiers {
-//				comb: Some((_, x)),
-//				asynchronous: Some(y),
-//				..
-//			} => {
-//				report_contradicting_qualifier(x, y, "comb", "async")?;
-//			},
-//			CombinedQualifiers {
-//				comb: Some((_, x)),
-//				clock: Some(y),
-//				..
-//			} => {
-//				report_contradicting_qualifier(x, y, "comb", "clock")?;
-//			},
-//			CombinedQualifiers {
-//				synchronous: Some((_, x)),
-//				clock: Some(y),
-//				..
-//			} => {
-//				report_contradicting_qualifier(x, y, "sync", "clock")?;
-//			},
-//			CombinedQualifiers {
-//				synchronous: Some((_, x)),
-//				asynchronous: Some(y),
-//				..
-//			} => {
-//				report_contradicting_qualifier(x, y, "sync", "async")?;
-//			},
-//			CombinedQualifiers {
-//				asynchronous: Some(x),
-//				clock: Some(y),
-//				..
-//			} => {
-//				report_contradicting_qualifier(x, y, "async", "clock")?;
-//			},
-//			_ => (),
-//		};
-//		Ok(())
-//	}
-//}
 pub fn report_contradicting_qualifier(
 	location_first: &SourceSpan,
 	location_second: &SourceSpan,
