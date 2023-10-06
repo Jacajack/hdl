@@ -3,6 +3,8 @@ pub mod eval;
 pub mod expression;
 pub mod expression_eval;
 pub mod expression_ops;
+pub mod expression_width;
+pub mod narrow_eval;
 pub mod functional_blocks;
 pub mod module;
 pub mod numeric_constant;

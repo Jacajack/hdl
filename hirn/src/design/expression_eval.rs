@@ -19,7 +19,7 @@ impl EvaluatesType for NumericConstant {
 impl EvaluatesDimensions for NumericConstant {
 	fn eval_dims(&self, _ctx: &EvalContext) -> Result<EvalDims, EvalError> {
 		Ok(EvalDims {
-			width: self.width(),
+			width: self.width().into(),
 			dimensions: vec![],
 		})
 	}

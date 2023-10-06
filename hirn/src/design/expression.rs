@@ -1,3 +1,4 @@
+use super::expression_width::WidthExpression;
 use super::signal::{SignalClass, SignalSensitivity, SignalSlice};
 use super::{NumericConstant, SignalId};
 
@@ -95,6 +96,10 @@ impl ConditionalExpression {
 		}
 	}
 
+	pub fn default_value(&self) -> &Expression {
+		&self.default
+	}
+
 	fn add_branch(&mut self, condition: Expression, value: Expression) {
 		self.branches.push(ConditionalExpressionBranch { condition, value });
 	}
@@ -127,7 +132,7 @@ impl ConditionalExpressionBuilder {
 #[derive(Clone, Debug)]
 pub struct CastExpression {
 	/// Destination signal class
-	pub dest_class: Option<SignalClass>,
+	pub dest_class: Option<SignalClass>, // FIXME we cannot cast width - this should be sensitivity + sign only
 
 	/// Destination signal sensitivity
 	pub dest_sensitivity: Option<SignalSensitivity>,
@@ -291,6 +296,12 @@ impl From<SignalId> for Expression {
 	}
 }
 
+impl From<SignalSlice> for Expression {
+	fn from(slice: SignalSlice) -> Self {
+		Self::Signal(slice)
+	}
+}
+
 impl From<NumericConstant> for Expression {
 	fn from(constant: NumericConstant) -> Self {
 		Self::Constant(constant)
@@ -300,6 +311,12 @@ impl From<NumericConstant> for Expression {
 impl From<ConditionalExpression> for Expression {
 	fn from(expr: ConditionalExpression) -> Self {
 		Self::Conditional(expr)
+	}
+}
+
+impl From<BuiltinOp> for Expression {
+	fn from(expr: BuiltinOp) -> Self {
+		Self::Builtin(expr)
 	}
 }
 
