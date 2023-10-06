@@ -15,14 +15,12 @@ mod unary_cast_expression;
 mod unary_operator_expression;
 
 use crate::analyzer::{EdgeSensitivity, ModuleImplementationScope, SemanticError, Signal, SignalType};
-use crate::core::id_table;
-use crate::lexer::{IdTableKey, NumericConstantBase};
+use crate::lexer::IdTableKey;
 use crate::parser::ast::{opcodes::*, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName};
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 pub use binary_expression::BinaryExpression;
 pub use conditional_expression::ConditionalExpression;
 pub use identifier::Identifier;
-use log::*;
 pub use match_expression::MatchExpression;
 use num_traits::Zero;
 pub use number::Number;
@@ -37,7 +35,7 @@ pub use tuple::Tuple;
 pub use unary_cast_expression::UnaryCastExpression;
 pub use unary_operator_expression::UnaryOperatorExpression;
 
-use crate::lexer::NumericConstant;
+use crate::core::NumericConstant;
 use num_bigint::{BigInt, Sign};
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub enum Expression {
@@ -276,6 +274,7 @@ impl Expression {
 			Expression::PostfixWithId(expr) => report_not_allowed_expression(expr.location, "postfix with id"), // nie bedzie
 			Expression::UnaryOperatorExpression(unary) => {
 				use crate::parser::ast::UnaryOpcode::*;
+				use crate::core::numeric_constant::*;
 				match unary.code {
 					LogicalNot => Ok(
 						if unary.expression.evaluate(nc_table, scope_id, scope)?.value == BigInt::from(0) {
@@ -304,6 +303,7 @@ impl Expression {
 			Expression::UnaryCastExpression(expr) => report_not_allowed_expression(expr.location, "unary cast"), // nie bedzie
 			Expression::BinaryExpression(binop) => {
 				use crate::parser::ast::BinaryOpcode::*;
+				use crate::core::numeric_constant::*;
 				match binop.code {
 					Multiplication => Ok(NumericConstant::new_from_binary(
 						binop.lhs.evaluate(nc_table, scope_id, scope)?,
@@ -680,10 +680,21 @@ impl Expression {
 							));
 						},
 						(Async(_), _) => (), 
-        				(Comb(_, _), _) => todo!(), // error
-        				(_, Comb(_, _)) => (),
-        				(Sync(_, _), _) => todo!(),
+        				(_, Comb(_, sensitivity_location)) => {
+							return Err(miette::Report::new(
+								SemanticError::DifferingSensitivities
+									.to_diagnostic_builder()
+									.label(
+										location,
+										"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the right hand side",
+									)
+									.label(*sensitivity_location, "This sensitivity is better than comb")
+									.build(),
+							));
+						},
+						(Comb(_, _), _) => (), 
         				(_, Sync(_, _)) => (),
+						(Sync(_, _), _) => todo!(),
         				(Const(_), _) => todo!(),
         				(_, Const(_)) =>(),
     				}

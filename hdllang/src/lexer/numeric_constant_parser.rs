@@ -1,11 +1,10 @@
-use crate::{compiler_diagnostic::*, lexer::numeric_constant::NumericConstantBase};
+use crate::{compiler_diagnostic::*, core::numeric_constant::*};
 //use log::debug;
 use num_bigint::BigInt;
 use num_traits::Pow;
 use std::fmt;
 use thiserror::Error;
 
-use super::NumericConstant;
 
 /// Describes error types encountered when parsing strings
 #[derive(Clone, Copy, Debug, Error)]

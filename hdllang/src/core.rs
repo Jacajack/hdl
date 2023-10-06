@@ -6,11 +6,13 @@ mod hdl_type;
 pub mod id_table;
 pub mod numeric_constant_table;
 pub mod source_span;
+pub mod numeric_constant;
 
 pub use diagnostic_buffer::DiagnosticBuffer;
 pub use hdl_type::HdlType;
 pub use hdl_type::Sensitivity;
 
+pub use numeric_constant::{NumericConstant, NumericConstantBase};
 pub use comment_table::{CommentTable, CommentTableKey};
 pub use id_table::{IdTable, IdTableKey};
 

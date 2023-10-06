@@ -1,5 +1,4 @@
 mod logos_lexer;
-mod numeric_constant;
 mod numeric_constant_parser;
 
 pub use crate::core::comment_table::{CommentTable, CommentTableKey};
@@ -9,7 +8,6 @@ pub use crate::core::numeric_constant_table::{NumericConstantTable, NumericConst
 use crate::SourceSpan;
 pub use logos_lexer::LogosLexer;
 pub use logos_lexer::LogosLexerContext;
-pub use numeric_constant::{NumericConstant, NumericConstantBase};
 pub use numeric_constant_parser::NumberParseError;
 use std::fmt;
 use thiserror::Error;

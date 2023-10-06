@@ -307,7 +307,7 @@ impl Signal {
 			Wire(_) => true,
 		}
 	}
-	pub fn new_from_constant(constant: &crate::lexer::NumericConstant, location: SourceSpan) -> Self {
+	pub fn new_from_constant(constant: &crate::core::NumericConstant, location: SourceSpan) -> Self {
 		let signedness = match constant.signed {
 			Some(value) => {
 				if value {
@@ -549,7 +549,7 @@ impl GenericVariableKind {
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GenericVariable {
-	pub value: Option<crate::lexer::NumericConstant>,
+	pub value: Option<crate::core::NumericConstant>,
 	pub dimensions: Vec<BigInt>,
 	pub kind: GenericVariableKind,
 }
