@@ -1,6 +1,15 @@
-use super::expression_width::WidthExpression;
+mod expression_eval;
+mod rust_ops;
+mod expression_width;
+mod numeric_constant;
+mod eval;
+
+pub use numeric_constant::NumericConstant;
+pub use expression_width::WidthExpression;
+pub use eval::{EvalError, EvalContext, Evaluates, EvaluatesDimensions, EvaluatesType, EvalDims, EvalType};
+
 use super::signal::{SignalClass, SignalSensitivity, SignalSlice};
-use super::{NumericConstant, SignalId};
+use super::SignalId;
 
 /// Binary operators
 /// TODO check if we have all

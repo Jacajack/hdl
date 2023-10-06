@@ -1,8 +1,6 @@
-use super::{
-	eval::EvalResult,
-	eval::{EvalType, EvaluatesDimensions, EvaluatesType},
-	DesignError, EvalContext, SignalSensitivity, SignalSignedness,
-};
+// use super::eval::{EvalType, EvaluatesDimensions, EvaluatesType};
+use crate::design::{DesignError, SignalSignedness};
+
 use num_bigint::BigInt;
 
 /// Represents a numeric constant value
@@ -91,45 +89,48 @@ impl From<i32> for NumericConstant {
 	}
 }
 
-macro_rules! impl_binary_constant_op {
-	($trait_name: ident, $trait_func: ident, $lambda: expr) => {
-		impl std::ops::$trait_name for EvalResult<NumericConstant> {
-			type Output = EvalResult<NumericConstant>;
+// macro_rules! impl_binary_constant_op {
+// 	($trait_name: ident, $trait_func: ident, $lambda: expr) => {
+// 		impl std::ops::$trait_name for EvalResult<NumericConstant> {
+// 			type Output = EvalResult<NumericConstant>;
 
-			fn $trait_func(self, other: Self) -> Self::Output {
-				let func = $lambda;
+// 			fn $trait_func(self, other: Self) -> Self::Output {
+// 				let func = $lambda;
 
-				EvalResult::<NumericConstant>::propagate(self, other, |lhs: NumericConstant, rhs: NumericConstant| {
-					let value = match func(&lhs.value, &rhs.value) {
-						Ok(value) => value,
-						Err(err) => return EvalResult::Err(err),
-					};
+// 				EvalResult::<NumericConstant>::propagate(self, other, |lhs: NumericConstant, rhs: NumericConstant| {
+// 					let value = match func(&lhs.value, &rhs.value) {
+// 						Ok(value) => value,
+// 						Err(err) => return EvalResult::Err(err),
+// 					};
 
-					let lhs_type = lhs.const_eval_type().unwrap(); // FIXME
-					let rhs_type = rhs.const_eval_type().unwrap(); // FIXME
-					let result_type = lhs_type.$trait_func(rhs_type).result().unwrap(); // FIXME unwrap
+// 					let lhs_type = lhs.const_eval_type().unwrap(); // FIXME
+// 					let rhs_type = rhs.const_eval_type().unwrap(); // FIXME
+// 					let result_type = lhs_type.$trait_func(rhs_type).result().unwrap(); // FIXME unwrap
 
-					// FIXME unwraps
-					let lhs_dims = lhs.const_eval_dims().unwrap();
-					let rhs_dims = rhs.const_eval_dims().unwrap();
-					let result_dims = lhs_dims.$trait_func(rhs_dims).result().unwrap();
+// 					// FIXME unwraps
+// 					let lhs_dims = lhs.const_eval_dims().unwrap();
+// 					let rhs_dims = rhs.const_eval_dims().unwrap();
+// 					let result_dims = lhs_dims.$trait_func(rhs_dims).result().unwrap();
 
-					EvalResult::Ok(NumericConstant::new(value, result_type.signedness, result_dims.width).unwrap())
-				})
-			}
-		}
+// 					// Evaluate dimensions
+// 					let result_width = result_dims.width.eval
 
-		impl std::ops::$trait_name<NumericConstant> for NumericConstant {
-			type Output = EvalResult<NumericConstant>;
+// 					EvalResult::Ok(NumericConstant::new(value, result_type.signedness, result_dims.width).unwrap())
+// 				})
+// 			}
+// 		}
 
-			fn $trait_func(self, rhs: NumericConstant) -> Self::Output {
-				EvalResult::Ok(self).$trait_func(EvalResult::Ok(rhs))
-			}
-		}
-	};
-}
+// 		impl std::ops::$trait_name<NumericConstant> for NumericConstant {
+// 			type Output = EvalResult<NumericConstant>;
 
-impl_binary_constant_op!(Add, add, |lhs: &BigInt, rhs: &BigInt| { Ok(lhs + rhs) });
+// 			fn $trait_func(self, rhs: NumericConstant) -> Self::Output {
+// 				EvalResult::Ok(self).$trait_func(EvalResult::Ok(rhs))
+// 			}
+// 		}
+// 	};
+// }
+
+// impl_binary_constant_op!(Add, add, |lhs: &BigInt, rhs: &BigInt| { Ok(lhs + rhs) });
 
 #[cfg(test)]
 mod test {
@@ -139,8 +140,9 @@ mod test {
 	fn test_add() {
 		let a = NumericConstant::new_signed(5.into());
 		let b = NumericConstant::new_signed(3.into());
-		let c = (a + b).result().unwrap();
-		assert_eq!(c.value, 8.into());
-		assert_eq!(c.width, 5);
+		todo!(); // FIXME
+		// let c = (a + b).result().unwrap();
+		// assert_eq!(c.value, 8.into());
+		// assert_eq!(c.width, 5);
 	}
 }

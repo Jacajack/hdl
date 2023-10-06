@@ -1,6 +1,5 @@
-use crate::Expression;
-
-use super::{DesignHandle, NumericConstant, SignalId, SignalSensitivity, SignalSignedness};
+use crate::design::{DesignHandle, SignalSignedness};
+use super::{NumericConstant, SignalId, SignalSensitivity, Expression};
 use std::collections::HashMap;
 use thiserror::Error;
 

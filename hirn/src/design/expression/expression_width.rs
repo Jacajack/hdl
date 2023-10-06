@@ -1,4 +1,4 @@
-use super::{Expression, expression::{UnaryExpression, BinaryExpression, BuiltinOp, ConditionalExpression}, expression::{UnaryOp, BinaryOp}, NumericConstant};
+use super::{Expression, UnaryExpression, BinaryExpression, BuiltinOp, ConditionalExpression, UnaryOp, BinaryOp};
 
 pub trait WidthExpression {
 	fn width(&self) -> Expression;
@@ -37,12 +37,12 @@ impl WidthExpression for BuiltinOp {
 	fn width(&self) -> Expression {
 		use BuiltinOp::*;
 		match self {
-			ZeroExtend { expr, width } => **width,
-			SignExtend { expr, width } => **width,
-			BusSelect { expr, msb, lsb } => **msb - **lsb + 1.into(),
-			BitSelect { expr, index } => 1.into(),
-			Replicate { expr, count } => **expr * **count,
-			Width(expr) => 64.into(), // FIXME?
+			ZeroExtend { width, ..} => (**width).clone(),
+			SignExtend { width, ..} => (**width).clone(),
+			BusSelect { msb, lsb, ..} => (**msb).clone() - (**lsb).clone() + 1.into(),
+			BitSelect {..} => 1.into(),
+			Replicate { expr, count } => (**expr).clone() * (**count).clone(),
+			Width(..) => 64.into(), // FIXME?
 			Join(exprs) => {
 				let mut result = Expression::new_zero();
 				for ex in exprs {
@@ -68,7 +68,7 @@ impl WidthExpression for Expression {
 			Binary(expr) => expr.width(),
 			Unary(expr) => expr.width(),
 			Constant(constant) => constant.width().into(),
-			Signal(slice) => BuiltinOp::Width(Box::new((*slice).into())).into(),
+			Signal(slice) => BuiltinOp::Width(Box::new((*slice).clone().into())).into(),
 			Conditional(expr) => expr.width(),
 			Builtin(builtin) => builtin.width(),
 			Cast(expr) => expr.src.width(),

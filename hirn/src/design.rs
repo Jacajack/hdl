@@ -1,23 +1,15 @@
-pub mod comment;
-pub mod eval;
-pub mod expression;
-pub mod expression_eval;
-pub mod expression_ops;
-pub mod expression_width;
-pub mod narrow_eval;
-pub mod functional_blocks;
-pub mod module;
-pub mod numeric_constant;
-pub mod scope;
-pub mod signal;
-pub mod utils;
+mod comment;
+mod expression;
+mod functional_blocks;
+mod module;
+mod scope;
+mod signal;
+mod utils;
 
 pub use comment::HasComment;
-pub use eval::{EvalContext, EvalError};
-pub use expression::{BinaryOp, Expression, UnaryOp};
+pub use expression::{BinaryOp, Expression, UnaryOp, EvalError, EvalContext, NumericConstant, EvalType, Evaluates, EvaluatesDimensions, EvaluatesType};
 pub use functional_blocks::{Register, RegisterBuilder};
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
-pub use numeric_constant::NumericConstant;
 pub use scope::{Scope, ScopeHandle};
 pub use signal::{Signal, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice};
 
@@ -26,7 +18,6 @@ use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use thiserror::Error;
 
-use self::eval::EvalType;
 
 /// References a module in a design
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
@@ -338,7 +329,7 @@ pub enum DesignError {
 
 #[cfg(test)]
 mod test {
-	use super::{eval::Evaluates, *};
+	use super::{expression::Evaluates, *};
 
 	#[test]
 	pub fn design_basic_test() -> Result<(), DesignError> {

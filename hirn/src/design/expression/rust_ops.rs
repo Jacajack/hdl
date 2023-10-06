@@ -1,4 +1,4 @@
-use super::expression::{BinaryExpression, UnaryExpression};
+use super::{BinaryExpression, UnaryExpression};
 use super::{BinaryOp, Expression, UnaryOp};
 use std::ops;
 

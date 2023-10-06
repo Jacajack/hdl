@@ -3,8 +3,9 @@ use std::collections::HashSet;
 use crate::SignalId;
 
 use super::{
-	eval::EvaluatesType, module::SignalDirection, DesignCore, DesignError, DesignHandle, EvalContext, Expression,
-	HasComment, ModuleHandle, ModuleId, ScopeHandle, ScopeId,
+	module::SignalDirection, DesignError,
+	HasComment, ModuleHandle, ScopeHandle,
+	EvalContext, EvaluatesType
 };
 
 pub trait HasInstanceName {

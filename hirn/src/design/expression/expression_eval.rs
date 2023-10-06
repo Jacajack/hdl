@@ -1,9 +1,9 @@
 use super::eval::EvaluatesDimensions;
-use super::expression::{
+use super::{
 	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, UnaryExpression, UnaryOp,
 };
 use super::{
-	eval::EvalDims, eval::EvalResult, eval::EvalType, eval::Evaluates, eval::EvaluatesType, EvalContext, EvalError,
+	eval::EvalDims, eval::EvalType, eval::Evaluates, eval::EvaluatesType, EvalContext, EvalError,
 	Expression, NumericConstant, SignalId, SignalSensitivity, SignalSlice,
 };
 
@@ -40,17 +40,19 @@ impl EvaluatesDimensions for SignalId {
 
 			// TODO check the width I guess???
 
-			let mut dimensions = Vec::new();
-			for dim in &signal.dimensions {
-				match dim.eval(ctx) {
-					Ok(value) => dimensions.push(value.try_into_u64().unwrap()), // FIXME unwrap
-					Err(err) => return Err(err),
-				}
-			}
+			todo!();
 
-			// TODO check the dimensions??
+			// let mut dimensions = Vec::new();
+			// for dim in &signal.dimensions {
+			// 	match dim.eval(ctx) {
+			// 		Ok(value) => dimensions.push(value.try_into_u64().unwrap()), // FIXME unwrap
+			// 		Err(err) => return Err(err),
+			// 	}
+			// }
 
-			Ok(EvalDims { dimensions, width })
+			// // TODO check the dimensions??
+
+			// Ok(EvalDims { dimensions, width })
 		}
 		else {
 			Err(EvalError::NoDesign)
@@ -190,12 +192,13 @@ impl Evaluates for BinaryExpression {
 		let rhs = self.rhs.eval(ctx)?;
 
 		use BinaryOp::*;
-		match self.op {
-			Add => lhs + rhs,
-			// TODO remainig ops
-			_ => todo!(),
-		}
-		.into()
+		todo!();
+		// match self.op {
+		// 	Add => lhs + rhs,
+		// 	// TODO remainig ops
+		// 	_ => todo!(),
+		// }
+		// .into()
 	}
 }
 
