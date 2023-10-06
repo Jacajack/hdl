@@ -6,7 +6,7 @@ use super::{ ModuleDeclared, SemanticError, VariableKind, AlreadyCreated, Variab
 use std::collections::HashMap;
 
 use crate::{
-	analyzer::{ModuleImplementationScope, SignalSignedness, Direction, SignalSensitivity},
+	analyzer::{ModuleImplementationScope, SignalSignedness, Direction, SignalSensitivity, Signal},
 	core::IdTable,
 	lexer::IdTableKey,
 	parser::ast::{
@@ -261,11 +261,11 @@ impl ModuleImplementationStatement{
 				definition.analyze(AlreadyCreated::new(), ctx, local_ctx, scope_id)?
 			},
 			AssignmentStatement(assignment) => {
-				let lhs_type: Option<crate::analyzer::Signal> = assignment.lhs.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, None, true, assignment.location)?;
+				let lhs_type = assignment.lhs.evaluate_type(ctx.id_table, ctx.nc_table, scope_id, &mut local_ctx.scope, Signal::new_empty(), true, assignment.location)?;
 				info!("Lhs type at the beginning: {:?}",lhs_type);
-				let rhs_type = assignment.rhs.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, lhs_type, false, assignment.location)?;
+				let rhs_type = assignment.rhs.evaluate_type(ctx.id_table, ctx.nc_table, scope_id, &mut local_ctx.scope, lhs_type, false, assignment.location)?;
 				info!("Rhs type at the end: {:?}",rhs_type);
-				info!("Lhs type at the and: {:?}",assignment.lhs.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, rhs_type, true, assignment.location)?);
+				info!("Lhs type at the and: {:?}",assignment.lhs.evaluate_type(ctx.id_table, ctx.nc_table, scope_id, &mut local_ctx.scope, rhs_type, true, assignment.location)?);
 			},	
 			IfElseStatement(conditional) => {
 				let condition_type = conditional.condition.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?;
@@ -399,7 +399,7 @@ impl VariableDefinition {
 		scope_id: usize,
 	) -> miette::Result<()> {
 		local_ctx.scope_map.insert(self.location, scope_id);
-		let kind = VariableKind::from_type_declarator(&self.type_declarator, scope_id, already_created, ctx.nc_table, ctx.id_table, &local_ctx.scope)?;
+		let mut kind = VariableKind::from_type_declarator(&self.type_declarator, scope_id, already_created, ctx.nc_table, ctx.id_table, &local_ctx.scope)?;
 		match &kind{
     		VariableKind::Signal(sig) => {
 				if sig.is_direction_specified(){
@@ -415,7 +415,7 @@ impl VariableDefinition {
 				}
 			},
     		VariableKind::Generic(_) => (),
-			VariableKind::ModuleInstantion(_) => (),
+			VariableKind::ModuleInstance(_) => (),
 		}
 		for direct_initializer in &self.initializer_list{
 			if let Some(variable) = local_ctx.scope.get_variable_in_scope(scope_id, &direct_initializer.declarator.name) {
@@ -449,16 +449,17 @@ impl VariableDefinition {
 				}
 				dimensions.push(size);
 			}
+			kind.add_dimenstions(dimensions);
 			local_ctx.scope.define_variable(scope_id, Variable{
 				name: direct_initializer.declarator.name,
 				kind: kind.clone(),
-				dimensions,
+				//dimensions,
 				location: direct_initializer.declarator.get_location(),
 			})?;
 			match &direct_initializer.expression{
     			Some(expr) => {
 					let lhs = kind.to_signal();
-					let rhs = expr.evaluate_type(ctx.nc_table, scope_id, &mut local_ctx.scope, lhs, false, direct_initializer.declarator.get_location())?; // FIXME
+					let rhs = expr.evaluate_type(ctx.id_table, ctx.nc_table, scope_id, &mut local_ctx.scope, lhs, false, direct_initializer.declarator.get_location())?; // FIXME
 					// todo finish this assignment
 				},
     			None => (),

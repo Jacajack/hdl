@@ -27,6 +27,9 @@ impl VariableDeclarationStatement{
 		let mut kind = VariableKind::from_type_declarator(&self.type_declarator, 0, already_created, nc_table, id_table, scope)?;
 		match &kind{
    			VariableKind::Signal(sig) => {
+				if sig.is_auto() {
+					return Err(miette::Report::new(SemanticError::AutoSpecifierInDeclaration.to_diagnostic_builder().label(self.location, "Auto specifier is not allowed in variable declaration").build()));
+				}
 				if ! sig.is_direction_specified() {
 					return Err(miette::Report::new(SemanticError::MissingDirectionQualifier.to_diagnostic_builder().label(self.location, "Signal must be either input or output").build()));
 				}
@@ -41,7 +44,7 @@ impl VariableDeclarationStatement{
 				scope.mark_as_generic();
 				return  Ok(vec![]);
 			},
-			VariableKind::ModuleInstantion(_) => unreachable!(""),
+			VariableKind::ModuleInstance(_) => unreachable!(""),
 		}
 		let mut variables = Vec::new();
 
@@ -56,18 +59,18 @@ impl VariableDeclarationStatement{
 			}
 			kind = match kind{
     			VariableKind::Signal(mut sig) => {
-					sig.dimensions = dimensions.clone();
+					sig.dimensions = dimensions;
 					VariableKind::Signal(sig)
 				},
     			VariableKind::Generic(mut gen) => {
-					gen.dimensions = dimensions.clone();
+					gen.dimensions = dimensions;
 					VariableKind::Generic(gen)
 				},
-				VariableKind::ModuleInstantion(_) => unreachable!(),
+				VariableKind::ModuleInstance(_) => unreachable!(),
 			};
 			variables.push(Variable{
 				name: direct_declarator.name,
-				dimensions,
+				//dimensions,
 				location: direct_declarator.get_location(),
 				kind: kind.clone(),
 			});
@@ -85,9 +88,23 @@ impl VariableKind{
 		scope: &ModuleImplementationScope) -> miette::Result<Self>{
 		use TypeSpecifier::*;
 		match &type_declarator.specifier{
-    		Auto { location } => return Err(miette::Report::new(SemanticError::AutoSpecifierInDeclaration.to_diagnostic_builder().label(*location, "Auto specifier is not allowed in variable declaration").build())),
+    		Auto { location } =>{
+				already_created = analyze_qualifiers(&type_declarator.qualifiers, already_created, scope, current_scope, id_table)?;
+				if already_created.signedness != SignalSignedness::NoSignedness {
+					return Ok(VariableKind::Signal(Signal{
+						signal_type: SignalType::Bus(BusType{
+							width: None,
+							signedness: already_created.signedness,
+							location: *location,
+						}),
+						dimensions: Vec::new(),
+						sensitivity: already_created.sensitivity,
+						direction: already_created.direction,
+					}));
+				}
+				Ok(VariableKind::Signal(Signal { signal_type: SignalType::Auto(location.clone()), dimensions: Vec::new(), sensitivity: already_created.sensitivity, direction: already_created.direction }))
+			} 
     		Int { location } => {
-
 				Ok(VariableKind::Generic(GenericVariable { value: None, kind: GenericVariableKind::Int(already_created.signedness, *location), dimensions: Vec::new() }))
 			},
     		Wire { location } => {

@@ -1,4 +1,3 @@
-use super::Expression;
 
 #[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq)]
 pub struct PostfixWithId {

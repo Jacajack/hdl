@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use hirn::{SignalId, design::ModuleHandle};
-use log::debug;
+use log::{debug, info};
 
 use crate::{lexer::{IdTableKey, IdTable}, SourceSpan, parser::ast::Scope, ProvidesCompilerDiagnostic};
 
@@ -85,7 +85,7 @@ impl ModuleImplementationScope {
 	}
 	pub fn redeclare_variable(&mut self, var: VariableDefined){
 		let (scope_id, name) = self.internal_ids.get(&var.id).unwrap();
-		debug!("Redeclared variable {:?} in scope {}", var, scope_id);
+		info!("Redeclared variable {:?} in scope {}", var, scope_id);
 		self.scopes[*scope_id].variables.insert(*name, var);
 	}
 	pub fn get_variable_in_scope(&self, scope_id: usize, key: &IdTableKey) -> Option<&VariableDefined> {
@@ -136,7 +136,7 @@ impl ModuleImplementationScope {
         		_ => unreachable!("Only input and output signals can be declared in module implementation scope"),
     			}
 			},
-			VariableKind::ModuleInstantion(_) => unreachable!("Module instantion can't be declared in module implementation scope"),
+			VariableKind::ModuleInstance(_) => unreachable!("Module instantion can't be declared in module implementation scope"),
 		}
 		let defined = VariableDefined { var, id };
 		self.scopes[0].variables.insert(name, defined);
@@ -171,7 +171,7 @@ impl ModuleImplementationScope {
 						}
 					},
 					VariableKind::Generic(_) => (),
-					VariableKind::ModuleInstantion(_) => (),
+					VariableKind::ModuleInstance(_) => (),
 				}
 			}
 		}

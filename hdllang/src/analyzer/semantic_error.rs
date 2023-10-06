@@ -66,7 +66,13 @@ pub enum SemanticError {
 	#[error("It is not allowed to acces via index types other than array or a bus")]
 	IndexingWrongType,
 	#[error("It is not allowed to use this expression in the left-hand side of an assignment")]
-	ForbiddenExpressionInLhs
+	ForbiddenExpressionInLhs,
+	#[error("This signal should have specified width")]
+	WidthNotKnown,
+	#[error("In assignments, the width of the left-hand side must match the width of the right-hand side")]
+	WidthMismatch,
+	#[error("It is not allowed to bind signals with not compatible sensitivities")]
+	DifferingSensitivities,
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -168,6 +174,15 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
     		ForbiddenExpressionInLhs => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all only allowed expressions are on left hand sight of assignment")
+				.build(),
+    		WidthNotKnown => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all signals have specified width")
+				.build(),
+    		WidthMismatch => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all bonded signals have the same width")
+				.build(),
+    		DifferingSensitivities => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all bonded signals have compatible sensitivities")
 				.build(),		
 		}
 	}
