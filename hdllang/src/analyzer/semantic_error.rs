@@ -73,6 +73,12 @@ pub enum SemanticError {
 	WidthMismatch,
 	#[error("It is not allowed to bind signals with not compatible sensitivities")]
 	DifferingSensitivities,
+	#[error("Range indexing is not allowed on non-bus signals")]
+	RangeOnNonBus,
+	#[error("It is not allowed to acces via index types other than array or a bus")]
+	ExpressionNonIndexable,
+	#[error("Index out of bounds")]
+	IndexOutOfBounds,
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -183,6 +189,15 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
     		DifferingSensitivities => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all bonded signals have compatible sensitivities")
+				.build(),
+    		RangeOnNonBus => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all accessed members are buses")
+				.build(),
+    		ExpressionNonIndexable => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all accessed members are arrays or buses")
+				.build(),
+    		IndexOutOfBounds => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all indices are in bounds")
 				.build(),		
 		}
 	}

@@ -220,7 +220,7 @@ impl ModuleDeclaration {
 			}
 			let vars = statement.create_variable_declaration(AlreadyCreated::new(), nc_table, id_table, &mut new_scope)?;
 			for var in vars{
-				new_scope.declare_variable(var, id_table, &mut handle)?;
+				new_scope.declare_variable(var, nc_table, id_table, &mut handle)?;
 			}
 		}
 		if new_scope.is_generic(){

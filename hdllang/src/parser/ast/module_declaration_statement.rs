@@ -55,6 +55,7 @@ impl VariableDeclarationStatement{
 				if size <= BigInt::from(0){
 					return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(array_declarator.get_location(), "Array size must be positive").build()));
 				}
+				scope.evaluated_expressions.insert(array_declarator.get_location(), array_declarator.clone());
 				dimensions.push(size);
 			}
 			kind = match kind{
@@ -85,7 +86,7 @@ impl VariableKind{
 		mut already_created: AlreadyCreated,
 		nc_table: &NumericConstantTable,
 		id_table: &IdTable,
-		scope: &ModuleImplementationScope) -> miette::Result<Self>{
+		scope: &mut ModuleImplementationScope) -> miette::Result<Self>{
 		use TypeSpecifier::*;
 		match &type_declarator.specifier{
     		Auto { location } =>{
@@ -124,9 +125,14 @@ impl VariableKind{
 				if width <= BigInt::from(0) {
 					return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(bus.location, "Bus width must be positive").build()));
 				}
+				scope.evaluated_expressions.insert(bus.width.get_location(), *bus.width.clone());
+				let w  = BusWidth{
+					value: Some(width),
+					location: bus.width.get_location(),
+				};
 				Ok(VariableKind::Signal(Signal{
 					signal_type: SignalType::Bus(BusType{
-						width: Some(width),
+						width: Some(w),
 						signedness: already_created.signedness,
 						location: bus.location,
 					}),

@@ -1,17 +1,16 @@
 use hirn::design::{ScopeHandle, expression::UnaryExpression};
 use log::{debug, info};
-use serde::de;
 
 use super::{ ModuleDeclared, SemanticError, VariableKind, AlreadyCreated, Variable};
 use std::collections::HashMap;
 
 use crate::{
-	analyzer::{ModuleImplementationScope, SignalSignedness, Direction, SignalSensitivity, Signal},
+	analyzer::{ModuleImplementationScope, SignalSignedness, Signal},
 	core::IdTable,
-	lexer::IdTableKey,
+	lexer::{IdTableKey, NumericConstantTableKey},
 	parser::ast::{
-		ModuleImplementation, ModuleImplementationBlockStatement, SourceLocation, TypeQualifier,
-		VariableBlock, VariableBlockStatement, VariableDefinition, Root, Scope, analyze_qualifiers, ModuleImplementationStatement,
+		ModuleImplementation, ModuleImplementationBlockStatement, SourceLocation,
+		VariableBlock, VariableBlockStatement, VariableDefinition, Root, analyze_qualifiers, ModuleImplementationStatement,
 	},
 	ProvidesCompilerDiagnostic, SourceSpan, CompilerError,
 };
@@ -23,7 +22,6 @@ pub fn combine<'a>(
 	mut path_from_root: String,
 	present_files: &mut HashMap<String, String>,
 ) -> miette::Result<(Vec<String>, GlobalAnalyzerContext<'a>, HashMap<IdTableKey, &'a ModuleImplementation>)> {
-	use log::info;
 
 	info!("Running combining pass");
 	info!("Path from root: {}", path_from_root);
@@ -180,7 +178,7 @@ pub struct GlobalAnalyzerContext<'a> {
 /// Per module context for semantic analysis
 pub struct LocalAnalyzerContex {
 	pub scope: ModuleImplementationScope,
-	pub dependency_graph: HashMap<usize, Vec<usize>>,
+	pub nc_widths: HashMap<NumericConstantTableKey, SignalSignedness>,
 	pub scope_map: HashMap<SourceSpan, usize>,
 	pub module_id: IdTableKey,
 }
@@ -188,9 +186,9 @@ impl LocalAnalyzerContex {
 	pub fn new(module_id: IdTableKey, scope: ModuleImplementationScope) -> Self {
 		LocalAnalyzerContex {
 			scope,
-			dependency_graph: HashMap::new(),
 			scope_map: HashMap::new(),
 			module_id,
+			nc_widths: HashMap::new(),
 		}
 	}
 }
@@ -261,11 +259,11 @@ impl ModuleImplementationStatement{
 				definition.analyze(AlreadyCreated::new(), ctx, local_ctx, scope_id)?
 			},
 			AssignmentStatement(assignment) => {
-				let lhs_type = assignment.lhs.evaluate_type(ctx.id_table, ctx.nc_table, scope_id, &mut local_ctx.scope, Signal::new_empty(), true, assignment.location)?;
+				let lhs_type = assignment.lhs.evaluate_type(ctx , scope_id, local_ctx, Signal::new_empty(), true, assignment.location)?;
 				info!("Lhs type at the beginning: {:?}",lhs_type);
-				let rhs_type = assignment.rhs.evaluate_type(ctx.id_table, ctx.nc_table, scope_id, &mut local_ctx.scope, lhs_type, false, assignment.location)?;
+				let rhs_type = assignment.rhs.evaluate_type(ctx , scope_id, local_ctx, lhs_type, false, assignment.location)?;
 				info!("Rhs type at the end: {:?}",rhs_type);
-				info!("Lhs type at the and: {:?}",assignment.lhs.evaluate_type(ctx.id_table, ctx.nc_table, scope_id, &mut local_ctx.scope, rhs_type, true, assignment.location)?);
+				info!("Lhs type at the and: {:?}",assignment.lhs.evaluate_type(ctx , scope_id, local_ctx, rhs_type, true, assignment.location)?);
 			},	
 			IfElseStatement(conditional) => {
 				let condition_type = conditional.condition.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?;
@@ -399,7 +397,7 @@ impl VariableDefinition {
 		scope_id: usize,
 	) -> miette::Result<()> {
 		local_ctx.scope_map.insert(self.location, scope_id);
-		let mut kind = VariableKind::from_type_declarator(&self.type_declarator, scope_id, already_created, ctx.nc_table, ctx.id_table, &local_ctx.scope)?;
+		let mut kind = VariableKind::from_type_declarator(&self.type_declarator, scope_id, already_created, ctx.nc_table, ctx.id_table, &mut local_ctx.scope)?;
 		match &kind{
     		VariableKind::Signal(sig) => {
 				if sig.is_direction_specified(){
@@ -447,6 +445,7 @@ impl VariableDefinition {
 				if size <= num_bigint::BigInt::from(0){
 					return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(array_declarator.get_location(), "Array size must be positive").build()));
 				}
+				local_ctx.scope.evaluated_expressions.insert(array_declarator.get_location(), array_declarator.clone());
 				dimensions.push(size);
 			}
 			kind.add_dimenstions(dimensions);
@@ -459,7 +458,7 @@ impl VariableDefinition {
 			match &direct_initializer.expression{
     			Some(expr) => {
 					let lhs = kind.to_signal();
-					let rhs = expr.evaluate_type(ctx.id_table, ctx.nc_table, scope_id, &mut local_ctx.scope, lhs, false, direct_initializer.declarator.get_location())?; // FIXME
+					let rhs = expr.evaluate_type(ctx , scope_id, local_ctx, lhs, false, direct_initializer.declarator.get_location())?; // FIXME
 					// todo finish this assignment
 				},
     			None => (),
@@ -475,7 +474,7 @@ impl VariableDefinition {
 		let scope_id = local_ctx.scope_map.get(&self.location).unwrap().to_owned();
 		for direct_initializer in &self.initializer_list{
 			let variable = local_ctx.scope.get_variable_in_scope(scope_id, &direct_initializer.declarator.name).unwrap();
-			let api_id = variable.var.register(ctx.id_table, scope_id, &local_ctx.scope, api_scope.new_signal().unwrap())?;
+			let api_id = variable.var.register(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope, api_scope.new_signal().unwrap())?;
 			match &direct_initializer.expression {
     			Some(expr) => api_scope.assign(api_id.into(), expr.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?).unwrap(),
     			None => (),

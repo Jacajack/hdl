@@ -14,12 +14,13 @@ mod tuple;
 mod unary_cast_expression;
 mod unary_operator_expression;
 
-use crate::analyzer::{EdgeSensitivity, ModuleImplementationScope, SemanticError, Signal, SignalType};
+use crate::analyzer::{EdgeSensitivity, ModuleImplementationScope, SemanticError, Signal, SignalType, GlobalAnalyzerContext, LocalAnalyzerContex, BusWidth, SignalSensitivity};
 use crate::lexer::IdTableKey;
 use crate::parser::ast::{opcodes::*, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName};
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 pub use binary_expression::BinaryExpression;
 pub use conditional_expression::ConditionalExpression;
+use hirn::design::SignalSlice;
 pub use identifier::Identifier;
 pub use match_expression::MatchExpression;
 use num_traits::Zero;
@@ -30,6 +31,7 @@ pub use postfix_with_id::PostfixWithId;
 pub use postfix_with_index::PostfixWithIndex;
 pub use postfix_with_range::PostfixWithRange;
 use std::fmt::{Debug, Error, Formatter};
+use std::vec;
 pub use ternary_expression::TernaryExpression;
 pub use tuple::Tuple;
 pub use unary_cast_expression::UnaryCastExpression;
@@ -481,6 +483,26 @@ impl Expression {
 			},
 		}
 	}
+	pub fn get_slice(&self, nc_table: &crate::lexer::NumericConstantTable, scope_id: usize, scope: &ModuleImplementationScope) -> miette::Result<SignalSlice>{
+		use self::Expression::*;
+		match self {
+			Identifier(id) => {
+				let signal_id = scope.get_api_id(scope_id, &id.id).unwrap();
+				Ok(SignalSlice{
+					signal: signal_id,
+					indices: vec![], 
+				})
+			},
+			PostfixWithIndex(ind) => {
+				let index_expr = ind.index.codegen(nc_table, scope_id, scope)?;
+				let mut slice = ind.expression.get_slice(nc_table, scope_id, scope)?;
+				slice.indices.push(index_expr);
+				Ok(slice)
+			},
+			_ => unreachable!()
+		}
+
+	}
 	pub fn codegen(
 		&self,
 		nc_table: &crate::lexer::NumericConstantTable,
@@ -490,9 +512,19 @@ impl Expression {
 		use self::Expression::*;
 		match self {
 			Number(num) => {
-				let constant = nc_table.get_by_key(&num.key).unwrap();
-
-				todo!()
+				let constant = nc_table.get_by_key(&num.key).unwrap(); //FIXME read additional information from local_ctx
+				let signed = match constant.signed {
+					Some(s) => s,
+					None => false,
+				};
+				if signed{
+					return Ok(
+						hirn::Expression::Constant(hirn::design::NumericConstant::new_signed(constant.value.clone()))
+					);
+    			}
+				Ok(
+					hirn::Expression::Constant(hirn::design::NumericConstant::new_unsigned(constant.value.clone()))
+				)
 			},
 			Identifier(id) => {
 				let signal_id = scope.get_api_id(scope_id, &id.id).unwrap();
@@ -508,7 +540,12 @@ impl Expression {
 				let false_branch = ternary.false_branch.codegen(nc_table, scope_id, scope)?;
 				todo!("codegen ternary")
 			},
-			PostfixWithIndex(_) => todo!(),
+			PostfixWithIndex(ind) => {
+				let index = ind.index.codegen(nc_table, scope_id, scope)?;
+				let mut expr = ind.expression.get_slice(nc_table, scope_id, scope)?;
+				expr.indices.push(index);
+				Ok(hirn::Expression::Signal(expr))
+			},
 			PostfixWithRange(_) => todo!(),
 			PostfixWithArgs(builtin) => todo!(),
 			PostfixWithId(_) => todo!(),
@@ -587,13 +624,12 @@ impl Expression {
 	}
 	pub fn evaluate_type(
 		&self,
-		id_table: &crate::lexer::IdTable,
-		nc_table: &crate::lexer::NumericConstantTable,
+		global_ctx: &GlobalAnalyzerContext,
 		scope_id: usize,
-		scope: &mut ModuleImplementationScope,
+		local_ctx: &mut LocalAnalyzerContex,
 		coupling_type: Signal,
 		is_lhs: bool,
-		location: SourceSpan, // FIXME change to borrow
+		location: SourceSpan, 
 	) -> miette::Result<Signal> {
 		use Expression::*;
 		match self {
@@ -602,7 +638,7 @@ impl Expression {
 				report_not_allowed_lhs(is_lhs, self.get_location())?;
 				let width = coupling_type.width();
 				let key = &num.key;
-				let constant = nc_table.get_by_key(key).unwrap();
+				let constant = global_ctx.nc_table.get_by_key(key).unwrap();
 				let sig = Signal::new_from_constant(constant, num.location);
 				match (width, sig.width()) {
 					(None, None) => {
@@ -614,7 +650,9 @@ impl Expression {
 								.build(),
 						))
 					},
-					(None, Some(_)) => (), // register FIXME
+					(None, Some(_)) => {
+						//local_ctx.nc_widths.insert(num.key, v) //FIXME
+					},
 					(Some(_), None) => (),
 					(Some(coming), Some(original)) => {
 						if coming != original {
@@ -632,7 +670,7 @@ impl Expression {
 				Ok(sig)
 			},
 			Identifier(identifier) => {
-				let mut var = match scope.get_variable(scope_id, &identifier.id) {
+				let mut var = match local_ctx.scope.get_variable(scope_id, &identifier.id) {
 					Some(var) => var,
 					None => {
 						return Err(miette::Report::new(
@@ -645,59 +683,11 @@ impl Expression {
 				}.clone();
 				let mut sig = var.var.kind.to_signal();
 				if is_lhs {
-					use crate::analyzer::SignalSensitivity::*;
-					match (&sig.sensitivity, &coupling_type.sensitivity) {
-        				(_, NoSensitivity) |  (Async(_), Async(_)) | (Sync(_, _), Sync(_, _)) | (Const(_), Const(_)) | (Clock(_), Clock(_)) => (),
-        				(NoSensitivity, _) => sig.sensitivity = coupling_type.sensitivity.clone(),
-						(Comb(curent, lhs_location), Comb(incoming, incoming_location)) => {
-							for value in &incoming.list{
-								if !curent.contains_clock(value.clock_signal) {
-									return Err(miette::Report::new(
-										SemanticError::DifferingSensitivities
-											.to_diagnostic_builder()
-											.label(
-												location,
-												"Cannot assign signals - sensitivity mismatch. Sensitivty of the land hand side should be a super set of the right hand side",
-											)
-											.label(*lhs_location, format!("This sensitivity list does not contain this clock {:?}", id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
-											.label(value.location, format!("This clock {:?} is not present in left hand side sensitivity list", id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
-											.build(),
-									));
-								}
-							}
-						}, 
-						(_, Async(sensitivity_location)) => {
-							return Err(miette::Report::new(
-								SemanticError::DifferingSensitivities
-									.to_diagnostic_builder()
-									.label(*sig.sensitivity.location().unwrap(), "This sensitivity is better than asynchronous")
-									.label(
-										location,
-										"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the right hand side",
-									)
-									.label(*sensitivity_location, "This sensitivity is asynchronous")
-									.build(),
-							));
-						},
-						(Async(_), _) => (), 
-        				(_, Comb(_, sensitivity_location)) => {
-							return Err(miette::Report::new(
-								SemanticError::DifferingSensitivities
-									.to_diagnostic_builder()
-									.label(
-										location,
-										"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the right hand side",
-									)
-									.label(*sensitivity_location, "This sensitivity is better than comb")
-									.build(),
-							));
-						},
-						(Comb(_, _), _) => (), 
-        				(_, Sync(_, _)) => (),
-						(Sync(_, _), _) => todo!(),
-        				(Const(_), _) => todo!(),
-        				(_, Const(_)) =>(),
-    				}
+					if coupling_type.sensitivity == SignalSensitivity::NoSensitivity {
+						// register the variable
+						//local_ctx.scope.add_coupling(from, identifier.id, scope_id)
+					}
+					sig.sensitivity.can_drive(&coupling_type.sensitivity, location, global_ctx)?;
 				}
 				use crate::analyzer::SignalType::*;
 				sig.signal_type = 
@@ -718,14 +708,14 @@ impl Expression {
         					(_, None) => bus.width.clone(),
         					(None, Some(_)) => bus1.width.clone(),
         					(Some(coming), Some(original)) => {
-								if coming != original {
+								if coming.value.clone().unwrap() != original.value.clone().unwrap() {
 									return Err(miette::Report::new(
 										SemanticError::DifferingBusWidths
 											.to_diagnostic_builder()
 											.label(
 												location,
 												format!(
-													"Cannot assign signals - width mismatch. {} bits vs {} bits",
+													"Cannot assign signals - width mismatch. {:?} bits vs {:?} bits",
 													coming, original
 												)
 												.as_str(),
@@ -763,30 +753,12 @@ impl Expression {
 					return Ok(sig);
 				}
 				var.var.kind = crate::analyzer::VariableKind::Signal(sig.clone());
-				scope.redeclare_variable(var);
+				local_ctx.scope.redeclare_variable(var);
 				Ok(sig)
-				//match (sig, coupling_type) {
-				//	(None, None) => Ok(None),
-				//	(None, Some(signal)) => {
-				//		let mut new = var.clone();
-				//		new.var.kind = crate::analyzer::VariableKind::Signal(signal.clone());
-				//		scope.redeclare_variable(new);
-				//		Ok(Some(signal.clone()))
-				//	},
-				//	(Some(signal), None) => Ok(Some(signal)),
-				//	(Some(mut signal), Some(coming)) => {
-				//		info!("Combining two signals:\n{:?}\n{:?}", signal, coming);
-				//		signal.combine_two(&coming, location)?;
-				//		let mut new = var.clone();
-				//		new.var.kind = crate::analyzer::VariableKind::Signal(signal.clone());
-				//		scope.redeclare_variable(new);
-				//		Some(signal.clone())
-				//	},
-				//}
 			},
 			ParenthesizedExpression(expr) => {
 				expr.expression
-					.evaluate_type(id_table, nc_table, scope_id, scope, coupling_type, is_lhs, location)
+					.evaluate_type(global_ctx, scope_id,  local_ctx, coupling_type, is_lhs, location)
 			},
 			MatchExpression(_) => {
 				report_not_allowed_lhs(is_lhs, self.get_location())?;
@@ -808,29 +780,125 @@ impl Expression {
 				report_not_allowed_lhs(is_lhs, self.get_location())?;
 				let type_first = ternary
 					.true_branch
-					.evaluate_type(id_table, nc_table, scope_id, scope, Signal::new_empty(), is_lhs, location)?;
-				let type_second = ternary.false_branch.evaluate_type(id_table, 
-					nc_table,
+					.evaluate_type(global_ctx, scope_id,  local_ctx, Signal::new_empty(), is_lhs, location)?;
+				let type_second = ternary.false_branch.evaluate_type( 
+					global_ctx,
 					scope_id,
-					scope,
+					 local_ctx,
 					coupling_type.clone(),
 					is_lhs,
 					location,
 				)?;
+				use SignalType::*;
+				match (&type_first.signal_type, &type_second.signal_type) {
+        			(Bus(_), Bus(_)) => todo!(),
+        			(Bus(_), Wire(_)) => todo!(),
+        			(Bus(_), Auto(_)) => todo!(),
+        			(Wire(_), Bus(_)) => todo!(),
+        			(Wire(_), Wire(_)) => todo!(),
+        			(Wire(_), Auto(_)) => todo!(),
+        			(Auto(_), Bus(_)) => todo!(),
+        			(Auto(_), Wire(_)) => todo!(),
+        			(Auto(_), Auto(_)) => todo!(),
+    			}
 				let type_condition =
 					ternary
 						.condition
-						.evaluate_type(id_table, nc_table, scope_id, scope, coupling_type, is_lhs, location)?;
+						.evaluate_type(global_ctx, scope_id,  local_ctx, coupling_type, is_lhs, location)?;
 				Ok(type_first) // FIXME
 			},
-			PostfixWithIndex(_) => todo!(),
-			PostfixWithRange(range) => todo!(),
+			PostfixWithIndex(index) => {
+				let mut expr = index.expression.evaluate_type(global_ctx, scope_id, local_ctx, coupling_type, is_lhs, location)?;
+				if !expr.is_array() && expr.is_bus() {
+					return Err(miette::Report::new(SemanticError::ExpressionNonIndexable.to_diagnostic_builder()
+						.label(index.location, "This expression cannot be indexed")
+						.build()))
+				}
+				let ind = index.index.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
+				if expr.is_array() {
+					if ind.value < BigInt::from(0) && &ind.value >= expr.dimensions.last().unwrap() {
+						return Err(miette::Report::new(SemanticError::IndexOutOfBounds.to_diagnostic_builder()
+							.label(index.location, "Index is out of bounds")
+							.build()))
+					}
+					expr.dimensions.pop();
+					return Ok(expr)
+				}
+				if let SignalType::Bus(bus) = &expr.signal_type {
+					if ind.value < BigInt::from(0) && &ind.value >= &bus.width.clone().unwrap().value.unwrap() {
+						return Err(miette::Report::new(SemanticError::IndexOutOfBounds.to_diagnostic_builder()
+							.label(index.location, "Index is out of bounds")
+							.build()))
+					}
+					expr.set_width(BusWidth{
+						value:Some(BigInt::from(1)),
+						location: index.location
+					}, bus.signedness.clone(), index.location);
+					return Ok(expr)
+				}
+				unreachable!()
+			},
+			PostfixWithRange(range) => {
+				let mut expr = range.expression.evaluate_type(global_ctx, scope_id,  local_ctx, coupling_type.clone(), is_lhs, location)?;
+				if expr.dimensions.len() > 0 {
+					return Err(miette::Report::new(
+						SemanticError::RangeOnNonBus
+							.to_diagnostic_builder()
+							//.label(range.location, "Range can only be applied to a bus")
+							.label(	range.expression.get_location(), "This signal is an array, it cannot be range indexed")
+							.build(),
+					));
+				}
+				use SignalType::*;
+				match &expr.signal_type {
+        			Bus(bus) => {
+						let begin = range.range.lhs.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
+						let mut end = range.range.rhs.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
+						use crate::parser::ast::RangeOpcode::*;
+						match range.range.code{
+        					Colon => (),
+        					PlusColon => end = NumericConstant::new_from_binary(end.clone(), begin.clone(), |e1, e2| e1 + e2),
+        					ColonLessThan => (), // FIXME
+    					}
+						match &bus.width{
+        					Some(val) => {
+								if &begin.value > &val.value.clone().unwrap() || &end.value > &val.value.clone().unwrap() {
+									return Err(miette::Report::new(
+										SemanticError::WidthMismatch.to_diagnostic_builder()
+											.label(range.location, "Cannot perform range indexing - range is out of bounds")
+											.label(range.location, format!("Range bounds are: {}:{} but actual width is: {:?}", begin.value, end.value, val).as_str())
+											.build(),
+									))
+								}
+								local_ctx.scope.evaluated_expressions.insert(range.location, self.clone());
+								expr.set_width(crate::analyzer::BusWidth{
+									value:Some(end.value - begin.value),
+									location: range.location}, bus.signedness.clone(), range.location);
+								Ok(expr)
+							},
+        					None => return Err(miette::Report::new(
+								SemanticError::WidthNotKnown.to_diagnostic_builder()
+									.label(range.location, "Width of this expression is not known, but it should be")
+									.build())),
+    					}
+					},
+        			Wire(type_loc) | Auto(type_loc) => {
+						return Err(miette::Report::new(
+							SemanticError::RangeOnNonBus
+								.to_diagnostic_builder()
+								.label(range.location, "Range can only be applied to a bus")
+								.label(*type_loc, "This signal is not a bus")
+								.build(),
+						));
+					}
+    			}				
+			},
 			PostfixWithArgs(_) => {
 				report_not_allowed_lhs(is_lhs, self.get_location())?;
 				todo!()
 			},
 			PostfixWithId(module) => {
-				let m = scope.get_variable(scope_id, &module.expression);
+				let m = local_ctx.scope.get_variable(scope_id, &module.expression);
 				match m {
 					Some(var) => match &var.var.kind {
 						crate::analyzer::VariableKind::ModuleInstance(module) => {
@@ -869,7 +937,7 @@ impl Expression {
 				let type_first =
 					binop
 						.lhs
-						.evaluate_type(id_table, nc_table, scope_id, scope, Signal::new_empty(), is_lhs, binop.location)?;
+						.evaluate_type(global_ctx, scope_id,  local_ctx, Signal::new_empty(), is_lhs, binop.location)?;
 				if ! type_first.is_width_specified() {
 					return Err(miette::Report::new(
 						SemanticError::WidthNotKnown
@@ -882,7 +950,7 @@ impl Expression {
 				let type_second =
 					binop
 						.rhs
-						.evaluate_type(id_table, nc_table, scope_id, scope, Signal::new_empty(), is_lhs, binop.location)?;
+						.evaluate_type(global_ctx, scope_id,  local_ctx, Signal::new_empty(), is_lhs, binop.location)?;
 				if ! type_second.is_width_specified() {
 					return Err(miette::Report::new(
 						SemanticError::WidthNotKnown

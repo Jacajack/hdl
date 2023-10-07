@@ -1,11 +1,15 @@
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
-use hirn::{SignalId, design::ModuleHandle};
+use hirn::{design::ModuleHandle, SignalId};
 use log::{debug, info};
 
-use crate::{lexer::{IdTableKey, IdTable}, SourceSpan, parser::ast::Scope, ProvidesCompilerDiagnostic};
+use crate::{
+	lexer::{IdTable, IdTableKey},
+	parser::ast::Scope,
+	ProvidesCompilerDiagnostic, SourceSpan,
+};
 
-use super::{Variable, VariableKind, GlobalAnalyzerContext, SemanticError};
+use super::{GlobalAnalyzerContext, SemanticError, Variable, VariableKind};
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
 pub struct InternalVariableId {
 	id: usize,
@@ -19,10 +23,12 @@ impl InternalVariableId {
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleImplementationScope {
+	pub evaluated_expressions: HashMap<SourceSpan, crate::parser::ast::Expression>,
 	scopes: Vec<InternalScope>,
 	is_generic: bool,
 	api_ids: HashMap<InternalVariableId, SignalId>,
 	internal_ids: HashMap<InternalVariableId, (usize, IdTableKey)>,
+	coupling_vars: HashMap<InternalVariableId, Vec<InternalVariableId>>,
 	variable_counter: usize,
 }
 pub trait InternalScopeTrait {
@@ -54,13 +60,29 @@ pub trait ScopeTrait {
 }
 impl ModuleImplementationScope {
 	pub fn new() -> Self {
-		Self { scopes: vec![InternalScope::new(None)], api_ids: HashMap::new() , variable_counter: 0, internal_ids: HashMap::new(), is_generic: false}
+		Self {
+			evaluated_expressions: HashMap::new(),
+			scopes: vec![InternalScope::new(None)],
+			api_ids: HashMap::new(),
+			variable_counter: 0,
+			internal_ids: HashMap::new(),
+			is_generic: false,
+			coupling_vars: HashMap::new(),
+		}
+	}
+	pub fn add_coupling(&mut self, from: IdTableKey, to: IdTableKey, scope_id: usize) {
+		let from_id = self.get_variable(scope_id, &from).unwrap().id;
+		let to_id = self.get_variable(scope_id, &to).unwrap().id;
+		self.coupling_vars
+			.entry(from_id)
+			.and_modify(|x| x.push(to_id))
+			.or_insert(vec![to_id]);
 	}
 	pub fn new_scope(&mut self, parent_scope: Option<usize>) -> usize {
 		self.scopes.push(InternalScope::new(parent_scope));
 		self.scopes.len() - 1
 	}
-	pub fn mark_as_generic(&mut self){
+	pub fn mark_as_generic(&mut self) {
 		self.is_generic = true;
 	}
 	pub fn is_generic(&self) -> bool {
@@ -73,17 +95,15 @@ impl ModuleImplementationScope {
 		let scope = &self.scopes[scope_id];
 		if let Some(variable) = scope.variables.get(key) {
 			Some(variable)
-		}
-		else {
+		} else {
 			if let Some(parent_scope) = scope.parent_scope {
 				self.get_variable(parent_scope, key)
-			}
-			else {
+			} else {
 				None
 			}
 		}
 	}
-	pub fn redeclare_variable(&mut self, var: VariableDefined){
+	pub fn redeclare_variable(&mut self, var: VariableDefined) {
 		let (scope_id, name) = self.internal_ids.get(&var.id).unwrap();
 		info!("Redeclared variable {:?} in scope {}", var, scope_id);
 		self.scopes[*scope_id].variables.insert(*name, var);
@@ -102,12 +122,10 @@ impl ModuleImplementationScope {
 		let scope = &self.scopes[scope_id];
 		if let Some(variable) = scope.variables.get(key) {
 			Some(self.api_ids.get(&variable.id).unwrap().clone())
-		}
-		else {
+		} else {
 			if let Some(parent_scope) = scope.parent_scope {
 				self.get_api_id(parent_scope, key)
-			}
-			else {
+			} else {
 				None
 			}
 		}
@@ -121,51 +139,72 @@ impl ModuleImplementationScope {
 		self.internal_ids.insert(id, (scope_id, name));
 		Ok(())
 	}
-	pub fn declare_variable(&mut self, var: Variable, id_table: &IdTable, handle: &mut ModuleHandle) ->miette::Result<()>{
+	pub fn declare_variable(
+		&mut self,
+		var: Variable,
+		nc_table: &crate::lexer::NumericConstantTable,
+		id_table: &IdTable,
+		handle: &mut ModuleHandle,
+	) -> miette::Result<()> {
 		let id = InternalVariableId::new(self.variable_counter);
 		self.variable_counter += 1;
 		let name = var.name.clone();
 		self.internal_ids.insert(id, (0, name));
-		self.api_ids.insert(id, var.register(id_table, 0, &self, handle.scope().new_signal().unwrap())?);
-		match &var.kind{
-			VariableKind::Generic(_) => handle.expose(self.api_ids.get(&id).unwrap().clone(), hirn::design::SignalDirection::Input).unwrap(),
-			VariableKind::Signal(sig) => {
-				match &sig.direction{
-        		super::Direction::Input(_) => handle.expose(self.api_ids.get(&id).unwrap().clone(), hirn::design::SignalDirection::Input).unwrap(),
-        		super::Direction::Output(_) =>handle.expose(self.api_ids.get(&id).unwrap().clone(), hirn::design::SignalDirection::Output).unwrap(),
-        		_ => unreachable!("Only input and output signals can be declared in module implementation scope"),
-    			}
+		self.api_ids.insert(
+			id,
+			var.register(nc_table, id_table, 0, &self, handle.scope().new_signal().unwrap())?,
+		);
+		match &var.kind {
+			VariableKind::Generic(_) => handle
+				.expose(
+					self.api_ids.get(&id).unwrap().clone(),
+					hirn::design::SignalDirection::Input,
+				)
+				.unwrap(),
+			VariableKind::Signal(sig) => match &sig.direction {
+				super::Direction::Input(_) => handle
+					.expose(
+						self.api_ids.get(&id).unwrap().clone(),
+						hirn::design::SignalDirection::Input,
+					)
+					.unwrap(),
+				super::Direction::Output(_) => handle
+					.expose(
+						self.api_ids.get(&id).unwrap().clone(),
+						hirn::design::SignalDirection::Output,
+					)
+					.unwrap(),
+				_ => unreachable!("Only input and output signals can be declared in module implementation scope"),
 			},
-			VariableKind::ModuleInstance(_) => unreachable!("Module instantion can't be declared in module implementation scope"),
+			VariableKind::ModuleInstance(_) => {
+				unreachable!("Module instantion can't be declared in module implementation scope")
+			},
 		}
 		let defined = VariableDefined { var, id };
 		self.scopes[0].variables.insert(name, defined);
 		Ok(())
 	}
-	pub fn second_pass(&self, ctx: &GlobalAnalyzerContext) -> miette::Result<()>{
+	pub fn second_pass(&self, ctx: &GlobalAnalyzerContext) -> miette::Result<()> {
 		for scope in &self.scopes {
 			for var in scope.variables.values() {
-				match &var.var.kind{
+				match &var.var.kind {
 					VariableKind::Signal(sig) => {
-						if ! sig.is_sensititivity_specified(){
+						if !sig.is_sensititivity_specified() {
 							return Err(miette::Report::new(
 								SemanticError::MissingSensitivityQualifier
 									.to_diagnostic_builder()
 									.label(
 										var.var.location,
-										"Signal must be either const, clock, comb, sync or async"
+										"Signal must be either const, clock, comb, sync or async",
 									)
 									.build(),
 							));
 						}
-						if ! sig.is_signedness_specified() {
+						if !sig.is_signedness_specified() {
 							return Err(miette::Report::new(
 								SemanticError::MissingSignednessQualifier
 									.to_diagnostic_builder()
-									.label(
-										var.var.location,
-										"Bus signal must be either signed or unsigned"
-									)
+									.label(var.var.location, "Bus signal must be either signed or unsigned")
 									.build(),
 							));
 						}
@@ -179,9 +218,9 @@ impl ModuleImplementationScope {
 	}
 }
 impl Scope for ModuleImplementationScope {
-    fn get_variable(&self, name: &IdTableKey) -> Option<Variable> {
+	fn get_variable(&self, name: &IdTableKey) -> Option<Variable> {
 		self.get_variable(0, name).map(|x| x.var.clone())
-    }
+	}
 }
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct VariableDefined {
