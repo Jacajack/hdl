@@ -1,7 +1,7 @@
 use std::{collections::HashMap, hash::Hash};
 
 use hirn::{design::ModuleHandle, SignalId};
-use log::{debug, info};
+use log::*;
 
 use crate::{
 	lexer::{IdTable, IdTableKey},
@@ -146,6 +146,18 @@ impl ModuleImplementationScope {
 		id_table: &IdTable,
 		handle: &mut ModuleHandle,
 	) -> miette::Result<()> {
+		match self.is_declared(0, &var.name) {
+			Some(location) => {
+				return Err(miette::Report::new(
+					SemanticError::DuplicateVariableDeclaration
+						.to_diagnostic_builder()
+						.label(var.location, "Variable with this name already exists")
+						.label(location, "Variable with this name already declared here")
+						.build(),
+				))
+			},
+			None => (),
+		}
 		let id = InternalVariableId::new(self.variable_counter);
 		self.variable_counter += 1;
 		let name = var.name.clone();

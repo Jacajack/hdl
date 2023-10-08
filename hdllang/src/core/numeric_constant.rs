@@ -43,33 +43,39 @@ impl NumericConstant {
 		num
 	}
 
-	pub fn new_from_unary(other: Self, operation: fn(BigInt) -> BigInt) -> Self {
+	pub fn new_from_unary(other: Option<Self>, operation: fn(BigInt) -> BigInt) -> Option<Self> {
+		if other.is_none() {
+			return None;
+		}
 		let num = Self {
-			value: operation(other.value),
-			width: other.width,
-			signed: other.signed,
-			base: other.base,
+			value: operation(other.clone().unwrap().value),
+			width: other.clone().unwrap().width,
+			signed: other.clone().unwrap().signed,
+			base: other.clone().unwrap().base,
 		};
 		debug!("Created numeric constant: {:?}", num);
 		assert!(num.consistency_check());
-		num
+		Some(num)
 	}
 
-	pub fn new_from_binary(other1: Self, other2: Self, operation: fn(BigInt, BigInt) -> BigInt) -> Self {
+	pub fn new_from_binary(other1: Option<Self>, other2: Option<Self>, operation: fn(BigInt, BigInt) -> BigInt) -> Option<Self> {
+		if other1.is_none() || other2.is_none() {
+			return None;
+		}
 		let num = Self {
-			value: operation(other1.value, other2.value),
-			width: other1.width,
-			signed: if let Some(s1) = other1.signed {
-				Some(s1 || other2.signed.unwrap_or(false))
+			value: operation(other1.clone().unwrap().value, other2.clone().unwrap().value),
+			width: other1.clone().unwrap().width,
+			signed: if let Some(s1) = other1.clone().unwrap().signed {
+				Some(s1 || other2.clone().unwrap().signed.unwrap_or(false))
 			}
 			else {
-				other2.signed
+				other2.clone().unwrap().signed
 			},
-			base: other1.base,
+			base: other1.clone().unwrap().base,
 		};
 		debug!("Created numeric constant: {:?}", num);
 		assert!(num.consistency_check());
-		num
+		Some(num)
 	}
 
 	pub fn new_true() -> Self {

@@ -21,11 +21,8 @@ use crate::analyzer::Variable;
 use crate::lexer::NumericConstantTable;
 impl VariableDeclarationStatement{
 	pub fn create_variable_declaration(&self, already_created: AlreadyCreated, nc_table: &NumericConstantTable, id_table: &IdTable, scope: &mut ModuleImplementationScope) -> miette::Result<Vec<Variable>>{
-		if scope.is_generic(){
-			return Ok(vec![]);
-		}
 		let mut kind = VariableKind::from_type_declarator(&self.type_declarator, 0, already_created, nc_table, id_table, scope)?;
-		match &kind{
+		match &mut kind{
    			VariableKind::Signal(sig) => {
 				if sig.is_auto() {
 					return Err(miette::Report::new(SemanticError::AutoSpecifierInDeclaration.to_diagnostic_builder().label(self.location, "Auto specifier is not allowed in variable declaration").build()));
@@ -40,23 +37,29 @@ impl VariableDeclarationStatement{
 					return Err(miette::Report::new(SemanticError::MissingSignednessQualifier.to_diagnostic_builder().label(self.location, "Bus signal must be either signed or unsigned").build()));
 				}
 			},
-    		VariableKind::Generic(_) => {
+    		VariableKind::Generic(gen) => {
+				gen.direction = Direction::Input(self.location);
 				scope.mark_as_generic();
-				return  Ok(vec![]);
+				//return  Ok(vec![]);
 			},
-			VariableKind::ModuleInstance(_) => unreachable!(""),
+			VariableKind::ModuleInstance(_) => unreachable!(),
 		}
 		let mut variables = Vec::new();
 
 		for direct_declarator in &self.direct_declarators{
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_declarator.array_declarators{
-				let size = array_declarator.evaluate(nc_table, 0, scope)?.value;
-				if size <= BigInt::from(0){
-					return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(array_declarator.get_location(), "Array size must be positive").build()));
-				}
+				let size = array_declarator.evaluate(nc_table, 0, scope)?;
 				scope.evaluated_expressions.insert(array_declarator.get_location(), array_declarator.clone());
-				dimensions.push(size);
+				match &size{
+        			Some(val) => {
+						if val.value <= num_bigint::BigInt::from(0){
+							return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(array_declarator.get_location(), "Array size must be positive").build()));
+						}
+						dimensions.push(BusWidth::EvaluatedLocated(val.value.clone(), array_declarator.get_location()));
+					},
+        			None => dimensions.push(BusWidth::Evaluable(array_declarator.get_location())),
+    			}
 			}
 			kind = match kind{
     			VariableKind::Signal(mut sig) => {
@@ -106,7 +109,7 @@ impl VariableKind{
 				Ok(VariableKind::Signal(Signal { signal_type: SignalType::Auto(location.clone()), dimensions: Vec::new(), sensitivity: already_created.sensitivity, direction: already_created.direction }))
 			} 
     		Int { location } => {
-				Ok(VariableKind::Generic(GenericVariable { value: None, kind: GenericVariableKind::Int(already_created.signedness, *location), dimensions: Vec::new() }))
+				Ok(VariableKind::Generic(GenericVariable { value: None, kind: GenericVariableKind::Int(already_created.signedness, *location), dimensions: Vec::new(), direction: already_created.direction }))
 			},
     		Wire { location } => {
 				already_created = analyze_qualifiers(&type_declarator.qualifiers, already_created, scope, current_scope, id_table)?;
@@ -117,19 +120,21 @@ impl VariableKind{
 				Ok(VariableKind::Signal(Signal { signal_type: SignalType::Wire(*location), sensitivity: already_created.sensitivity, direction: already_created.direction, dimensions: Vec::new() }))
 			},
     		Bool { location } => {
-				Ok(VariableKind::Generic(GenericVariable { value: None, kind: GenericVariableKind::Bool(*location), dimensions: Vec::new() }))
+				Ok(VariableKind::Generic(GenericVariable { value: None, kind: GenericVariableKind::Bool(*location), dimensions: Vec::new(), direction: already_created.direction }))
 			},
     		Bus(bus) => {
 				already_created = analyze_qualifiers(&type_declarator.qualifiers, already_created, scope, current_scope, id_table)?;
-				let width = bus.width.evaluate(nc_table, current_scope, scope)?.value; //FIXME This cannot be evaluated while analyzing declaration of generic module
-				if width <= BigInt::from(0) {
-					return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(bus.location, "Bus width must be positive").build()));
-				}
+				let width = bus.width.evaluate(nc_table, current_scope, scope)?; 
 				scope.evaluated_expressions.insert(bus.width.get_location(), *bus.width.clone());
-				let w  = BusWidth{
-					value: Some(width),
-					location: bus.width.get_location(),
-				};
+				let w = match &width{
+        			Some(val) => {
+						if val.value <= num_bigint::BigInt::from(0){
+							return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(bus.width.get_location(), "Array size must be positive").build()));
+						}
+						BusWidth::EvaluatedLocated(val.value.clone(), bus.width.get_location())
+					},
+        			None => BusWidth::Evaluable(bus.width.get_location()),
+    			};
 				Ok(VariableKind::Signal(Signal{
 					signal_type: SignalType::Bus(BusType{
 						width: Some(w),

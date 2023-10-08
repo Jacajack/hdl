@@ -5,7 +5,7 @@ use super::{ ModuleDeclared, SemanticError, VariableKind, AlreadyCreated, Variab
 use std::collections::HashMap;
 
 use crate::{
-	analyzer::{ModuleImplementationScope, SignalSignedness, Signal},
+	analyzer::{ModuleImplementationScope, SignalSignedness, Signal, BusWidth},
 	core::IdTable,
 	lexer::{IdTableKey, NumericConstantTableKey},
 	parser::ast::{
@@ -213,9 +213,14 @@ impl ModuleImplementation {
 					.build())),
 		}
 
+		// This has to be done this way to avoid creating a inner scope with the first block
 		let id = 0;
 		match &self.statement {
-			ModuleImplementationBlockStatement(block) => block.analyze(ctx, local_ctx, id)?,
+			ModuleImplementationBlockStatement(block) => {
+				for statement in &block.statements {
+					statement.first_pass(ctx, local_ctx, id)?;
+				}
+			},
 			_ => unreachable!(),
 		};
 		debug!("Done analyzing module implementation {}", ctx.id_table.get_by_key(&self.id).unwrap());
@@ -312,7 +317,95 @@ impl ModuleImplementationStatement{
 					));
 				}
 				let module = ctx.modules_declared.get(&name).unwrap();
+				let scope = module.scope.clone();
 				for stmt in &inst.port_bind{
+					if Option::None == scope.is_declared(0, &stmt.get_id()){
+						return Err(miette::Report::new(
+							SemanticError::VariableNotDeclared
+								.to_diagnostic_builder()
+								.label(
+									stmt.location(),
+									format!(
+										"Variable \"{}\" is not declared in module \"{}\"",
+										ctx.id_table.get_by_key(&stmt.get_id()).unwrap(),
+										ctx.id_table.get_by_key(&name).unwrap()
+									)
+									.as_str(),
+								)
+								.build(),
+						));
+					}
+					use crate::parser::ast::PortBindStatement::*;
+					match &stmt{
+        				OnlyId(id) => {
+							let local_sig = 
+							match local_ctx.scope.get_variable(scope_id, &id.id){
+        						Some(var) => var,
+        						None => {
+									return Err(miette::Report::new(
+										SemanticError::VariableNotDeclared
+											.to_diagnostic_builder()
+											.label(
+												id.location,
+												format!(
+													"Variable \"{}\" is not declared",
+													ctx.id_table.get_by_key(&id.id).unwrap()
+												)
+												.as_str(),
+											)
+											.build(),
+									));
+								},
+    						};
+							let remote_sig = scope.get_variable(0, &id.id).unwrap();
+							use VariableKind::*;
+							match (&local_sig.var.kind, &remote_sig.var.kind) {
+        						(Signal(_), Signal(_)) => todo!(),
+        						(Signal(_), Generic(_)) => todo!(),
+        						(Generic(_), Signal(_)) => todo!(),
+        						(Generic(_), Generic(_)) => todo!(),
+        						(_, ModuleInstance(_)) => unreachable!(),
+        						(ModuleInstance(_), _) => unreachable!(), // error
+    						}
+							
+						},
+        				IdWithExpression(id_expr) => {
+							if Option::None == scope.is_declared(0, &id_expr.id){
+								return Err(miette::Report::new(
+									SemanticError::VariableNotDeclared
+										.to_diagnostic_builder()
+										.label(
+											id_expr.location,
+											format!(
+												"Variable \"{}\" is not declared in module \"{}\"",
+												ctx.id_table.get_by_key(&id_expr.id).unwrap(),
+												ctx.id_table.get_by_key(&name).unwrap()
+											)
+											.as_str(),
+										)
+										.build(),
+								));
+							}
+						},
+        				IdWithDeclaration(id_decl) => {
+							if Option::None == scope.is_declared(0, &id_decl.id){
+								return Err(miette::Report::new(
+									SemanticError::VariableNotDeclared
+										.to_diagnostic_builder()
+										.label(
+											id_decl.location,
+											format!(
+												"Variable \"{}\" is not declared in module \"{}\"",
+												ctx.id_table.get_by_key(&id_decl.id).unwrap(),
+												ctx.id_table.get_by_key(&name).unwrap()
+											)
+											.as_str(),
+										)
+										.build(),
+								));
+							}
+						},
+    				}
 					// stmt.bind(ctx, local_ctx, scope_id, module.scope.get_scope(0))?;
 				}
 			},
@@ -441,12 +534,18 @@ impl VariableDefinition {
 			}
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_initializer.declarator.array_declarators{
-				let size = array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?.value;
-				if size <= num_bigint::BigInt::from(0){
-					return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(array_declarator.get_location(), "Array size must be positive").build()));
-				}
+				let size = array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
 				local_ctx.scope.evaluated_expressions.insert(array_declarator.get_location(), array_declarator.clone());
-				dimensions.push(size);
+				match &size{
+        			Some(val) => {
+						if val.value <= num_bigint::BigInt::from(0){
+							return Err(miette::Report::new(SemanticError::NegativeBusWidth.to_diagnostic_builder().label(array_declarator.get_location(), "Array size must be positive").build()));
+						}
+						dimensions.push(BusWidth::EvaluatedLocated(val.value.clone(), array_declarator.get_location()));
+					},
+        			None => dimensions.push(BusWidth::Evaluable(array_declarator.get_location())),
+    			}
+				
 			}
 			kind.add_dimenstions(dimensions);
 			local_ctx.scope.define_variable(scope_id, Variable{

@@ -215,11 +215,11 @@ impl Expression {
 		nc_table: &crate::lexer::NumericConstantTable,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
-	) -> miette::Result<NumericConstant> {
+	) -> miette::Result<Option<NumericConstant>> {
 		match self {
 			Expression::Number(nc_key) => {
 				let constant = nc_table.get_by_key(&nc_key.key).unwrap();
-				Ok(constant.clone())
+				Ok(Some(constant.clone()))
 			},
 			Expression::Identifier(id) => {
 				let var = match scope.get_variable(scope_id, &id.id) {
@@ -245,8 +245,12 @@ impl Expression {
 							.build(),
 					)),
 					Generic(generic) => match &generic.value {
-						Some(val) => Ok(val.clone()),
-						None => Err(miette::Report::new(
+						Some(val) => Ok(Some(val.clone())),
+						None =>{
+							if let crate::analyzer::Direction::Input(_) = &generic.direction{
+								return Ok(None);
+							}
+							return Err(miette::Report::new(
 							SemanticError::NonGenericTypeVariableInExpression
 								.to_diagnostic_builder()
 								.label(
@@ -254,7 +258,8 @@ impl Expression {
 									"This variable is used in expression but its value its not known at compile time",
 								)
 								.build(),
-						)),
+						));
+					}
 					},
 					ModuleInstance(_) => unreachable!(),
 				}
@@ -263,37 +268,66 @@ impl Expression {
 			Expression::MatchExpression(expr) => report_not_allowed_expression(expr.location, "match"),
 			Expression::ConditionalExpression(expr) => report_not_allowed_expression(expr.location, "conditional"),
 			Expression::Tuple(_) => unreachable!(),
-			Expression::TernaryExpression(tern) => Ok(
-				if tern.condition.evaluate(nc_table, scope_id, scope)?.value != BigInt::from(0) {
+			Expression::TernaryExpression(tern) =>{
+				let val = tern.condition.evaluate(nc_table, scope_id, scope)?;
+				if val.is_none(){
+					return Ok(None);
+				}
+				Ok(
+				if tern.condition.evaluate(nc_table, scope_id, scope)?.unwrap().value != BigInt::from(0) {
 					tern.true_branch.evaluate(nc_table, scope_id, scope)?
 				} else {
 					tern.false_branch.evaluate(nc_table, scope_id, scope)?
 				},
-			),
+			)},
 			Expression::PostfixWithIndex(expr) => report_not_allowed_expression(expr.location, "index"),
 			Expression::PostfixWithRange(expr) => report_not_allowed_expression(expr.location, "range"), // nie bedzie
-			Expression::PostfixWithArgs(_) => todo!(),                                                   // szerokość busa
+			Expression::PostfixWithArgs(function) => {
+				//let name: String = todo!("get name from id table key");
+				//if name != String::from("sizeof"){
+				//	return report_not_allowed_expression(function.location, "postfix with id");
+				//}
+				//if function.argument_list.len() != 1 {
+				//	return Err(miette::Report::new(
+				//		SemanticError::InvalidNumberOfArguments
+				//			.to_diagnostic_builder()
+				//			.label(
+				//				function.location,
+				//				"sizeof function takes exactly one argument",
+				//			)
+				//			.build(),
+				//	));
+				//}
+				let arg = function.argument_list.first().unwrap();
+				todo!()
+				//let type_eval = arg.evaluate_type(global_ctx, scope_id, local_ctx, coupling_type, is_lhs, location)?;
+			},                                                   // szerokość busa
 			Expression::PostfixWithId(expr) => report_not_allowed_expression(expr.location, "postfix with id"), // nie bedzie
 			Expression::UnaryOperatorExpression(unary) => {
 				use crate::parser::ast::UnaryOpcode::*;
 				use crate::core::numeric_constant::*;
 				match unary.code {
-					LogicalNot => Ok(
-						if unary.expression.evaluate(nc_table, scope_id, scope)?.value == BigInt::from(0) {
-							NumericConstant::new(BigInt::from(1), None, None, Some(NumericConstantBase::Boolean))
+					LogicalNot => {
+						let expr = unary.expression.evaluate(nc_table, scope_id, scope)?;
+						if expr.is_none(){
+							return Ok(None);
+						}
+						Ok(
+						if unary.expression.evaluate(nc_table, scope_id, scope)?.unwrap().value == BigInt::from(0) {
+							Some(NumericConstant::new(BigInt::from(1), None, None, Some(NumericConstantBase::Boolean)))
 						} else {
-							NumericConstant::new(BigInt::from(0), None, None, Some(NumericConstantBase::Boolean))
+							Some(NumericConstant::new(BigInt::from(0), None, None, Some(NumericConstantBase::Boolean)))
 						},
-					),
+					)},
 					BitwiseNot => Ok(NumericConstant::new_from_unary(
 						unary.expression.evaluate(nc_table, scope_id, scope)?,
 						|e| !e,
 					)),
 					Minus => {
 						let other = unary.expression.evaluate(nc_table, scope_id, scope)?;
-						if let Some(false) = other.signed {
-							// report an error
-						}
+						// FIXME if let Some(false) = other.signed {
+						// FIXME 	// report an error
+						// FIXME }
 						Ok(NumericConstant::new_from_unary(other, |e| -e))
 					},
 					Plus => Ok(NumericConstant::new_from_unary(
@@ -304,17 +338,21 @@ impl Expression {
 			},
 			Expression::UnaryCastExpression(expr) => report_not_allowed_expression(expr.location, "unary cast"), // nie bedzie
 			Expression::BinaryExpression(binop) => {
+				let lhs = binop.lhs.evaluate(nc_table, scope_id, scope)?;
+				let rhs = binop.rhs.evaluate(nc_table, scope_id, scope)?;
+				if lhs.is_none() || rhs.is_none(){
+					return Ok(None);
+				}
 				use crate::parser::ast::BinaryOpcode::*;
 				use crate::core::numeric_constant::*;
 				match binop.code {
 					Multiplication => Ok(NumericConstant::new_from_binary(
-						binop.lhs.evaluate(nc_table, scope_id, scope)?,
-						binop.rhs.evaluate(nc_table, scope_id, scope)?,
+						lhs,
+						rhs,
 						|e1, e2| e1 * e2,
 					)),
 					Division => {
-						let rhs = binop.rhs.evaluate(nc_table, scope_id, scope)?;
-						if rhs.value.is_zero() {
+						if rhs.clone().unwrap().value.is_zero() {
 							return Err(miette::Report::new(
 								SemanticError::DivisionByZero
 									.to_diagnostic_builder()
@@ -322,60 +360,64 @@ impl Expression {
 									.build(),
 							));
 						}
+
 						Ok(NumericConstant::new_from_binary(
-							binop.lhs.evaluate(nc_table, scope_id, scope)?,
+							lhs,
 							rhs,
 							|e1, e2| e1 / e2,
 						))
 					},
 					Addition => Ok(NumericConstant::new_from_binary(
-						binop.lhs.evaluate(nc_table, scope_id, scope)?,
-						binop.rhs.evaluate(nc_table, scope_id, scope)?,
+						lhs,
+						rhs,
 						|e1, e2| e1 + e2,
 					)),
 					Subtraction => Ok(NumericConstant::new_from_binary(
-						binop.lhs.evaluate(nc_table, scope_id, scope)?,
-						binop.rhs.evaluate(nc_table, scope_id, scope)?,
+						lhs,
+						rhs,
 						|e1, e2| e1 - e2,
 					)),
 					Modulo => {
-						let rhs = binop.rhs.evaluate(nc_table, scope_id, scope)?;
-						if rhs.value.is_zero() {
-							return Err(miette::Report::new(
-								SemanticError::DivisionByZero
-									.to_diagnostic_builder()
-									.label(binop.rhs.get_location(), "It is not allowed to modulo by zero")
-									.build(),
-							));
+						if rhs.is_some(){
+
+							if rhs.clone().unwrap().value.is_zero() {
+								return Err(miette::Report::new(
+									SemanticError::DivisionByZero
+										.to_diagnostic_builder()
+										.label(binop.rhs.get_location(), "It is not allowed to modulo by zero")
+										.build(),
+								));
+							}
 						}
 						Ok(NumericConstant::new_from_binary(
-							binop.lhs.evaluate(nc_table, scope_id, scope)?,
+							lhs,
 							rhs,
 							|e1, e2| e1 / e2,
 						))
 					},
-					Equal => Ok(
-						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value
-							== binop.rhs.evaluate(nc_table, scope_id, scope)?.value
+					Equal =>{
+						
+					Ok(
+						
+						if lhs.unwrap().value
+							== rhs.unwrap().value
 						{
-							NumericConstant::from_u64(1, Some(1), Some(false), Some(NumericConstantBase::Boolean))
+							Some(NumericConstant::from_u64(1, Some(1), Some(false), Some(NumericConstantBase::Boolean)))
 						} else {
-							NumericConstant::from_u64(0, Some(1), Some(false), Some(NumericConstantBase::Boolean))
+							Some(NumericConstant::from_u64(0, Some(1), Some(false), Some(NumericConstantBase::Boolean)))
 						},
-					),
+					)},
 					NotEqual => Ok(
-						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value
-							!= binop.rhs.evaluate(nc_table, scope_id, scope)?.value
+						if lhs.unwrap().value
+							!= rhs.unwrap().value
 						{
-							NumericConstant::from_u64(1, Some(1), Some(false), Some(NumericConstantBase::Boolean))
+							Some(NumericConstant::from_u64(1, Some(1), Some(false), Some(NumericConstantBase::Boolean)))
 						} else {
-							NumericConstant::from_u64(0, Some(1), Some(false), Some(NumericConstantBase::Boolean))
+							Some(NumericConstant::from_u64(0, Some(1), Some(false), Some(NumericConstantBase::Boolean)))
 						},
 					),
 					LShift => {
-						let mut lhs = binop.lhs.evaluate(nc_table, scope_id, scope)?;
-						let rhs = binop.rhs.evaluate(nc_table, scope_id, scope)?;
-						if rhs.value.sign() == Sign::Minus {
+						if rhs.clone().unwrap().value.sign() == Sign::Minus {
 							return Err(miette::Report::new(
 								SemanticError::ShiftByNegativeNumber
 									.to_diagnostic_builder()
@@ -384,17 +426,15 @@ impl Expression {
 							));
 						} else {
 							let mut i = BigInt::from(0);
-							while i < rhs.value {
-								lhs.value = lhs.value << 1;
+							while i < rhs.clone().unwrap().value {
+								lhs.clone().unwrap().value = lhs.clone().unwrap().value << 1;
 								i += BigInt::from(1);
 							}
 							Ok(lhs)
 						}
 					},
 					RShift => {
-						let mut lhs = binop.lhs.evaluate(nc_table, scope_id, scope)?;
-						let rhs = binop.rhs.evaluate(nc_table, scope_id, scope)?;
-						if rhs.value.sign() == Sign::Minus {
+						if rhs.clone().unwrap().value.sign() == Sign::Minus {
 							return Err(miette::Report::new(
 								SemanticError::ShiftByNegativeNumber
 									.to_diagnostic_builder()
@@ -403,80 +443,80 @@ impl Expression {
 							));
 						} else {
 							let mut i = BigInt::from(0);
-							while i < rhs.value {
-								lhs.value = lhs.value >> 1;
+							while i < rhs.clone().unwrap().value {
+								lhs.clone().unwrap().value = lhs.clone().unwrap().value >> 1;
 								i += BigInt::from(1);
 							}
 							Ok(lhs)
 						}
 					},
 					BitwiseAnd => Ok(NumericConstant::new_from_binary(
-						binop.lhs.evaluate(nc_table, scope_id, scope)?,
-						binop.rhs.evaluate(nc_table, scope_id, scope)?,
+						lhs,
+						rhs,
 						|e1, e2| e1 & e2,
 					)),
 					BitwiseOr => Ok(NumericConstant::new_from_binary(
-						binop.lhs.evaluate(nc_table, scope_id, scope)?,
-						binop.rhs.evaluate(nc_table, scope_id, scope)?,
+						lhs,
+						rhs,
 						|e1, e2| e1 | e2,
 					)),
 					BitwiseXor => Ok(NumericConstant::new_from_binary(
-						binop.lhs.evaluate(nc_table, scope_id, scope)?,
-						binop.rhs.evaluate(nc_table, scope_id, scope)?,
+						lhs,
+						rhs,
 						|e1, e2| e1 ^ e2,
 					)),
 					Less => Ok(
-						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value
-							< binop.rhs.evaluate(nc_table, scope_id, scope)?.value
+						if lhs.unwrap().value
+							< rhs.unwrap().value
 						{
-							NumericConstant::new_true()
+							Some(NumericConstant::new_true())
 						} else {
-							NumericConstant::new_false()
+							Some(NumericConstant::new_false())
 						},
 					),
 					Greater => Ok(
-						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value
-							> binop.rhs.evaluate(nc_table, scope_id, scope)?.value
+						if lhs.unwrap().value
+							> rhs.unwrap().value
 						{
-							NumericConstant::new_true()
+							Some(NumericConstant::new_true())
 						} else {
-							NumericConstant::new_false()
+							Some(NumericConstant::new_false())
 						},
 					),
 					LessEqual => Ok(
-						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value
-							<= binop.rhs.evaluate(nc_table, scope_id, scope)?.value
+						if lhs.unwrap().value
+							<= rhs.unwrap().value
 						{
-							NumericConstant::new_true()
+							Some(NumericConstant::new_true())
 						} else {
-							NumericConstant::new_false()
+							Some(NumericConstant::new_false())
 						},
 					),
 					GreaterEqual => Ok(
-						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value
-							>= binop.rhs.evaluate(nc_table, scope_id, scope)?.value
+						if lhs.unwrap().value
+							>= rhs.unwrap().value
 						{
-							NumericConstant::new_true()
+							Some(NumericConstant::new_true())
 						} else {
-							NumericConstant::new_false()
+							Some(NumericConstant::new_false())
 						},
 					),
 					LogicalAnd => Ok(
-						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value != BigInt::from(0)
-							&& binop.rhs.evaluate(nc_table, scope_id, scope)?.value != BigInt::from(0)
+						if lhs.unwrap().value != BigInt::from(0)
+							&& rhs.unwrap().value != BigInt::from(0)
 						{
-							NumericConstant::new_true()
+							Some(NumericConstant::new_true())
 						} else {
-							NumericConstant::new_false()
+							Some(NumericConstant::new_false())
 						},
 					),
 					LogicalOr => Ok(
-						if binop.lhs.evaluate(nc_table, scope_id, scope)?.value != BigInt::from(0)
-							|| binop.rhs.evaluate(nc_table, scope_id, scope)?.value != BigInt::from(0)
+						if lhs.unwrap().value != BigInt::from(0)
+							|| rhs.unwrap().value != BigInt::from(0)
 						{
-							NumericConstant::new_true()
+							Some(NumericConstant::new_true())
 						} else {
-							NumericConstant::new_false()
+							Some(NumericConstant::new_false())
 						},
 					),
 				}
@@ -510,6 +550,7 @@ impl Expression {
 		scope: &ModuleImplementationScope,
 	) -> miette::Result<hirn::Expression> {
 		use self::Expression::*;
+		log::debug!("codegen expression: {:?}", self);
 		match self {
 			Number(num) => {
 				let constant = nc_table.get_by_key(&num.key).unwrap(); //FIXME read additional information from local_ctx
@@ -708,23 +749,29 @@ impl Expression {
         					(_, None) => bus.width.clone(),
         					(None, Some(_)) => bus1.width.clone(),
         					(Some(coming), Some(original)) => {
-								if coming.value.clone().unwrap() != original.value.clone().unwrap() {
-									return Err(miette::Report::new(
-										SemanticError::DifferingBusWidths
-											.to_diagnostic_builder()
-											.label(
-												location,
-												format!(
-													"Cannot assign signals - width mismatch. {:?} bits vs {:?} bits",
-													coming, original
-												)
-												.as_str(),
-											)
-											.label(bus.location, "First width specified here")
-											.label(bus.location, "Second width specified here")
-											.build(),
-									));
-								}
+								match (&coming.get_value(), &original.get_value()) {
+            						(Some(val1), Some(val2)) => {
+										if val1 != val2 {
+											return Err(miette::Report::new(
+												SemanticError::DifferingBusWidths
+													.to_diagnostic_builder()
+													.label(
+														location,
+														format!(
+															"Cannot assign signals - width mismatch. {} bits vs {} bits",
+															val2, val1
+														)
+														.as_str(),
+													)
+													.label(bus1.location, "First width specified here")
+													.label(bus.location, "Second width specified here")
+													.build(),
+											));
+										}
+									},
+									_ => (),
+        						}
+								
 								bus.width.clone()
 							},
     					};
@@ -808,90 +855,98 @@ impl Expression {
 				Ok(type_first) // FIXME
 			},
 			PostfixWithIndex(index) => {
-				let mut expr = index.expression.evaluate_type(global_ctx, scope_id, local_ctx, coupling_type, is_lhs, location)?;
-				if !expr.is_array() && expr.is_bus() {
-					return Err(miette::Report::new(SemanticError::ExpressionNonIndexable.to_diagnostic_builder()
-						.label(index.location, "This expression cannot be indexed")
-						.build()))
-				}
-				let ind = index.index.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
-				if expr.is_array() {
-					if ind.value < BigInt::from(0) && &ind.value >= expr.dimensions.last().unwrap() {
-						return Err(miette::Report::new(SemanticError::IndexOutOfBounds.to_diagnostic_builder()
-							.label(index.location, "Index is out of bounds")
-							.build()))
-					}
-					expr.dimensions.pop();
-					return Ok(expr)
-				}
-				if let SignalType::Bus(bus) = &expr.signal_type {
-					if ind.value < BigInt::from(0) && &ind.value >= &bus.width.clone().unwrap().value.unwrap() {
-						return Err(miette::Report::new(SemanticError::IndexOutOfBounds.to_diagnostic_builder()
-							.label(index.location, "Index is out of bounds")
-							.build()))
-					}
-					expr.set_width(BusWidth{
-						value:Some(BigInt::from(1)),
-						location: index.location
-					}, bus.signedness.clone(), index.location);
-					return Ok(expr)
-				}
+				//let mut expr = index.expression.evaluate_type(global_ctx, scope_id, local_ctx, coupling_type, is_lhs, location)?;
+				//if !expr.is_array() && expr.is_bus() {
+				//	return Err(miette::Report::new(SemanticError::ExpressionNonIndexable.to_diagnostic_builder()
+				//		.label(index.location, "This expression cannot be indexed")
+				//		.build()))
+				//}
+				//let ind = index.index.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
+				//if expr.is_array() {
+				//	if ind.value < BigInt::from(0) && ind.value >= expr.dimensions.last().unwrap().get_value().clone().unwrap() {
+				//		return Err(miette::Report::new(SemanticError::IndexOutOfBounds.to_diagnostic_builder()
+				//			.label(index.location, "Index is out of bounds")
+				//			.build()))
+				//	}
+				//	expr.dimensions.pop();
+				//	return Ok(expr)
+				//}
+				//if let SignalType::Bus(bus) = &expr.signal_type {
+				//	match &bus.width.clone().unwrap().get_value(){
+        		//		Some(val) => {
+				//			if ind.value < BigInt::from(0) && &ind.value >= val {
+				//				return Err(miette::Report::new(SemanticError::IndexOutOfBounds.to_diagnostic_builder()
+				//					.label(index.location, "Index is out of bounds")
+				//					.build()))
+				//			}
+				//		},
+        		//		None => (),
+    			//	}
+					
+				//	expr.set_width(BusWidth::Evaluated(ind.value), bus.signedness.clone(), index.location);
+				//	return Ok(expr)
+				//}
 				unreachable!()
 			},
 			PostfixWithRange(range) => {
-				let mut expr = range.expression.evaluate_type(global_ctx, scope_id,  local_ctx, coupling_type.clone(), is_lhs, location)?;
-				if expr.dimensions.len() > 0 {
-					return Err(miette::Report::new(
-						SemanticError::RangeOnNonBus
-							.to_diagnostic_builder()
-							//.label(range.location, "Range can only be applied to a bus")
-							.label(	range.expression.get_location(), "This signal is an array, it cannot be range indexed")
-							.build(),
-					));
-				}
-				use SignalType::*;
-				match &expr.signal_type {
-        			Bus(bus) => {
-						let begin = range.range.lhs.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
-						let mut end = range.range.rhs.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
-						use crate::parser::ast::RangeOpcode::*;
-						match range.range.code{
-        					Colon => (),
-        					PlusColon => end = NumericConstant::new_from_binary(end.clone(), begin.clone(), |e1, e2| e1 + e2),
-        					ColonLessThan => (), // FIXME
-    					}
-						match &bus.width{
-        					Some(val) => {
-								if &begin.value > &val.value.clone().unwrap() || &end.value > &val.value.clone().unwrap() {
-									return Err(miette::Report::new(
-										SemanticError::WidthMismatch.to_diagnostic_builder()
-											.label(range.location, "Cannot perform range indexing - range is out of bounds")
-											.label(range.location, format!("Range bounds are: {}:{} but actual width is: {:?}", begin.value, end.value, val).as_str())
-											.build(),
-									))
-								}
-								local_ctx.scope.evaluated_expressions.insert(range.location, self.clone());
-								expr.set_width(crate::analyzer::BusWidth{
-									value:Some(end.value - begin.value),
-									location: range.location}, bus.signedness.clone(), range.location);
-								Ok(expr)
-							},
-        					None => return Err(miette::Report::new(
-								SemanticError::WidthNotKnown.to_diagnostic_builder()
-									.label(range.location, "Width of this expression is not known, but it should be")
-									.build())),
-    					}
-					},
-        			Wire(type_loc) | Auto(type_loc) => {
-						return Err(miette::Report::new(
-							SemanticError::RangeOnNonBus
-								.to_diagnostic_builder()
-								.label(range.location, "Range can only be applied to a bus")
-								.label(*type_loc, "This signal is not a bus")
-								.build(),
-						));
-					}
-    			}				
+				todo!();
+				//let mut expr = range.expression.evaluate_type(global_ctx, scope_id,  local_ctx, coupling_type.clone(), is_lhs, location)?;
+				//if expr.dimensions.len() > 0 {
+				//	return Err(miette::Report::new(
+				//		SemanticError::RangeOnNonBus
+				//			.to_diagnostic_builder()
+				//			//.label(range.location, "Range can only be applied to a bus")
+				//			.label(	range.expression.get_location(), "This signal is an array, it cannot be range indexed")
+				//			.build(),
+				//	));
+				//}
+				//use SignalType::*;
+				//match &expr.signal_type {
+        		//	Bus(bus) => {
+				//		let begin = range.range.lhs.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
+				//		let mut end = range.range.rhs.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
+				//		use crate::parser::ast::RangeOpcode::*;
+				//		match range.range.code{
+        		//			Colon => (),
+        		//			PlusColon => end = NumericConstant::new_from_binary(end.clone(), begin.clone(), |e1, e2| e1 + e2),
+        		//			ColonLessThan => (), // FIXME
+    			//		}
+				//		match &bus.width{
+        		//			Some(val) => {
+				//				//match &val.get_value() {
+            	//				//	Some(value) => {
+				//				//		if &begin.value > value || &end.value > value {
+				//				//			return Err(miette::Report::new(
+				//				//				SemanticError::WidthMismatch.to_diagnostic_builder()
+				//				//					.label(range.location, "Cannot perform range indexing - range is out of bounds")
+				//				//					.label(range.location, format!("Range bounds are: {}:{} but actual width is: {:?}", begin.value, end.value, val).as_str())
+				//				//					.build(),
+				//				//			))
+				//				//		}
+				//				//	},
+            	//				//	None => (),
+        		//				//}
+								
+				//				//local_ctx.scope.evaluated_expressions.insert(range.location, self.clone());
+				//				//expr.set_width(crate::analyzer::BusWidth::EvaluatedLocated(end.value - begin.value, range.location), bus.signedness.clone(), range.location);
+				//				//Ok(expr)
+				//			},
+        		//			None => return Err(miette::Report::new(
+				//				SemanticError::WidthNotKnown.to_diagnostic_builder()
+				//					.label(range.location, "Width of this expression is not known, but it should be")
+				//					.build())),
+    			//		}
+				//	},
+        		//	Wire(type_loc) | Auto(type_loc) => {
+				//		return Err(miette::Report::new(
+				//			SemanticError::RangeOnNonBus
+				//				.to_diagnostic_builder()
+				//				.label(range.location, "Range can only be applied to a bus")
+				//				.label(*type_loc, "This signal is not a bus")
+				//				.build(),
+				//		));
+				//	}
+    			//}				
 			},
 			PostfixWithArgs(_) => {
 				report_not_allowed_lhs(is_lhs, self.get_location())?;
@@ -961,14 +1016,22 @@ impl Expression {
 					))
 				}
 
-				match &binop.code {
+				let new_width = match &binop.code {
 					Multiplication => {},
 					Division => todo!(),
 					Addition => {
-						match (&type_first.width(), &type_second.width()) {
-        					(Some(_), Some(_)) => todo!(),
-							_ => todo!(),
-						}
+						use SignalType::*;
+						match (&type_first.signal_type, &type_second.signal_type) {
+        					(Bus(_), Bus(_)) => todo!(),
+        					(Bus(_), Wire(_)) => todo!(),
+        					(Bus(_), Auto(_)) => todo!(),
+        					(Wire(_), Bus(_)) => todo!(),
+        					(Wire(_), Wire(_)) => todo!(),
+        					(Wire(_), Auto(_)) => todo!(),
+        					(Auto(_), Bus(_)) => todo!(),
+        					(Auto(_), Wire(_)) => todo!(),
+        					(Auto(_), Auto(_)) => todo!(),
+    					}
 					},
 					Subtraction => todo!(),
 					Modulo => todo!(),
@@ -985,7 +1048,7 @@ impl Expression {
 					GreaterEqual => todo!(),
 					LogicalAnd => todo!(),
 					LogicalOr => todo!(),
-				}
+				};
 				todo!()
 			},
 		}
@@ -1012,7 +1075,7 @@ impl Expression {
 	}
 }
 
-fn report_not_allowed_expression(span: SourceSpan, expr_name: &str) -> miette::Result<NumericConstant> {
+fn report_not_allowed_expression(span: SourceSpan, expr_name: &str) -> miette::Result<Option<NumericConstant>> {
 	Err(miette::Report::new(
 		SemanticError::ExpressionNotAllowedInNonGenericModuleDeclaration
 			.to_diagnostic_builder()

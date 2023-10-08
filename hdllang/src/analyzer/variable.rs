@@ -62,9 +62,20 @@ impl Direction {
 	}
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct BusWidth {
-	pub value: Option<BigInt>,
-	pub location: SourceSpan,
+pub enum BusWidth {
+	Evaluated(BigInt),
+	EvaluatedLocated(BigInt, SourceSpan),
+	Evaluable(SourceSpan),
+}
+impl BusWidth {
+	pub fn get_value(&self) -> Option<BigInt> {
+		use BusWidth::*;
+		match self {
+			Evaluated(value) => Some(value.clone()),
+			EvaluatedLocated(value, _) => Some(value.clone()),
+			Evaluable(_) => None,
+		}
+	}
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BusType {
@@ -152,7 +163,7 @@ impl AlreadyCreated {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Signal {
 	pub signal_type: SignalType,
-	pub dimensions: Vec<BigInt>,
+	pub dimensions: Vec<BusWidth>,
 	pub sensitivity: SignalSensitivity,
 	pub direction: Direction,
 }
@@ -285,7 +296,7 @@ impl Signal {
 			None => SignalSignedness::NoSignedness,
 		};
 		let width = match constant.width {
-			Some(value) => Some(BusWidth { value: Some(BigInt::from(value)), location }),
+			Some(value) => Some(BusWidth::Evaluated(BigInt::from(value))),
 			None => None, // error FIXME
 		};
 		Self {
@@ -456,13 +467,18 @@ impl Variable {
 				}
 				match &signal.signal_type {
 					SignalType::Bus(bus) => {
-						let expr = scope.evaluated_expressions.get(&bus.width.clone().unwrap().location).unwrap();
+						use BusWidth::*;
+						let width = match &bus.width.clone().unwrap(){
+        					Evaluated(value) => Expression::Constant(hirn::design::NumericConstant::new_signed(value.clone())),
+        					EvaluatedLocated(_, location) => scope.evaluated_expressions.get(&location).unwrap().codegen(nc_table, scope_id, scope)?,
+        					Evaluable(location) => scope.evaluated_expressions.get(&location).unwrap().codegen(nc_table, scope_id, scope)?,
+    					};
 						match bus.signedness {
 							SignalSignedness::Signed(_) => {
-								builder = builder.signed(expr.codegen(nc_table, scope_id, scope)?)
+								builder = builder.signed(width)
 							}, 
 							SignalSignedness::Unsigned(_) => {
-								builder = builder.unsigned(expr.codegen(nc_table, scope_id, scope)?)
+								builder = builder.unsigned(width)
 							}, 
 							SignalSignedness::NoSignedness => unreachable!(), // report an error
 						}
@@ -471,9 +487,24 @@ impl Variable {
 					_ => unreachable!("Only bus and wire types are allowed"),
 				}
 				for dimension in &signal.dimensions {
-					builder = builder
-						.array(Expression::from(NumericConstant::new_unsigned(dimension.clone())))
-						.unwrap();
+					use BusWidth::*;
+					match &dimension{
+        				Evaluated(value) => builder = builder
+						.array(Expression::from(NumericConstant::new_unsigned(value.clone())))
+						.unwrap(),
+        				EvaluatedLocated(_, location) =>{
+							let expr =  scope.evaluated_expressions.get(location).unwrap().codegen(nc_table, scope_id, scope)?;
+							builder = builder
+								.array(expr)
+								.unwrap();
+						}
+        				Evaluable(location) => {
+							let expr =  scope.evaluated_expressions.get(location).unwrap().codegen(nc_table, scope_id, scope)?;
+							builder = builder
+								.array(expr)
+								.unwrap();
+						},
+    				}
 				}
 				id = builder.build().unwrap();
 			},
@@ -514,8 +545,20 @@ impl GenericVariableKind {
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct GenericVariable {
 	pub value: Option<crate::core::NumericConstant>,
-	pub dimensions: Vec<BigInt>,
+	pub direction: Direction,
+	pub dimensions: Vec<BusWidth>,
 	pub kind: GenericVariableKind,
+}
+impl GenericVariable{
+	pub fn is_direction_specified(&self) -> bool {
+		use Direction::*;
+		match &self.direction {
+			Input(_) => true,
+			Output(_) => true,
+			Tristate(_) => true,
+			None => false,
+		}
+	}
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct ModuleInstance {
@@ -531,7 +574,7 @@ pub enum VariableKind {
 }
 
 impl VariableKind {
-	pub fn add_dimenstions(&mut self, dimensions: Vec<BigInt>) {
+	pub fn add_dimenstions(&mut self, dimensions: Vec<BusWidth>) {
 		match self {
 			VariableKind::Signal(signal) => signal.dimensions = dimensions,
 			VariableKind::Generic(gen) => gen.dimensions = dimensions,
@@ -550,7 +593,7 @@ impl VariableKind {
 				}
 				match &gen.kind {
 					GenericVariableKind::Int(signedness, location) => {
-						Signal::new_bus(Some(BusWidth { value: Some(BigInt::from(64)), location: SourceSpan::new_between(0,0) }), signedness.clone(), *location) // FIXME
+						Signal::new_bus(Some(BusWidth::Evaluated(BigInt::from(64))), signedness.clone(), *location) 
 					},
 					GenericVariableKind::Bool(location) => Signal::new_wire(*location),
 				}
