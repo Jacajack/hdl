@@ -3,15 +3,24 @@ use crate::design::{DesignError, SignalSignedness};
 
 use num_bigint::BigInt;
 
+use super::EvalError;
+
 /// Represents a numeric constant value
 #[derive(Clone, Debug)]
-pub struct NumericConstant {
-	value: BigInt,
-	signedness: SignalSignedness,
-	width: u64,
+pub enum NumericConstant {
+	Invalid(EvalError),
+	Valid{
+		value: BigInt,
+		signedness: SignalSignedness,
+		width: u64,
+	}
 }
 
 impl NumericConstant {
+	pub fn new_invalid(error: EvalError) -> Self {
+		Self::Invalid(error)
+	}
+
 	/// New signed constant with bit width optimal to store the provided value
 	pub fn new_signed(value: BigInt) -> Self {
 		let width = value.bits() + 1;
@@ -33,7 +42,7 @@ impl NumericConstant {
 			return Err(DesignError::NumericConstantWidthTooSmall);
 		}
 
-		Ok(Self {
+		Ok(Self::Valid {
 			value,
 			signedness,
 			width,
@@ -48,20 +57,40 @@ impl NumericConstant {
 		Self::new_unsigned(1.into())
 	}
 
-	pub fn signedness(&self) -> SignalSignedness {
-		self.signedness
+	pub fn signedness(&self) -> Result<SignalSignedness, EvalError> {
+		match self {
+			Self::Invalid(..) => Err(EvalError::InvalidConstant),
+			Self::Valid{ signedness, .. } => Ok(*signedness),
+		}
 	}
 
-	pub fn width(&self) -> u64 {
-		self.width
+	pub fn width(&self) -> Result<u64, EvalError> {
+		match self {
+			Self::Invalid(..) => Err(EvalError::InvalidConstant),
+			Self::Valid{ width, .. } => Ok(*width),
+		}
 	}
 
-	pub fn try_into_u64(&self) -> Option<u64> {
-		u64::try_from(&self.value).ok()
+	pub fn value(&self) -> Result<&BigInt, EvalError> {
+		match self {
+			Self::Invalid(..) => Err(EvalError::InvalidConstant),
+			Self::Valid{ value, .. } => Ok(value),
+		}
 	}
 
-	pub fn try_into_i64(&self) -> Option<i64> {
-		i64::try_from(&self.value).ok()
+	pub fn try_into_u64(&self) -> Result<u64, EvalError> {
+		u64::try_from(self.value()?).or(Err(EvalError::NarrowEvalRange))
+	}
+
+	pub fn try_into_i64(&self) -> Result<i64, EvalError> {
+		i64::try_from(self.value()?).or(Err(EvalError::NarrowEvalRange))
+	}
+
+	pub fn is_valid(&self) -> bool {
+		match self {
+			Self::Invalid(..) => false,
+			Self::Valid{ .. } => true,
+		}
 	}
 }
 

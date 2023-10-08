@@ -560,7 +560,7 @@ mod test {
 		ctx.assume_scalar(b, 16.into());
 
 		let result = expr.eval(&ctx)?;
-		assert_eq!(result.try_into_u64(), 30.into());
+		assert_eq!(result.try_into_u64()?, 30u64);
 
 		Ok(())
 	}
@@ -588,14 +588,14 @@ mod test {
 		let result1 = Expression::Signal(a.index(1.into())).eval(&ctx)?;
 		let result2 = Expression::Signal(a.index(2.into())).eval(&ctx)?;
 		let result3 = Expression::Signal(a.index(3.into())).eval(&ctx)?;
-		assert_eq!(result0.try_into_i64(), 1.into());
-		assert_eq!(result1.try_into_i64(), 2.into());
-		assert_eq!(result2.try_into_i64(), 15.into());
-		assert_eq!(result3.try_into_i64(), 10.into());
+		assert_eq!(result0.try_into_i64()?, 1.into());
+		assert_eq!(result1.try_into_i64()?, 2.into());
+		assert_eq!(result2.try_into_i64()?, 15.into());
+		assert_eq!(result3.try_into_i64()?, 10.into());
 
 		let index_expr = Expression::from(1) + Expression::from(2);
 		let result = a.index(index_expr).eval(&ctx)?;
-		assert_eq!(result.try_into_i64(), 10.into());
+		assert_eq!(result.try_into_i64()?, 10.into());
 
 		Ok(())
 	}

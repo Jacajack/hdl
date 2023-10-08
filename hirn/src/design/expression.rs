@@ -1,7 +1,9 @@
 mod expression_eval;
+mod type_eval;
 mod rust_ops;
 mod expression_width;
 mod numeric_constant;
+mod dims_eval;
 mod eval;
 
 pub use numeric_constant::NumericConstant;
@@ -80,10 +82,20 @@ pub enum BuiltinOp {
 #[derive(Clone, Debug)]
 pub struct ConditionalExpressionBranch {
 	/// Condition expression
-	pub condition: Expression,
+	condition: Expression,
 
 	/// Value when condition is true
-	pub value: Expression,
+	value: Expression,
+}
+
+impl ConditionalExpressionBranch {
+	pub fn condition(&self) -> &Expression {
+		&self.condition
+	}
+
+	pub fn value(&self) -> &Expression {
+		&self.value
+	}
 }
 
 /// Conditional expression
@@ -103,6 +115,10 @@ impl ConditionalExpression {
 			branches: Vec::new(),
 			default: Box::new(default),
 		}
+	}
+
+	pub fn branches(&self) -> &Vec<ConditionalExpressionBranch> {
+		&self.branches
 	}
 
 	pub fn default_value(&self) -> &Expression {

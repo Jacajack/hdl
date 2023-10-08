@@ -113,6 +113,12 @@ pub enum EvalError {
 
 	#[error("Result outside of narrow eval range")]
 	NarrowEvalRange,
+
+	#[error("Invalid constant")]
+	InvalidConstant,
+
+	#[error("Invalid sensitivity combination")]
+	InvalidSensitivityCombination,
 }
 
 
