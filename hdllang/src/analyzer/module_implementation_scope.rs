@@ -168,7 +168,7 @@ impl ModuleImplementationScope {
 		self.internal_ids.insert(id, (0, name));
 		self.api_ids.insert(
 			id,
-			var.register(nc_table, id_table, 0, &self, handle.scope().new_signal().unwrap())?,
+			var.register(nc_table, id_table, 0, &self, handle.scope().new_signal(id_table.get_by_key(&name).unwrap().as_str()).unwrap())?,
 		);
 		match &var.kind {
 			VariableKind::Generic(_) => handle

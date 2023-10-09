@@ -448,7 +448,6 @@ impl Variable {
 			id_table.get_by_key(&self.name).unwrap(),
 			self
 		);
-		builder = builder.name(id_table.get_by_key(&self.name).unwrap());
 		let id: SignalId;
 		match &self.kind {
 			VariableKind::Signal(signal) => {

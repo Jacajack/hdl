@@ -714,7 +714,7 @@ impl VariableDefinition {
 				ctx.id_table,
 				scope_id,
 				&local_ctx.scope,
-				api_scope.new_signal().unwrap(),
+				api_scope.new_signal(ctx.id_table.get_by_key(&variable.var.name).unwrap().as_str()).unwrap(),
 			)?;
 			match &direct_initializer.expression {
 				Some(expr) => api_scope
