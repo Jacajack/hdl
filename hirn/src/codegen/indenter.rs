@@ -7,10 +7,7 @@ pub struct Indenter<'stream> {
 
 impl<'stream> Indenter<'stream> {
 	pub fn new(output: &'stream mut dyn fmt::Write, indent_str: String) -> Indenter<'stream> {
-		Self {
-			output,
-			indent_str,
-		}
+		Self { output, indent_str }
 	}
 
 	pub fn new_with_tabs(output: &'stream mut dyn fmt::Write, indent_level: usize) -> Indenter<'stream> {
@@ -37,20 +34,15 @@ impl<'stream> fmt::Write for Indenter<'stream> {
 }
 
 macro_rules! indented {
-	($output: expr) => {
-		{
-			let out = &mut $output;
-			Indenter::new_with_tabs(out, 1)
-		}
-	};
+	($output: expr) => {{
+		let out = &mut $output;
+		Indenter::new_with_tabs(out, 1)
+	}};
 
-	($output: expr, $levels: expr) => {
-		{
-			let out = &mut $output;
-			Indenter::new_with_tabs(out, $levels)
-		}
-	};
-
+	($output: expr, $levels: expr) => {{
+		let out = &mut $output;
+		Indenter::new_with_tabs(out, $levels)
+	}};
 }
 
 pub(crate) use indented;

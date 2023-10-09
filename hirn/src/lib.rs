@@ -1,8 +1,10 @@
 pub mod codegen;
 pub mod design;
 
-pub use design::{BinaryOp, DesignError, Expression, Module, ModuleId, ModuleHandle, ScopeId, SignalId, UnaryOp, Design};
 pub use codegen::{sv_codegen::SVCodegen, Codegen, CodegenError};
+pub use design::{
+	BinaryOp, Design, DesignError, Expression, Module, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp,
+};
 
 use thiserror::Error;
 
@@ -10,7 +12,7 @@ use thiserror::Error;
 pub enum HirnError {
 	#[error(transparent)]
 	DesignError(#[from] DesignError),
-	
+
 	#[error(transparent)]
 	CodegenError(#[from] CodegenError),
 }

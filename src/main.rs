@@ -210,7 +210,33 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 	writeln!(output, "{}", "done").map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())
 }
-
+fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) -> miette::Result<()>{
+	let root: Root;
+	let mut ctx = LogosLexerContext {
+		id_table: IdTable::new(),
+		comment_table: hdllang::lexer::CommentTable::new(),
+		numeric_constants: hdllang::lexer::NumericConstantTable::new(),
+		last_err: None,
+	};
+	let mut map: HashMap<String, String> = HashMap::new();
+	(root, ctx, code) = parse_file_recover_tables(code, ctx)?;
+	let (_, global_ctx, modules) = hdllang::analyzer::combine(
+		&ctx.id_table,
+		&ctx.numeric_constants,
+		&root,
+		String::from("."),
+		&mut map,
+	)
+	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
+	// analyse semantically
+	hdllang::analyzer::SemanticalAnalyzer::new(global_ctx, &modules)
+		.process()
+		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name, code)))?;
+	//hdllang::analyzer::analyze_semantically(&mut global_ctx, &modules)?;
+	writeln!(output, "{}", "semantical analysis was perfomed succesfully")
+		.map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
+	Ok(())
+}
 fn analyse(mut code: String, file_name: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	// tokenize and parse
 	let root: Root;
@@ -329,8 +355,7 @@ fn main() -> miette::Result<()> {
 			deserialize(code, output)?;
 		},
 		"compile" => {
-			println!("Not implemented!");
-			lexer_example()?;
+			compile(code, String::from(file_name), output)?;
 		},
 		"clean" => {
 			println!("Not implemented!");
