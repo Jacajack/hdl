@@ -92,6 +92,14 @@ impl ConditionalExpression {
 		}
 	}
 
+	pub fn branches(&self) -> &Vec<ConditionalExpressionBranch> {
+		&self.branches
+	}
+
+	pub fn default(&self) -> &Expression {
+		&self.default
+	}
+
 	fn add_branch(&mut self, condition: Expression, value: Expression) {
 		self.branches.push(ConditionalExpressionBranch { condition, value });
 	}

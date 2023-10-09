@@ -65,6 +65,10 @@ impl NumericConstant {
 	pub fn try_into_i64(&self) -> Option<i64> {
 		i64::try_from(&self.value).ok()
 	}
+
+	pub fn to_hex_str(&self) -> String {
+		format!("{:x}", self.value)
+	}
 }
 
 impl From<u64> for NumericConstant {
