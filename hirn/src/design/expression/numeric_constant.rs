@@ -86,6 +86,10 @@ impl NumericConstant {
 		}
 	}
 
+	pub fn to_hex_str(&self) -> String {
+		format!("{:x}", self.value)
+	}
+
 	pub fn try_into_u64(&self) -> Result<u64, EvalError> {
 		u64::try_from(self.value()?).or(Err(EvalError::NarrowEvalRange))
 	}

@@ -7,11 +7,11 @@ mod signal;
 mod utils;
 
 pub use comment::HasComment;
-pub use expression::{BinaryOp, Expression, UnaryOp, EvalError, EvalContext, NumericConstant, EvalType, Evaluates, EvaluatesDimensions, EvaluatesType};
-pub use functional_blocks::{Register, RegisterBuilder};
+pub use expression::{BinaryOp, BinaryExpression, UnaryExpression, Expression, UnaryOp, EvalError, EvalContext, NumericConstant, EvalType, Evaluates, EvaluatesDimensions, EvaluatesType};
+pub use functional_blocks::{Register, RegisterBuilder, BlockInstance, ModuleInstance, ModuleInstanceBuilder};
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
 pub use scope::{Scope, ScopeHandle};
-pub use signal::{Signal, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice};
+pub use signal::{Signal, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice, SignalBuilder};
 
 use std::cell::RefCell;
 use std::collections::HashMap;

@@ -1,4 +1,4 @@
-use hirn::design::{expression::UnaryExpression, ScopeHandle};
+use hirn::design::{UnaryExpression, ScopeHandle};
 use log::{debug, info};
 
 use super::{AlreadyCreated, ModuleDeclared, SemanticError, Variable, VariableKind};

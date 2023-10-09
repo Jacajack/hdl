@@ -2,8 +2,8 @@ use super::{Codegen, CodegenError};
 use crate::{
 	design::InterfaceSignal,
 	design::SignalSignedness,
-	design::{functional_blocks::BlockInstance, ScopeHandle},
-	design::{functional_blocks::ModuleInstance, SignalDirection, SignalSensitivity},
+	design::{BlockInstance, ScopeHandle},
+	design::{ModuleInstance, SignalDirection, SignalSensitivity},
 	BinaryOp, Design, DesignError, Expression, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp,
 };
 use std::collections::HashSet;
@@ -53,14 +53,14 @@ impl<'a> SVCodegen<'a> {
 					str = format!(
 						"{} ({}) ? ({}) : ",
 						str,
-						self.translate_expression(&br.condition),
-						self.translate_expression(&br.value)
+						self.translate_expression(&br.condition()),
+						self.translate_expression(&br.value())
 					);
 				}
-				format!("{} ({})", str, self.translate_expression(e.default()))
+				format!("{} ({})", str, self.translate_expression(e.default_value()))
 			},
 			Constant(c) => {
-				format!("{}'h{}", c.width(), c.to_hex_str())
+				format!("{}'h{}", c.width().unwrap(), c.to_hex_str()) // FIXME unwrap!
 			},
 			Signal(s) => {
 				let mut str: String = self.translate_signal_id(s.signal);
