@@ -47,11 +47,12 @@ impl NumericConstant {
 		if other.is_none() {
 			return None;
 		}
+		let other = other.clone().unwrap();
 		let num = Self {
-			value: operation(other.clone().unwrap().value),
-			width: other.clone().unwrap().width,
-			signed: other.clone().unwrap().signed,
-			base: other.clone().unwrap().base,
+			value: operation(other.value),
+			width: other.width,
+			signed: other.signed,
+			base: other.base,
 		};
 		debug!("Created numeric constant: {:?}", num);
 		assert!(num.consistency_check());
@@ -62,16 +63,18 @@ impl NumericConstant {
 		if other1.is_none() || other2.is_none() {
 			return None;
 		}
+		let other1 = other1.clone().unwrap();
+		let other2 = other2.clone().unwrap();
 		let num = Self {
-			value: operation(other1.clone().unwrap().value, other2.clone().unwrap().value),
-			width: other1.clone().unwrap().width,
-			signed: if let Some(s1) = other1.clone().unwrap().signed {
-				Some(s1 || other2.clone().unwrap().signed.unwrap_or(false))
+			value: operation(other1.value, other2.value),
+			width: other1.width,
+			signed: if let Some(s1) = other1.signed {
+				Some(s1 || other2.signed.unwrap_or(false))
 			}
 			else {
-				other2.clone().unwrap().signed
+				other2.signed
 			},
-			base: other1.clone().unwrap().base,
+			base: other1.base,
 		};
 		debug!("Created numeric constant: {:?}", num);
 		assert!(num.consistency_check());

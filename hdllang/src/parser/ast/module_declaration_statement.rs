@@ -1,7 +1,6 @@
 mod pretty_printable;
 
 
-use num_bigint::BigInt;
 
 use crate::analyzer::*;
 use crate::lexer::IdTable;
@@ -40,7 +39,6 @@ impl VariableDeclarationStatement{
     		VariableKind::Generic(gen) => {
 				gen.direction = Direction::Input(self.location);
 				scope.mark_as_generic();
-				//return  Ok(vec![]);
 			},
 			VariableKind::ModuleInstance(_) => unreachable!(),
 		}
@@ -74,7 +72,6 @@ impl VariableDeclarationStatement{
 			};
 			variables.push(Variable{
 				name: direct_declarator.name,
-				//dimensions,
 				location: direct_declarator.get_location(),
 				kind: kind.clone(),
 			});
