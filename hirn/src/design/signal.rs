@@ -192,7 +192,7 @@ impl From<SignalId> for SignalSlice {
 }
 
 /// Physical signal representation
-#[derive(Debug)]
+#[derive(Clone, Debug)]
 pub struct Signal {
 	/// Self-reference
 	pub(super) id: SignalId,
@@ -254,6 +254,10 @@ impl Signal {
 
 	pub fn is_scalar(&self) -> bool {
 		self.dimensions.is_empty()
+	}
+
+	pub fn name(&self) -> &str {
+		&self.name
 	}
 
 	pub fn is_array(&self) -> bool {

@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::lexer::NumericConstant;
+use super::*;
 use serde::{Deserialize, Serialize};
 use serde_with::serde_as;
 

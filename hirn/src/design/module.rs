@@ -129,7 +129,7 @@ impl ModuleHandle {
 	}
 
 	/// Returns a handle to the module's main scope
-	pub fn scope(&mut self) -> ScopeHandle {
+	pub fn scope(&self) -> ScopeHandle {
 		ScopeHandle::new(self.design.clone(), this_module!(self).main_scope)
 	}
 
@@ -150,6 +150,20 @@ impl ModuleHandle {
 	/// Returns the ID of the scope
 	pub fn id(&self) -> ModuleId {
 		self.id
+	}
+
+	/// Returns name of the module
+	pub fn name(&self) -> String {
+		this_module!(self).name.clone()
+	}
+
+	/// Returns path to the module
+	pub fn namespace_path(&self) -> Vec<String> {
+		this_module!(self).namespace_path.clone()
+	}
+
+	pub fn interface(&self) -> Vec<InterfaceSignal> {
+		this_module!(self).interface.clone()
 	}
 }
 
