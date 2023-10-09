@@ -306,6 +306,15 @@ impl ModuleImplementation {
 			ModuleImplementationBlockStatement(block) => block.codegen_pass(ctx, local_ctx, &mut api_scope)?,
 			_ => unreachable!(),
 		};
+		let mut sv_codegen = hirn::SVCodegen::new(&mut ctx.design);
+		let mut output = String::new();
+		use hirn::Codegen;
+		sv_codegen.emit_module(&mut output, ctx
+			.modules_declared
+			.get_mut(&local_ctx.module_id)
+			.unwrap()
+			.handle.id()).unwrap();
+		println!("{}", output);
 		debug!(
 			"Done codegen pass for module implementation {}",
 			ctx.id_table.get_by_key(&self.id).unwrap()
