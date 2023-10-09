@@ -210,7 +210,7 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 	writeln!(output, "{}", "done").map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())
 }
-fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) -> miette::Result<()>{
+fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let root: Root;
 	let mut ctx = LogosLexerContext {
 		id_table: IdTable::new(),

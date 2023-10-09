@@ -309,11 +309,12 @@ impl ModuleImplementation {
 		let mut sv_codegen = hirn::SVCodegen::new(&mut ctx.design);
 		let mut output = String::new();
 		use hirn::Codegen;
-		sv_codegen.emit_module(&mut output, ctx
-			.modules_declared
-			.get_mut(&local_ctx.module_id)
-			.unwrap()
-			.handle.id()).unwrap();
+		sv_codegen
+			.emit_module(
+				&mut output,
+				ctx.modules_declared.get_mut(&local_ctx.module_id).unwrap().handle.id(),
+			)
+			.unwrap();
 		println!("{}", output);
 		debug!(
 			"Done codegen pass for module implementation {}",
