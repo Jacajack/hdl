@@ -1,13 +1,18 @@
-use std::fmt;
-use crate::{Design, ModuleId, DesignError, ModuleHandle, SignalId, design::{SignalDirection, SignalSensitivity, functional_blocks::ModuleInstance}, design::SignalSignedness, design::InterfaceSignal, Expression, BinaryOp, UnaryOp, design::{ScopeHandle, functional_blocks::BlockInstance}, ScopeId};
 use super::{Codegen, CodegenError};
+use crate::{
+	design::InterfaceSignal,
+	design::SignalSignedness,
+	design::{functional_blocks::BlockInstance, ScopeHandle},
+	design::{functional_blocks::ModuleInstance, SignalDirection, SignalSensitivity},
+	BinaryOp, Design, DesignError, Expression, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp,
+};
 use std::collections::HashSet;
+use std::fmt;
 
 #[derive(Clone)]
 pub struct SVCodegen<'a> {
 	design: &'a Design,
 	indent_level: u32,
-
 }
 
 macro_rules! emitln {
@@ -43,9 +48,14 @@ impl<'a> SVCodegen<'a> {
 		match expr {
 			Conditional(e) => {
 				assert!(e.branches().len() > 0);
-				let mut str : String = "".into();
+				let mut str: String = "".into();
 				for br in e.branches() {
-					str = format!("{} ({}) ? ({}) : ", str, self.translate_expression(&br.condition), self.translate_expression(&br.value));
+					str = format!(
+						"{} ({}) ? ({}) : ",
+						str,
+						self.translate_expression(&br.condition),
+						self.translate_expression(&br.value)
+					);
 				}
 				format!("{} ({})", str, self.translate_expression(e.default()))
 			},
@@ -53,7 +63,7 @@ impl<'a> SVCodegen<'a> {
 				format!("{}'h{}", c.width(), c.to_hex_str())
 			},
 			Signal(s) => {
-				let mut str : String = self.translate_signal_id(s.signal);
+				let mut str: String = self.translate_signal_id(s.signal);
 				for slice in &s.indices {
 					str = format!("{}[{}]", str, self.translate_expression(&slice));
 				}
@@ -71,7 +81,7 @@ impl<'a> SVCodegen<'a> {
 					Divide => format!("{} * {}", lhs_str, rhs_str),
 					_ => todo!(), // TODO
 				}
-			}
+			},
 			Unary(u) => {
 				let operand_str = self.translate_expression(&u.operand);
 
@@ -84,7 +94,7 @@ impl<'a> SVCodegen<'a> {
 					ReductionOr => format!("|{}", operand_str),
 					ReductionXor => format!("^{}", operand_str),
 				}
-			}
+			},
 			Builtin(b) => todo!(),
 			Cast(c) => self.translate_expression(&c.src),
 		}
@@ -106,7 +116,7 @@ impl<'a> SVCodegen<'a> {
 		};
 
 		let bus_width_str = format!("[({}) - 1 : 0]", self.translate_expression(&sig.class.width()));
-		
+
 		let mut array_size_str = String::new();
 		for dim in &sig.dimensions {
 			array_size_str = format!("{}[{}]", array_size_str, self.translate_expression(&dim));
@@ -132,8 +142,19 @@ impl<'a> SVCodegen<'a> {
 		format!("parameter {} = 'x", self.translate_expression(&s.signal.into()))
 	}
 
-	fn emit_assignment(&mut self, w: &mut dyn fmt::Write, lhs: &Expression, rhs: &Expression) -> Result<(), CodegenError> {
-		emitln!(self, w, "assign {} = {};", self.translate_expression(&lhs), self.translate_expression(&rhs))?;
+	fn emit_assignment(
+		&mut self,
+		w: &mut dyn fmt::Write,
+		lhs: &Expression,
+		rhs: &Expression,
+	) -> Result<(), CodegenError> {
+		emitln!(
+			self,
+			w,
+			"assign {} = {};",
+			self.translate_expression(&lhs),
+			self.translate_expression(&rhs)
+		)?;
 		Ok(())
 	}
 
@@ -144,9 +165,15 @@ impl<'a> SVCodegen<'a> {
 		self.end_indent();
 		emitln!(self, w, ") {} (", "TODO_INSTANCE_NAME")?;
 		self.begin_indent();
-		
+
 		for binding in instance.get_bindings() {
-			emitln!(self, w, ".{}({}),", binding.0, self.translate_expression(&binding.1.into()))?;
+			emitln!(
+				self,
+				w,
+				".{}({}),",
+				binding.0,
+				self.translate_expression(&binding.1.into())
+			)?;
 		}
 
 		self.end_indent();
@@ -154,9 +181,15 @@ impl<'a> SVCodegen<'a> {
 		Ok(())
 	}
 
-	fn emit_scope(&mut self, w: &mut dyn fmt::Write, scope_id: ScopeId, naked: bool, skip_signals: HashSet<SignalId>) -> Result<(), CodegenError> {
+	fn emit_scope(
+		&mut self,
+		w: &mut dyn fmt::Write,
+		scope_id: ScopeId,
+		naked: bool,
+		skip_signals: HashSet<SignalId>,
+	) -> Result<(), CodegenError> {
 		let scope = self.design.get_scope_handle(scope_id).unwrap();
-		
+
 		if !naked {
 			emitln!(self, w, "begin")?;
 			self.begin_indent();
@@ -175,12 +208,17 @@ impl<'a> SVCodegen<'a> {
 			self.emit_assignment(w, &asmt.lhs, &asmt.rhs)?;
 		}
 
-		let mut processed_subscopes = HashSet::new();		
+		let mut processed_subscopes = HashSet::new();
 
 		emitln!(self, w, "")?;
 		emitln!(self, w, "/* if-subscopes */")?;
 		for conditional_scope in scope.conditional_subscopes() {
-			emitln!(self, w, "generate if ({}) begin", self.translate_expression(&conditional_scope.condition))?;
+			emitln!(
+				self,
+				w,
+				"generate if ({}) begin",
+				self.translate_expression(&conditional_scope.condition)
+			)?;
 			self.begin_indent();
 			self.emit_scope(w, conditional_scope.scope, true, HashSet::new())?;
 			self.end_indent();
@@ -192,12 +230,16 @@ impl<'a> SVCodegen<'a> {
 		emitln!(self, w, "/* loop subscopes */")?;
 		for loop_scope in scope.loop_subscopes() {
 			// TODO gb name
-			emitln!(self, w, "generate for (genvar {} = ({}); ({}) <= ({}); ({})++) begin",
+			emitln!(
+				self,
+				w,
+				"generate for (genvar {} = ({}); ({}) <= ({}); ({})++) begin",
 				self.translate_expression(&loop_scope.iterator_var.into()),
 				self.translate_expression(&loop_scope.iterator_begin),
 				self.translate_expression(&loop_scope.iterator_var.into()),
 				self.translate_expression(&loop_scope.iterator_end),
-				self.translate_expression(&loop_scope.iterator_var.into()))?;
+				self.translate_expression(&loop_scope.iterator_var.into())
+			)?;
 			self.begin_indent();
 			self.emit_scope(w, loop_scope.scope, true, HashSet::from([loop_scope.iterator_var]))?;
 			self.end_indent();
@@ -235,10 +277,12 @@ impl<'a> SVCodegen<'a> {
 }
 
 impl<'a> Codegen for SVCodegen<'a> {
-
 	fn emit_module(&mut self, w: &mut dyn fmt::Write, module: ModuleId) -> Result<(), CodegenError> {
-		let m = self.design.get_module_handle(module).ok_or(CodegenError::InvalidModuleId(module))?;
-		
+		let m = self
+			.design
+			.get_module_handle(module)
+			.ok_or(CodegenError::InvalidModuleId(module))?;
+
 		// TODO skip param list if empty
 		// TODO param list
 		// TODO how to check if module is generic
@@ -248,12 +292,20 @@ impl<'a> Codegen for SVCodegen<'a> {
 			interface_signal_ids.insert(sig.signal);
 		}
 
-		emitln!(self, w, "module {} #(", self.mangle_module_name(m.name(), m.namespace_path()))?;
+		emitln!(
+			self,
+			w,
+			"module {} #(",
+			self.mangle_module_name(m.name(), m.namespace_path())
+		)?;
 		self.begin_indent();
 		emitln!(self, w, "/* parameters */")?;
 
 		for sig in m.interface() {
-			if matches!(self.design.get_signal(sig.signal).unwrap().sensitivity, SignalSensitivity::Const) {
+			if matches!(
+				self.design.get_signal(sig.signal).unwrap().sensitivity,
+				SignalSensitivity::Const
+			) {
 				emitln!(self, w, "{},", self.module_parameter_definition(sig))?; // FIXME trailing comma
 			}
 		}
@@ -262,13 +314,16 @@ impl<'a> Codegen for SVCodegen<'a> {
 		emitln!(self, w, ")(")?;
 		self.begin_indent();
 		emitln!(self, w, "/* interface */")?;
-		
+
 		for sig in m.interface() {
-			if !matches!(self.design.get_signal(sig.signal).unwrap().sensitivity, SignalSensitivity::Const) {
+			if !matches!(
+				self.design.get_signal(sig.signal).unwrap().sensitivity,
+				SignalSensitivity::Const
+			) {
 				emitln!(self, w, "{},", self.module_interface_definition(m.clone(), sig))?; // FIXME trailing comma
 			}
 		}
-		
+
 		self.end_indent();
 		emitln!(self, w, ");")?;
 

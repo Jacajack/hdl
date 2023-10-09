@@ -243,7 +243,7 @@ impl Signal {
 	pub fn name(&self) -> &str {
 		&self.name
 	}
-	
+
 	pub fn is_array(&self) -> bool {
 		!self.is_scalar()
 	}

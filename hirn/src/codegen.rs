@@ -1,9 +1,9 @@
-pub mod sv_codegen;
 pub mod indenter;
+pub mod sv_codegen;
 
-use thiserror::Error;
 use crate::ModuleId;
 use std::fmt;
+use thiserror::Error;
 
 #[derive(Clone, Error, Debug)]
 pub enum CodegenError {

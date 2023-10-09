@@ -323,11 +323,19 @@ impl ScopeHandle {
 	}
 
 	pub fn signals(&self) -> Vec<SignalId> {
-		self.design.borrow().get_scope_signals(self.scope).cloned().unwrap_or(vec![])
+		self.design
+			.borrow()
+			.get_scope_signals(self.scope)
+			.cloned()
+			.unwrap_or(vec![])
 	}
 
 	pub fn subscopes(&self) -> Vec<ScopeId> {
-		self.design.borrow().get_scope_scopes(self.scope).cloned().unwrap_or(vec![])
+		self.design
+			.borrow()
+			.get_scope_scopes(self.scope)
+			.cloned()
+			.unwrap_or(vec![])
 	}
 
 	pub fn conditional_subscopes(&self) -> Vec<ConditionalScope> {
