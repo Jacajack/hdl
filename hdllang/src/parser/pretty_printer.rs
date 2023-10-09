@@ -1,9 +1,9 @@
 use crate::{
+	core::NumericConstant,
 	core::{
 		numeric_constant_table::{NumericConstantTable, NumericConstantTableKey},
 		CommentTable, CommentTableKey, CompilerError, IdTable, IdTableKey,
 	},
-	core::NumericConstant,
 	ProvidesCompilerDiagnostic,
 };
 use std::io::Write;

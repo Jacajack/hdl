@@ -5,7 +5,6 @@ use num_traits::Pow;
 use std::fmt;
 use thiserror::Error;
 
-
 /// Describes error types encountered when parsing strings
 #[derive(Clone, Copy, Debug, Error)]
 pub enum NumericConstantParseErrorKind {

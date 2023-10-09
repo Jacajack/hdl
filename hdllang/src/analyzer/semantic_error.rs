@@ -145,60 +145,60 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 			ExpressionNotAllowedInNonGenericModuleDeclaration => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please only allowed expressions in non-generic module declarations.")
 				.build(),
-    		MissingSensitivityQualifier => CompilerDiagnosticBuilder::from_error(&self)
+			MissingSensitivityQualifier => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please add sensitivity qualifier to this signal.")
 				.build(),
-    		RecursiveModuleInstantiation => CompilerDiagnosticBuilder::from_error(&self)
+			RecursiveModuleInstantiation => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please remove this module from its own instantiation.")
 				.build(),
-    		ModuleNotDeclared => CompilerDiagnosticBuilder::from_error(&self)
+			ModuleNotDeclared => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please declare this module.")
 				.build(),
-    		MissingSignednessQualifier => CompilerDiagnosticBuilder::from_error(&self)
+			MissingSignednessQualifier => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please add signedness qualifier to this signal.")
 				.build(),
-    		SignalDirectionSpecified => CompilerDiagnosticBuilder::from_error(&self)
+			SignalDirectionSpecified => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please remove this signal's direction qualifier.")
 				.build(),
-    		DifferingDimensions => CompilerDiagnosticBuilder::from_error(&self)
+			DifferingDimensions => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all combined signals have the same dimensions.")
 				.build(),
-    		DifferingBusWidths => CompilerDiagnosticBuilder::from_error(&self)
+			DifferingBusWidths => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all bound signals have the same bus widths.")
 				.build(),
-    		BoundingWireWithBus => CompilerDiagnosticBuilder::from_error(&self)
+			BoundingWireWithBus => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all no buses are binded with wires")
 				.build(),
-    		IdNotSubscriptable => CompilerDiagnosticBuilder::from_error(&self)
+			IdNotSubscriptable => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all accessed members are modules")
 				.build(),
-    		AccesingRangeOfNonBus => CompilerDiagnosticBuilder::from_error(&self)
+			AccesingRangeOfNonBus => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all accessed members are buses")
 				.build(),
-    		IndexingWrongType => CompilerDiagnosticBuilder::from_error(&self)
+			IndexingWrongType => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all accessed members are arrays or buses")
 				.build(),
-    		ForbiddenExpressionInLhs => CompilerDiagnosticBuilder::from_error(&self)
+			ForbiddenExpressionInLhs => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all only allowed expressions are on left hand sight of assignment")
 				.build(),
-    		WidthNotKnown => CompilerDiagnosticBuilder::from_error(&self)
+			WidthNotKnown => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all signals have specified width")
 				.build(),
-    		WidthMismatch => CompilerDiagnosticBuilder::from_error(&self)
+			WidthMismatch => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all bonded signals have the same width")
 				.build(),
-    		DifferingSensitivities => CompilerDiagnosticBuilder::from_error(&self)
+			DifferingSensitivities => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all bonded signals have compatible sensitivities")
 				.build(),
-    		RangeOnNonBus => CompilerDiagnosticBuilder::from_error(&self)
+			RangeOnNonBus => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all accessed members are buses")
 				.build(),
-    		ExpressionNonIndexable => CompilerDiagnosticBuilder::from_error(&self)
+			ExpressionNonIndexable => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all accessed members are arrays or buses")
 				.build(),
-    		IndexOutOfBounds => CompilerDiagnosticBuilder::from_error(&self)
+			IndexOutOfBounds => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all indices are in bounds")
-				.build(),		
+				.build(),
 		}
 	}
 }

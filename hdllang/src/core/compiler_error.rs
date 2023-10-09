@@ -46,7 +46,7 @@ impl ProvidesCompilerDiagnostic for CompilerError {
 			HirnApiError(err) => CompilerDiagnosticBuilder::from_error(&self)
 				.help(&err.to_string())
 				.build(),
-    		FeatureNotImplementedYet => CompilerDiagnosticBuilder::from_error(&self)
+			FeatureNotImplementedYet => CompilerDiagnosticBuilder::from_error(&self)
 				.help("This feature is not implemented yet")
 				.build(),
 		}

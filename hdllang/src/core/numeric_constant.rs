@@ -59,7 +59,11 @@ impl NumericConstant {
 		Some(num)
 	}
 
-	pub fn new_from_binary(other1: Option<Self>, other2: Option<Self>, operation: fn(BigInt, BigInt) -> BigInt) -> Option<Self> {
+	pub fn new_from_binary(
+		other1: Option<Self>,
+		other2: Option<Self>,
+		operation: fn(BigInt, BigInt) -> BigInt,
+	) -> Option<Self> {
 		if other1.is_none() || other2.is_none() {
 			return None;
 		}

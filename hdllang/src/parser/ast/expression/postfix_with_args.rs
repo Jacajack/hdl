@@ -6,4 +6,3 @@ pub struct PostfixWithArgs {
 	pub argument_list: Vec<Expression>,
 	pub location: crate::SourceSpan,
 }
-

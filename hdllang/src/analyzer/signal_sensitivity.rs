@@ -1,4 +1,4 @@
-use crate::{SourceSpan, lexer::IdTableKey, analyzer::SemanticError, ProvidesCompilerDiagnostic};
+use crate::{analyzer::SemanticError, lexer::IdTableKey, ProvidesCompilerDiagnostic, SourceSpan};
 
 use super::GlobalAnalyzerContext;
 
@@ -15,8 +15,7 @@ pub struct ClockSensitivityList {
 	pub list: Vec<EdgeSensitivity>,
 }
 impl ClockSensitivityList {
-	pub fn contains_clock(&self, id: IdTableKey) -> bool
-	{
+	pub fn contains_clock(&self, id: IdTableKey) -> bool {
 		for edge in &self.list {
 			if edge.clock_signal == id {
 				return true;
@@ -40,8 +39,8 @@ impl SignalSensitivity {
 		use SignalSensitivity::*;
 		match self {
 			Async(_) => "async",
-			Comb(_, _) => "comb",
-			Sync(_, _) => "sync",
+			Comb(..) => "comb",
+			Sync(..) => "sync",
 			Clock(_) => "clock",
 			Const(_) => "const",
 			NoSensitivity => "none",
@@ -58,13 +57,22 @@ impl SignalSensitivity {
 			NoSensitivity => None,
 		}
 	}
-	pub fn can_drive(&mut self, rhs: &SignalSensitivity, location: SourceSpan, global_ctx: &GlobalAnalyzerContext) -> miette::Result<()> {
+	pub fn can_drive(
+		&mut self,
+		rhs: &SignalSensitivity,
+		location: SourceSpan,
+		global_ctx: &GlobalAnalyzerContext,
+	) -> miette::Result<()> {
 		use SignalSensitivity::*;
 		match (&self, rhs) {
-			(_, NoSensitivity) |  (Async(_), Async(_)) | (Sync(_, _), Sync(_, _)) | (Const(_), Const(_)) | (Clock(_), Clock(_)) => (),
-        	(NoSensitivity, _) => *self = rhs.clone(),
+			(_, NoSensitivity)
+			| (Async(_), Async(_))
+			| (Sync(..), Sync(..))
+			| (Const(_), Const(_))
+			| (Clock(_), Clock(_)) => (),
+			(NoSensitivity, _) => *self = rhs.clone(),
 			(Comb(curent, lhs_location), Comb(incoming, incoming_location)) => {
-				for value in &incoming.list{
+				for value in &incoming.list {
 					if !curent.contains_clock(value.clock_signal) {
 						return Err(miette::Report::new(
 							SemanticError::DifferingSensitivities
@@ -79,7 +87,7 @@ impl SignalSensitivity {
 						));
 					}
 				}
-			}, 
+			},
 			(_, Async(sensitivity_location)) => {
 				return Err(miette::Report::new(
 					SemanticError::DifferingSensitivities
@@ -93,8 +101,8 @@ impl SignalSensitivity {
 						.build(),
 				));
 			},
-			(Async(_), _) => (), 
-        	(_, Comb(_, sensitivity_location)) => {
+			(Async(_), _) => (),
+			(_, Comb(_, sensitivity_location)) => {
 				return Err(miette::Report::new(
 					SemanticError::DifferingSensitivities
 						.to_diagnostic_builder()
@@ -106,8 +114,8 @@ impl SignalSensitivity {
 						.build(),
 				));
 			},
-			(Comb(_, _), _) => (), 
-        	(_, Sync(_, sensitivity_location)) => {
+			(Comb(..), _) => (),
+			(_, Sync(_, sensitivity_location)) => {
 				return Err(miette::Report::new(
 					SemanticError::DifferingSensitivities
 						.to_diagnostic_builder()
@@ -119,9 +127,9 @@ impl SignalSensitivity {
 						.build(),
 				));
 			},
-			(Sync(_, _), _) => (),
-        	(Const(_), _) => (),
-        	(_, Const(sensitivity_location)) => {
+			(Sync(..), _) => (),
+			(Const(_), _) => (),
+			(_, Const(sensitivity_location)) => {
 				return Err(miette::Report::new(
 					SemanticError::DifferingSensitivities
 						.to_diagnostic_builder()
@@ -134,26 +142,25 @@ impl SignalSensitivity {
 				));
 			},
 		}
-	Ok(())
+		Ok(())
 	}
 }
 
-
 #[cfg(test)]
 mod tests {
-	use std::hash::Hash;
-	use crate::lexer::NumericConstantTable;
-	use crate::{lexer::IdTable, core::NumericConstant};
-	use paste::paste;
 	use super::*;
+	use crate::lexer::NumericConstantTable;
+	use crate::{core::NumericConstant, lexer::IdTable};
+	use paste::paste;
 	use std::collections::HashMap;
+	use std::hash::Hash;
 	fn ctx<'a>(id_table: &'a IdTable, nc_table: &'a NumericConstantTable) -> GlobalAnalyzerContext<'a> {
-		GlobalAnalyzerContext{
-    		id_table,
-    		nc_table,
-    		modules_declared: HashMap::new(),
-    		generic_modules: HashMap::new(),
-    		design: hirn::design::Design::new(),
+		GlobalAnalyzerContext {
+			id_table,
+			nc_table,
+			modules_declared: HashMap::new(),
+			generic_modules: HashMap::new(),
+			design: hirn::design::Design::new(),
 		}
 	}
 	fn span() -> SourceSpan {
@@ -179,7 +186,7 @@ mod tests {
 		};
 	}
 	#[test]
-	fn 	async_const() {
+	fn async_const() {
 		sensitivity_test_ok!(async, const);
 	}
 	#[test]
@@ -187,7 +194,7 @@ mod tests {
 		sensitivity_test_ok!(async, clock);
 	}
 	#[test]
-	fn 	const_clock() {
+	fn const_clock() {
 		sensitivity_test_ok!(const, clock);
 	}
 }

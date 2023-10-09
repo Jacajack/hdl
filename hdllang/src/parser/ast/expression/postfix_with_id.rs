@@ -1,4 +1,3 @@
-
 #[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq)]
 pub struct PostfixWithId {
 	pub expression: crate::lexer::IdTableKey,

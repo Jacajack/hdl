@@ -1,4 +1,3 @@
-
 use hirn::{
 	design::{signal::SignalBuilder, NumericConstant},
 	Expression, SignalId,
@@ -7,7 +6,10 @@ use log::debug;
 use num_bigint::BigInt;
 
 use crate::{
-	analyzer::report_duplicated_qualifier, core::id_table::{self}, lexer::IdTableKey, ProvidesCompilerDiagnostic, SourceSpan,
+	analyzer::report_duplicated_qualifier,
+	core::id_table::{self},
+	lexer::IdTableKey,
+	ProvidesCompilerDiagnostic, SourceSpan,
 };
 
 use super::*;
@@ -90,7 +92,6 @@ pub enum SignalType {
 	Auto(SourceSpan),
 }
 
-
 #[derive(Clone, Debug)]
 pub struct AlreadyCreated {
 	pub signedness: SignalSignedness,
@@ -114,7 +115,7 @@ impl AlreadyCreated {
 			| (Tristate(prev), Tristate(incoming)) => report_duplicated_qualifier(&incoming, prev, direction.name())?,
 			(None, _) => self.direction = direction,
 			(_, None) => (),
-			(_, _) => report_contradicting_qualifier(
+			(..) => report_contradicting_qualifier(
 				self.direction.location().unwrap(),
 				direction.location().unwrap(),
 				self.direction.name(),
@@ -133,7 +134,7 @@ impl AlreadyCreated {
 			| (Const(prev), Const(incoming)) => report_duplicated_qualifier(incoming, prev, sensitivity.name())?,
 			(NoSensitivity, _) => self.sensitivity = sensitivity,
 			(_, NoSensitivity) => (),
-			(_, _) => report_contradicting_qualifier(
+			(..) => report_contradicting_qualifier(
 				self.sensitivity.location().unwrap(),
 				sensitivity.location().unwrap(),
 				self.sensitivity.name(),
@@ -150,7 +151,7 @@ impl AlreadyCreated {
 			},
 			(NoSignedness, _) => self.signedness = signedness,
 			(_, NoSignedness) => (),
-			(_, _) => report_contradicting_qualifier(
+			(..) => report_contradicting_qualifier(
 				self.signedness.location().unwrap(),
 				signedness.location().unwrap(),
 				self.signedness.name(),
@@ -206,9 +207,7 @@ impl Signal {
 	}
 	pub fn new_empty() -> Self {
 		Self {
-			signal_type: SignalType::Auto(
-				SourceSpan::new_between(0, 0)
-			),
+			signal_type: SignalType::Auto(SourceSpan::new_between(0, 0)),
 			dimensions: Vec::new(),
 			sensitivity: SignalSensitivity::NoSensitivity,
 			direction: Direction::None,
@@ -219,14 +218,20 @@ impl Signal {
 		match &self.signal_type {
 			Bus(bus) => bus.width.clone(),
 			Auto(_) => None,
-			Wire(_) => None
+			Wire(_) => None,
 		}
 	}
 	pub fn set_width(&mut self, width: BusWidth, signedness: SignalSignedness, location: SourceSpan) {
 		use SignalType::*;
 		match &mut self.signal_type {
 			Bus(bus) => bus.width = Some(width),
-			Auto(_) => self.signal_type = SignalType::Bus(BusType { width: Some(width), signedness, location, }),
+			Auto(_) => {
+				self.signal_type = SignalType::Bus(BusType {
+					width: Some(width),
+					signedness,
+					location,
+				})
+			},
 			Wire(_) => (),
 		}
 	}
@@ -289,7 +294,8 @@ impl Signal {
 			Some(value) => {
 				if value {
 					SignalSignedness::Signed(location)
-				} else {
+				}
+				else {
 					SignalSignedness::Unsigned(location)
 				}
 			},
@@ -468,18 +474,24 @@ impl Variable {
 				match &signal.signal_type {
 					SignalType::Bus(bus) => {
 						use BusWidth::*;
-						let width = match &bus.width.clone().unwrap(){
-        					Evaluated(value) => Expression::Constant(hirn::design::NumericConstant::new_signed(value.clone())),
-        					EvaluatedLocated(_, location) => scope.evaluated_expressions.get(&location).unwrap().codegen(nc_table, scope_id, scope)?,
-        					Evaluable(location) => scope.evaluated_expressions.get(&location).unwrap().codegen(nc_table, scope_id, scope)?,
-    					};
+						let width = match &bus.width.clone().unwrap() {
+							Evaluated(value) => {
+								Expression::Constant(hirn::design::NumericConstant::new_signed(value.clone()))
+							},
+							EvaluatedLocated(_, location) => scope
+								.evaluated_expressions
+								.get(&location)
+								.unwrap()
+								.codegen(nc_table, scope_id, scope)?,
+							Evaluable(location) => scope
+								.evaluated_expressions
+								.get(&location)
+								.unwrap()
+								.codegen(nc_table, scope_id, scope)?,
+						};
 						match bus.signedness {
-							SignalSignedness::Signed(_) => {
-								builder = builder.signed(width)
-							}, 
-							SignalSignedness::Unsigned(_) => {
-								builder = builder.unsigned(width)
-							}, 
+							SignalSignedness::Signed(_) => builder = builder.signed(width),
+							SignalSignedness::Unsigned(_) => builder = builder.unsigned(width),
 							SignalSignedness::NoSignedness => unreachable!(), // report an error
 						}
 					},
@@ -488,23 +500,29 @@ impl Variable {
 				}
 				for dimension in &signal.dimensions {
 					use BusWidth::*;
-					match &dimension{
-        				Evaluated(value) => builder = builder
-						.array(Expression::from(NumericConstant::new_unsigned(value.clone())))
-						.unwrap(),
-        				EvaluatedLocated(_, location) =>{
-							let expr =  scope.evaluated_expressions.get(location).unwrap().codegen(nc_table, scope_id, scope)?;
+					match &dimension {
+						Evaluated(value) => {
 							builder = builder
-								.array(expr)
-								.unwrap();
-						}
-        				Evaluable(location) => {
-							let expr =  scope.evaluated_expressions.get(location).unwrap().codegen(nc_table, scope_id, scope)?;
-							builder = builder
-								.array(expr)
-								.unwrap();
+								.array(Expression::from(NumericConstant::new_unsigned(value.clone())))
+								.unwrap()
 						},
-    				}
+						EvaluatedLocated(_, location) => {
+							let expr = scope
+								.evaluated_expressions
+								.get(location)
+								.unwrap()
+								.codegen(nc_table, scope_id, scope)?;
+							builder = builder.array(expr).unwrap();
+						},
+						Evaluable(location) => {
+							let expr = scope
+								.evaluated_expressions
+								.get(location)
+								.unwrap()
+								.codegen(nc_table, scope_id, scope)?;
+							builder = builder.array(expr).unwrap();
+						},
+					}
 				}
 				id = builder.build().unwrap();
 			},
@@ -549,7 +567,7 @@ pub struct GenericVariable {
 	pub dimensions: Vec<BusWidth>,
 	pub kind: GenericVariableKind,
 }
-impl GenericVariable{
+impl GenericVariable {
 	pub fn is_direction_specified(&self) -> bool {
 		use Direction::*;
 		match &self.direction {
@@ -564,7 +582,7 @@ impl GenericVariable{
 pub struct ModuleInstance {
 	pub module_name: IdTableKey,
 	pub location: SourceSpan,
-	pub interface: Vec<Variable>, 
+	pub interface: Vec<Variable>,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum VariableKind {
@@ -592,9 +610,11 @@ impl VariableKind {
 					},
 				}
 				match &gen.kind {
-					GenericVariableKind::Int(signedness, location) => {
-						Signal::new_bus(Some(BusWidth::Evaluated(BigInt::from(64))), signedness.clone(), *location) 
-					},
+					GenericVariableKind::Int(signedness, location) => Signal::new_bus(
+						Some(BusWidth::Evaluated(BigInt::from(64))),
+						signedness.clone(),
+						*location,
+					),
 					GenericVariableKind::Bool(location) => Signal::new_wire(*location),
 				}
 			},

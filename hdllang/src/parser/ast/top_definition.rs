@@ -3,7 +3,7 @@ mod pretty_printable;
 use hirn::design::Design;
 use log::info;
 
-use crate::analyzer::{ModuleDeclared, SemanticError, Variable, AlreadyCreated,  ModuleImplementationScope};
+use crate::analyzer::{AlreadyCreated, ModuleDeclared, ModuleImplementationScope, SemanticError, Variable};
 use crate::lexer::IdTable;
 use crate::parser::ast::{ImportPath, ModuleDeclarationStatement, ModuleImplementationStatement, SourceLocation};
 use crate::ProvidesCompilerDiagnostic;
@@ -17,7 +17,7 @@ pub enum TopDefinition {
 	PackageDeclaration(PackageDeclaration),
 	UseStatement(UseStatement),
 }
-pub trait Scope{
+pub trait Scope {
 	fn get_variable(&self, name: &IdTableKey) -> Option<Variable>;
 }
 //#[derive(Debug, Clone)]
@@ -200,7 +200,10 @@ impl ModuleDeclaration {
 		modules_declared: &mut HashMap<IdTableKey, ModuleDeclared>,
 	) -> miette::Result<()> {
 		use log::debug;
-		debug!("Analyzing module declaration {:?}", id_table.get_by_key(&self.id).unwrap());
+		debug!(
+			"Analyzing module declaration {:?}",
+			id_table.get_by_key(&self.id).unwrap()
+		);
 		if let Some(module) = modules_declared.get(&self.id) {
 			return Err(miette::Report::new(
 				SemanticError::MultipleModuleDeclaration
@@ -210,21 +213,31 @@ impl ModuleDeclaration {
 					.build(),
 			));
 		}
-		let mut handle = design_handle.new_module(id_table.get_by_key(&self.id).unwrap()).unwrap();
+		let mut handle = design_handle
+			.new_module(id_table.get_by_key(&self.id).unwrap())
+			.unwrap();
 		//let mut scope = ModuleDeclarationScope::new();
 		let mut new_scope = ModuleImplementationScope::new();
-		debug!("Registering variables for module declaration {:?}:", id_table.get_by_key(&self.id).unwrap());
-		for statement in &self.statements{
-			let vars = statement.create_variable_declaration(AlreadyCreated::new(), nc_table, id_table, &mut new_scope)?;
-			for var in vars{
+		debug!(
+			"Registering variables for module declaration {:?}:",
+			id_table.get_by_key(&self.id).unwrap()
+		);
+		for statement in &self.statements {
+			let vars =
+				statement.create_variable_declaration(AlreadyCreated::new(), nc_table, id_table, &mut new_scope)?;
+			for var in vars {
 				new_scope.declare_variable(var, nc_table, id_table, &mut handle)?;
 			}
 		}
-		if new_scope.is_generic(){
+		if new_scope.is_generic() {
 			info!("Module {:?} is generic", id_table.get_by_key(&self.id).unwrap());
 			//new_scope = ModuleImplementationScope::new();
 		}
-		debug!("Module {:?} in api: {:?}", id_table.get_by_key(&self.id).unwrap(), handle);
+		debug!(
+			"Module {:?} in api: {:?}",
+			id_table.get_by_key(&self.id).unwrap(),
+			handle
+		);
 		//for statement in &self.statements {
 		//	statement.analyze(CombinedQualifiers::new(), &mut scope, id_table)?;
 		//}

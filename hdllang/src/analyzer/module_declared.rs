@@ -11,5 +11,5 @@ pub struct ModuleDeclared {
 	pub handle: ModuleHandle,
 	pub is_generic: bool,
 	pub location: SourceSpan,
-	pub instantiates: Vec<IdTableKey> // FIXME probably import path or unique id
+	pub instantiates: Vec<IdTableKey>, // FIXME probably import path or unique id
 }

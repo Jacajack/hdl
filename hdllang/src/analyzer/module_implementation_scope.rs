@@ -95,10 +95,12 @@ impl ModuleImplementationScope {
 		let scope = &self.scopes[scope_id];
 		if let Some(variable) = scope.variables.get(key) {
 			Some(variable)
-		} else {
+		}
+		else {
 			if let Some(parent_scope) = scope.parent_scope {
 				self.get_variable(parent_scope, key)
-			} else {
+			}
+			else {
 				None
 			}
 		}
@@ -122,10 +124,12 @@ impl ModuleImplementationScope {
 		let scope = &self.scopes[scope_id];
 		if let Some(variable) = scope.variables.get(key) {
 			Some(self.api_ids.get(&variable.id).unwrap().clone())
-		} else {
+		}
+		else {
 			if let Some(parent_scope) = scope.parent_scope {
 				self.get_api_id(parent_scope, key)
-			} else {
+			}
+			else {
 				None
 			}
 		}
