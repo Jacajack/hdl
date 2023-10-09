@@ -75,8 +75,7 @@ impl PrettyPrintable for Expression {
 				ctx.write(")")
 			},
 			PostfixWithId(postfix) => {
-				postfix.expression.pretty_print(ctx)?;
-				ctx.write(format!(".{}", ctx.get_id(postfix.id)).as_str())
+				ctx.write(format!("{}.{}", ctx.get_id(postfix.expression), ctx.get_id(postfix.id)).as_str())
 			},
 			UnaryOperatorExpression(unary) => {
 				ctx.write(format!("{:?}", unary.code).as_str())?;

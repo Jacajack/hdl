@@ -1,6 +1,6 @@
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::SignalBuilder;
-use super::{DesignError, DesignHandle, ModuleId, RegisterBuilder, ScopeId, SignalId};
+use super::{DesignError, DesignHandle, HasComment, ModuleId, RegisterBuilder, ScopeId, SignalId};
 use super::{Expression, ModuleHandle};
 
 /// Scope associated with an if statement
@@ -37,9 +37,42 @@ pub struct Assignment {
 
 	/// Right-hand side of the assignment (an expression)
 	pub rhs: Expression,
+
+	/// Source-code comment
+	comment: Option<String>,
+}
+
+impl Assignment {
+	/// Creates a new assignment
+	pub fn new(lhs: Expression, rhs: Expression) -> Self {
+		Self {
+			lhs,
+			rhs,
+			comment: None,
+		}
+	}
+
+	/// New assignment with commenty
+	pub fn with_comment(lhs: Expression, rhs: Expression, comment: &str) -> Self {
+		let mut a = Self::new(lhs, rhs);
+		a.comment(comment);
+		a
+	}
+
+	/// Sets the comment
+	pub fn comment(&mut self, comment: &str) {
+		self.comment = Some(comment.to_string());
+	}
+}
+
+impl HasComment for Assignment {
+	fn get_comment(&self) -> Option<String> {
+		self.comment.clone()
+	}
 }
 
 /// Scope representation
+#[derive(Debug)]
 pub struct Scope {
 	/// Self-reference
 	pub(super) id: ScopeId,
@@ -61,6 +94,15 @@ pub struct Scope {
 
 	/// Blocks instantiated inside this scope
 	blocks: Vec<BlockInstance>,
+
+	/// Comment for the entire scope
+	comment: Option<String>,
+}
+
+impl HasComment for Scope {
+	fn get_comment(&self) -> Option<String> {
+		self.comment.clone()
+	}
 }
 
 impl Scope {
@@ -74,6 +116,7 @@ impl Scope {
 			loops: vec![],
 			conditionals: vec![],
 			blocks: vec![],
+			comment: None,
 		}
 	}
 
@@ -122,13 +165,30 @@ impl Scope {
 		// TODO assert iterator_end is compile-time constant
 	}
 
-	/// Assigns to a signal in this scope
-	fn assign_signal(&mut self, signal: Expression, expr: Expression) -> Result<(), DesignError> {
-		self.assignments.push(Assignment { lhs: signal, rhs: expr });
-		Ok(())
-
+	/// Signal assignment - internal implementation
+	fn assign_signal_impl(&mut self, lhs: Expression, rhs: Expression) -> Result<&mut Assignment, DesignError> {
+		self.assignments.push(Assignment::new(lhs, rhs));
 		// TODO assert signal accessible from this scope
 		// TODO expression valid in this scope
+		Ok(self.assignments.last_mut().unwrap())
+	}
+
+	/// Assigns to a signal in this scope
+	fn assign_signal(&mut self, lhs: Expression, rhs: Expression) -> Result<(), DesignError> {
+		self.assign_signal_impl(lhs, rhs)?;
+		Ok(())
+	}
+
+	/// Assigns to a signal and adds a comment
+	fn assign_signal_with_comment(
+		&mut self,
+		lhs: Expression,
+		rhs: Expression,
+		comment: &str,
+	) -> Result<(), DesignError> {
+		let a = self.assign_signal_impl(lhs, rhs)?;
+		a.comment(comment);
+		Ok(())
 	}
 
 	/// Adds a block instance in this scope
@@ -138,6 +198,11 @@ impl Scope {
 		// TODO check if all expressions can be evaluated inside this scope
 
 		Ok(())
+	}
+
+	/// Sets the comment
+	fn comment(&mut self, comment: &str) {
+		self.comment = Some(comment.to_string());
 	}
 }
 
@@ -156,6 +221,12 @@ macro_rules! this_scope {
 	($self:ident) => {
 		$self.design.borrow_mut().get_scope_mut($self.scope).unwrap()
 	};
+}
+
+impl HasComment for ScopeHandle {
+	fn get_comment(&self) -> Option<String> {
+		this_scope!(self).get_comment()
+	}
 }
 
 impl ScopeHandle {
@@ -197,10 +268,9 @@ impl ScopeHandle {
 	) -> Result<(ScopeHandle, SignalId), DesignError> {
 		let mut child = self.new_subscope()?;
 
-		let iter_var = child.new_signal()?
-			.name(iter_name)
-			.signed(Expression::new_one()) // TODO signed 64-bit
-			.constant()
+		let iter_var = child.new_signal(iter_name)?
+			.signed(64.into()) // TODO is that right? Maybe we want semantic analyzer to provide that signal and not create it here???
+			.generic()
 			.build()?;
 
 		this_scope!(self).add_loop_scope(iter_var, from, to, child.id())?;
@@ -209,8 +279,8 @@ impl ScopeHandle {
 	}
 
 	/// Returns a new register builder
-	pub fn new_register(&mut self) -> Result<RegisterBuilder, DesignError> {
-		Ok(RegisterBuilder::new(self.clone()))
+	pub fn new_register(&mut self, name: &str) -> Result<RegisterBuilder, DesignError> {
+		Ok(RegisterBuilder::new(self.clone(), name))
 	}
 
 	/// Adds a functional block
@@ -218,19 +288,40 @@ impl ScopeHandle {
 		this_scope!(self).add_block(block)
 	}
 
-	/// Assigns an expression to a signal
+	/// Assigns an expression to a drivable expression
 	pub fn assign(&mut self, signal: Expression, expr: Expression) -> Result<(), DesignError> {
 		this_scope!(self).assign_signal(signal, expr)
 	}
 
+	/// Assigns an expression to a drivable expression and adds a comment
+	pub fn assign_with_comment(
+		&mut self,
+		signal: Expression,
+		expr: Expression,
+		comment: &str,
+	) -> Result<(), DesignError> {
+		this_scope!(self).assign_signal_with_comment(signal, expr, comment)
+	}
+
 	/// Creates a new signal in this scope (returns a builder)
-	pub fn new_signal(&mut self) -> Result<SignalBuilder, DesignError> {
-		Ok(SignalBuilder::new(self.design.clone(), self.scope))
+	pub fn new_signal(&mut self, name: &str) -> Result<SignalBuilder, DesignError> {
+		Ok(SignalBuilder::new(self.design.clone(), self.scope, name))
 	}
 
 	/// Creates a new module instance in this scope (returns a builder)
-	pub fn new_module(&mut self, module: ModuleHandle) -> Result<ModuleInstanceBuilder, DesignError> {
-		Ok(ModuleInstanceBuilder::new(self.clone(), module))
+	pub fn new_module(&mut self, module: ModuleHandle, name: &str) -> Result<ModuleInstanceBuilder, DesignError> {
+		Ok(ModuleInstanceBuilder::new(self.clone(), module, name))
+	}
+
+	/// Sets comment for the scope
+	pub fn comment(&mut self, comment: &str) {
+		this_scope!(self).comment(comment);
+	}
+}
+
+impl std::fmt::Debug for ScopeHandle {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{:?}", this_scope!(self))
 	}
 
 	pub fn assignments(&self) -> Vec<Assignment> {

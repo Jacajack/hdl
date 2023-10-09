@@ -119,6 +119,18 @@ mod top_definition_parser_test {
 	}
 
 	#[test]
+	fn use_multiple_modules() {
+		let s = "use foo::bar::{baz, qux};";
+		parse_top_definition_pass(s);
+	}
+
+	#[test]
+	fn package_multiple() {
+		let s = "package foo::bar::{baz, boo};";
+		parse_top_definition_fail(s);
+	}
+
+	#[test]
 	fn use_missing_semicolon() {
 		let s = "use foo::bar::baz";
 		parse_top_definition_fail(s);

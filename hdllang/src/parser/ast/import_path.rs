@@ -48,6 +48,13 @@ impl ImportPath {
 			},
 		}
 	}
+	/// temporary solution FIXME resolve import paths properly
+	pub fn get_last_module(&self) -> IdTableKey {
+		match &self.modules {
+			Modules::All => unreachable!(),
+			Modules::Specific { modules } => modules.last().unwrap().clone(),
+		}
+	}
 }
 
 impl SourceLocation for ImportPath {

@@ -4,13 +4,13 @@ use clap::{arg, command, Arg, ArgGroup};
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
 use hdllang::core::DiagnosticBuffer;
 use hdllang::lexer::{IdTable, Lexer, LogosLexer, LogosLexerContext};
+use hdllang::parser;
 use hdllang::parser::ast::Root;
 use hdllang::parser::pretty_printer::PrettyPrintable;
 use hdllang::parser::ParserError;
 use hdllang::serializer::SerializerContext;
 use hdllang::CompilerDiagnostic;
 use hdllang::CompilerError;
-use hdllang::{analyzer, parser};
 use log::{debug, info};
 use std::collections::HashMap;
 use std::env;
@@ -91,28 +91,6 @@ fn parse_file_recover_tables(
 	Ok((ast, lexer.get_context(), code))
 }
 
-fn analyze(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
-	let mut lexer = LogosLexer::new(&code);
-	let buf = Box::new(DiagnosticBuffer::new());
-	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
-	let ast = parser::IzuluParser::new()
-		.parse(&mut ctx, Some(&code), &mut lexer)
-		.map_err(|e| {
-			ParserError::new_form_lalrpop_error(e)
-				.to_miette_report()
-				.with_source_code(code.clone())
-		})?;
-	println!("Ids: {:?}", lexer.id_table());
-	println!("Comments: {:?}", lexer.comment_table());
-	let id_table = lexer.id_table().clone();
-	let comment_table = lexer.comment_table().clone();
-	let mut buffer = DiagnosticBuffer::new();
-	let mut analyzer = analyzer::SemanticAnalyzer::new(&id_table, &comment_table, &mut buffer);
-
-	writeln!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_diagnostic())?;
-	analyzer.process(&ast)?;
-	Ok(())
-}
 fn serialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
 	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
@@ -215,7 +193,7 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 		let code = read_input_from_file(&file_name)?;
 		(root, ctx, source) = parse_file_recover_tables(code, ctx)?;
 		let name = Path::new(&file_name).to_str().unwrap().to_string();
-		let paths = hdllang::analyzer::combine(
+		let (paths, ..) = hdllang::analyzer::combine(
 			&ctx.id_table,
 			&ctx.numeric_constants,
 			&root,
@@ -232,8 +210,38 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 	writeln!(output, "{}", "done").map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())
 }
+
+fn analyse(mut code: String, file_name: String, mut output: Box<dyn Write>) -> miette::Result<()> {
+	// tokenize and parse
+	let root: Root;
+	let mut ctx = LogosLexerContext {
+		id_table: IdTable::new(),
+		comment_table: hdllang::lexer::CommentTable::new(),
+		numeric_constants: hdllang::lexer::NumericConstantTable::new(),
+		last_err: None,
+	};
+	let mut map: HashMap<String, String> = HashMap::new();
+	(root, ctx, code) = parse_file_recover_tables(code, ctx)?;
+	let (_, global_ctx, modules) = hdllang::analyzer::combine(
+		&ctx.id_table,
+		&ctx.numeric_constants,
+		&root,
+		String::from("."),
+		&mut map,
+	)
+	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
+	// analyse semantically
+	hdllang::analyzer::SemanticalAnalyzer::new(global_ctx, &modules)
+		.process()
+		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name, code)))?;
+	//hdllang::analyzer::analyze_semantically(&mut global_ctx, &modules)?;
+	writeln!(output, "{}", "semantical analysis was perfomed succesfully")
+		.map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
+	Ok(())
+}
 fn main() -> miette::Result<()> {
-	std::env::set_var("RUST_LOG", "debug");
+	//std::env::set_var("RUST_LOG", "info");
+	//std::env::set_var("RUST_BACKTRACE", "1");
 	init_logging();
 
 	let matches = command!()
@@ -245,10 +253,13 @@ fn main() -> miette::Result<()> {
 				.help("Specify which action should be performed")
 				.value_parser([
 					"tokenize",
+					"tokenise",
 					"parse",
 					"pretty-print",
 					"serialize",
+					"serialise",
 					"deserialize",
+					"deserialise",
 					"analyse",
 					"analyze",
 					"combine", // for development only
@@ -296,25 +307,25 @@ fn main() -> miette::Result<()> {
 		_ => read_input_from_file(&String::from(file_name))?,
 	};
 	match mode {
-		"tokenize" => {
+		"tokenize" | "tokenise" => {
 			tokenize(code, output)?;
 		},
 		"parse" => {
 			parse(code, output)?;
 		},
-		"analyse" | "analyze" => {
-			analyze(code, output)?;
-		},
 		"combine" => {
 			combine(String::from(file_name), output)?;
+		},
+		"analyze" | "analyse" => {
+			analyse(code, String::from(file_name), output)?;
 		},
 		"pretty-print" => {
 			pretty_print(code, output)?;
 		},
-		"serialize" => {
+		"serialize" | "serialise" => {
 			serialize(code, output)?;
 		},
-		"deserialize" => {
+		"deserialize" | "deserialise" => {
 			deserialize(code, output)?;
 		},
 		"compile" => {

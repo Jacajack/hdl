@@ -38,7 +38,7 @@ pub TopDefinition: TopDefinition={
 			statement,
 			location:SourceSpan::new_between(start,end),
 		})},
-	<start: @L> <mc:MetadataComments ?> "package" <path:ImportPath> ";"  <end: @R> =>
+	<start: @L> <mc:MetadataComments ?> "package" <path:SingleImportPath> ";"  <end: @R> =>
 		{
 			let metadata = match mc{
 				Some(mc) => mc,
@@ -50,7 +50,7 @@ pub TopDefinition: TopDefinition={
 				location:SourceSpan::new_between(start,end),
 			})
 		},
-		<start: @L> <mc:MetadataComments ?> "use" <path:SingleImportPath> ";"  <end: @R> =>
+		<start: @L> <mc:MetadataComments ?> "use" <path:ImportPath> ";"  <end: @R> =>
 		{
 			let metadata = match mc{
 				Some(mc) => mc,
@@ -159,7 +159,7 @@ pub ModuleImplStmt: ModuleImplementationStatement = {
 		ModuleImplementationStatement::VariableBlock(block),
 	<definition:VarDef> =>
 		ModuleImplementationStatement::VariableDefinition(definition),
-	<start: @L>  <lhs:PostfixExpr> <assignment_opcode:AssignmentOP> <rhs:ExprWithTuple> ";" <end: @R> =>
+	  <lhs:PostfixExpr> <start: @L> <assignment_opcode:AssignmentOP> <end: @R> <rhs:ExprWithTuple> ";" =>
 		ModuleImplementationStatement::AssignmentStatement(AssignmentStatement{
 			lhs,
 			assignment_opcode,
@@ -460,9 +460,9 @@ IndexExpr : Expression ={
 	"[" <Expr> "]"
 }
 PostfixExpr : Expression = {
-	<start:@L> <expression:PostfixExpr> "." <id:"Id"> <end:@R> =>
+	<start:@L> <expression:"Id"> "." <id:"Id"> <end:@R> =>
 		Expression::PostfixWithId(PostfixWithId{
-			expression: Box::new(expression),
+			expression,
 			id,
 			location:SourceSpan::new_between(start,end),
 		}),
