@@ -303,6 +303,10 @@ impl ModuleInstance {
 		Ok(())
 	}
 
+	pub fn get_bindings(&self) -> &Vec<(String, SignalId)> {
+		&self.bindings
+	}
+
 	// FIXME Leaving this here for now cause it has some useful logic
 	/*
 	fn verify_binding(&self, name: &str, expr: &Expression) -> Result<(), DesignError> {
@@ -346,9 +350,7 @@ impl ModuleInstance {
 		Ok(())
 	}
 
-	pub fn get_bindings(&self) -> &Vec<(String, Expression)> {
-		&self.bindings
-	}
+	
 	*/
 }
 
@@ -388,8 +390,6 @@ impl ModuleInstanceBuilder {
 #[derive(Clone, Debug)]
 pub enum BlockInstance {
 	Register(Register),
-	// ClockGate(ClockGate),
-	// FfSync(FfSync),
 	Module(ModuleInstance),
 }
 
@@ -398,8 +398,6 @@ impl HasComment for BlockInstance {
 		use BlockInstance::*;
 		match self {
 			Register(r) => r.get_comment(),
-			ClockGate(c) => c.get_comment(),
-			FfSync(f) => f.get_comment(),
 			Module(m) => m.get_comment(),
 		}
 	}
@@ -410,8 +408,6 @@ impl HasInstanceName for BlockInstance {
 		use BlockInstance::*;
 		match self {
 			Register(r) => r.instance_name(),
-			ClockGate(c) => c.instance_name(),
-			FfSync(f) => f.instance_name(),
 			Module(m) => m.instance_name(),
 		}
 	}

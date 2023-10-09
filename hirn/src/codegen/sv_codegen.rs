@@ -1,5 +1,5 @@
 use std::fmt;
-use crate::{Design, ModuleId, DesignError, ModuleHandle, SignalId, design::{SignalDirection, SignalSensitivity, functional_blocks::ModuleInstance}, design::SignalSignedness, design::InterfaceSignal, Expression, design::EvaluatesDimensions, BinaryOp, UnaryOp, design::{ScopeHandle, functional_blocks::BlockInstance}, ScopeId};
+use crate::{Design, ModuleId, DesignError, ModuleHandle, SignalId, design::{SignalDirection, SignalSensitivity, functional_blocks::ModuleInstance}, design::SignalSignedness, design::InterfaceSignal, Expression, BinaryOp, UnaryOp, design::{ScopeHandle, functional_blocks::BlockInstance}, ScopeId};
 use super::{Codegen, CodegenError};
 use std::collections::HashSet;
 
@@ -42,12 +42,12 @@ impl<'a> SVCodegen<'a> {
 		use Expression::*;
 		match expr {
 			Conditional(e) => {
-				assert!(e.branches.len() > 0);
+				assert!(e.branches().len() > 0);
 				let mut str : String = "".into();
-				for br in &e.branches {
+				for br in e.branches() {
 					str = format!("{} ({}) ? ({}) : ", str, self.translate_expression(&br.condition), self.translate_expression(&br.value));
 				}
-				format!("{} ({})", str, self.translate_expression(&e.default))
+				format!("{} ({})", str, self.translate_expression(e.default()))
 			},
 			Constant(c) => {
 				format!("{}'h{}", c.width(), c.to_hex_str())
@@ -100,12 +100,12 @@ impl<'a> SVCodegen<'a> {
 		let sig = self.design.get_signal(sig_id).unwrap();
 
 		use SignalSignedness::*;
-		let sign_str = match sig.class.signedness {
+		let sign_str = match sig.class.signedness() {
 			Signed => "signed",
 			Unsigned => "unsigned",
 		};
 
-		let bus_width_str = format!("[({}) - 1 : 0]", self.translate_expression(&sig.class.width));
+		let bus_width_str = format!("[({}) - 1 : 0]", self.translate_expression(&sig.class.width()));
 		
 		let mut array_size_str = String::new();
 		for dim in &sig.dimensions {
@@ -146,7 +146,7 @@ impl<'a> SVCodegen<'a> {
 		self.begin_indent();
 		
 		for binding in instance.get_bindings() {
-			emitln!(self, w, ".{}({}),", binding.0, self.translate_expression(&binding.1))?;
+			emitln!(self, w, ".{}({}),", binding.0, self.translate_expression(&binding.1.into()))?;
 		}
 
 		self.end_indent();

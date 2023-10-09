@@ -317,12 +317,6 @@ impl ScopeHandle {
 	pub fn comment(&mut self, comment: &str) {
 		this_scope!(self).comment(comment);
 	}
-}
-
-impl std::fmt::Debug for ScopeHandle {
-	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{:?}", this_scope!(self))
-	}
 
 	pub fn assignments(&self) -> Vec<Assignment> {
 		this_scope!(self).assignments.clone()
@@ -346,5 +340,11 @@ impl std::fmt::Debug for ScopeHandle {
 
 	pub fn blocks(&self) -> Vec<BlockInstance> {
 		this_scope!(self).blocks.clone()
+	}
+}
+
+impl std::fmt::Debug for ScopeHandle {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{:?}", this_scope!(self))
 	}
 }
