@@ -1,11 +1,10 @@
-use crate::{compiler_diagnostic::*, lexer::numeric_constant::NumericConstantBase};
-use log::debug;
+use crate::{compiler_diagnostic::*, core::numeric_constant::*};
+//use log::debug;
 use num_bigint::BigInt;
 use num_traits::Pow;
 use std::fmt;
 use thiserror::Error;
 
-use super::NumericConstant;
 
 /// Describes error types encountered when parsing strings
 #[derive(Clone, Copy, Debug, Error)]
@@ -69,7 +68,7 @@ fn parse_pure_decimal(s: &str) -> Result<BigInt, NumberParseError> {
 			})
 		},
 		|f| {
-			debug!("dec: {:?}, bigint: {:?}", s, f);
+			//debug!("dec: {:?}, bigint: {:?}", s, f);
 			Ok(f)
 		},
 	)
@@ -85,7 +84,7 @@ fn parse_pure_hex(s: &str) -> Result<BigInt, NumberParseError> {
 			})
 		},
 		|f| {
-			debug!("hex: 0x{:?}, bigint: {:?}", s, f);
+			//debug!("hex: 0x{:?}, bigint: {:?}", s, f);
 			Ok(f)
 		},
 	)
@@ -101,7 +100,7 @@ fn parse_pure_binary(s: &str) -> Result<BigInt, NumberParseError> {
 			})
 		},
 		|f| {
-			debug!("bin: 0b{:?}, bigint: {:?}", s, f);
+			//debug!("bin: 0b{:?}, bigint: {:?}", s, f);
 			Ok(f)
 		},
 	)
@@ -131,13 +130,13 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 		if !width_str.is_empty() {
 			let n = parse_pure_decimal(width_str)?.try_into().unwrap();
 
-			// Is the number of bits reasonable?
-			if n > 64 {
-				return Err(NumberParseError {
-					kind: NumericConstantParseErrorKind::TooManyBits,
-					range: (0, token_len),
-				});
-			}
+			//// Is the number of bits reasonable? // FIXME TO BE DELETED
+			//if n > 64 {
+			//	return Err(NumberParseError {
+			//		kind: NumericConstantParseErrorKind::TooManyBits,
+			//		range: (0, token_len),
+			//	});
+			//}
 
 			num_bits = Some(n);
 		}
@@ -185,11 +184,11 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 		}
 	}
 	else if s.starts_with("0b") {
+		// ADD WITDH
 		base = NumericConstantBase::Binary;
 		match is_signed {
 			Some(true) => {
 				if s.starts_with("0b1") {
-					debug!("s: {:?}", &s[2..digits_end]);
 					let mut val = parse_pure_binary(&s[3..digits_end]).map_err(|e| NumberParseError {
 						kind: e.kind,
 						range: (0, token_len),
@@ -224,7 +223,7 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 		}
 		parse_pure_decimal(&s[0..digits_end])?
 	};
-	debug!("value: {:?}", value);
+	//debug!("Succesfully parsed value: {:?}", value);
 	// Create the constant and check if it's valid
 	let constant = NumericConstant::new(value, num_bits, is_signed, Some(base));
 

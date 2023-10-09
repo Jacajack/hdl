@@ -1,8 +1,9 @@
 use super::numeric_constant_parser::parse_numeric_constant_str;
 use super::{
-	KeywordKind, Lexer, LexerError, LexerErrorKind, NumericConstant, NumericConstantBase, PunctuatorKind, SourceSpan,
+	KeywordKind, Lexer, LexerError, LexerErrorKind, PunctuatorKind, SourceSpan,
 	Token,
 };
+use crate::core::numeric_constant::{NumericConstant, NumericConstantBase};
 use crate::core::comment_table::{CommentTable, CommentTableKey};
 use crate::core::id_table::{IdTable, IdTableKey};
 use crate::core::numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};

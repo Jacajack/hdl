@@ -2,7 +2,7 @@ use log::debug;
 use num_bigint::BigInt;
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum NumericConstantBase {
 	Binary,
 	Decimal,
@@ -10,7 +10,7 @@ pub enum NumericConstantBase {
 	Boolean,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub struct NumericConstant {
 	pub value: BigInt,
 	pub width: Option<u32>,
@@ -43,7 +43,11 @@ impl NumericConstant {
 		num
 	}
 
-	pub fn new_from_unary(other: Self, operation: fn(BigInt) -> BigInt) -> Self {
+	pub fn new_from_unary(other: Option<Self>, operation: fn(BigInt) -> BigInt) -> Option<Self> {
+		if other.is_none() {
+			return None;
+		}
+		let other = other.clone().unwrap();
 		let num = Self {
 			value: operation(other.value),
 			width: other.width,
@@ -52,10 +56,15 @@ impl NumericConstant {
 		};
 		debug!("Created numeric constant: {:?}", num);
 		assert!(num.consistency_check());
-		num
+		Some(num)
 	}
 
-	pub fn new_from_binary(other1: Self, other2: Self, operation: fn(BigInt, BigInt) -> BigInt) -> Self {
+	pub fn new_from_binary(other1: Option<Self>, other2: Option<Self>, operation: fn(BigInt, BigInt) -> BigInt) -> Option<Self> {
+		if other1.is_none() || other2.is_none() {
+			return None;
+		}
+		let other1 = other1.clone().unwrap();
+		let other2 = other2.clone().unwrap();
 		let num = Self {
 			value: operation(other1.value, other2.value),
 			width: other1.width,
@@ -69,7 +78,7 @@ impl NumericConstant {
 		};
 		debug!("Created numeric constant: {:?}", num);
 		assert!(num.consistency_check());
-		num
+		Some(num)
 	}
 
 	pub fn new_true() -> Self {

@@ -3,7 +3,7 @@ use crate::{
 		numeric_constant_table::{NumericConstantTable, NumericConstantTableKey},
 		CommentTable, CommentTableKey, CompilerError, IdTable, IdTableKey,
 	},
-	lexer::NumericConstant,
+	core::NumericConstant,
 	ProvidesCompilerDiagnostic,
 };
 use std::io::Write;

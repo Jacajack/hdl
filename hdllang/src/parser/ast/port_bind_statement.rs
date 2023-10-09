@@ -39,3 +39,22 @@ pub enum PortBindStatement {
 	IdWithExpression(IdWithExpression),
 	IdWithDeclaration(IdWithDeclaration),
 }
+
+impl PortBindStatement {
+	pub fn get_id(&self) -> IdTableKey {
+		use self::PortBindStatement::*;
+		match self {
+			OnlyId(only_id) => only_id.id,
+			IdWithExpression(id_with_expression) => id_with_expression.id,
+			IdWithDeclaration(id_with_declaration) => id_with_declaration.id,
+		}
+	}
+	pub fn location(&self) -> SourceSpan {
+		use self::PortBindStatement::*;
+		match self {
+			OnlyId(only_id) => only_id.location,
+			IdWithExpression(id_with_expression) => id_with_expression.location,
+			IdWithDeclaration(id_with_declaration) => id_with_declaration.location,
+		}
+	}
+}

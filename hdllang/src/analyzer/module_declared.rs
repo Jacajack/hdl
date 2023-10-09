@@ -1,9 +1,15 @@
-use super::ModuleDeclarationScope;
-use crate::lexer::IdTableKey;
+use hirn::design::ModuleHandle;
 
-#[derive(Debug)]
+use crate::{lexer::IdTableKey, SourceSpan};
+
+use super::ModuleImplementationScope;
+
+#[derive(Debug, Clone)]
 pub struct ModuleDeclared {
 	pub name: IdTableKey,
-	pub scope: ModuleDeclarationScope,
+	pub scope: ModuleImplementationScope,
+	pub handle: ModuleHandle,
 	pub is_generic: bool,
+	pub location: SourceSpan,
+	pub instantiates: Vec<IdTableKey> // FIXME probably import path or unique id
 }
