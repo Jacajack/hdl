@@ -1,5 +1,5 @@
 use crate::BinaryOp;
-use super::{EvalContext, Expression, EvalError, expression::{BinaryExpression, BuiltinOp}};
+use super::{EvalContext, Expression, EvalError, BinaryExpression, BuiltinOp};
 use super::expression_width::WidthExpression;
 
 pub trait NarrowEval {
@@ -33,11 +33,12 @@ impl NarrowEval for BuiltinOp {
 		use Expression::*;
 		match self {
 			Width(expr) => {
+
 				match **expr {
-					Signal(slice) =>
-						Ok(ctx.scalar_signal(slice.signal).ok_or(EvalError::MissingAssumption(slice.signal))?.width() as i64),
-					Constant(nc) => Ok(nc.width() as i64),
-					_ => expr.width().narrow_eval(ctx),
+					Signal(ref slice) =>
+						Ok(ctx.scalar_signal(slice.signal).ok_or(EvalError::MissingAssumption(slice.signal.clone()))?.width()? as i64),
+					Constant(ref nc) => Ok(nc.width()? as i64), // FIXME nasty cast
+					_ => expr.width()?.narrow_eval(ctx),
 				}
 			}
 			_ => Err(EvalError::NarrowEvalNotSupported)
@@ -50,7 +51,7 @@ impl NarrowEval for Expression {
 		use Expression::*;
 
 		match self {
-			Constant(nc) => nc.try_into_i64().ok_or(EvalError::NarrowEvalRange),
+			Constant(nc) => Ok(nc.try_into_i64()?),
 			Binary(expr) => expr.narrow_eval(ctx),
 			_ => Err(EvalError::NarrowEvalNotSupported),
 		}

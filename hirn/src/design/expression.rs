@@ -5,10 +5,12 @@ mod expression_width;
 mod numeric_constant;
 mod dims_eval;
 mod eval;
+mod narrow_eval;
 
 pub use numeric_constant::NumericConstant;
 pub use expression_width::WidthExpression;
 pub use eval::{EvalError, EvalContext, Evaluates, EvaluatesDimensions, EvaluatesType, EvalDims, EvalType};
+pub use narrow_eval::NarrowEval;
 
 use super::signal::{SignalClass, SignalSensitivity, SignalSlice};
 use super::SignalId;

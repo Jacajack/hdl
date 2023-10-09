@@ -65,13 +65,10 @@ impl Evaluates for BinaryExpression {
 		let rhs = self.rhs.eval(ctx)?;
 
 		use BinaryOp::*;
-		todo!();
-		// match self.op {
-		// 	Add => lhs + rhs,
-		// 	// TODO remainig ops
-		// 	_ => todo!(),
-		// }
-		// .into()
+		match self.op {
+			Add => Ok(lhs + rhs),
+			_ => todo!(),
+		}
 	}
 }
 

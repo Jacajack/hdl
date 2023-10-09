@@ -1,5 +1,5 @@
-// use super::eval::{EvalType, EvaluatesDimensions, EvaluatesType};
-use crate::design::{DesignError, SignalSignedness};
+use super::{NarrowEval, WidthExpression};
+use crate::{design::{DesignError, SignalSignedness}, Expression};
 
 use num_bigint::BigInt;
 
@@ -7,18 +7,21 @@ use super::EvalError;
 
 /// Represents a numeric constant value
 #[derive(Clone, Debug)]
-pub enum NumericConstant {
-	Invalid(EvalError),
-	Valid{
-		value: BigInt,
-		signedness: SignalSignedness,
-		width: u64,
-	}
+pub struct NumericConstant {
+	error: Option<EvalError>,
+	value: BigInt,
+	signedness: SignalSignedness,
+	width: u64,
 }
 
 impl NumericConstant {
 	pub fn new_invalid(error: EvalError) -> Self {
-		Self::Invalid(error)
+		Self{
+			error: Some(error),
+			value: 0.into(),
+			signedness: SignalSignedness::Unsigned,
+			width: 0,
+		}
 	}
 
 	/// New signed constant with bit width optimal to store the provided value
@@ -33,17 +36,22 @@ impl NumericConstant {
 		Self::new(value, SignalSignedness::Unsigned, width).unwrap()
 	}
 
-	pub fn new(value: BigInt, signedness: SignalSignedness, width: u64) -> Result<Self, DesignError> {
+	pub fn new(value: BigInt, signedness: SignalSignedness, width: u64) -> Result<Self, EvalError> {
 		let min_width = value.bits();
 		let sign_bit = if signedness == SignalSignedness::Signed { 1 } else { 0 };
 
 		// Note: BigInt::bits() can evaluate to 0 for 0
 		if width < (min_width + sign_bit).max(1) {
-			return Err(DesignError::NumericConstantWidthTooSmall);
+			return Err(EvalError::NumericConstantWidthTooSmall);
 		}
+		
+		// Clamp value to specified width
+		let bit_mask = (BigInt::from(1) << width) - 1;
+		let masked_value = value & bit_mask;
 
-		Ok(Self::Valid {
-			value,
+		Ok(Self{
+			error: None,
+			value: masked_value,
 			signedness,
 			width,
 		})
@@ -58,23 +66,23 @@ impl NumericConstant {
 	}
 
 	pub fn signedness(&self) -> Result<SignalSignedness, EvalError> {
-		match self {
-			Self::Invalid(..) => Err(EvalError::InvalidConstant),
-			Self::Valid{ signedness, .. } => Ok(*signedness),
+		match &self.error {
+			Some(e) => Err(e.clone()),
+			None => Ok(self.signedness),
 		}
 	}
 
 	pub fn width(&self) -> Result<u64, EvalError> {
-		match self {
-			Self::Invalid(..) => Err(EvalError::InvalidConstant),
-			Self::Valid{ width, .. } => Ok(*width),
+		match &self.error {
+			Some(e) => Err(e.clone()),
+			None => Ok(self.width),
 		}
 	}
 
 	pub fn value(&self) -> Result<&BigInt, EvalError> {
-		match self {
-			Self::Invalid(..) => Err(EvalError::InvalidConstant),
-			Self::Valid{ value, .. } => Ok(value),
+		match &self.error {
+			Some(e) => Err(e.clone()),
+			None => Ok(&self.value),
 		}
 	}
 
@@ -87,10 +95,11 @@ impl NumericConstant {
 	}
 
 	pub fn is_valid(&self) -> bool {
-		match self {
-			Self::Invalid(..) => false,
-			Self::Valid{ .. } => true,
-		}
+		self.error.is_none()
+	}
+
+	pub fn get_error(&self) -> Option<EvalError> {
+		self.error.clone()
 	}
 }
 
@@ -118,60 +127,62 @@ impl From<i32> for NumericConstant {
 	}
 }
 
-// macro_rules! impl_binary_constant_op {
-// 	($trait_name: ident, $trait_func: ident, $lambda: expr) => {
-// 		impl std::ops::$trait_name for EvalResult<NumericConstant> {
-// 			type Output = EvalResult<NumericConstant>;
+macro_rules! impl_binary_constant_op {
+	($trait_name: ident, $trait_func: ident, $lambda: expr) => {
+		impl std::ops::$trait_name for NumericConstant {
+			type Output = NumericConstant;
 
-// 			fn $trait_func(self, other: Self) -> Self::Output {
-// 				let func = $lambda;
+			fn $trait_func(self, other: Self) -> Self::Output {
+				let func = $lambda;
 
-// 				EvalResult::<NumericConstant>::propagate(self, other, |lhs: NumericConstant, rhs: NumericConstant| {
-// 					let value = match func(&lhs.value, &rhs.value) {
-// 						Ok(value) => value,
-// 						Err(err) => return EvalResult::Err(err),
-// 					};
+				// Propagate invalid constants
+				match (self.get_error(), other.get_error()) {
+					(Some(lhs_err), _) => return Self::new_invalid(lhs_err),
+					(_, Some(rhs_err)) => return Self::new_invalid(rhs_err),
+					(None, None) => {}
+				}
 
-// 					let lhs_type = lhs.const_eval_type().unwrap(); // FIXME
-// 					let rhs_type = rhs.const_eval_type().unwrap(); // FIXME
-// 					let result_type = lhs_type.$trait_func(rhs_type).result().unwrap(); // FIXME unwrap
+				// This lambda can assume that both constants are valid
+				assert!(self.is_valid());
+				assert!(other.is_valid());
+				match func(&self, &other) {
+					Ok(result) => result,
+					Err(err) => Self::new_invalid(err),
+				}
+			}
+		}
+	};
+}
 
-// 					// FIXME unwraps
-// 					let lhs_dims = lhs.const_eval_dims().unwrap();
-// 					let rhs_dims = rhs.const_eval_dims().unwrap();
-// 					let result_dims = lhs_dims.$trait_func(rhs_dims).result().unwrap();
+fn check_sign_match(lhs: &NumericConstant, rhs: &NumericConstant) -> Result<(), EvalError> {
+	if lhs.signedness()? != rhs.signedness()? {
+		return Err(EvalError::MixedSignedness);
+	}
+	Ok(())
+}
 
-// 					// Evaluate dimensions
-// 					let result_width = result_dims.width.eval
-
-// 					EvalResult::Ok(NumericConstant::new(value, result_type.signedness, result_dims.width).unwrap())
-// 				})
-// 			}
-// 		}
-
-// 		impl std::ops::$trait_name<NumericConstant> for NumericConstant {
-// 			type Output = EvalResult<NumericConstant>;
-
-// 			fn $trait_func(self, rhs: NumericConstant) -> Self::Output {
-// 				EvalResult::Ok(self).$trait_func(EvalResult::Ok(rhs))
-// 			}
-// 		}
-// 	};
-// }
-
-// impl_binary_constant_op!(Add, add, |lhs: &BigInt, rhs: &BigInt| { Ok(lhs + rhs) });
+impl_binary_constant_op!(Add, add, |lhs: &NumericConstant, rhs: &NumericConstant| -> Result<NumericConstant, EvalError> {
+	check_sign_match(lhs, rhs)?;
+	let value = lhs.value()? + rhs.value()?;
+	let width_expr = Expression::from(lhs.clone()) + rhs.clone().into();
+	let width = width_expr.width()?.const_narrow_eval()? as u64;
+	Ok(NumericConstant::new(value, lhs.signedness()?, width)?)
+});
 
 #[cfg(test)]
 mod test {
 	use super::*;
 
+	fn check_value(nc: &NumericConstant, val: i64, width: u64) {
+		assert_eq!(*nc.value().unwrap(), val.into());
+		assert_eq!(nc.width().unwrap(), width.into());
+	}
+
 	#[test]
 	fn test_add() {
 		let a = NumericConstant::new_signed(5.into());
 		let b = NumericConstant::new_signed(3.into());
-		todo!(); // FIXME
-		// let c = (a + b).result().unwrap();
-		// assert_eq!(c.value, 8.into());
-		// assert_eq!(c.width, 5);
+		let c = a + b;
+		check_value(&c, 8, 5);
 	}
 }

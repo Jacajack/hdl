@@ -119,6 +119,9 @@ pub enum EvalError {
 
 	#[error("Invalid sensitivity combination")]
 	InvalidSensitivityCombination,
+
+	#[error("Numeric constant width too small")]
+	NumericConstantWidthTooSmall,
 }
 
 
