@@ -21,6 +21,12 @@ macro_rules! emitln {
 	}
 }
 
+macro_rules! emit {
+	($self:ident, $w:expr, $($arg:tt)*) => {
+		write!($w, "{}{}", "\t".repeat($self.indent_level as usize), format!($($arg)*))
+	}
+}
+
 impl<'a> SVCodegen<'a> {
 	pub fn new(design: &'a Design) -> Self {
 		Self {
@@ -305,12 +311,31 @@ impl<'a> Codegen for SVCodegen<'a> {
 		self.begin_indent();
 		emitln!(self, w, "/* parameters */")?;
 
+		let mut last_param_id = None;
+		let mut last_interface_id = None;
 		for sig in m.interface() {
 			if matches!(
 				self.design.get_signal(sig.signal).unwrap().sensitivity,
-				SignalSensitivity::Const
+				SignalSensitivity::Generic
 			) {
-				emitln!(self, w, "{},", self.module_parameter_definition(sig))?; // FIXME trailing comma
+				last_param_id = Some(sig.signal);
+			}
+			else {
+				last_interface_id = Some(sig.signal);
+			}
+		}
+
+		for sig in m.interface() {
+			if matches!(
+				self.design.get_signal(sig.signal).unwrap().sensitivity,
+				SignalSensitivity::Generic
+			) {
+				emitln!(
+					self, w,
+					"{}{}",
+					self.module_parameter_definition(sig),
+					if last_param_id == Some(sig.signal) {""} else {","}
+				)?; 
 			}
 		}
 
@@ -319,12 +344,17 @@ impl<'a> Codegen for SVCodegen<'a> {
 		self.begin_indent();
 		emitln!(self, w, "/* interface */")?;
 
-		for sig in m.interface() {
+		for sig in m.interface(){
 			if !matches!(
 				self.design.get_signal(sig.signal).unwrap().sensitivity,
-				SignalSensitivity::Const
+				SignalSensitivity::Generic
 			) {
-				emitln!(self, w, "{},", self.module_interface_definition(m.clone(), sig))?; // FIXME trailing comma
+				emitln!(
+					self, w,
+					"{}{}",
+					self.module_interface_definition(m.clone(), sig),
+					if last_interface_id == Some(sig.signal) {""} else {","}
+				)?; 
 			}
 		}
 
