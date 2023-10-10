@@ -10,14 +10,18 @@ pub enum NumericConstantBase {
 	Boolean,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, Hash)]
 pub struct NumericConstant {
 	pub value: BigInt,
 	pub width: Option<u32>,
 	pub signed: Option<bool>,
 	pub base: Option<NumericConstantBase>,
 }
-
+impl PartialEq for NumericConstant {
+    fn eq(&self, other: &Self) -> bool {
+        self.value == other.value
+    }
+}
 impl NumericConstant {
 	/// Creates a new numeric constant from u64
 	pub fn from_u64(value: u64, width: Option<u32>, signed: Option<bool>, base: Option<NumericConstantBase>) -> Self {

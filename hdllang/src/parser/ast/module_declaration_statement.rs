@@ -87,7 +87,7 @@ impl VariableDeclarationStatement {
 							));
 						}
 						dimensions.push(BusWidth::EvaluatedLocated(
-							val.value.clone(),
+							val.clone(),
 							array_declarator.get_location(),
 						));
 					},
@@ -212,7 +212,7 @@ impl VariableKind {
 									.build(),
 							));
 						}
-						BusWidth::EvaluatedLocated(val.value.clone(), bus.width.get_location())
+						BusWidth::EvaluatedLocated(val.clone(), bus.width.get_location())
 					},
 					None => BusWidth::Evaluable(bus.width.get_location()),
 				};

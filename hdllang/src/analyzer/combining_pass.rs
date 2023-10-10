@@ -349,6 +349,16 @@ impl ModuleImplementationStatement {
 			VariableBlock(block) => block.analyze(ctx, local_ctx, AlreadyCreated::new(), scope_id)?,
 			VariableDefinition(definition) => definition.analyze(AlreadyCreated::new(), ctx, local_ctx, scope_id)?,
 			AssignmentStatement(assignment) => {
+				if assignment.lhs.is_generic(ctx, scope_id, local_ctx)? {
+					debug!("Lhs is generic");
+					match assignment.rhs.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?{
+						Some(val) => {
+							assignment.lhs.assign(BusWidth::EvaluatedLocated(val, assignment.rhs.get_location()),  local_ctx, scope_id);
+						},
+						None => assignment.lhs.assign(BusWidth::Evaluable(assignment.rhs.get_location()),  local_ctx, scope_id),
+					}
+					return Ok(());
+				}
 				let lhs_type = assignment.lhs.evaluate_type(
 					ctx,
 					scope_id,
@@ -680,7 +690,7 @@ impl VariableDefinition {
 							));
 						}
 						dimensions.push(BusWidth::EvaluatedLocated(
-							val.value.clone(),
+							val.clone(),
 							array_declarator.get_location(),
 						));
 					},
@@ -693,7 +703,6 @@ impl VariableDefinition {
 				Variable {
 					name: direct_initializer.declarator.name,
 					kind: kind.clone(),
-					//dimensions,
 					location: direct_initializer.declarator.get_location(),
 				},
 			)?;
