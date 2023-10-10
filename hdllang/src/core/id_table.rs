@@ -54,6 +54,11 @@ impl IdTable {
 			},
 		}
 	}
+
+	/// Gets ID string by key. Panics if key is not present
+	pub fn get_value(&self, key: &IdTableKey) -> &String {
+		self.get_by_key(key).unwrap()
+	}
 }
 
 impl IntoIterator for IdTable {

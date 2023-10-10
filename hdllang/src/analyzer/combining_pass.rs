@@ -1,6 +1,6 @@
 use hirn::design::{expression::UnaryExpression, ScopeHandle};
 use log::{debug, info};
-
+use std::io::Write;
 use super::{AlreadyCreated, ModuleDeclared, SemanticError, Variable, VariableKind};
 use std::collections::HashMap;
 
@@ -137,17 +137,15 @@ impl<'a> SemanticalAnalyzer<'a> {
 		ctx: GlobalAnalyzerContext<'a>,
 		modules_implemented: &'a HashMap<IdTableKey, &ModuleImplementation>,
 	) -> Self {
-		let mut n = Self {
+		Self {
 			ctx,
 			modules_implemented,
 			passes: Vec::new(),
-		};
-		n.passes.push(first_pass);
-		n.passes.push(second_pass);
-		n.passes.push(codegen_pass);
-		n
+		}
 	}
-	pub fn process(&mut self) -> miette::Result<()> {
+	pub fn semantical_analysis(&mut self) -> miette::Result<()> {
+		self.passes.push(first_pass);
+		self.passes.push(second_pass);
 		for module in self.modules_implemented.values() {
 			let mut local_ctx = LocalAnalyzerContex::new(
 				module.id,
@@ -156,6 +154,31 @@ impl<'a> SemanticalAnalyzer<'a> {
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
+		}
+		Ok(())
+	}
+	pub fn compile(&mut self, mut output: Box<dyn Write>) -> miette::Result<()> {
+		self.passes.push(first_pass);
+		self.passes.push(second_pass);
+		self.passes.push(codegen_pass);
+		for module in self.modules_implemented.values() {
+			let mut local_ctx = LocalAnalyzerContex::new(
+				module.id,
+				self.ctx.modules_declared.get(&module.id).unwrap().scope.clone(),
+			);
+			for pass in &self.passes {
+				pass(&mut self.ctx, &mut local_ctx, *module)?;
+			}
+			let mut sv_codegen = hirn::SVCodegen::new(&mut self.ctx.design);
+			use hirn::Codegen;
+			let mut output_string = String::new();
+			sv_codegen
+				.emit_module(
+					&mut output_string,
+					self.ctx.modules_declared.get_mut(&local_ctx.module_id).unwrap().handle.id(),
+				)
+				.unwrap();
+			write!(output, "{}", output_string).unwrap();
 		}
 		Ok(())
 	}
@@ -306,16 +329,6 @@ impl ModuleImplementation {
 			ModuleImplementationBlockStatement(block) => block.codegen_pass(ctx, local_ctx, &mut api_scope)?,
 			_ => unreachable!(),
 		};
-		let mut sv_codegen = hirn::SVCodegen::new(&mut ctx.design);
-		let mut output = String::new();
-		use hirn::Codegen;
-		sv_codegen
-			.emit_module(
-				&mut output,
-				ctx.modules_declared.get_mut(&local_ctx.module_id).unwrap().handle.id(),
-			)
-			.unwrap();
-		println!("{}", output);
 		debug!(
 			"Done codegen pass for module implementation {}",
 			ctx.id_table.get_by_key(&self.id).unwrap()
