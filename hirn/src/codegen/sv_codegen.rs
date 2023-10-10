@@ -111,8 +111,8 @@ impl<'a> SVCodegen<'a> {
 
 		use SignalSignedness::*;
 		let sign_str = match sig.class.signedness() {
-			Signed => "signed",
-			Unsigned => "unsigned",
+			Signed => " signed",
+			Unsigned => " unsigned",
 		};
 
 		let bus_width_str = format!("[({}) - 1 : 0]", self.translate_expression(&sig.class.width()));
@@ -122,7 +122,7 @@ impl<'a> SVCodegen<'a> {
 			array_size_str = format!("{}[{}]", array_size_str, self.translate_expression(&dim));
 		}
 
-		format!("{} wire{} {}{}", sign_str, bus_width_str, sig.name(), array_size_str)
+		format!("wire{}{} {}{}", sign_str, bus_width_str, sig.name(), array_size_str)
 	}
 
 	fn module_interface_definition(&self, m: ModuleHandle, s: InterfaceSignal) -> String {
