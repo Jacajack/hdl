@@ -1,8 +1,8 @@
+use super::{AlreadyCreated, ModuleDeclared, SemanticError, Variable, VariableKind};
 use hirn::design::{expression::UnaryExpression, ScopeHandle};
 use log::{debug, info};
-use std::io::Write;
-use super::{AlreadyCreated, ModuleDeclared, SemanticError, Variable, VariableKind};
 use std::collections::HashMap;
+use std::io::Write;
 
 use crate::{
 	analyzer::{BusWidth, ModuleImplementationScope, Signal, SignalSignedness},
@@ -175,7 +175,12 @@ impl<'a> SemanticalAnalyzer<'a> {
 			sv_codegen
 				.emit_module(
 					&mut output_string,
-					self.ctx.modules_declared.get_mut(&local_ctx.module_id).unwrap().handle.id(),
+					self.ctx
+						.modules_declared
+						.get_mut(&local_ctx.module_id)
+						.unwrap()
+						.handle
+						.id(),
 				)
 				.unwrap();
 			write!(output, "{}", output_string).unwrap();
