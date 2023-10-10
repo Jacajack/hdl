@@ -110,12 +110,16 @@ impl<'a> SVCodegen<'a> {
 		let sig = self.design.get_signal(sig_id).unwrap();
 
 		use SignalSignedness::*;
-		let sign_str = match sig.class.signedness() {
-			Signed => " signed",
-			Unsigned => " unsigned",
+		let sign_str = match (sig.class.is_wire(), sig.class.signedness()) {
+			(true, _) => "",
+			(false, Signed) => " signed",
+			(false, Unsigned) => " unsigned",
 		};
 
-		let bus_width_str = format!("[({}) - 1 : 0]", self.translate_expression(&sig.class.width()));
+		let bus_width_str =	match sig.class.is_wire() {
+			false => format!("[({}) - 1 : 0]", self.translate_expression(&sig.class.width())),
+			true => "".into(),
+		};
 
 		let mut array_size_str = String::new();
 		for dim in &sig.dimensions {
