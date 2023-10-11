@@ -197,15 +197,16 @@ impl<'a> SVCodegen<'a> {
 		w: &mut dyn fmt::Write,
 		scope_id: ScopeId,
 		naked: bool,
-		in_generate: bool,
+		within_generate: bool,
 		skip_signals: HashSet<SignalId>,
 	) -> Result<(), CodegenError> {
 		debug!("Scope codegen ({:?})", scope_id);
 		let scope = self.design.get_scope_handle(scope_id).unwrap();
 
+		let in_generate = within_generate || (!naked && !within_generate); // FIXME not a big fan of that
 		if !naked {
-			if in_generate {
-				emitln!(self, w, "begin")?;
+			if within_generate {
+				emitln!(self, w, "if ('1) begin")?;
 			}
 			else {
 				emitln!(self, w, "generate if ('1) begin")?;
@@ -234,13 +235,14 @@ impl<'a> SVCodegen<'a> {
 			emitln!(
 				self,
 				w,
-				"generate if ({}) begin",
+				"{}if ({}) begin",
+				if in_generate {""} else {"generate "},
 				self.translate_expression(&conditional_scope.condition)
 			)?;
 			self.begin_indent();
 			self.emit_scope(w, conditional_scope.scope, true, true, HashSet::new())?;
 			self.end_indent();
-			emitln!(self, w, "end endgenerate")?;
+			emitln!(self, w, "end{}", if in_generate {""} else {" endgenerate"})?;
 			processed_subscopes.insert(conditional_scope.scope);
 		}
 
@@ -251,7 +253,8 @@ impl<'a> SVCodegen<'a> {
 			emitln!(
 				self,
 				w,
-				"generate for (genvar {} = ({}); ({}) <= ({}); ({})++) begin",
+				"{}for (genvar {} = ({}); ({}) <= ({}); ({})++) begin",
+				if in_generate {""} else {"generate "},
 				self.translate_expression(&loop_scope.iterator_var.into()),
 				self.translate_expression(&loop_scope.iterator_begin),
 				self.translate_expression(&loop_scope.iterator_var.into()),
@@ -267,7 +270,7 @@ impl<'a> SVCodegen<'a> {
 				HashSet::from([loop_scope.iterator_var]),
 			)?;
 			self.end_indent();
-			emitln!(self, w, "end endgenerate")?;
+			emitln!(self, w, "end{}", if in_generate {""} else {" endgenerate"})?;
 			processed_subscopes.insert(loop_scope.scope);
 		}
 
@@ -294,7 +297,7 @@ impl<'a> SVCodegen<'a> {
 
 		if !naked {
 			self.end_indent();
-			if in_generate {
+			if within_generate {
 				emitln!(self, w, "end")?;
 			}
 			else {
