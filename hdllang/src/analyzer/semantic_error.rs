@@ -85,6 +85,8 @@ pub enum SemanticError {
 	ArrayInExpression,
 	#[error("It is not allowed to mix signed and unsigned types in expressions")]
 	SignednessMismatch,
+	#[error("It is not allowed to use this type as a cast target")]
+	BadCast,
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -213,6 +215,9 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
     		SignednessMismatch => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all expressions have the same signedness")
+				.build(),
+    		BadCast => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all casts are valid")
 				.build(),
 		}
 	}

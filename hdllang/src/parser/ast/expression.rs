@@ -15,11 +15,14 @@ mod unary_cast_expression;
 mod unary_operator_expression;
 
 use crate::analyzer::{
-	BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContex, ModuleImplementationScope, SemanticError,
-	Signal, SignalType, VariableKind, AlreadyCreated,
+	AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContex, ModuleImplementationScope,
+	SemanticError, Signal, SignalType, VariableKind,
 };
+use crate::core::NumericConstant;
 use crate::lexer::IdTableKey;
-use crate::parser::ast::{opcodes::*, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName, MatchExpressionAntecendent};
+use crate::parser::ast::{
+	opcodes::*, MatchExpressionAntecendent, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName,
+};
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 pub use binary_expression::BinaryExpression;
 pub use conditional_expression::ConditionalExpression;
@@ -27,6 +30,7 @@ use hirn::design::SignalSlice;
 pub use identifier::Identifier;
 use log::debug;
 pub use match_expression::MatchExpression;
+use num_bigint::{BigInt, Sign};
 use num_traits::Zero;
 pub use number::Number;
 pub use parenthesized::ParenthesizedExpression;
@@ -41,8 +45,6 @@ pub use ternary_expression::TernaryExpression;
 pub use tuple::Tuple;
 pub use unary_cast_expression::UnaryCastExpression;
 pub use unary_operator_expression::UnaryOperatorExpression;
-use crate::core::NumericConstant;
-use num_bigint::{BigInt, Sign};
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
 pub enum Expression {
 	Number(Number),
@@ -213,29 +215,27 @@ impl Expression {
 			},
 		}
 	}
-	pub fn assign(&self, value: BusWidth, 
-		local_ctx: &mut LocalAnalyzerContex, 
-		scope_id: usize,
-		)
-		{
-			use Expression::*;
-			match self {
-    			Identifier(id) => {
-					let mut var = local_ctx.scope.get_variable(scope_id, &id.id).unwrap().clone();
-					var.var.kind.add_value(value);
-					local_ctx.scope.redeclare_variable(var);
-				},
-				_ => unreachable!(),
-			}
+	pub fn assign(&self, value: BusWidth, local_ctx: &mut LocalAnalyzerContex, scope_id: usize) {
+		use Expression::*;
+		match self {
+			Identifier(id) => {
+				let mut var = local_ctx.scope.get_variable(scope_id, &id.id).unwrap().clone();
+				var.var.kind.add_value(value);
+				local_ctx.scope.redeclare_variable(var);
+			},
+			_ => unreachable!(),
 		}
-	pub fn evaluate_as_lhs(&self,
+	}
+	pub fn evaluate_as_lhs(
+		&self,
 		global_ctx: &GlobalAnalyzerContext,
 		scope_id: usize,
 		local_ctx: &mut LocalAnalyzerContex,
 		coupling_type: Option<Signal>,
-		location: SourceSpan)->miette::Result<Signal>{
+		location: SourceSpan,
+	) -> miette::Result<Signal> {
 		use Expression::*;
-		match self{
+		match self {
 			Identifier(id) => {
 				let mut var = match local_ctx.scope.get_variable(scope_id, &id.id) {
 					Some(var) => var,
@@ -253,7 +253,6 @@ impl Expression {
 				if coupling_type.is_none() {
 					return Ok(sig);
 				}
-
 
 				let mut coupling_type = coupling_type.unwrap();
 				sig.sensitivity
@@ -334,12 +333,12 @@ impl Expression {
 				local_ctx.scope.redeclare_variable(var);
 				Ok(sig)
 			},
-    		ParenthesizedExpression(_) => todo!(),
-    		PostfixWithIndex(_) => todo!(),
-    		PostfixWithRange(_) => todo!(),
-    		PostfixWithArgs(_) => todo!(),
-    		PostfixWithId(_) => todo!(),
-			_=> report_not_allowed_lhs(self.get_location()),
+			ParenthesizedExpression(_) => todo!(),
+			PostfixWithIndex(_) => todo!(),
+			PostfixWithRange(_) => todo!(),
+			PostfixWithArgs(_) => todo!(),
+			PostfixWithId(_) => todo!(),
+			_ => report_not_allowed_lhs(self.get_location()),
 		}
 	}
 	pub fn evaluate(
@@ -378,11 +377,11 @@ impl Expression {
 							.build(),
 					)),
 					Generic(generic) => match &generic.value {
-						Some(val) => match val{
-        					BusWidth::Evaluated(nc) => Ok(Some(nc.clone())),
-        					BusWidth::EvaluatedLocated(nc, _) => Ok(Some(nc.clone())),
-        					_ => Ok(None),
-    					},
+						Some(val) => match val {
+							BusWidth::Evaluated(nc) => Ok(Some(nc.clone())),
+							BusWidth::EvaluatedLocated(nc, _) => Ok(Some(nc.clone())),
+							_ => Ok(None),
+						},
 						None => {
 							if let crate::analyzer::Direction::Input(_) = &generic.direction {
 								return Ok(None);
@@ -413,8 +412,7 @@ impl Expression {
 				Ok(
 					if tern.condition.evaluate(nc_table, scope_id, scope)?.unwrap().value != BigInt::from(0) {
 						tern.true_branch.evaluate(nc_table, scope_id, scope)?
-					}
-					else {
+					} else {
 						tern.false_branch.evaluate(nc_table, scope_id, scope)?
 					},
 				)
@@ -459,8 +457,7 @@ impl Expression {
 									None,
 									Some(NumericConstantBase::Boolean),
 								))
-							}
-							else {
+							} else {
 								Some(NumericConstant::new(
 									BigInt::from(0),
 									None,
@@ -532,8 +529,7 @@ impl Expression {
 							Some(false),
 							Some(NumericConstantBase::Boolean),
 						))
-					}
-					else {
+					} else {
 						Some(NumericConstant::from_u64(
 							0,
 							Some(1),
@@ -548,8 +544,7 @@ impl Expression {
 							Some(false),
 							Some(NumericConstantBase::Boolean),
 						))
-					}
-					else {
+					} else {
 						Some(NumericConstant::from_u64(
 							0,
 							Some(1),
@@ -565,8 +560,7 @@ impl Expression {
 									.label(binop.rhs.get_location(), "Shift by negative number is not allowed")
 									.build(),
 							));
-						}
-						else {
+						} else {
 							let mut i = BigInt::from(0);
 							let mut lhs = lhs.clone().unwrap();
 							while i < rhs.clone().unwrap().value {
@@ -584,8 +578,7 @@ impl Expression {
 									.label(binop.rhs.get_location(), "Shift by negative number is not allowed")
 									.build(),
 							));
-						}
-						else {
+						} else {
 							let mut i = BigInt::from(0);
 							let mut lhs = lhs.clone().unwrap();
 							while i < rhs.clone().unwrap().value {
@@ -600,41 +593,35 @@ impl Expression {
 					BitwiseXor => Ok(NumericConstant::new_from_binary(lhs, rhs, |e1, e2| e1 ^ e2)),
 					Less => Ok(if lhs.unwrap().value < rhs.unwrap().value {
 						Some(NumericConstant::new_true())
-					}
-					else {
+					} else {
 						Some(NumericConstant::new_false())
 					}),
 					Greater => Ok(if lhs.unwrap().value > rhs.unwrap().value {
 						Some(NumericConstant::new_true())
-					}
-					else {
+					} else {
 						Some(NumericConstant::new_false())
 					}),
 					LessEqual => Ok(if lhs.unwrap().value <= rhs.unwrap().value {
 						Some(NumericConstant::new_true())
-					}
-					else {
+					} else {
 						Some(NumericConstant::new_false())
 					}),
 					GreaterEqual => Ok(if lhs.unwrap().value >= rhs.unwrap().value {
 						Some(NumericConstant::new_true())
-					}
-					else {
+					} else {
 						Some(NumericConstant::new_false())
 					}),
 					LogicalAnd => Ok(
 						if lhs.unwrap().value != BigInt::from(0) && rhs.unwrap().value != BigInt::from(0) {
 							Some(NumericConstant::new_true())
-						}
-						else {
+						} else {
 							Some(NumericConstant::new_false())
 						},
 					),
 					LogicalOr => Ok(
 						if lhs.unwrap().value != BigInt::from(0) || rhs.unwrap().value != BigInt::from(0) {
 							Some(NumericConstant::new_true())
-						}
-						else {
+						} else {
 							Some(NumericConstant::new_false())
 						},
 					),
@@ -681,12 +668,22 @@ impl Expression {
 					None => false,
 				};
 				//let w = match constant.width.or_v//.is_some() {true => constant.width.unwrap() , _ => 64};
-				let w = match constant.width.is_some() {true => constant.width.unwrap() , _ => 64};
+				let w = match constant.width.is_some() {
+					true => constant.width.unwrap(),
+					_ => 64,
+				};
 				debug!("Width is {:?}", w);
-				Ok(hirn::Expression::Constant(hirn::design::NumericConstant::new(
-					constant.value.clone(),
-					if signed {hirn::design::SignalSignedness::Signed} else {hirn::design::SignalSignedness::Unsigned},
-					w.into()).unwrap(),
+				Ok(hirn::Expression::Constant(
+					hirn::design::NumericConstant::new(
+						constant.value.clone(),
+						if signed {
+							hirn::design::SignalSignedness::Signed
+						} else {
+							hirn::design::SignalSignedness::Unsigned
+						},
+						w.into(),
+					)
+					.unwrap(),
 				))
 			},
 			Identifier(id) => {
@@ -697,38 +694,46 @@ impl Expression {
 			MatchExpression(match_expr) => {
 				let def = match_expr.get_default().unwrap();
 				let mut builder = hirn::Expression::new_conditional(def.expression.codegen(nc_table, scope_id, scope)?);
-				for stmt in &match_expr.statements{
+				for stmt in &match_expr.statements {
 					let cond = match_expr.value.codegen(nc_table, scope_id, scope)?;
-					match &stmt.antecedent{
-        				MatchExpressionAntecendent::Expression { expressions, location:_ } => {
+					match &stmt.antecedent {
+						MatchExpressionAntecendent::Expression {
+							expressions,
+							location: _,
+						} => {
 							let val = stmt.expression.codegen(nc_table, scope_id, scope)?;
 							for expr in expressions {
-								builder = builder.branch( hirn::Expression::Binary(hirn::design::expression::BinaryExpression {
-									lhs: Box::new(cond.clone()),
-									op: hirn::design::expression::BinaryOp::Equal,
-									rhs: Box::new(expr.codegen(nc_table, scope_id, scope)?),
-								}
-								), val.clone());
+								builder = builder.branch(
+									hirn::Expression::Binary(hirn::design::expression::BinaryExpression {
+										lhs: Box::new(cond.clone()),
+										op: hirn::design::expression::BinaryOp::Equal,
+										rhs: Box::new(expr.codegen(nc_table, scope_id, scope)?),
+									}),
+									val.clone(),
+								);
 							}
 						},
-        				MatchExpressionAntecendent::Default { location:_ } => (),
-    				};
+						MatchExpressionAntecendent::Default { location: _ } => (),
+					};
 				}
 				Ok(builder.build())
 			},
 			ConditionalExpression(cond) => {
 				let def = cond.get_default().unwrap();
 				let mut builder = hirn::Expression::new_conditional(def.expression.codegen(nc_table, scope_id, scope)?);
-				for stmt in &cond.statements{
-					match &stmt.antecedent{
-        				MatchExpressionAntecendent::Expression { expressions, location:_ } => {
+				for stmt in &cond.statements {
+					match &stmt.antecedent {
+						MatchExpressionAntecendent::Expression {
+							expressions,
+							location: _,
+						} => {
 							let val = stmt.expression.codegen(nc_table, scope_id, scope)?;
 							for expr in expressions {
 								builder = builder.branch(expr.codegen(nc_table, scope_id, scope)?, val.clone());
 							}
 						},
-        				MatchExpressionAntecendent::Default { location:_ } => (),
-    				};
+						MatchExpressionAntecendent::Default { location: _ } => (),
+					};
 				}
 				Ok(builder.build())
 			},
@@ -748,14 +753,16 @@ impl Expression {
 			},
 			PostfixWithRange(range) => {
 				let expr = range.expression.codegen(nc_table, scope_id, scope)?;
-				Ok(hirn::Expression::Builtin(hirn::design::expression::BuiltinOp::BitSelect{
-        			expr: Box::new(expr),
-        			msb: Box::new(range.range.lhs.codegen(nc_table, scope_id, scope)?),
-        			lsb: Box::new(range.range.rhs.codegen(nc_table, scope_id, scope)?),
-    			}))
+				Ok(hirn::Expression::Builtin(
+					hirn::design::expression::BuiltinOp::BitSelect {
+						expr: Box::new(expr),
+						msb: Box::new(range.range.lhs.codegen(nc_table, scope_id, scope)?),
+						lsb: Box::new(range.range.rhs.codegen(nc_table, scope_id, scope)?),
+					},
+				))
 			},
 			PostfixWithArgs(_) => {
-				todo!("codegen for function call") 
+				todo!("codegen for function call")
 			},
 			PostfixWithId(_) => todo!(),
 			UnaryOperatorExpression(unary) => {
@@ -831,36 +838,30 @@ impl Expression {
 			},
 		}
 	}
-	pub fn is_generic(&self,
+	pub fn is_generic(
+		&self,
 		global_ctx: &GlobalAnalyzerContext,
 		scope_id: usize,
-		local_ctx: &LocalAnalyzerContex) -> miette::Result<bool> {
-			use Expression::*;
-			match self{
-				Identifier(id) => {
-					match local_ctx.scope.get_variable(scope_id, &id.id){
-						Some(x) => {
-							match x.var.kind{
-								crate::analyzer::VariableKind::Generic(_) => Ok(true),
-								_ => Ok(false),
-							}
-						},
-						None => {
-							Err(miette::Report::new(
-								SemanticError::VariableNotDeclared
-									.to_diagnostic_builder()
-									.label(id.location, "This variable is not defined in this scope")
-									.build(),
-							))
-						},
-					}
+		local_ctx: &LocalAnalyzerContex,
+	) -> miette::Result<bool> {
+		use Expression::*;
+		match self {
+			Identifier(id) => match local_ctx.scope.get_variable(scope_id, &id.id) {
+				Some(x) => match x.var.kind {
+					crate::analyzer::VariableKind::Generic(_) => Ok(true),
+					_ => Ok(false),
 				},
-				PostfixWithIndex(id) => {
-					id.expression.is_generic(global_ctx, scope_id, local_ctx)
-				},
-				_ => Ok(false),
-			}
+				None => Err(miette::Report::new(
+					SemanticError::VariableNotDeclared
+						.to_diagnostic_builder()
+						.label(id.location, "This variable is not defined in this scope")
+						.build(),
+				)),
+			},
+			PostfixWithIndex(id) => id.expression.is_generic(global_ctx, scope_id, local_ctx),
+			_ => Ok(false),
 		}
+	}
 	pub fn evaluate_type(
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
@@ -889,7 +890,7 @@ impl Expression {
 						))
 					},
 					(None, Some(_)) => (),
-					(Some(_), None) =>{
+					(Some(_), None) => {
 						debug!("Setting width of {:?} in local_ctx", constant);
 						todo!("set width in local_ctx");
 					},
@@ -908,20 +909,22 @@ impl Expression {
 				}
 				use crate::analyzer::SignalSignedness::*;
 				if coupling_type.is_signedness_specified() {
-				match (coupling_type.get_signedness(), sig.get_signedness()) {
-        			(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
-        			(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc1), Signed(loc2)) => return Err(miette::Report::new(
-						SemanticError::SignednessMismatch
-							.to_diagnostic_builder()
-							.label(location, "Signedness of this expression does not match")
-							.label(loc1, "Signedness of this signal")
-							.label(loc2, "Signedness of this expression")
-							.build(),
-					)),
-        			(_, NoSignedness) => (), //FIXME
-        			(NoSignedness, _) => (),
-    			}
-			}
+					match (coupling_type.get_signedness(), sig.get_signedness()) {
+						(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
+						(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc1), Signed(loc2)) => {
+							return Err(miette::Report::new(
+								SemanticError::SignednessMismatch
+									.to_diagnostic_builder()
+									.label(location, "Signedness of this expression does not match")
+									.label(loc1, "Signedness of this signal")
+									.label(loc2, "Signedness of this expression")
+									.build(),
+							))
+						},
+						(_, NoSignedness) => (), //FIXME
+						(NoSignedness, _) => (),
+					}
+				}
 				Ok(sig)
 			},
 			Identifier(identifier) => {
@@ -940,7 +943,7 @@ impl Expression {
 				let mut sig = var.var.kind.to_signal();
 				if is_lhs {
 					sig.sensitivity
-					.can_drive(&coupling_type.sensitivity, location, global_ctx)?;
+						.can_drive(&coupling_type.sensitivity, location, global_ctx)?;
 				}
 				use crate::analyzer::SignalType::*;
 				sig.signal_type = match (&sig.signal_type, &coupling_type.signal_type) {
@@ -951,9 +954,15 @@ impl Expression {
 						let mut new: crate::analyzer::BusType = bus1.clone();
 						new.signedness = match (&bus.signedness, &bus1.signedness) {
 							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => bus.signedness.clone(),
-							(Signed(_), Unsigned(_)) => todo!(),
+							(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc1), Signed(loc2)) => return Err(miette::Report::new(
+								SemanticError::SignednessMismatch
+									.to_diagnostic_builder()
+									.label(location, "Cannot assign signals - signedness mismatch")
+									.label(*loc2, "Signedness of this signal")
+									.label(*loc1, "Signedness of this expression")
+									.build(),
+							)),
 							(_, NoSignedness) => bus.signedness.clone(),
-							(Unsigned(_), Signed(_)) => todo!(),
 							(NoSignedness, _) => bus1.signedness.clone(),
 						};
 						new.width = match (&bus.width, &bus1.width) {
@@ -1038,7 +1047,7 @@ impl Expression {
 					is_lhs,
 					location,
 				)?;
-				if val.is_array(){
+				if val.is_array() {
 					return Err(miette::Report::new(
 						SemanticError::ArrayInExpression
 							.to_diagnostic_builder()
@@ -1050,7 +1059,10 @@ impl Expression {
 				let mut sensitivity = val.sensitivity.clone();
 				for stmt in &match_expr.statements {
 					match &stmt.antecedent {
-						MatchExpressionAntecendent::Expression { expressions, location:_ } => {
+						MatchExpressionAntecendent::Expression {
+							expressions,
+							location: _,
+						} => {
 							for expr in expressions {
 								let expr_type = expr.evaluate_type(
 									global_ctx,
@@ -1062,7 +1074,7 @@ impl Expression {
 								)?;
 							}
 						},
-						MatchExpressionAntecendent::Default { location:_ } => (),
+						MatchExpressionAntecendent::Default { location: _ } => (),
 					};
 					res = stmt.expression.evaluate_type(
 						global_ctx,
@@ -1118,12 +1130,19 @@ impl Expression {
 					location,
 				)?;
 				debug!("false branch: {:?}", type_second);
-				let type_condition =
-					ternary
-						.condition
-						.evaluate_type(global_ctx, scope_id,  local_ctx, Signal::new_empty(), is_lhs, location)?;
+				let type_condition = ternary.condition.evaluate_type(
+					global_ctx,
+					scope_id,
+					local_ctx,
+					Signal::new_empty(),
+					is_lhs,
+					location,
+				)?;
 				debug!("condition: {:?}", type_condition);
-				type_first.sensitivity.evaluate_sensitivity(vec![type_second.sensitivity, type_condition.sensitivity], self.get_location());
+				type_first.sensitivity.evaluate_sensitivity(
+					vec![type_second.sensitivity, type_condition.sensitivity],
+					self.get_location(),
+				);
 				Ok(type_first) // FIXME
 			},
 			PostfixWithIndex(index) => {
@@ -1256,22 +1275,25 @@ impl Expression {
 												}
 												expr.set_width(
 													crate::analyzer::BusWidth::EvaluatedLocated(
-														NumericConstant::new(end_value.clone().value - begin_value.clone().value, None, None, None),
+														NumericConstant::new(
+															end_value.clone().value - begin_value.clone().value,
+															None,
+															None,
+															None,
+														),
 														range.location,
 													),
 													bus.signedness.clone(),
 													range.location,
 												);
-											}
-											else {
+											} else {
 												expr.set_width(
 													crate::analyzer::BusWidth::Evaluable(range.location),
 													bus.signedness.clone(),
 													range.location,
 												);
 											}
-										}
-										else {
+										} else {
 											expr.set_width(
 												crate::analyzer::BusWidth::Evaluable(range.location),
 												bus.signedness.clone(),
@@ -1340,15 +1362,44 @@ impl Expression {
 					},
 				}
 			},
-			UnaryOperatorExpression(_) => {
-				todo!()
+			UnaryOperatorExpression(unary) => {
+				let expr =
+					unary
+						.expression
+						.evaluate_type(global_ctx, scope_id, local_ctx, coupling_type, is_lhs, location)?;
+				if expr.is_array() {
+					return Err(miette::Report::new(
+						SemanticError::ArrayInExpression
+							.to_diagnostic_builder()
+							.label(
+								unary.location,
+								"This expression is an array, it is not allowed in binary expression",
+							)
+							.label(
+								expr.dimensions[0].get_location().unwrap(),
+								"Type declared as an array here",
+							)
+							.build(),
+					));
+				}
+				use crate::parser::ast::UnaryOpcode::*;
+				match unary.code {
+					BitwiseNot => (),
+					LogicalNot => (),
+					Minus => todo!(), // FIXME ???
+					Plus => (),
+				}
+				Ok(expr)
 			},
 			UnaryCastExpression(cast) => {
 				if cast.type_name.array_declarators.len() > 0 {
 					return Err(miette::Report::new(
-						SemanticError::ArrayInExpression
+						SemanticError::BadCast
 							.to_diagnostic_builder()
-							.label(cast.location, "This expression is an array, it is not allowed in binary expression")
+							.label(
+								cast.type_name.location,
+								"This expression is an array, it is not allowed to be casted on",
+							)
 							.label(cast.type_name.location, "Type declared as an array here")
 							.build(),
 					));
@@ -1361,6 +1412,41 @@ impl Expression {
 					is_lhs,
 					location,
 				)?;
+				if expr.is_array(){
+					return Err(miette::Report::new(
+						SemanticError::BadCast
+							.to_diagnostic_builder()
+							.label(
+								cast.expression.get_location(),
+								"This expression is an array, it is not allowed to be casted",
+							)
+							.label(cast.expression.get_location(), "Type declared as an array here")
+							.build(),
+					));
+				}
+				if expr.is_auto() {
+					return Err(miette::Report::new(
+						SemanticError::BadCast
+							.to_diagnostic_builder()
+							.label(
+								cast.expression.get_location(),
+								"This expression is an auto type, it is not allowed to be casted",
+							)
+							.label(cast.expression.get_location(), "Type declared as an auto here")
+							.build(),
+					));
+				}
+				if ! expr.is_width_specified() {
+					return Err(miette::Report::new(
+						SemanticError::WidthNotKnown
+							.to_diagnostic_builder()
+							.label(
+								cast.expression.get_location(),
+								"Width of this expression is not known, but it should be",
+							)
+							.build(),
+					));
+				}
 				let kind = VariableKind::from_type_declarator(
 					&cast.type_name.declarator,
 					scope_id,
@@ -1370,11 +1456,46 @@ impl Expression {
 					&mut local_ctx.scope,
 				)?;
 				match &kind {
-        			VariableKind::Signal(sig) => todo!(),
-        			VariableKind::Generic(_) => (),//error
-        			VariableKind::ModuleInstance(_) => (),//error
-    			}
-				todo!()
+					VariableKind::Signal(sig) => {
+						if sig.is_auto() {
+							return Err(miette::Report::new(
+								SemanticError::BadCast
+									.to_diagnostic_builder()
+									.label(cast.type_name.location, "Casting to auto type is not allowed")
+									.build(),
+							));
+						}
+						if ! sig.is_width_specified() {
+							return Err(miette::Report::new(
+								SemanticError::BadCast
+									.to_diagnostic_builder()
+									.label(cast.type_name.location, "Casting to width unspecified type is not allowed")
+									.build(),
+							));
+						}
+
+						if sig.width().unwrap().get_value().unwrap() != expr.width().unwrap().get_value().unwrap() {
+							return Err(miette::Report::new(
+								SemanticError::BadCast
+									.to_diagnostic_builder()
+									.label(cast.type_name.location, "Casting to type with different width is not allowed")
+									.label(sig.get_width_location().unwrap(), "Width of this type")
+									.label(expr.get_width_location().unwrap(), "Width of this expression")
+									.build(),
+							));
+						}
+						Ok(sig.clone())
+					},
+					VariableKind::Generic(_) => {
+						return Err(miette::Report::new(
+							SemanticError::BadCast
+								.to_diagnostic_builder()
+								.label(cast.type_name.location, "Casting to generic type is not allowed")
+								.build(),
+						))
+					}, 
+					VariableKind::ModuleInstance(_) => unreachable!(), 
+				}
 			},
 			BinaryExpression(binop) => {
 				use crate::parser::ast::BinaryOpcode::*;
@@ -1402,8 +1523,14 @@ impl Expression {
 					return Err(miette::Report::new(
 						SemanticError::ArrayInExpression
 							.to_diagnostic_builder()
-							.label(binop.lhs.get_location(), "This expression is an array, it is not allowed in binary expression")
-							.label(type_first.dimensions[0].get_location().unwrap(), "Left hand side declared as an array here")
+							.label(
+								binop.lhs.get_location(),
+								"This expression is an array, it is not allowed in binary expression",
+							)
+							.label(
+								type_first.dimensions[0].get_location().unwrap(),
+								"Left hand side declared as an array here",
+							)
 							.build(),
 					));
 				}
@@ -1427,46 +1554,79 @@ impl Expression {
 							.build(),
 					));
 				}
-				if type_second.is_array(){
+				if type_second.is_array() {
 					return Err(miette::Report::new(
 						SemanticError::ArrayInExpression
 							.to_diagnostic_builder()
-							.label(binop.rhs.get_location(), "This expression is an array, it is not allowed in binary expression")
-							.label(type_second.dimensions[0].get_location().unwrap(), "Left hand side declared as an array here")
+							.label(
+								binop.rhs.get_location(),
+								"This expression is an array, it is not allowed in binary expression",
+							)
+							.label(
+								type_second.dimensions[0].get_location().unwrap(),
+								"Left hand side declared as an array here",
+							)
 							.build(),
 					));
 				}
-				type_first.sensitivity.evaluate_sensitivity(vec![type_second.sensitivity.clone()], location);
+				type_first
+					.sensitivity
+					.evaluate_sensitivity(vec![type_second.sensitivity.clone()], location);
 				let w = match &binop.code {
 					Multiplication => {
 						use SignalType::*;
 						match (&type_first.signal_type, &type_second.signal_type) {
-							(Bus(bus1), Bus(bus2)) => BusWidth::Evaluated(NumericConstant::new_from_value(bus2.width.clone().unwrap().get_value().unwrap() + bus1.width.clone().unwrap().get_value().unwrap() )),
-							(Bus(bus), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap())),
-							(Wire(_), Bus(bus)) => BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap())),
+							(Bus(bus1), Bus(bus2)) => BusWidth::Evaluated(NumericConstant::new_from_value(
+								bus2.width.clone().unwrap().get_value().unwrap()
+									+ bus1.width.clone().unwrap().get_value().unwrap(),
+							)),
+							(Bus(bus), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(
+								BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap(),
+							)),
+							(Wire(_), Bus(bus)) => BusWidth::Evaluated(NumericConstant::new_from_value(
+								BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap(),
+							)),
 							(Wire(_), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(2))),
 							(_, _) => unreachable!(),
 						}
 					},
 					Division => type_first.width().clone().unwrap(),
-					Addition | Subtraction=> {
+					Addition | Subtraction => {
 						use SignalType::*;
 						match (&type_first.signal_type, &type_second.signal_type) {
-							(Bus(bus1), Bus(bus2)) => BusWidth::Evaluated(NumericConstant::new_from_value(max(bus2.width.clone().unwrap().get_value().unwrap() , bus1.width.clone().unwrap().get_value().unwrap()) + BigInt::from(1))),
-							(Bus(bus), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap())),
-							(Wire(_), Bus(bus)) => BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap())),
+							(Bus(bus1), Bus(bus2)) => BusWidth::Evaluated(NumericConstant::new_from_value(
+								max(
+									bus2.width.clone().unwrap().get_value().unwrap(),
+									bus1.width.clone().unwrap().get_value().unwrap(),
+								) + BigInt::from(1),
+							)),
+							(Bus(bus), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(
+								BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap(),
+							)),
+							(Wire(_), Bus(bus)) => BusWidth::Evaluated(NumericConstant::new_from_value(
+								BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap(),
+							)),
 							(Wire(_), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(2))),
 							(_, _) => unreachable!(),
 						}
 					},
 					Modulo => type_second.width().clone().unwrap(),
 					LShift | RShift => type_first.width().clone().unwrap(),
-					BitwiseAnd | BitwiseOr | BitwiseXor=> {
+					BitwiseAnd | BitwiseOr | BitwiseXor => {
 						use SignalType::*;
 						match (&type_first.signal_type, &type_second.signal_type) {
-							(Bus(bus1), Bus(bus2)) => BusWidth::Evaluated(NumericConstant::new_from_value(max(bus2.width.clone().unwrap().get_value().unwrap() , bus1.width.clone().unwrap().get_value().unwrap()) + BigInt::from(1))),
-							(Bus(bus), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap())),
-							(Wire(_), Bus(bus)) => BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap())),
+							(Bus(bus1), Bus(bus2)) => BusWidth::Evaluated(NumericConstant::new_from_value(
+								max(
+									bus2.width.clone().unwrap().get_value().unwrap(),
+									bus1.width.clone().unwrap().get_value().unwrap(),
+								) + BigInt::from(1),
+							)),
+							(Bus(bus), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(
+								BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap(),
+							)),
+							(Wire(_), Bus(bus)) => BusWidth::Evaluated(NumericConstant::new_from_value(
+								BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap(),
+							)),
 							(Wire(_), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(2))),
 							(_, _) => unreachable!(),
 						}
@@ -1475,7 +1635,12 @@ impl Expression {
 						BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(1)))
 					},
 				};
-				Ok(Signal::new_bus_with_sensitivity(w, type_first.get_signedness(), type_first.sensitivity.clone(), location))
+				Ok(Signal::new_bus_with_sensitivity(
+					w,
+					type_first.get_signedness(),
+					type_first.sensitivity.clone(),
+					location,
+				))
 			},
 		}
 	}

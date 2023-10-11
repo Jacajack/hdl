@@ -1,8 +1,8 @@
+use super::{AlreadyCreated, ModuleDeclared, SemanticError, Variable, VariableKind};
 use hirn::design::{expression::UnaryExpression, ScopeHandle};
 use log::{debug, info};
-use std::io::Write;
-use super::{AlreadyCreated, ModuleDeclared, SemanticError, Variable, VariableKind};
 use std::collections::HashMap;
+use std::io::Write;
 
 use crate::{
 	analyzer::{BusWidth, ModuleImplementationScope, Signal, SignalSignedness},
@@ -174,7 +174,12 @@ impl<'a> SemanticalAnalyzer<'a> {
 			sv_codegen
 				.emit_module(
 					&mut output_string,
-					self.ctx.modules_declared.get_mut(&local_ctx.module_id).unwrap().handle.id(),
+					self.ctx
+						.modules_declared
+						.get_mut(&local_ctx.module_id)
+						.unwrap()
+						.handle
+						.id(),
 				)
 				.unwrap();
 			write!(output, "{}", output_string).unwrap();
@@ -354,11 +359,19 @@ impl ModuleImplementationStatement {
 			AssignmentStatement(assignment) => {
 				if assignment.lhs.is_generic(ctx, scope_id, local_ctx)? {
 					debug!("Lhs is generic");
-					match assignment.rhs.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?{
+					match assignment.rhs.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)? {
 						Some(val) => {
-							assignment.lhs.assign(BusWidth::EvaluatedLocated(val, assignment.rhs.get_location()),  local_ctx, scope_id);
+							assignment.lhs.assign(
+								BusWidth::EvaluatedLocated(val, assignment.rhs.get_location()),
+								local_ctx,
+								scope_id,
+							);
 						},
-						None => assignment.lhs.assign(BusWidth::Evaluable(assignment.rhs.get_location()),  local_ctx, scope_id),
+						None => assignment.lhs.assign(
+							BusWidth::Evaluable(assignment.rhs.get_location()),
+							local_ctx,
+							scope_id,
+						),
 					}
 					return Ok(());
 				}
@@ -544,14 +557,24 @@ impl ModuleImplementationStatement {
 			AssignmentStatement(assignment) => {
 				let lhs = assignment.lhs.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?;
 				let rhs = assignment.rhs.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?;
-				api_scope
-					.assign(lhs, rhs)
-					.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
+				use crate::parser::ast::AssignmentOpcode::*;
+				match assignment.assignment_opcode {
+					Equal => api_scope
+						.assign(lhs, rhs)
+						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
+					PlusEqual => todo!(), // does it make sense?
+					AndEqual => api_scope
+						.assign(lhs.clone(), lhs & rhs)
+						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
+					XorEqual => api_scope
+						.assign(lhs.clone(), lhs ^ rhs)
+						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
+					OrEqual => api_scope
+						.assign(lhs.clone(), lhs | rhs)
+						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
+				};
+
 				debug!("Assignment done");
-				debug!(
-					"Module: {:?}",
-					ctx.modules_declared.get(&local_ctx.module_id).unwrap().handle
-				);
 			},
 			IfElseStatement(conditional) => {
 				let mut inner_scope = api_scope
@@ -692,10 +715,7 @@ impl VariableDefinition {
 									.build(),
 							));
 						}
-						dimensions.push(BusWidth::EvaluatedLocated(
-							val.clone(),
-							array_declarator.get_location(),
-						));
+						dimensions.push(BusWidth::EvaluatedLocated(val.clone(), array_declarator.get_location()));
 					},
 					None => dimensions.push(BusWidth::Evaluable(array_declarator.get_location())),
 				}
