@@ -537,7 +537,7 @@ impl Variable {
 						builder = builder.wire();
 					},
 				}
-				builder = builder.constant();
+				builder = builder.generic();
 				id = builder.build().unwrap();
 			},
 			VariableKind::ModuleInstance(_) => unreachable!("Module instantion should not be possible here"),
