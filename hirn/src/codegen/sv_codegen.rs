@@ -8,6 +8,7 @@ use crate::{
 };
 use std::collections::HashSet;
 use std::fmt;
+use log::debug;
 
 #[derive(Clone)]
 pub struct SVCodegen<'a> {
@@ -196,12 +197,19 @@ impl<'a> SVCodegen<'a> {
 		w: &mut dyn fmt::Write,
 		scope_id: ScopeId,
 		naked: bool,
+		in_generate: bool,
 		skip_signals: HashSet<SignalId>,
 	) -> Result<(), CodegenError> {
+		debug!("Scope codegen ({:?})", scope_id);
 		let scope = self.design.get_scope_handle(scope_id).unwrap();
 
 		if !naked {
-			emitln!(self, w, "begin")?;
+			if in_generate {
+				emitln!(self, w, "begin")?;
+			} 
+			else {
+				emitln!(self, w, "generate if ('1) begin")?;
+			}
 			self.begin_indent();
 		}
 
@@ -230,7 +238,7 @@ impl<'a> SVCodegen<'a> {
 				self.translate_expression(&conditional_scope.condition)
 			)?;
 			self.begin_indent();
-			self.emit_scope(w, conditional_scope.scope, true, HashSet::new())?;
+			self.emit_scope(w, conditional_scope.scope, true, true, HashSet::new())?;
 			self.end_indent();
 			emitln!(self, w, "end endgenerate")?;
 			processed_subscopes.insert(conditional_scope.scope);
@@ -251,7 +259,7 @@ impl<'a> SVCodegen<'a> {
 				self.translate_expression(&loop_scope.iterator_var.into())
 			)?;
 			self.begin_indent();
-			self.emit_scope(w, loop_scope.scope, true, HashSet::from([loop_scope.iterator_var]))?;
+			self.emit_scope(w, loop_scope.scope, true, true, HashSet::from([loop_scope.iterator_var]))?;
 			self.end_indent();
 			emitln!(self, w, "end endgenerate")?;
 			processed_subscopes.insert(loop_scope.scope);
@@ -262,7 +270,7 @@ impl<'a> SVCodegen<'a> {
 		let subscope_ids = scope.subscopes();
 		for subscope_id in subscope_ids {
 			if !processed_subscopes.contains(&subscope_id) {
-				self.emit_scope(w, subscope_id, false, HashSet::new())?;
+				self.emit_scope(w, subscope_id, false, in_generate, HashSet::new())?;
 			}
 			processed_subscopes.insert(subscope_id);
 		}
@@ -280,7 +288,12 @@ impl<'a> SVCodegen<'a> {
 
 		if !naked {
 			self.end_indent();
-			emitln!(self, w, "end")?;
+			if in_generate {
+				emitln!(self, w, "end")?;
+			}
+			else {
+				emitln!(self, w, "end endgenerate")?;
+			}
 		}
 		Ok(())
 	}
@@ -361,7 +374,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 		emitln!(self, w, ";")?;
 
 		self.begin_indent();
-		self.emit_scope(w, m.scope().id(), true, interface_signal_ids)?;
+		self.emit_scope(w, m.scope().id(), true, false, interface_signal_ids)?;
 		self.end_indent();
 
 		writeln!(w, "endmodule;")?;
