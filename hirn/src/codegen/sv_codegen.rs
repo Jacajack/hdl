@@ -6,9 +6,9 @@ use crate::{
 	design::{functional_blocks::ModuleInstance, SignalDirection, SignalSensitivity},
 	BinaryOp, Design, DesignError, Expression, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp,
 };
+use log::debug;
 use std::collections::HashSet;
 use std::fmt;
-use log::debug;
 
 #[derive(Clone)]
 pub struct SVCodegen<'a> {
@@ -123,7 +123,7 @@ impl<'a> SVCodegen<'a> {
 			(false, Unsigned) => " unsigned",
 		};
 
-		let bus_width_str =	match sig.class.is_wire() {
+		let bus_width_str = match sig.class.is_wire() {
 			false => format!("[({}) - 1 : 0]", self.translate_expression(&sig.class.width())),
 			true => "".into(),
 		};
@@ -206,7 +206,7 @@ impl<'a> SVCodegen<'a> {
 		if !naked {
 			if in_generate {
 				emitln!(self, w, "begin")?;
-			} 
+			}
 			else {
 				emitln!(self, w, "generate if ('1) begin")?;
 			}
@@ -259,7 +259,13 @@ impl<'a> SVCodegen<'a> {
 				self.translate_expression(&loop_scope.iterator_var.into())
 			)?;
 			self.begin_indent();
-			self.emit_scope(w, loop_scope.scope, true, true, HashSet::from([loop_scope.iterator_var]))?;
+			self.emit_scope(
+				w,
+				loop_scope.scope,
+				true,
+				true,
+				HashSet::from([loop_scope.iterator_var]),
+			)?;
 			self.end_indent();
 			emitln!(self, w, "end endgenerate")?;
 			processed_subscopes.insert(loop_scope.scope);
@@ -325,7 +331,12 @@ impl<'a> Codegen for SVCodegen<'a> {
 			}
 		}
 
-		emit!(self, w, "module {}", self.mangle_module_name(m.name(), m.namespace_path()))?;
+		emit!(
+			self,
+			w,
+			"module {}",
+			self.mangle_module_name(m.name(), m.namespace_path())
+		)?;
 		if last_param_id.is_some() {
 			emitln!(self, w, " #(")?;
 			self.begin_indent();
@@ -337,11 +348,12 @@ impl<'a> Codegen for SVCodegen<'a> {
 					SignalSensitivity::Generic
 				) {
 					emitln!(
-						self, w,
+						self,
+						w,
 						"{}{}",
 						self.module_parameter_definition(sig),
-						if last_param_id == Some(sig.signal) {""} else {","}
-					)?; 
+						if last_param_id == Some(sig.signal) { "" } else { "," }
+					)?;
 				}
 			}
 
@@ -350,21 +362,22 @@ impl<'a> Codegen for SVCodegen<'a> {
 		}
 
 		if last_interface_id.is_some() {
-			emitln!(self, w, "(")?;	
+			emitln!(self, w, "(")?;
 			self.begin_indent();
 			emitln!(self, w, "/* interface */")?;
 
-			for sig in m.interface(){
+			for sig in m.interface() {
 				if !matches!(
 					self.design.get_signal(sig.signal).unwrap().sensitivity,
 					SignalSensitivity::Generic
 				) {
 					emitln!(
-						self, w,
+						self,
+						w,
 						"{}{}",
 						self.module_interface_definition(m.clone(), sig),
-						if last_interface_id == Some(sig.signal) {""} else {","}
-					)?; 
+						if last_interface_id == Some(sig.signal) { "" } else { "," }
+					)?;
 				}
 			}
 
