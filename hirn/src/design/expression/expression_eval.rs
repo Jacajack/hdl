@@ -67,6 +67,13 @@ impl Evaluates for BinaryExpression {
 		use BinaryOp::*;
 		match self.op {
 			Add => Ok(lhs + rhs),
+			Subtract => Ok(lhs - rhs),
+			Multiply => Ok(lhs * rhs),
+			Divide => Ok(lhs / rhs),
+			Modulo => Ok(lhs % rhs),
+			BitwiseAnd => Ok(lhs & rhs),
+			BitwiseOr => Ok(lhs | rhs),
+			BitwiseXor => Ok(lhs ^ rhs),
 			_ => todo!(),
 		}
 	}

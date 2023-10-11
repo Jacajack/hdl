@@ -1,7 +1,7 @@
 use super::{NarrowEval, WidthExpression};
 use crate::{design::{DesignError, SignalSignedness}, Expression};
 
-use num_bigint::BigInt;
+use num_bigint::{BigInt, BigUint};
 
 use super::EvalError;
 
@@ -45,9 +45,14 @@ impl NumericConstant {
 			return Err(EvalError::NumericConstantWidthTooSmall);
 		}
 		
-		// Clamp value to specified width
-		let bit_mask = (BigInt::from(1) << width) - 1;
-		let masked_value = value & bit_mask;
+		// Clamp value to specified width while preserving sign
+		let masked_value: BigInt;
+		{
+			let (orig_sign, orig_mag) = value.into_parts();
+			let bit_mask = (BigUint::from(1u32) << width) - 1u32;
+			let masked_mag = orig_mag & bit_mask;
+			masked_value = BigInt::from_biguint(orig_sign, masked_mag);
+		}
 
 		Ok(Self{
 			error: None,
@@ -105,6 +110,16 @@ impl NumericConstant {
 	pub fn get_error(&self) -> Option<EvalError> {
 		self.error.clone()
 	}
+
+	fn normalize_unsigned(&mut self) {
+		assert!(self.is_valid());
+		assert!(self.signedness == SignalSignedness::Unsigned);
+		if self.value.sign() == num_bigint::Sign::Minus {
+			let base = BigInt::from(1u32) << self.width;
+			let (_sign, mag) = (base + self.value.clone()).into_parts();
+			self.value = BigInt::from_biguint(num_bigint::Sign::Plus, mag);
+		}
+	}
 }
 
 impl From<u64> for NumericConstant {
@@ -129,6 +144,13 @@ impl From<i32> for NumericConstant {
 	fn from(value: i32) -> Self {
 		Self::new_signed(value.into())
 	}
+}
+
+fn check_sign_match(lhs: &NumericConstant, rhs: &NumericConstant) -> Result<(), EvalError> {
+	if lhs.signedness()? != rhs.signedness()? {
+		return Err(EvalError::MixedSignedness);
+	}
+	Ok(())
 }
 
 macro_rules! impl_binary_constant_op {
@@ -158,35 +180,103 @@ macro_rules! impl_binary_constant_op {
 	};
 }
 
-fn check_sign_match(lhs: &NumericConstant, rhs: &NumericConstant) -> Result<(), EvalError> {
-	if lhs.signedness()? != rhs.signedness()? {
-		return Err(EvalError::MixedSignedness);
+macro_rules! impl_rust_binary_constant_op {
+	($trait_name: ident, $trait_func: ident, $operator: tt) => {
+		impl_binary_constant_op!($trait_name, $trait_func, |lhs: &NumericConstant, rhs: &NumericConstant| -> Result<NumericConstant, EvalError> {
+			check_sign_match(lhs, rhs)?;
+			let width_expr = Expression::from(lhs.clone()) $operator rhs.clone().into();
+			let mut result = NumericConstant::new(
+				lhs.value()? $operator rhs.value()?,
+				lhs.signedness()?,
+				width_expr.width()?.const_narrow_eval()? as u64
+			)?;
+			if lhs.signedness()? == SignalSignedness::Unsigned {
+				result.normalize_unsigned();
+			}
+			Ok(result)
+		});
 	}
-	Ok(())
 }
 
-impl_binary_constant_op!(Add, add, |lhs: &NumericConstant, rhs: &NumericConstant| -> Result<NumericConstant, EvalError> {
-	check_sign_match(lhs, rhs)?;
-	let value = lhs.value()? + rhs.value()?;
-	let width_expr = Expression::from(lhs.clone()) + rhs.clone().into();
-	let width = width_expr.width()?.const_narrow_eval()? as u64;
-	Ok(NumericConstant::new(value, lhs.signedness()?, width)?)
-});
+impl_rust_binary_constant_op!(Add, add, +);
+impl_rust_binary_constant_op!(Sub, sub, -);
+impl_rust_binary_constant_op!(Mul, mul, *);
+impl_rust_binary_constant_op!(Div, div, /);
+impl_rust_binary_constant_op!(Rem, rem, %);
+// impl_rust_binary_constant_op!(Shl, shl, <<); // FIXME
+// impl_rust_binary_constant_op!(Shr, shr, >>); // FIXME
+impl_rust_binary_constant_op!(BitAnd, bitand, &);
+impl_rust_binary_constant_op!(BitOr, bitor, |);
+impl_rust_binary_constant_op!(BitXor, bitxor, ^);
+
 
 #[cfg(test)]
 mod test {
 	use super::*;
 
-	fn check_value(nc: &NumericConstant, val: i64, width: u64) {
-		assert_eq!(*nc.value().unwrap(), val.into());
+	fn check_value(nc: NumericConstant, val: i64, width: u64) {
+		assert_eq!(*nc.value().unwrap(), BigInt::from(val));
 		assert_eq!(nc.width().unwrap(), width.into());
+	}
+
+	fn check_value_u(nc: NumericConstant, val: u64, width: u64) {
+		assert_eq!(*nc.value().unwrap(), BigInt::from(val));
+		assert_eq!(nc.width().unwrap(), width.into());
+	}
+
+	fn nc(v: i64) -> NumericConstant {
+		NumericConstant::new_signed(v.into())
+	}
+
+	fn ncu(v: u64) -> NumericConstant {
+		NumericConstant::new_unsigned(v.into())
 	}
 
 	#[test]
 	fn test_add() {
-		let a = NumericConstant::new_signed(5.into());
-		let b = NumericConstant::new_signed(3.into());
-		let c = a + b;
-		check_value(&c, 8, 5);
+		check_value(nc(0) + nc(0), 0, 2);
+		check_value(nc(5) + nc(3), 8, 5);
+		check_value_u(ncu(0) + ncu(0), 0, 2);
+		check_value_u(ncu(1024) + ncu(1), 1025, 12);
+		check_value_u(ncu(1024) + ncu(1024), 2048, 12);
+	}
+
+	#[test]
+	fn test_sub() {
+		check_value(nc(4) - nc(7), -3, 5);
+		check_value(nc(10) - nc(9), 1, 6);
+		check_value(nc(1) - nc(1), 0, 3);
+		check_value_u(ncu(1024) - ncu(1024), 0, 12);
+		check_value_u(ncu(0) - ncu(1), 3, 2);
+		check_value_u(ncu(127) - ncu(128), 511, 9);
+	}
+
+	#[test]
+	fn test_mul() {
+		check_value(nc(0) * nc(0), 0, 2);
+		check_value(nc(17) * nc(-1), -17, 8); // 6b * 2b => 8b
+		check_value(nc(-1) * nc(-1), 1, 4); 
+		check_value(nc(10) * nc(10), 100, 10);
+		check_value(ncu(10) * ncu(10), 100, 8);
+	}
+
+	#[test]
+	fn test_div() {
+		check_value(nc(30) / nc(3), 10, 6);
+		check_value(nc(31) / nc(-1), -31, 6);
+		check_value(nc(-31) / nc(-1), 31, 6);
+		check_value_u(ncu(255) / ncu(2), 127, 8);
+		check_value_u(ncu(255) / ncu(1), 255, 8);
+		check_value_u(ncu(30) / ncu(3), 10, 5);
+	}
+
+	#[test]
+	fn test_rem() {
+		check_value(nc(-5) % nc(3), -5 % 3, 3);
+		check_value(nc(-5) % nc(-3), -5 % -3, 3);
+		check_value(nc(1247) % nc(1), 0, 2);
+		check_value(nc(1247) % nc(1247), 0, 12);
+		check_value_u(ncu(5) % ncu(3), 2, 2);
+		check_value_u(ncu(560) % ncu(33), 560 % 33, 6);
 	}
 }

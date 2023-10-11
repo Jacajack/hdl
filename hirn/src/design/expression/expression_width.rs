@@ -22,8 +22,8 @@ impl WidthExpression for BinaryExpression {
 		Ok(match self.op {
 			Add | Subtract => self.lhs.width()?.max(self.rhs.width()?) + 1.into(),
 			Multiply => self.lhs.width()? + self.rhs.width()?,
-			Divide => self.lhs.width()?, // FIXME
-			Modulo => self.lhs.width()?, // FIXME
+			Divide => self.lhs.width()?,
+			Modulo => self.rhs.width()?,
 			ShiftLeft | ShiftRight => self.lhs.width()?,
 			LogicalAnd | LogicalOr => 1.into(),
 			BitwiseAnd | BitwiseOr | BitwiseXor => self.lhs.width()?, // FIXME verify width match
