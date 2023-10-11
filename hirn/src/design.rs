@@ -7,7 +7,7 @@ mod signal;
 mod utils;
 
 pub use comment::HasComment;
-pub use expression::{BinaryOp, BinaryExpression, UnaryExpression, Expression, UnaryOp, EvalError, EvalContext, NumericConstant, EvalType, Evaluates, EvaluatesDimensions, EvaluatesType};
+pub use expression::{BinaryOp, BinaryExpression, UnaryExpression, Expression, UnaryOp, BuiltinOp, EvalError, EvalContext, WidthExpression, NumericConstant, EvalType, Evaluates, EvaluatesDimensions, EvaluatesType};
 pub use functional_blocks::{Register, RegisterBuilder, BlockInstance, ModuleInstance, ModuleInstanceBuilder};
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
 pub use scope::{Scope, ScopeHandle};
