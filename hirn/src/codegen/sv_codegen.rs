@@ -6,6 +6,7 @@ use crate::{
 	design::{ModuleInstance, SignalDirection, SignalSensitivity},
 	BinaryOp, Design, DesignError, Expression, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp,
 };
+use log::debug;
 use std::collections::HashSet;
 use std::fmt;
 
@@ -18,6 +19,12 @@ pub struct SVCodegen<'a> {
 macro_rules! emitln {
 	($self:ident, $w:expr, $($arg:tt)*) => {
 		writeln!($w, "{}{}", "\t".repeat($self.indent_level as usize), format!($($arg)*))
+	}
+}
+
+macro_rules! emit {
+	($self:ident, $w:expr, $($arg:tt)*) => {
+		write!($w, "{}{}", "\t".repeat($self.indent_level as usize), format!($($arg)*))
 	}
 }
 
@@ -110,19 +117,23 @@ impl<'a> SVCodegen<'a> {
 		let sig = self.design.get_signal(sig_id).unwrap();
 
 		use SignalSignedness::*;
-		let sign_str = match sig.class.signedness() {
-			Signed => "signed",
-			Unsigned => "unsigned",
+		let sign_str = match (sig.class.is_wire(), sig.class.signedness()) {
+			(true, _) => "",
+			(false, Signed) => " signed",
+			(false, Unsigned) => " unsigned",
 		};
 
-		let bus_width_str = format!("[({}) - 1 : 0]", self.translate_expression(&sig.class.width()));
+		let bus_width_str = match sig.class.is_wire() {
+			false => format!("[({}) - 1 : 0]", self.translate_expression(&sig.class.width())),
+			true => "".into(),
+		};
 
 		let mut array_size_str = String::new();
 		for dim in &sig.dimensions {
 			array_size_str = format!("{}[{}]", array_size_str, self.translate_expression(&dim));
 		}
 
-		format!("{} wire{} {}{}", sign_str, bus_width_str, sig.name(), array_size_str)
+		format!("wire{}{} {}{}", sign_str, bus_width_str, sig.name(), array_size_str)
 	}
 
 	fn module_interface_definition(&self, m: ModuleHandle, s: InterfaceSignal) -> String {
@@ -186,12 +197,19 @@ impl<'a> SVCodegen<'a> {
 		w: &mut dyn fmt::Write,
 		scope_id: ScopeId,
 		naked: bool,
+		in_generate: bool,
 		skip_signals: HashSet<SignalId>,
 	) -> Result<(), CodegenError> {
+		debug!("Scope codegen ({:?})", scope_id);
 		let scope = self.design.get_scope_handle(scope_id).unwrap();
 
 		if !naked {
-			emitln!(self, w, "begin")?;
+			if in_generate {
+				emitln!(self, w, "begin")?;
+			}
+			else {
+				emitln!(self, w, "generate if ('1) begin")?;
+			}
 			self.begin_indent();
 		}
 
@@ -220,7 +238,7 @@ impl<'a> SVCodegen<'a> {
 				self.translate_expression(&conditional_scope.condition)
 			)?;
 			self.begin_indent();
-			self.emit_scope(w, conditional_scope.scope, true, HashSet::new())?;
+			self.emit_scope(w, conditional_scope.scope, true, true, HashSet::new())?;
 			self.end_indent();
 			emitln!(self, w, "end endgenerate")?;
 			processed_subscopes.insert(conditional_scope.scope);
@@ -241,7 +259,13 @@ impl<'a> SVCodegen<'a> {
 				self.translate_expression(&loop_scope.iterator_var.into())
 			)?;
 			self.begin_indent();
-			self.emit_scope(w, loop_scope.scope, true, HashSet::from([loop_scope.iterator_var]))?;
+			self.emit_scope(
+				w,
+				loop_scope.scope,
+				true,
+				true,
+				HashSet::from([loop_scope.iterator_var]),
+			)?;
 			self.end_indent();
 			emitln!(self, w, "end endgenerate")?;
 			processed_subscopes.insert(loop_scope.scope);
@@ -252,7 +276,7 @@ impl<'a> SVCodegen<'a> {
 		let subscope_ids = scope.subscopes();
 		for subscope_id in subscope_ids {
 			if !processed_subscopes.contains(&subscope_id) {
-				self.emit_scope(w, subscope_id, false, HashSet::new())?;
+				self.emit_scope(w, subscope_id, false, in_generate, HashSet::new())?;
 			}
 			processed_subscopes.insert(subscope_id);
 		}
@@ -270,7 +294,12 @@ impl<'a> SVCodegen<'a> {
 
 		if !naked {
 			self.end_indent();
-			emitln!(self, w, "end")?;
+			if in_generate {
+				emitln!(self, w, "end")?;
+			}
+			else {
+				emitln!(self, w, "end endgenerate")?;
+			}
 		}
 		Ok(())
 	}
@@ -283,52 +312,82 @@ impl<'a> Codegen for SVCodegen<'a> {
 			.get_module_handle(module)
 			.ok_or(CodegenError::InvalidModuleId(module))?;
 
-		// TODO skip param list if empty
-		// TODO param list
-		// TODO how to check if module is generic
-
 		let mut interface_signal_ids = HashSet::new();
 		for sig in m.interface() {
 			interface_signal_ids.insert(sig.signal);
 		}
 
-		emitln!(
-			self,
-			w,
-			"module {} #(",
-			self.mangle_module_name(m.name(), m.namespace_path())
-		)?;
-		self.begin_indent();
-		emitln!(self, w, "/* parameters */")?;
-
+		let mut last_param_id = None;
+		let mut last_interface_id = None;
 		for sig in m.interface() {
 			if matches!(
 				self.design.get_signal(sig.signal).unwrap().sensitivity,
-				SignalSensitivity::Const
+				SignalSensitivity::Generic
 			) {
-				emitln!(self, w, "{},", self.module_parameter_definition(sig))?; // FIXME trailing comma
+				last_param_id = Some(sig.signal);
+			}
+			else {
+				last_interface_id = Some(sig.signal);
 			}
 		}
 
-		self.end_indent();
-		emitln!(self, w, ")(")?;
-		self.begin_indent();
-		emitln!(self, w, "/* interface */")?;
+		emit!(
+			self,
+			w,
+			"module {}",
+			self.mangle_module_name(m.name(), m.namespace_path())
+		)?;
+		if last_param_id.is_some() {
+			emitln!(self, w, " #(")?;
+			self.begin_indent();
+			emitln!(self, w, "/* parameters */")?;
 
-		for sig in m.interface() {
-			if !matches!(
-				self.design.get_signal(sig.signal).unwrap().sensitivity,
-				SignalSensitivity::Const
-			) {
-				emitln!(self, w, "{},", self.module_interface_definition(m.clone(), sig))?; // FIXME trailing comma
+			for sig in m.interface() {
+				if matches!(
+					self.design.get_signal(sig.signal).unwrap().sensitivity,
+					SignalSensitivity::Generic
+				) {
+					emitln!(
+						self,
+						w,
+						"{}{}",
+						self.module_parameter_definition(sig),
+						if last_param_id == Some(sig.signal) { "" } else { "," }
+					)?;
+				}
 			}
+
+			self.end_indent();
+			emit!(self, w, ")")?;
 		}
 
-		self.end_indent();
-		emitln!(self, w, ");")?;
+		if last_interface_id.is_some() {
+			emitln!(self, w, "(")?;
+			self.begin_indent();
+			emitln!(self, w, "/* interface */")?;
+
+			for sig in m.interface() {
+				if !matches!(
+					self.design.get_signal(sig.signal).unwrap().sensitivity,
+					SignalSensitivity::Generic
+				) {
+					emitln!(
+						self,
+						w,
+						"{}{}",
+						self.module_interface_definition(m.clone(), sig),
+						if last_interface_id == Some(sig.signal) { "" } else { "," }
+					)?;
+				}
+			}
+
+			self.end_indent();
+			emit!(self, w, ")")?;
+		}
+		emitln!(self, w, ";")?;
 
 		self.begin_indent();
-		self.emit_scope(w, m.scope().id(), true, interface_signal_ids)?;
+		self.emit_scope(w, m.scope().id(), true, false, interface_signal_ids)?;
 		self.end_indent();
 
 		writeln!(w, "endmodule;")?;

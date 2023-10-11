@@ -34,4 +34,9 @@ impl NumericConstantTable {
 		self.constants.insert(key, n);
 		key
 	}
+
+	/// Gets numeric constant by key. Panics if key is not present
+	pub fn get_value(&self, key: &NumericConstantTableKey) -> &NumericConstant {
+		self.get_by_key(key).unwrap()
+	}
 }

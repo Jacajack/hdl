@@ -38,4 +38,9 @@ impl CommentTable {
 		self.comments.insert(key, s);
 		key
 	}
+
+	/// Gets comment string by key. Panics if key is not present
+	pub fn get_value(&self, key: &CommentTableKey) -> &String {
+		self.get_by_key(key).unwrap()
+	}
 }
