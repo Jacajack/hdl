@@ -6,7 +6,7 @@ use std::collections::HashMap;
 
 use crate::{
 	analyzer::{BusWidth, ModuleImplementationScope, Signal, SignalSignedness},
-	core::IdTable,
+	core::{IdTable, NumericConstant},
 	lexer::{IdTableKey, NumericConstantTableKey},
 	parser::ast::{
 		analyze_qualifiers, ModuleImplementation, ModuleImplementationBlockStatement, ModuleImplementationStatement,
@@ -102,7 +102,7 @@ pub fn combine<'a>(
 				},
 				Some(implementation) => {
 					generic_modules.insert(name.clone(), *implementation);
-					//modules_implemented.remove(&name);
+					modules_implemented.remove(&name);
 				},
 			}
 		}
@@ -115,7 +115,6 @@ pub fn combine<'a>(
 		nc_table,
 		modules_declared,
 		generic_modules,
-		//scope: HashMap::new(),
 		design,
 	};
 
@@ -232,7 +231,7 @@ pub struct GlobalAnalyzerContext<'a> {
 /// Per module context for semantic analysis
 pub struct LocalAnalyzerContex {
 	pub scope: ModuleImplementationScope,
-	pub nc_widths: HashMap<NumericConstantTableKey, SignalSignedness>,
+	pub nc_widths: HashMap<NumericConstantTableKey, NumericConstant>,
 	pub scope_map: HashMap<SourceSpan, usize>,
 	pub module_id: IdTableKey,
 }

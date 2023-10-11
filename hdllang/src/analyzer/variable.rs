@@ -1,3 +1,5 @@
+use core::panic;
+
 use hirn::{
 	design::{signal::SignalBuilder, NumericConstant},
 	Expression, SignalId,
@@ -65,17 +67,18 @@ impl Direction {
 }
 #[derive(Debug, Clone, Hash, Eq)] // FIXME
 pub enum BusWidth {
-	Evaluated(crate::core::NumericConstant),
-	EvaluatedLocated(crate::core::NumericConstant, SourceSpan),
-	Evaluable(SourceSpan),
-	WidthOf(SourceSpan),
+	Evaluated(crate::core::NumericConstant), // in non generic modules
+	EvaluatedLocated(crate::core::NumericConstant, SourceSpan), // in non generic modules
+	Evaluable(SourceSpan), // in generic modules
+	WidthOf(SourceSpan),  // in generic modules
 }
 impl PartialEq for BusWidth {
     fn eq(&self, other: &Self) -> bool {
+		use BusWidth::*;
         match (self, other) {
-            (Self::Evaluated(l0), Self::Evaluated(r0)) => l0 == r0,
-            (Self::EvaluatedLocated(l0, _), Self::EvaluatedLocated(r0, _)) => l0 == r0,
-            (Self::WidthOf(_), _) => true,
+            (Evaluated(l0), Evaluated(r0)) => l0 == r0,
+            (EvaluatedLocated(l0, _), EvaluatedLocated(r0, _)) => l0 == r0,
+            (WidthOf(_), _) => true,
             (BusWidth::Evaluated(l0), BusWidth::EvaluatedLocated(r0, _)) => l0==r0,
             (_, BusWidth::Evaluable(_)) => true,
             (_, BusWidth::WidthOf(_)) => true,
@@ -85,6 +88,24 @@ impl PartialEq for BusWidth {
     }
 }
 impl BusWidth {
+	pub fn to_generic(&mut self) {
+		use BusWidth::*;
+		match self {
+			EvaluatedLocated(_, location) => *self = Evaluable(*location),
+			Evaluated(_) => (),
+			Evaluable(_) => (),
+			WidthOf(_) => (),
+		}
+	}
+	pub fn get_location(&self) -> Option<SourceSpan> {
+		use BusWidth::*;
+		match self {
+			EvaluatedLocated(_, location) => Some(*location),
+			Evaluated(_) => None,
+			Evaluable(location) => Some(*location),
+			WidthOf(location) => Some(*location),
+		}
+	}
 	pub fn get_value(&self) -> Option<BigInt> {
 		use BusWidth::*;
 		match self {
@@ -197,6 +218,18 @@ impl Signal {
 			direction: Direction::None,
 		}
 	}
+	pub fn new_bus_with_sensitivity(width: BusWidth, signedness: SignalSignedness, sensitivity: SignalSensitivity, location: SourceSpan) -> Self {
+		Self {
+			signal_type: SignalType::Bus(BusType {
+				width: Some(width),
+				signedness,
+				location,
+			}),
+			dimensions: Vec::new(),
+			sensitivity,
+			direction: Direction::None,
+		}
+	}
 	pub fn is_wire(&self) -> bool {
 		use SignalType::*;
 		match &self.signal_type {
@@ -234,7 +267,7 @@ impl Signal {
 		match &self.signal_type {
 			Bus(bus) => bus.width.clone(),
 			Auto(_) => None,
-			Wire(_) => None,
+			Wire(_) => Some(BusWidth::Evaluated(crate::core::NumericConstant::new_true())),
 		}
 	}
 	pub fn set_width(&mut self, width: BusWidth, signedness: SignalSignedness, location: SourceSpan) {
@@ -279,6 +312,14 @@ impl Signal {
 			_ => true,
 		}
 	}
+	pub fn get_signedness(&self) -> SignalSignedness{
+		use SignalType::*;
+		match &self.signal_type {
+			Bus(bus) => bus.signedness.clone(),
+			Auto(_) => panic!("Auto type has no signedness"),
+			Wire(loc) => SignalSignedness::Unsigned(*loc),
+		}
+	}
 	pub fn is_width_specified(&self) -> bool {
 		use SignalType::*;
 		match &self.signal_type {
@@ -321,6 +362,15 @@ impl Signal {
 			Some(value) => Some(BusWidth::Evaluated(crate::core::NumericConstant::new(BigInt::from(value),None,None,None))),
 			None => None, // error FIXME
 		};
+		if width.clone().unwrap().get_value().unwrap() == 1.into() {
+			Self {
+				signal_type: SignalType::Wire(location),
+				dimensions: Vec::new(),
+				sensitivity: SignalSensitivity::NoSensitivity,
+				direction: Direction::None,
+			}
+		}
+		else {
 		Self {
 			signal_type: SignalType::Bus(BusType {
 				width,
@@ -331,6 +381,7 @@ impl Signal {
 			sensitivity: SignalSensitivity::Const(location),
 			direction: Direction::None,
 		}
+	}
 	}
 	//pub fn combine_two(&mut self, other: &Signal, location: SourceSpan) -> miette::Result<()> {
 	//	if self.dimensions != other.dimensions {

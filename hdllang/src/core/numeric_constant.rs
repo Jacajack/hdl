@@ -1,6 +1,6 @@
 use log::debug;
 use num_bigint::BigInt;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::value};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum NumericConstantBase {
@@ -34,7 +34,16 @@ impl NumericConstant {
 		assert!(num.consistency_check());
 		num
 	}
-
+	pub fn new_from_value(value: BigInt) -> Self{
+		let num = Self {
+			value,
+			width: None,
+			signed: None,
+			base: None,
+		};
+		assert!(num.consistency_check());
+		num
+	}
 	pub fn new(value: BigInt, width: Option<u32>, signed: Option<bool>, base: Option<NumericConstantBase>) -> Self {
 		let num = Self {
 			value,
