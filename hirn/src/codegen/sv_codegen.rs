@@ -293,23 +293,10 @@ impl<'a> Codegen for SVCodegen<'a> {
 			.get_module_handle(module)
 			.ok_or(CodegenError::InvalidModuleId(module))?;
 
-		// TODO skip param list if empty
-		// TODO param list
-		// TODO how to check if module is generic
-
 		let mut interface_signal_ids = HashSet::new();
 		for sig in m.interface() {
 			interface_signal_ids.insert(sig.signal);
 		}
-
-		emitln!(
-			self,
-			w,
-			"module {} #(",
-			self.mangle_module_name(m.name(), m.namespace_path())
-		)?;
-		self.begin_indent();
-		emitln!(self, w, "/* parameters */")?;
 
 		let mut last_param_id = None;
 		let mut last_interface_id = None;
@@ -325,41 +312,53 @@ impl<'a> Codegen for SVCodegen<'a> {
 			}
 		}
 
-		for sig in m.interface() {
-			if matches!(
-				self.design.get_signal(sig.signal).unwrap().sensitivity,
-				SignalSensitivity::Generic
-			) {
-				emitln!(
-					self, w,
-					"{}{}",
-					self.module_parameter_definition(sig),
-					if last_param_id == Some(sig.signal) {""} else {","}
-				)?; 
+		emit!(self, w, "module {}", self.mangle_module_name(m.name(), m.namespace_path()))?;
+		if last_param_id.is_some() {
+			emitln!(self, w, "#(");
+			self.begin_indent();
+			emitln!(self, w, "/* parameters */")?;
+
+			for sig in m.interface() {
+				if matches!(
+					self.design.get_signal(sig.signal).unwrap().sensitivity,
+					SignalSensitivity::Generic
+				) {
+					emitln!(
+						self, w,
+						"{}{}",
+						self.module_parameter_definition(sig),
+						if last_param_id == Some(sig.signal) {""} else {","}
+					)?; 
+				}
 			}
+
+			self.end_indent();
+			emit!(self, w, ")")?;
 		}
 
-		self.end_indent();
-		emitln!(self, w, ")(")?;
-		self.begin_indent();
-		emitln!(self, w, "/* interface */")?;
+		if last_interface_id.is_some() {
+			emitln!(self, w, "(")?;	
+			self.begin_indent();
+			emitln!(self, w, "/* interface */")?;
 
-		for sig in m.interface(){
-			if !matches!(
-				self.design.get_signal(sig.signal).unwrap().sensitivity,
-				SignalSensitivity::Generic
-			) {
-				emitln!(
-					self, w,
-					"{}{}",
-					self.module_interface_definition(m.clone(), sig),
-					if last_interface_id == Some(sig.signal) {""} else {","}
-				)?; 
+			for sig in m.interface(){
+				if !matches!(
+					self.design.get_signal(sig.signal).unwrap().sensitivity,
+					SignalSensitivity::Generic
+				) {
+					emitln!(
+						self, w,
+						"{}{}",
+						self.module_interface_definition(m.clone(), sig),
+						if last_interface_id == Some(sig.signal) {""} else {","}
+					)?; 
+				}
 			}
-		}
 
-		self.end_indent();
-		emitln!(self, w, ");")?;
+			self.end_indent();
+			emit!(self, w, ")")?;
+		}
+		emitln!(self, w, ";")?;
 
 		self.begin_indent();
 		self.emit_scope(w, m.scope().id(), true, interface_signal_ids)?;
