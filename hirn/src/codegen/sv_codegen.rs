@@ -314,7 +314,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 
 		emit!(self, w, "module {}", self.mangle_module_name(m.name(), m.namespace_path()))?;
 		if last_param_id.is_some() {
-			emitln!(self, w, "#(");
+			emitln!(self, w, " #(")?;
 			self.begin_indent();
 			emitln!(self, w, "/* parameters */")?;
 
