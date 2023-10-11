@@ -326,7 +326,11 @@ impl ModuleImplementation {
 
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		match &self.statement {
-			ModuleImplementationBlockStatement(block) => block.codegen_pass(ctx, local_ctx, &mut api_scope)?,
+			ModuleImplementationBlockStatement(block) => {
+				for statement in &block.statements {
+					statement.codegen_pass(ctx, local_ctx, &mut api_scope)?;
+				}
+			},
 			_ => unreachable!(),
 		};
 		debug!(
