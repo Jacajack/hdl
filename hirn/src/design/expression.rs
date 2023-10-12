@@ -7,6 +7,7 @@ mod dims_eval;
 mod eval;
 mod narrow_eval;
 
+use num_bigint::Sign;
 pub use numeric_constant::NumericConstant;
 pub use expression_width::WidthExpression;
 pub use eval::{EvalError, EvalContext, Evaluates, EvaluatesDimensions, EvaluatesType, EvalDims, EvalType};
@@ -80,6 +81,46 @@ pub enum BuiltinOp {
 	Width(Box<Expression>),
 }
 
+impl BuiltinOp {
+	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
+		use BuiltinOp::*;
+		match self {
+			ZeroExtend{expr, width}
+			| SignExtend{expr, width} => {
+				f(expr)?;
+				f(width)?;
+			},
+
+			BusSelect{expr, msb, lsb} => {
+				f(expr)?;
+				f(lsb)?;
+				f(msb)?;
+			},
+
+			BitSelect{expr, index} => {
+				f(expr)?;
+				f(index)?;
+			},
+
+			Replicate{expr, count} => {
+				f(expr)?;
+				f(count)?;
+			},
+
+			Join(exprs) => {
+				for expr in exprs {
+					f(expr)?;
+				}
+			},
+
+			Width(expr) => {
+				f(expr)?;
+			},
+		}
+		Ok(())
+	}
+}
+
 /// Represents a conditional expression branch
 #[derive(Clone, Debug)]
 pub struct ConditionalExpressionBranch {
@@ -130,6 +171,15 @@ impl ConditionalExpression {
 	fn add_branch(&mut self, condition: Expression, value: Expression) {
 		self.branches.push(ConditionalExpressionBranch { condition, value });
 	}
+
+	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
+		f(&mut self.default)?;
+		for branch in &mut self.branches {
+			f(&mut branch.condition)?;
+			f(&mut branch.value)?;
+		}
+		Ok(())
+	}
 }
 
 /// A helper class for constructing conditional/match expressions
@@ -168,6 +218,13 @@ pub struct CastExpression {
 	pub src: Box<Expression>,
 }
 
+impl CastExpression {
+	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
+		f(&mut self.src)?;
+		Ok(())
+	}
+}
+
 /// A binary expression
 #[derive(Clone, Debug)]
 pub struct BinaryExpression {
@@ -181,6 +238,14 @@ pub struct BinaryExpression {
 	pub rhs: Box<Expression>,
 }
 
+impl BinaryExpression {
+	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
+		f(&mut self.lhs)?;
+		f(&mut self.rhs)?;
+		Ok(())
+	}
+}
+
 /// A unary expression
 #[derive(Clone, Debug)]
 pub struct UnaryExpression {
@@ -189,6 +254,13 @@ pub struct UnaryExpression {
 
 	/// Operand expression
 	pub operand: Box<Expression>,
+}
+
+impl UnaryExpression {
+	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
+		f(&mut self.operand)?;
+		Ok(())
+	}
 }
 
 /// Language expression
@@ -305,6 +377,24 @@ impl Expression {
 			// TODO index/range expression drive
 			_ => None,
 		}
+	}
+
+	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
+		use Expression::*;
+		match self {
+			Binary(expr) => expr.transform(f)?,
+			Unary(expr) => expr.transform(f)?,
+			Conditional(expr) => expr.transform(f)?,
+			Builtin(expr) => expr.transform(f)?,
+			Cast(expr) => expr.transform(f)?,
+			Constant(_) => (),
+			Signal(slice) => {
+				for index_expr in &mut slice.indices {
+					f(index_expr)?;
+				}
+			},
+		}
+		Ok(())
 	}
 
 	// TODO reduction AND/OR/XOR
