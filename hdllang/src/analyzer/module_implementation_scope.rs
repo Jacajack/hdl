@@ -24,6 +24,7 @@ impl InternalVariableId {
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleImplementationScope {
 	pub evaluated_expressions: HashMap<SourceSpan, crate::parser::ast::Expression>,
+	pub enriched_constants: HashMap<SourceSpan, crate::core::NumericConstant>,
 	scopes: Vec<InternalScope>,
 	is_generic: bool,
 	api_ids: HashMap<InternalVariableId, SignalId>,
@@ -59,6 +60,48 @@ pub trait ScopeTrait {
 	fn is_generic(&self) -> bool;
 }
 impl ModuleImplementationScope {
+	pub fn transorm_to_generic(&mut self) {
+		debug!("Transforming scope to generic");
+		for scope in self.scopes.iter_mut() {
+			for var in scope.variables.values_mut() {
+				match &mut var.var.kind {
+					VariableKind::Signal(sig) => {
+						sig.dimensions.iter_mut().for_each(|dim|{
+							debug!("Transforming dimension {:?} to generic", dim);
+							dim.to_generic();
+							debug!("Transformed dimension {:?} to generic", dim);
+						});
+						use crate::analyzer::SignalType::*;
+						match &mut sig.signal_type {
+        					Bus(bus) => match &mut bus.width{
+                				Some(w) => w.to_generic(),
+                				None => (),
+            				},
+        					Wire(_) => (),
+        					Auto(_) => unreachable!(),
+   						}
+
+					},
+					VariableKind::Generic(gen) => {
+						gen.dimensions.iter_mut().for_each(|dim|{
+							debug!("Transforming dimension {:?} to generic", dim);
+							dim.to_generic();
+							debug!("Transformed dimension {:?} to generic", dim);
+						});
+						match &mut gen.value{ // unreachable!(),
+							Some(val) => {
+								debug!("Transforming value {:?} to generic", val);
+								val.to_generic();
+								debug!("Transformed value {:?} to generic", val);
+							},
+							None => (),
+						}
+					},
+					VariableKind::ModuleInstance(_) => unreachable!("Module instantion can't be declared in module implementation scope"),
+				}
+			}
+		}
+	}
 	pub fn new() -> Self {
 		Self {
 			evaluated_expressions: HashMap::new(),
@@ -68,6 +111,7 @@ impl ModuleImplementationScope {
 			internal_ids: HashMap::new(),
 			is_generic: false,
 			coupling_vars: HashMap::new(),
+			enriched_constants: HashMap::new(),
 		}
 	}
 	pub fn add_coupling(&mut self, from: IdTableKey, to: IdTableKey, scope_id: usize) {
@@ -209,7 +253,7 @@ impl ModuleImplementationScope {
 		self.scopes[0].variables.insert(name, defined);
 		Ok(())
 	}
-	pub fn second_pass(&self, ctx: &GlobalAnalyzerContext) -> miette::Result<()> {
+	pub fn second_pass(&self, _: &GlobalAnalyzerContext) -> miette::Result<()> {
 		for scope in &self.scopes {
 			for var in scope.variables.values() {
 				match &var.var.kind {
