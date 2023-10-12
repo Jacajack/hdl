@@ -6,7 +6,7 @@ use std::io::Write;
 
 use crate::{
 	analyzer::{BusWidth, ModuleImplementationScope, Signal, SignalSignedness},
-	core::IdTable,
+	core::{IdTable, NumericConstant},
 	lexer::{IdTableKey, NumericConstantTableKey},
 	parser::ast::{
 		analyze_qualifiers, ModuleImplementation, ModuleImplementationBlockStatement, ModuleImplementationStatement,
@@ -102,7 +102,7 @@ pub fn combine<'a>(
 				},
 				Some(implementation) => {
 					generic_modules.insert(name.clone(), *implementation);
-					//modules_implemented.remove(&name);
+					modules_implemented.remove(&name);
 				},
 			}
 		}
@@ -115,7 +115,6 @@ pub fn combine<'a>(
 		nc_table,
 		modules_declared,
 		generic_modules,
-		//scope: HashMap::new(),
 		design,
 	};
 
@@ -237,7 +236,8 @@ pub struct GlobalAnalyzerContext<'a> {
 /// Per module context for semantic analysis
 pub struct LocalAnalyzerContex {
 	pub scope: ModuleImplementationScope,
-	pub nc_widths: HashMap<NumericConstantTableKey, SignalSignedness>,
+	pub nc_widths: HashMap<NumericConstantTableKey, NumericConstant>,
+	pub widths_map: HashMap<SourceSpan, BusWidth>,
 	pub scope_map: HashMap<SourceSpan, usize>,
 	pub module_id: IdTableKey,
 }
@@ -248,6 +248,7 @@ impl LocalAnalyzerContex {
 			scope_map: HashMap::new(),
 			module_id,
 			nc_widths: HashMap::new(),
+			widths_map: HashMap::new(),
 		}
 	}
 }
@@ -331,7 +332,11 @@ impl ModuleImplementation {
 
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		match &self.statement {
-			ModuleImplementationBlockStatement(block) => block.codegen_pass(ctx, local_ctx, &mut api_scope)?,
+			ModuleImplementationBlockStatement(block) => {
+				for statement in &block.statements {
+					statement.codegen_pass(ctx, local_ctx, &mut api_scope)?;
+				}
+			},
 			_ => unreachable!(),
 		};
 		debug!(
@@ -354,6 +359,24 @@ impl ModuleImplementationStatement {
 			VariableBlock(block) => block.analyze(ctx, local_ctx, AlreadyCreated::new(), scope_id)?,
 			VariableDefinition(definition) => definition.analyze(AlreadyCreated::new(), ctx, local_ctx, scope_id)?,
 			AssignmentStatement(assignment) => {
+				if assignment.lhs.is_generic(ctx, scope_id, local_ctx)? {
+					debug!("Lhs is generic");
+					match assignment.rhs.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)? {
+						Some(val) => {
+							assignment.lhs.assign(
+								BusWidth::EvaluatedLocated(val, assignment.rhs.get_location()),
+								local_ctx,
+								scope_id,
+							);
+						},
+						None => assignment.lhs.assign(
+							BusWidth::Evaluable(assignment.rhs.get_location()),
+							local_ctx,
+							scope_id,
+						),
+					}
+					return Ok(());
+				}
 				let lhs_type = assignment.lhs.evaluate_type(
 					ctx,
 					scope_id,
@@ -534,23 +557,37 @@ impl ModuleImplementationStatement {
 			VariableBlock(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
 			VariableDefinition(definition) => definition.codegen_pass(ctx, local_ctx, api_scope)?,
 			AssignmentStatement(assignment) => {
-				let lhs = assignment.lhs.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?;
-				let rhs = assignment.rhs.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?;
-				api_scope
-					.assign(lhs, rhs)
-					.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
+				let lhs = assignment
+					.lhs
+					.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
+				let rhs = assignment
+					.rhs
+					.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
+				use crate::parser::ast::AssignmentOpcode::*;
+				match assignment.assignment_opcode {
+					Equal => api_scope
+						.assign(lhs, rhs)
+						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
+					PlusEqual => todo!(), // does it make sense?
+					AndEqual => api_scope
+						.assign(lhs.clone(), lhs & rhs)
+						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
+					XorEqual => api_scope
+						.assign(lhs.clone(), lhs ^ rhs)
+						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
+					OrEqual => api_scope
+						.assign(lhs.clone(), lhs | rhs)
+						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
+				};
+
 				debug!("Assignment done");
-				debug!(
-					"Module: {:?}",
-					ctx.modules_declared.get(&local_ctx.module_id).unwrap().handle
-				);
 			},
 			IfElseStatement(conditional) => {
 				let mut inner_scope = api_scope
 					.if_scope(
 						conditional
 							.condition
-							.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?,
+							.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?,
 					)
 					.unwrap();
 				conditional
@@ -558,9 +595,10 @@ impl ModuleImplementationStatement {
 					.codegen_pass(ctx, local_ctx, &mut inner_scope)?;
 				match conditional.else_statement {
 					Some(ref else_statement) => {
-						let expr = conditional
-							.condition
-							.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?;
+						let expr =
+							conditional
+								.condition
+								.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
 						let mut else_scope = api_scope
 							.if_scope(hirn::Expression::Unary(UnaryExpression {
 								op: hirn::UnaryOp::LogicalNot,
@@ -684,10 +722,7 @@ impl VariableDefinition {
 									.build(),
 							));
 						}
-						dimensions.push(BusWidth::EvaluatedLocated(
-							val.value.clone(),
-							array_declarator.get_location(),
-						));
+						dimensions.push(BusWidth::EvaluatedLocated(val.clone(), array_declarator.get_location()));
 					},
 					None => dimensions.push(BusWidth::Evaluable(array_declarator.get_location())),
 				}
@@ -698,7 +733,6 @@ impl VariableDefinition {
 				Variable {
 					name: direct_initializer.declarator.name,
 					kind: kind.clone(),
-					//dimensions,
 					location: direct_initializer.declarator.get_location(),
 				},
 			)?;
@@ -748,7 +782,10 @@ impl VariableDefinition {
 			)?;
 			match &direct_initializer.expression {
 				Some(expr) => api_scope
-					.assign(api_id.into(), expr.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?)
+					.assign(
+						api_id.into(),
+						expr.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?,
+					)
 					.unwrap(),
 				None => (),
 			}

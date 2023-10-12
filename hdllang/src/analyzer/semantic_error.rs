@@ -79,6 +79,18 @@ pub enum SemanticError {
 	ExpressionNonIndexable,
 	#[error("Index out of bounds")]
 	IndexOutOfBounds,
+	#[error("Conditional and match expressions must have a default branch")]
+	ConditionalWithoutDefault,
+	#[error("It is not allowed to use array in this expression")]
+	ArrayInExpression,
+	#[error("It is not allowed to mix signed and unsigned types in expressions")]
+	SignednessMismatch,
+	#[error("It is not allowed to use this type as a cast target")]
+	BadCast,
+	#[error("There is no such built-in function")]
+	UnknownBuiltInFunction,
+	#[error("Bad function arguments")]
+	BadFunctionArguments,
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -198,6 +210,24 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
 			IndexOutOfBounds => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all indices are in bounds")
+				.build(),
+			ConditionalWithoutDefault => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all conditional and match expressions have default branch")
+				.build(),
+			ArrayInExpression => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all expressions are not arrays")
+				.build(),
+			SignednessMismatch => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all expressions have the same signedness")
+				.build(),
+			BadCast => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all casts are valid")
+				.build(),
+			UnknownBuiltInFunction => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all used functions are valid")
+				.build(),
+			BadFunctionArguments => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all function arguments are valid")
 				.build(),
 		}
 	}

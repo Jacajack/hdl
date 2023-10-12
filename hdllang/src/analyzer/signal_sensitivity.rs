@@ -23,6 +23,18 @@ impl ClockSensitivityList {
 		}
 		false
 	}
+	pub fn add_clock(&mut self, clk: EdgeSensitivity) {
+		if !self.contains_clock(clk.clock_signal) {
+			self.list.push(clk);
+		}
+	}
+	pub fn combine_two(&self, other: &ClockSensitivityList) -> Self {
+		let mut result = self.clone();
+		for edge in &other.list {
+			result.add_clock(*edge);
+		}
+		result
+	}
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum SignalSensitivity {
@@ -44,6 +56,28 @@ impl SignalSensitivity {
 			Clock(_) => "clock",
 			Const(_) => "const",
 			NoSensitivity => "none",
+		}
+	}
+	pub fn evaluate_sensitivity(&mut self, others: Vec<SignalSensitivity>, location: SourceSpan) {
+		use SignalSensitivity::*;
+		for sens in others {
+			match (&self, &sens) {
+				(Async(_), _) => return,
+				(_, Async(_)) => *self = sens.clone(),
+				(Comb(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
+				(Comb(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
+				(Comb(..), Clock(_)) => *self = sens.clone(),
+				(Comb(..), Const(_)) => (),
+				(_, NoSensitivity) => (),
+				(Sync(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
+				(Sync(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
+				(Sync(..), Clock(_)) => *self = sens.clone(),
+				(Sync(..), Const(_)) => (),
+				(Clock(_), _) => (),
+				(Const(_), Const(_)) => (),
+				(Const(_), _) => *self = sens.clone(),
+				(NoSensitivity, _) => *self = sens.clone(),
+			}
 		}
 	}
 	pub fn location(&self) -> Option<&SourceSpan> {
@@ -149,11 +183,10 @@ impl SignalSensitivity {
 #[cfg(test)]
 mod tests {
 	use super::*;
+	use crate::lexer::IdTable;
 	use crate::lexer::NumericConstantTable;
-	use crate::{core::NumericConstant, lexer::IdTable};
 	use paste::paste;
 	use std::collections::HashMap;
-	use std::hash::Hash;
 	fn ctx<'a>(id_table: &'a IdTable, nc_table: &'a NumericConstantTable) -> GlobalAnalyzerContext<'a> {
 		GlobalAnalyzerContext {
 			id_table,

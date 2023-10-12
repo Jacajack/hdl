@@ -1,6 +1,6 @@
 use log::debug;
 use num_bigint::BigInt;
-use serde::{Deserialize, Serialize};
+use serde::{de::value, Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum NumericConstantBase {
@@ -10,14 +10,18 @@ pub enum NumericConstantBase {
 	Boolean,
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, Serialize, Deserialize, Eq, Hash)]
 pub struct NumericConstant {
 	pub value: BigInt,
 	pub width: Option<u32>,
 	pub signed: Option<bool>,
 	pub base: Option<NumericConstantBase>,
 }
-
+impl PartialEq for NumericConstant {
+	fn eq(&self, other: &Self) -> bool {
+		self.value == other.value
+	}
+}
 impl NumericConstant {
 	/// Creates a new numeric constant from u64
 	pub fn from_u64(value: u64, width: Option<u32>, signed: Option<bool>, base: Option<NumericConstantBase>) -> Self {
@@ -30,7 +34,16 @@ impl NumericConstant {
 		assert!(num.consistency_check());
 		num
 	}
-
+	pub fn new_from_value(value: BigInt) -> Self {
+		let num = Self {
+			value,
+			width: None,
+			signed: None,
+			base: None,
+		};
+		assert!(num.consistency_check());
+		num
+	}
 	pub fn new(value: BigInt, width: Option<u32>, signed: Option<bool>, base: Option<NumericConstantBase>) -> Self {
 		let num = Self {
 			value,

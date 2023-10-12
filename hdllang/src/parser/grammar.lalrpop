@@ -424,13 +424,13 @@ PrimaryExpression : Expression = {
 			expression: Box::new(expression),
 			location:SourceSpan::new_between(start,end)
 		}),	
-	<start:@L> "match" "(" <value:Expr> ")" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
+	<start:@L> "match" <end:@R> "(" <value:Expr> ")" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" =>
 		Expression::MatchExpression(MatchExpression{
 			value: Box::new(value),
 			statements,
 			location:SourceSpan::new_between(start,end),
 		}),
-	<start:@L> "conditional" "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" <end:@R> =>
+	<start:@L> "conditional" <end:@R> "{" <statements:NonEmptyOptComma<MatchExpressionStatement>> "}" =>
 		Expression::ConditionalExpression(ConditionalExpression{
 			statements,
 			location:SourceSpan::new_between(start,end),

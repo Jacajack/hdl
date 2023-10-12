@@ -86,10 +86,7 @@ impl VariableDeclarationStatement {
 									.build(),
 							));
 						}
-						dimensions.push(BusWidth::EvaluatedLocated(
-							val.value.clone(),
-							array_declarator.get_location(),
-						));
+						dimensions.push(BusWidth::EvaluatedLocated(val.clone(), array_declarator.get_location()));
 					},
 					None => dimensions.push(BusWidth::Evaluable(array_declarator.get_location())),
 				}
@@ -198,24 +195,39 @@ impl VariableKind {
 					current_scope,
 					id_table,
 				)?;
-				let width = bus.width.evaluate(nc_table, current_scope, scope)?;
 				scope
 					.evaluated_expressions
 					.insert(bus.width.get_location(), *bus.width.clone());
-				let w = match &width {
-					Some(val) => {
-						if val.value <= num_bigint::BigInt::from(0) {
-							return Err(miette::Report::new(
-								SemanticError::NegativeBusWidth
-									.to_diagnostic_builder()
-									.label(bus.width.get_location(), "Array size must be positive")
-									.build(),
-							));
-						}
-						BusWidth::EvaluatedLocated(val.value.clone(), bus.width.get_location())
-					},
-					None => BusWidth::Evaluable(bus.width.get_location()),
+				let width = bus.width.evaluate(nc_table, current_scope, scope)?;
+				let w = if scope.is_generic() {
+					match &width {
+						Some(val) => {
+							if val.value <= num_bigint::BigInt::from(0) {
+								return Err(miette::Report::new(
+									SemanticError::NegativeBusWidth
+										.to_diagnostic_builder()
+										.label(bus.width.get_location(), "Array size must be positive")
+										.build(),
+								));
+							}
+							BusWidth::Evaluable(bus.width.get_location())
+						},
+						None => BusWidth::Evaluable(bus.width.get_location()),
+					}
+				}
+				else {
+					let value = width.unwrap();
+					if &value.value <= &num_bigint::BigInt::from(0) {
+						return Err(miette::Report::new(
+							SemanticError::NegativeBusWidth
+								.to_diagnostic_builder()
+								.label(bus.width.get_location(), "Array size must be positive")
+								.build(),
+						));
+					}
+					BusWidth::EvaluatedLocated(value, bus.width.get_location())
 				};
+
 				Ok(VariableKind::Signal(Signal {
 					signal_type: SignalType::Bus(BusType {
 						width: Some(w),
