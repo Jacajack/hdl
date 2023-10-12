@@ -87,6 +87,10 @@ pub enum SemanticError {
 	SignednessMismatch,
 	#[error("It is not allowed to use this type as a cast target")]
 	BadCast,
+	#[error("There is no such built-in function")]
+	UnknownBuiltInFunction,
+	#[error("Bad function arguments")]
+	BadFunctionArguments,
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -218,6 +222,12 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
     		BadCast => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all casts are valid")
+				.build(),
+    		UnknownBuiltInFunction => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all used functions are valid")
+				.build(),
+    		BadFunctionArguments => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all function arguments are valid")
 				.build(),
 		}
 	}

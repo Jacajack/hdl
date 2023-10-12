@@ -632,6 +632,7 @@ impl Expression {
 	pub fn get_slice(
 		&self,
 		nc_table: &crate::lexer::NumericConstantTable,
+		id_table: &crate::lexer::IdTable,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
 	) -> miette::Result<SignalSlice> {
@@ -645,8 +646,8 @@ impl Expression {
 				})
 			},
 			PostfixWithIndex(ind) => {
-				let index_expr = ind.index.codegen(nc_table, scope_id, scope)?;
-				let mut slice = ind.expression.get_slice(nc_table, scope_id, scope)?;
+				let index_expr = ind.index.codegen(nc_table, id_table, scope_id, scope)?;
+				let mut slice = ind.expression.get_slice(nc_table, id_table, scope_id, scope)?;
 				slice.indices.push(index_expr);
 				Ok(slice)
 			},
@@ -656,6 +657,7 @@ impl Expression {
 	pub fn codegen(
 		&self,
 		nc_table: &crate::lexer::NumericConstantTable,
+		id_table: &crate::lexer::IdTable,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
 	) -> miette::Result<hirn::Expression> {
@@ -690,24 +692,24 @@ impl Expression {
 				let signal_id = scope.get_api_id(scope_id, &id.id).unwrap();
 				Ok(signal_id.into())
 			},
-			ParenthesizedExpression(expr) => expr.expression.codegen(nc_table, scope_id, scope),
+			ParenthesizedExpression(expr) => expr.expression.codegen(nc_table, id_table, scope_id, scope),
 			MatchExpression(match_expr) => {
 				let def = match_expr.get_default().unwrap();
-				let mut builder = hirn::Expression::new_conditional(def.expression.codegen(nc_table, scope_id, scope)?);
+				let mut builder = hirn::Expression::new_conditional(def.expression.codegen(nc_table, id_table, scope_id, scope)?);
 				for stmt in &match_expr.statements {
-					let cond = match_expr.value.codegen(nc_table, scope_id, scope)?;
+					let cond = match_expr.value.codegen(nc_table, id_table, scope_id, scope)?;
 					match &stmt.antecedent {
 						MatchExpressionAntecendent::Expression {
 							expressions,
 							location: _,
 						} => {
-							let val = stmt.expression.codegen(nc_table, scope_id, scope)?;
+							let val = stmt.expression.codegen(nc_table, id_table, scope_id, scope)?;
 							for expr in expressions {
 								builder = builder.branch(
 									hirn::Expression::Binary(hirn::design::expression::BinaryExpression {
 										lhs: Box::new(cond.clone()),
 										op: hirn::design::expression::BinaryOp::Equal,
-										rhs: Box::new(expr.codegen(nc_table, scope_id, scope)?),
+										rhs: Box::new(expr.codegen(nc_table, id_table, scope_id, scope)?),
 									}),
 									val.clone(),
 								);
@@ -720,16 +722,16 @@ impl Expression {
 			},
 			ConditionalExpression(cond) => {
 				let def = cond.get_default().unwrap();
-				let mut builder = hirn::Expression::new_conditional(def.expression.codegen(nc_table, scope_id, scope)?);
+				let mut builder = hirn::Expression::new_conditional(def.expression.codegen(nc_table, id_table, scope_id, scope)?);
 				for stmt in &cond.statements {
 					match &stmt.antecedent {
 						MatchExpressionAntecendent::Expression {
 							expressions,
 							location: _,
 						} => {
-							let val = stmt.expression.codegen(nc_table, scope_id, scope)?;
+							let val = stmt.expression.codegen(nc_table, id_table, scope_id, scope)?;
 							for expr in expressions {
-								builder = builder.branch(expr.codegen(nc_table, scope_id, scope)?, val.clone());
+								builder = builder.branch(expr.codegen(nc_table, id_table, scope_id, scope)?, val.clone());
 							}
 						},
 						MatchExpressionAntecendent::Default { location: _ } => (),
@@ -739,35 +741,91 @@ impl Expression {
 			},
 			Tuple(_) => unreachable!(),
 			TernaryExpression(ternary) => {
-				let cond = ternary.condition.codegen(nc_table, scope_id, scope)?;
-				let true_branch = ternary.true_branch.codegen(nc_table, scope_id, scope)?;
-				let false_branch = ternary.false_branch.codegen(nc_table, scope_id, scope)?;
+				let cond = ternary.condition.codegen(nc_table, id_table, scope_id, scope)?;
+				let true_branch = ternary.true_branch.codegen(nc_table, id_table, scope_id, scope)?;
+				let false_branch = ternary.false_branch.codegen(nc_table, id_table, scope_id, scope)?;
 				let builder = hirn::Expression::new_conditional(false_branch);
 				Ok(builder.branch(cond, true_branch).build())
 			},
 			PostfixWithIndex(ind) => {
-				let index = ind.index.codegen(nc_table, scope_id, scope)?;
-				let mut expr = ind.expression.get_slice(nc_table, scope_id, scope)?;
+				let index = ind.index.codegen(nc_table, id_table, scope_id, scope)?;
+				let mut expr = ind.expression.get_slice(nc_table, id_table, scope_id, scope)?;
 				expr.indices.push(index);
 				Ok(hirn::Expression::Signal(expr))
 			},
 			PostfixWithRange(range) => {
-				let expr = range.expression.codegen(nc_table, scope_id, scope)?;
+				let expr = range.expression.codegen(nc_table, id_table, scope_id, scope)?;
 				Ok(hirn::Expression::Builtin(
 					hirn::design::expression::BuiltinOp::BitSelect {
 						expr: Box::new(expr),
-						msb: Box::new(range.range.lhs.codegen(nc_table, scope_id, scope)?),
-						lsb: Box::new(range.range.rhs.codegen(nc_table, scope_id, scope)?),
+						msb: Box::new(range.range.lhs.codegen(nc_table, id_table, scope_id, scope)?),
+						lsb: Box::new(range.range.rhs.codegen(nc_table, id_table, scope_id, scope)?),
 					},
 				))
 			},
-			PostfixWithArgs(_) => {
-				todo!("codegen for function call")
+			PostfixWithArgs(function) => {
+				let func_name = id_table.get_value(&function.id);
+				match func_name.as_str(){
+					"trunc" => todo!(),
+					"zext" => {
+						let mut expr = function.argument_list.first().unwrap().codegen(nc_table, id_table, scope_id, scope)?;
+						todo!("read width") 
+					},
+					"sext" => todo!(),
+					"ext" => todo!(),
+					"join" => {
+						let mut exprs = Vec::new();
+						for expr in &function.argument_list {
+							exprs.push(expr.codegen(nc_table, id_table, scope_id, scope)?);
+						}
+						Ok(hirn::Expression::Builtin(
+							hirn::design::expression::BuiltinOp::Join(exprs),
+						))
+					},
+					"rep" => {
+						let expr = function.argument_list.first().unwrap().codegen(nc_table, id_table, scope_id, scope)?;
+						let count = function.argument_list.last().unwrap().codegen(nc_table, id_table, scope_id, scope)?;
+						Ok(hirn::Expression::Builtin(
+							hirn::design::expression::BuiltinOp::Replicate {
+								expr: Box::new(expr),
+								count: Box::new(count),
+							},
+						))
+					},
+					"fold_or" => {
+						let expr = function.argument_list.first().unwrap().codegen(nc_table, id_table, scope_id, scope)?;
+						Ok(hirn::Expression::Unary(
+							hirn::design::expression::UnaryExpression{
+								op: hirn::design::expression::UnaryOp::ReductionOr,
+								operand: Box::new(expr),
+							}
+						))
+					},
+					"fold_xor" => {
+						let expr = function.argument_list.first().unwrap().codegen(nc_table, id_table, scope_id, scope)?;
+						Ok(hirn::Expression::Unary(
+							hirn::design::expression::UnaryExpression{
+								op: hirn::design::expression::UnaryOp::ReductionXor,
+								operand: Box::new(expr),
+							}
+						))
+					},
+					"fold_and" => {
+						let expr = function.argument_list.first().unwrap().codegen(nc_table, id_table, scope_id, scope)?;
+						Ok(hirn::Expression::Unary(
+							hirn::design::expression::UnaryExpression{
+								op: hirn::design::expression::UnaryOp::ReductionAnd,
+								operand: Box::new(expr),
+							}
+						))
+					},
+					_ => unreachable!(),
+				}
 			},
 			PostfixWithId(_) => todo!(),
 			UnaryOperatorExpression(unary) => {
 				use crate::parser::ast::UnaryOpcode::*;
-				let operand = unary.expression.codegen(nc_table, scope_id, scope)?;
+				let operand = unary.expression.codegen(nc_table, id_table, scope_id, scope)?;
 				match unary.code {
 					LogicalNot => Ok(!operand),
 					BitwiseNot => Ok(hirn::Expression::Unary(hirn::design::expression::UnaryExpression {
@@ -781,8 +839,8 @@ impl Expression {
 			UnaryCastExpression(_) => todo!(),
 			BinaryExpression(binop) => {
 				use crate::parser::ast::BinaryOpcode::*;
-				let lhs = binop.lhs.codegen(nc_table, scope_id, scope)?;
-				let rhs = binop.rhs.codegen(nc_table, scope_id, scope)?;
+				let lhs = binop.lhs.codegen(nc_table, id_table, scope_id, scope)?;
+				let rhs = binop.rhs.codegen(nc_table, id_table, scope_id, scope)?;
 				match binop.code {
 					Multiplication => Ok(lhs * rhs),
 					Division => Ok(lhs / rhs),
@@ -1333,8 +1391,149 @@ impl Expression {
 					},
 				}
 			},
-			PostfixWithArgs(_) => {
-				todo!()
+			PostfixWithArgs(function) => {
+				let func_name = global_ctx.id_table.get_value(&function.id);
+				match func_name.as_str(){
+					"trunc" |"zext" | "ext" | "sext" => {
+						if function.argument_list.len() > 1 {
+							return Err(miette::Report::new(
+								SemanticError::BadFunctionArguments
+									.to_diagnostic_builder()
+									.label(function.location, "This function should have only one argument")
+									.build(),
+							));
+						}
+						if ! coupling_type.is_width_specified() {
+							return Err(miette::Report::new(
+								SemanticError::WidthNotKnown
+									.to_diagnostic_builder()
+									.label(function.location, "This function must know the width of the left hand side signal")
+									.build(),
+							))
+						}
+						let mut expr = function.argument_list[0].evaluate_type(
+							global_ctx,
+							scope_id,
+							local_ctx,
+							coupling_type.clone(),
+							is_lhs,
+							location,
+						)?;
+						if ! expr.is_width_specified() {
+							return Err(miette::Report::new(
+								SemanticError::WidthNotKnown
+									.to_diagnostic_builder()
+									.label(function.argument_list[0].get_location(), "This function must know the width of argument")
+									.build(),
+							))
+						}
+						if expr.width().unwrap().get_value().unwrap() > coupling_type.width().unwrap().get_value().unwrap() {
+							return Err(miette::Report::new(
+								SemanticError::WidthMismatch
+									.to_diagnostic_builder()
+									.label(function.argument_list[0].get_location(), "You cannot shrink the width of the signal")
+									.build(),
+							))
+						}
+						expr.set_width(coupling_type.width().unwrap(), expr.get_signedness(), location);
+						//match (func_name.as_str(), expr.get_signedness()){ FIXME
+						//	("ext", _) => (),
+						//	"sext" => (),
+						//	"zext" => (),
+						//	_=> unreachable!(),
+						//}
+						Ok(expr)
+					},
+					"join" => todo!(),
+					"rep" => {
+						if function.argument_list.len() > 2 && function.argument_list.len() > 1 {
+							return Err(miette::Report::new(
+								SemanticError::BadFunctionArguments
+									.to_diagnostic_builder()
+									.label(function.location, "This function should have only one or two arguments")
+									.build(),
+							));
+						}
+						let mut expr = function.argument_list[0].evaluate_type(
+							global_ctx,
+							scope_id,
+							local_ctx,
+							coupling_type,
+							is_lhs,
+							location,
+						)?;
+						let count = function.argument_list[1].evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?.unwrap(); // FIXME
+						if count.value < BigInt::from(1) {
+							return Err(miette::Report::new(
+								SemanticError::BadFunctionArguments
+									.to_diagnostic_builder()
+									.label(function.argument_list[1].get_location(), "This function cannot be applied to a negative number")
+									.build(),
+							));
+						}
+						if expr.is_array() {
+							return Err(miette::Report::new(
+								SemanticError::ArrayInExpression
+									.to_diagnostic_builder()
+									.label(function.argument_list[0].get_location(), "This function cannot be applied to an array")
+									.build(),
+							));
+						}
+						if !expr.is_width_specified() {
+							return Err(miette::Report::new(
+								SemanticError::WidthNotKnown
+									.to_diagnostic_builder()
+									.label(function.argument_list[0].get_location(), "This function must know the width of argument")
+									.build(),
+							))
+						}
+						let new_value = expr.width().unwrap().get_value().unwrap() * count.value;
+						expr.set_width(BusWidth::Evaluated(NumericConstant::new_from_value(new_value)), expr.get_signedness(), location);
+						Ok(expr)
+					},
+					"fold_or" | "fold_xor" | "fold_and" => {
+						if function.argument_list.len() > 1 {
+							return Err(miette::Report::new(
+								SemanticError::BadFunctionArguments
+									.to_diagnostic_builder()
+									.label(function.location, "This function should have only one argument")
+									.build(),
+							));
+						}
+						let mut arg_type = function.argument_list[0].evaluate_type(
+							global_ctx,
+							scope_id,
+							local_ctx,
+							coupling_type,
+							is_lhs,
+							location,
+						)?;
+						if arg_type.is_array() {
+							return Err(miette::Report::new(
+								SemanticError::ArrayInExpression
+									.to_diagnostic_builder()
+									.label(function.argument_list[0].get_location(), "This function cannot be applied to an array")
+									.build(),
+							));
+						}
+						if ! arg_type.is_bus() {
+							return Err(miette::Report::new(
+								SemanticError::BadFunctionArguments
+									.to_diagnostic_builder()
+									.label(function.argument_list[0].get_location(), "This function cannot be applied to a bus")
+									.build(),
+							));
+						}
+						arg_type.set_width(BusWidth::Evaluated(NumericConstant::new_from_value(1.into())), arg_type.get_signedness(), location);
+						Ok(arg_type)
+					},
+					_ => Err(miette::Report::new(
+						SemanticError::UnknownBuiltInFunction
+							.to_diagnostic_builder()
+							.label(function.location, "Unknown builtin function")
+							.build(),
+					))
+				}
 			},
 			PostfixWithId(module) => {
 				let m = local_ctx.scope.get_variable(scope_id, &module.expression);

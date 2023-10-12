@@ -548,17 +548,17 @@ impl Variable {
 								.evaluated_expressions
 								.get(&location)
 								.unwrap()
-								.codegen(nc_table, scope_id, scope)?,
+								.codegen(nc_table, id_table, scope_id, scope)?,
 							Evaluable(location) => scope
 								.evaluated_expressions
 								.get(&location)
 								.unwrap()
-								.codegen(nc_table, scope_id, scope)?,
+								.codegen(nc_table, id_table, scope_id, scope)?,
 							WidthOf(location) => scope 
 								.evaluated_expressions
 								.get(&location)
 								.unwrap()
-								.codegen(nc_table, scope_id, scope)?, //FIXME coming soon
+								.codegen(nc_table, id_table, scope_id, scope)?, //FIXME coming soon
 						};
 						match bus.signedness {
 							SignalSignedness::Signed(_) => builder = builder.signed(width),
@@ -582,7 +582,7 @@ impl Variable {
 								.evaluated_expressions
 								.get(location)
 								.unwrap()
-								.codegen(nc_table, scope_id, scope)?;
+								.codegen(nc_table, id_table, scope_id, scope)?;
 							builder = builder.array(expr).unwrap();
 						},
 						Evaluable(location) => {
@@ -590,7 +590,7 @@ impl Variable {
 								.evaluated_expressions
 								.get(location)
 								.unwrap()
-								.codegen(nc_table, scope_id, scope)?;
+								.codegen(nc_table, id_table, scope_id, scope)?;
 							builder = builder.array(expr).unwrap();
 						},
 						WidthOf(location) => {
@@ -598,7 +598,7 @@ impl Variable {
 								.evaluated_expressions
 								.get(location)
 								.unwrap()
-								.codegen(nc_table, scope_id, scope)?;
+								.codegen(nc_table, id_table, scope_id, scope)?;
 							builder = builder.array(expr).unwrap(); // FIXME it should be width of
 						}
 					}

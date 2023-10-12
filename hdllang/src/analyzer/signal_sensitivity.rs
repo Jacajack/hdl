@@ -184,10 +184,9 @@ impl SignalSensitivity {
 mod tests {
 	use super::*;
 	use crate::lexer::NumericConstantTable;
-	use crate::{core::NumericConstant, lexer::IdTable};
+	use crate::lexer::IdTable;
 	use paste::paste;
 	use std::collections::HashMap;
-	use std::hash::Hash;
 	fn ctx<'a>(id_table: &'a IdTable, nc_table: &'a NumericConstantTable) -> GlobalAnalyzerContext<'a> {
 		GlobalAnalyzerContext {
 			id_table,

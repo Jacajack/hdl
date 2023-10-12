@@ -237,6 +237,7 @@ pub struct GlobalAnalyzerContext<'a> {
 pub struct LocalAnalyzerContex {
 	pub scope: ModuleImplementationScope,
 	pub nc_widths: HashMap<NumericConstantTableKey, NumericConstant>,
+	pub widths_map: HashMap<SourceSpan, BusWidth>,
 	pub scope_map: HashMap<SourceSpan, usize>,
 	pub module_id: IdTableKey,
 }
@@ -247,6 +248,7 @@ impl LocalAnalyzerContex {
 			scope_map: HashMap::new(),
 			module_id,
 			nc_widths: HashMap::new(),
+			widths_map: HashMap::new(),
 		}
 	}
 }
@@ -555,8 +557,8 @@ impl ModuleImplementationStatement {
 			VariableBlock(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
 			VariableDefinition(definition) => definition.codegen_pass(ctx, local_ctx, api_scope)?,
 			AssignmentStatement(assignment) => {
-				let lhs = assignment.lhs.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?;
-				let rhs = assignment.rhs.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?;
+				let lhs = assignment.lhs.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
+				let rhs = assignment.rhs.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
 				use crate::parser::ast::AssignmentOpcode::*;
 				match assignment.assignment_opcode {
 					Equal => api_scope
@@ -581,7 +583,7 @@ impl ModuleImplementationStatement {
 					.if_scope(
 						conditional
 							.condition
-							.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?,
+							.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?,
 					)
 					.unwrap();
 				conditional
@@ -591,7 +593,7 @@ impl ModuleImplementationStatement {
 					Some(ref else_statement) => {
 						let expr = conditional
 							.condition
-							.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?;
+							.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
 						let mut else_scope = api_scope
 							.if_scope(hirn::Expression::Unary(UnaryExpression {
 								op: hirn::UnaryOp::LogicalNot,
@@ -775,7 +777,7 @@ impl VariableDefinition {
 			)?;
 			match &direct_initializer.expression {
 				Some(expr) => api_scope
-					.assign(api_id.into(), expr.codegen(ctx.nc_table, scope_id, &local_ctx.scope)?)
+					.assign(api_id.into(), expr.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?)
 					.unwrap(),
 				None => (),
 			}
