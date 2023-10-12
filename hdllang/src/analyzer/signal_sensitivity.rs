@@ -28,7 +28,7 @@ impl ClockSensitivityList {
 			self.list.push(clk);
 		}
 	}
-	pub fn combine_two(&self, other: &ClockSensitivityList) -> Self{
+	pub fn combine_two(&self, other: &ClockSensitivityList) -> Self {
 		let mut result = self.clone();
 		for edge in &other.list {
 			result.add_clock(*edge);
@@ -62,21 +62,21 @@ impl SignalSensitivity {
 		use SignalSensitivity::*;
 		for sens in others {
 			match (&self, &sens) {
-    			(Async(_), _) => return,
-    			(_, Async(_)) => *self = sens.clone(),
-    			(Comb(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
-    			(Comb(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
-    			(Comb(_, _), Clock(_)) => *self = sens.clone(),
-    			(Comb(_, _), Const(_)) => (),
-    			(_, NoSensitivity) => (),
-    			(Sync(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
-    			(Sync(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
-    			(Sync(_, _), Clock(_)) => *self = sens.clone(),
-    			(Sync(_, _), Const(_)) => (),
-    			(Clock(_), _) => (),
-    			(Const(_), Const(_)) =>(),
+				(Async(_), _) => return,
+				(_, Async(_)) => *self = sens.clone(),
+				(Comb(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
+				(Comb(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
+				(Comb(..), Clock(_)) => *self = sens.clone(),
+				(Comb(..), Const(_)) => (),
+				(_, NoSensitivity) => (),
+				(Sync(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
+				(Sync(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
+				(Sync(..), Clock(_)) => *self = sens.clone(),
+				(Sync(..), Const(_)) => (),
+				(Clock(_), _) => (),
+				(Const(_), Const(_)) => (),
 				(Const(_), _) => *self = sens.clone(),
-    			(NoSensitivity, _) => *self = sens.clone(),
+				(NoSensitivity, _) => *self = sens.clone(),
 			}
 		}
 	}
@@ -183,8 +183,8 @@ impl SignalSensitivity {
 #[cfg(test)]
 mod tests {
 	use super::*;
-	use crate::lexer::NumericConstantTable;
 	use crate::lexer::IdTable;
+	use crate::lexer::NumericConstantTable;
 	use paste::paste;
 	use std::collections::HashMap;
 	fn ctx<'a>(id_table: &'a IdTable, nc_table: &'a NumericConstantTable) -> GlobalAnalyzerContext<'a> {

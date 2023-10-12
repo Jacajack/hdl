@@ -228,7 +228,7 @@ impl ModuleDeclaration {
 			for var in vars {
 				new_scope.declare_variable(var, nc_table, id_table, &mut handle)?;
 			}
-			if new_scope.is_generic(){
+			if new_scope.is_generic() {
 				new_scope.transorm_to_generic();
 			}
 		}

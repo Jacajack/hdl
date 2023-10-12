@@ -66,29 +66,29 @@ impl ModuleImplementationScope {
 			for var in scope.variables.values_mut() {
 				match &mut var.var.kind {
 					VariableKind::Signal(sig) => {
-						sig.dimensions.iter_mut().for_each(|dim|{
+						sig.dimensions.iter_mut().for_each(|dim| {
 							debug!("Transforming dimension {:?} to generic", dim);
 							dim.to_generic();
 							debug!("Transformed dimension {:?} to generic", dim);
 						});
 						use crate::analyzer::SignalType::*;
 						match &mut sig.signal_type {
-        					Bus(bus) => match &mut bus.width{
-                				Some(w) => w.to_generic(),
-                				None => (),
-            				},
-        					Wire(_) => (),
-        					Auto(_) => unreachable!(),
-   						}
-
+							Bus(bus) => match &mut bus.width {
+								Some(w) => w.to_generic(),
+								None => (),
+							},
+							Wire(_) => (),
+							Auto(_) => unreachable!(),
+						}
 					},
 					VariableKind::Generic(gen) => {
-						gen.dimensions.iter_mut().for_each(|dim|{
+						gen.dimensions.iter_mut().for_each(|dim| {
 							debug!("Transforming dimension {:?} to generic", dim);
 							dim.to_generic();
 							debug!("Transformed dimension {:?} to generic", dim);
 						});
-						match &mut gen.value{ // unreachable!(),
+						match &mut gen.value {
+							// unreachable!(),
 							Some(val) => {
 								debug!("Transforming value {:?} to generic", val);
 								val.to_generic();
@@ -97,7 +97,9 @@ impl ModuleImplementationScope {
 							None => (),
 						}
 					},
-					VariableKind::ModuleInstance(_) => unreachable!("Module instantion can't be declared in module implementation scope"),
+					VariableKind::ModuleInstance(_) => {
+						unreachable!("Module instantion can't be declared in module implementation scope")
+					},
 				}
 			}
 		}

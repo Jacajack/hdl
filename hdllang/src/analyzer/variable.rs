@@ -69,23 +69,23 @@ impl Direction {
 pub enum BusWidth {
 	Evaluated(crate::core::NumericConstant), // in non generic modules
 	EvaluatedLocated(crate::core::NumericConstant, SourceSpan), // in non generic modules
-	Evaluable(SourceSpan), // in generic modules
-	WidthOf(SourceSpan),  // in generic modules
+	Evaluable(SourceSpan),                   // in generic modules
+	WidthOf(SourceSpan),                     // in generic modules
 }
 impl PartialEq for BusWidth {
-    fn eq(&self, other: &Self) -> bool {
+	fn eq(&self, other: &Self) -> bool {
 		use BusWidth::*;
-        match (self, other) {
-            (Evaluated(l0), Evaluated(r0)) => l0 == r0,
-            (EvaluatedLocated(l0, _), EvaluatedLocated(r0, _)) => l0 == r0,
-            (WidthOf(_), _) => true,
-            (BusWidth::Evaluated(l0), BusWidth::EvaluatedLocated(r0, _)) => l0==r0,
-            (_, BusWidth::Evaluable(_)) => true,
-            (_, BusWidth::WidthOf(_)) => true,
-            (BusWidth::EvaluatedLocated(l0, _), BusWidth::Evaluated(r0)) => l0 == r0,
-            (BusWidth::Evaluable(_),_) => true,
-        }
-    }
+		match (self, other) {
+			(Evaluated(l0), Evaluated(r0)) => l0 == r0,
+			(EvaluatedLocated(l0, _), EvaluatedLocated(r0, _)) => l0 == r0,
+			(WidthOf(_), _) => true,
+			(BusWidth::Evaluated(l0), BusWidth::EvaluatedLocated(r0, _)) => l0 == r0,
+			(_, BusWidth::Evaluable(_)) => true,
+			(_, BusWidth::WidthOf(_)) => true,
+			(BusWidth::EvaluatedLocated(l0, _), BusWidth::Evaluated(r0)) => l0 == r0,
+			(BusWidth::Evaluable(_), _) => true,
+		}
+	}
 }
 impl BusWidth {
 	pub fn to_generic(&mut self) {
@@ -218,7 +218,12 @@ impl Signal {
 			direction: Direction::None,
 		}
 	}
-	pub fn new_bus_with_sensitivity(width: BusWidth, signedness: SignalSignedness, sensitivity: SignalSensitivity, location: SourceSpan) -> Self {
+	pub fn new_bus_with_sensitivity(
+		width: BusWidth,
+		signedness: SignalSignedness,
+		sensitivity: SignalSensitivity,
+		location: SourceSpan,
+	) -> Self {
 		Self {
 			signal_type: SignalType::Bus(BusType {
 				width: Some(width),
@@ -312,7 +317,7 @@ impl Signal {
 			_ => true,
 		}
 	}
-	pub fn get_signedness(&self) -> SignalSignedness{
+	pub fn get_signedness(&self) -> SignalSignedness {
 		use SignalType::*;
 		match &self.signal_type {
 			Bus(bus) => bus.signedness.clone(),
@@ -359,7 +364,12 @@ impl Signal {
 			None => SignalSignedness::NoSignedness,
 		};
 		let width = match constant.width {
-			Some(value) => Some(BusWidth::Evaluated(crate::core::NumericConstant::new(BigInt::from(value),None,None,None))),
+			Some(value) => Some(BusWidth::Evaluated(crate::core::NumericConstant::new(
+				BigInt::from(value),
+				None,
+				None,
+				None,
+			))),
 			None => None, // error FIXME
 		};
 		if width.clone().unwrap().get_value().unwrap() == 1.into() {
@@ -371,17 +381,17 @@ impl Signal {
 			}
 		}
 		else {
-		Self {
-			signal_type: SignalType::Bus(BusType {
-				width,
-				signedness,
-				location,
-			}),
-			dimensions: Vec::new(),
-			sensitivity: SignalSensitivity::Const(location),
-			direction: Direction::None,
+			Self {
+				signal_type: SignalType::Bus(BusType {
+					width,
+					signedness,
+					location,
+				}),
+				dimensions: Vec::new(),
+				sensitivity: SignalSensitivity::Const(location),
+				direction: Direction::None,
+			}
 		}
-	}
 	}
 	//pub fn combine_two(&mut self, other: &Signal, location: SourceSpan) -> miette::Result<()> {
 	//	if self.dimensions != other.dimensions {
@@ -554,7 +564,7 @@ impl Variable {
 								.get(&location)
 								.unwrap()
 								.codegen(nc_table, id_table, scope_id, scope)?,
-							WidthOf(location) => scope 
+							WidthOf(location) => scope
 								.evaluated_expressions
 								.get(&location)
 								.unwrap()
@@ -600,7 +610,7 @@ impl Variable {
 								.unwrap()
 								.codegen(nc_table, id_table, scope_id, scope)?;
 							builder = builder.array(expr).unwrap(); // FIXME it should be width of
-						}
+						},
 					}
 				}
 				id = builder.build().unwrap();
@@ -675,7 +685,7 @@ impl VariableKind {
 		use VariableKind::*;
 		match self {
 			Generic(gen) => gen.value = Some(value),
-			_ =>panic!("Only generic variables can have values"),
+			_ => panic!("Only generic variables can have values"),
 		}
 	}
 	pub fn add_dimenstions(&mut self, dimensions: Vec<BusWidth>) {
@@ -698,7 +708,12 @@ impl VariableKind {
 				}
 				match &gen.kind {
 					GenericVariableKind::Int(signedness, location) => Signal::new_bus(
-						Some(BusWidth::Evaluated(crate::core::NumericConstant::new(BigInt::from(64), None, None, None))),
+						Some(BusWidth::Evaluated(crate::core::NumericConstant::new(
+							BigInt::from(64),
+							None,
+							None,
+							None,
+						))),
 						signedness.clone(),
 						*location,
 					),

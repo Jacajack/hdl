@@ -211,22 +211,22 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 			IndexOutOfBounds => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all indices are in bounds")
 				.build(),
-    		ConditionalWithoutDefault => CompilerDiagnosticBuilder::from_error(&self)
+			ConditionalWithoutDefault => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all conditional and match expressions have default branch")
 				.build(),
-    		ArrayInExpression => CompilerDiagnosticBuilder::from_error(&self)
+			ArrayInExpression => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all expressions are not arrays")
 				.build(),
-    		SignednessMismatch => CompilerDiagnosticBuilder::from_error(&self)
+			SignednessMismatch => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all expressions have the same signedness")
 				.build(),
-    		BadCast => CompilerDiagnosticBuilder::from_error(&self)
+			BadCast => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all casts are valid")
 				.build(),
-    		UnknownBuiltInFunction => CompilerDiagnosticBuilder::from_error(&self)
+			UnknownBuiltInFunction => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all used functions are valid")
 				.build(),
-    		BadFunctionArguments => CompilerDiagnosticBuilder::from_error(&self)
+			BadFunctionArguments => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all function arguments are valid")
 				.build(),
 		}

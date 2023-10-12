@@ -557,8 +557,12 @@ impl ModuleImplementationStatement {
 			VariableBlock(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
 			VariableDefinition(definition) => definition.codegen_pass(ctx, local_ctx, api_scope)?,
 			AssignmentStatement(assignment) => {
-				let lhs = assignment.lhs.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
-				let rhs = assignment.rhs.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
+				let lhs = assignment
+					.lhs
+					.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
+				let rhs = assignment
+					.rhs
+					.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
 				use crate::parser::ast::AssignmentOpcode::*;
 				match assignment.assignment_opcode {
 					Equal => api_scope
@@ -591,9 +595,10 @@ impl ModuleImplementationStatement {
 					.codegen_pass(ctx, local_ctx, &mut inner_scope)?;
 				match conditional.else_statement {
 					Some(ref else_statement) => {
-						let expr = conditional
-							.condition
-							.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
+						let expr =
+							conditional
+								.condition
+								.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
 						let mut else_scope = api_scope
 							.if_scope(hirn::Expression::Unary(UnaryExpression {
 								op: hirn::UnaryOp::LogicalNot,
@@ -777,7 +782,10 @@ impl VariableDefinition {
 			)?;
 			match &direct_initializer.expression {
 				Some(expr) => api_scope
-					.assign(api_id.into(), expr.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?)
+					.assign(
+						api_id.into(),
+						expr.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?,
+					)
 					.unwrap(),
 				None => (),
 			}

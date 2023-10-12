@@ -86,10 +86,7 @@ impl VariableDeclarationStatement {
 									.build(),
 							));
 						}
-						dimensions.push(BusWidth::EvaluatedLocated(
-							val.clone(),
-							array_declarator.get_location(),
-						));
+						dimensions.push(BusWidth::EvaluatedLocated(val.clone(), array_declarator.get_location()));
 					},
 					None => dimensions.push(BusWidth::Evaluable(array_declarator.get_location())),
 				}
@@ -202,8 +199,7 @@ impl VariableKind {
 					.evaluated_expressions
 					.insert(bus.width.get_location(), *bus.width.clone());
 				let width = bus.width.evaluate(nc_table, current_scope, scope)?;
-				let w = 
-				if scope.is_generic() {
+				let w = if scope.is_generic() {
 					match &width {
 						Some(val) => {
 							if val.value <= num_bigint::BigInt::from(0) {
@@ -231,7 +227,7 @@ impl VariableKind {
 					}
 					BusWidth::EvaluatedLocated(value, bus.width.get_location())
 				};
-				
+
 				Ok(VariableKind::Signal(Signal {
 					signal_type: SignalType::Bus(BusType {
 						width: Some(w),
