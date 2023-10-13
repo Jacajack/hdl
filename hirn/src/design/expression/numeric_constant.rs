@@ -191,6 +191,36 @@ impl NumericConstant {
 			.unwrap_or(Self::new_bool(self.is_nonzero() || rhs.is_nonzero()))
 	}
 
+	// FIXME as trait
+	pub fn op_lnot(&self) -> Self {
+		match self.is_valid() {
+			false => self.clone(),
+			true => Self::new_bool(self.is_nonzero()), // FIXME ensure boolean operand
+		}
+	}
+
+	fn count_ones(&self) -> u64 {
+		assert!(self.is_valid());
+		let (_sign, value) = self.value.clone().into_parts();
+		value.count_ones()
+	}
+
+	pub fn op_reduction_and(&self) -> Self {
+		if !self.is_valid() {return self.clone();}
+		Self::new_bool(self.count_ones() == self.width)
+	}
+
+	pub fn op_reduction_or(&self) -> Self {
+		if !self.is_valid() {return self.clone();}
+		Self::new_bool(self.count_ones() > 0)
+	}
+
+	pub fn op_reduction_xor(&self) -> Self {
+		if !self.is_valid() {return self.clone();}
+		Self::new_bool(self.count_ones() % 2 == 1)
+	}
+
+
 	fn propagate_err(lhs: &NumericConstant, rhs: &NumericConstant) -> Option<NumericConstant> {
 		match (lhs.get_error(), rhs.get_error()) {
 			(Some(lhs_err), _) => Some(Self::new_invalid(lhs_err)),

@@ -4,7 +4,7 @@ use super::{
 };
 use super::{
 	eval::EvalDims, eval::EvalType, eval::Evaluates, eval::EvaluatesType, EvalContext, EvalError,
-	Expression, NumericConstant, SignalId, SignalSensitivity, SignalSlice,
+	Expression, NumericConstant, SignalId, SignalSensitivity, SignalSlice, WidthExpression
 };
 
 impl Evaluates for NumericConstant {
@@ -49,13 +49,18 @@ impl Evaluates for SignalSlice {
 
 impl Evaluates for ConditionalExpression {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
-		todo!();
+		for branch in &self.branches {
+			if branch.condition.eval(ctx)?.is_nonzero() {
+				return branch.value.eval(ctx);
+			}
+		}
+		self.default.eval(ctx)
 	}
 }
 
 impl Evaluates for CastExpression {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
-		todo!();
+		self.src.eval(ctx)
 	}
 }
 
@@ -107,13 +112,51 @@ impl Evaluates for BinaryExpression {
 
 impl Evaluates for UnaryExpression {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
-		todo!();
+		use UnaryOp::*;
+		let operand_value = self.operand.eval(ctx)?;
+		match self.op {
+			Negate => todo!(), //Ok(operand_value.op_neg()),
+			LogicalNot => Ok(operand_value.op_lnot()),
+			BitwiseNot => todo!(), //Ok(operand_value.op_bitwise_not()),
+			ReductionAnd => Ok(operand_value.op_reduction_and()),
+			ReductionOr => Ok(operand_value.op_reduction_or()),
+			ReductionXor => Ok(operand_value.op_reduction_xor()),
+		}
 	}
 }
 
 impl Evaluates for BuiltinOp {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
-		todo!();
+		use BuiltinOp::*;
+		match self {
+			ZeroExtend{expr, width} => {
+				todo!();
+			},
+
+			SignExtend{expr, width} => {
+				todo!();
+			},
+
+			BusSelect{expr, msb, lsb} => {
+				todo!();
+			},
+
+			BitSelect{expr, index} => {
+				todo!();
+			},
+
+			Replicate{expr, count} => {
+				todo!();
+			},
+
+			Width(expr) => {
+				expr.width()?.eval(ctx)
+			},
+
+			Join(exprs) => {
+				todo!();
+			},
+		}
 	}
 }
 
@@ -129,5 +172,16 @@ impl Evaluates for Expression {
 			Signal(signal) => signal.eval(ctx),
 			Builtin(builtin) => builtin.eval(ctx),
 		}
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use super::*;
+
+	#[test]
+	fn test_basic_eval() {
+		let expr = Expression::from(5) + Expression::from(2) * 3.into();
+		assert_eq!(expr.const_eval().unwrap(), 11.into());
 	}
 }
