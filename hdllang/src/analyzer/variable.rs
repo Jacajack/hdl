@@ -206,6 +206,89 @@ pub struct Signal {
 	pub direction: Direction,
 }
 impl Signal {
+	pub fn evaluate_as_lhs(&mut self, is_lhs: bool, global_ctx: &GlobalAnalyzerContext ,coupling_type: Signal, location: SourceSpan) -> miette::Result<()>{
+		if is_lhs{
+			self.sensitivity
+				.can_drive(&coupling_type.sensitivity, location, global_ctx)?;
+		}
+		use crate::analyzer::SignalType::*;
+		self.signal_type = match (&self.signal_type, &coupling_type.signal_type) {
+			(Auto(_), Auto(_)) => self.signal_type.clone(),
+			(Auto(_), _) => coupling_type.signal_type.clone(),
+			(Bus(bus), Bus(bus1)) => {
+				use crate::analyzer::SignalSignedness::*;
+				let mut new: crate::analyzer::BusType = bus1.clone();
+				new.signedness = match (&bus.signedness, &bus1.signedness) {
+					(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => bus.signedness.clone(),
+					(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc1), Signed(loc2)) => {
+						return Err(miette::Report::new(
+							SemanticError::SignednessMismatch
+								.to_diagnostic_builder()
+								.label(location, "Cannot assign signals - signedness mismatch")
+								.label(*loc2, "Signedness of this signal")
+								.label(*loc1, "Signedness of this expression")
+								.build(),
+						))
+					},
+					(_, NoSignedness) => bus.signedness.clone(),
+					(NoSignedness, _) => bus1.signedness.clone(),
+				};
+				new.width = match (&bus.width, &bus1.width) {
+					(_, None) => bus.width.clone(),
+					(None, Some(_)) => bus1.width.clone(),
+					(Some(coming), Some(original)) => {
+						match (&coming.get_value(), &original.get_value()) {
+							(Some(val1), Some(val2)) => {
+								if val1 != val2 {
+									return Err(miette::Report::new(
+										SemanticError::DifferingBusWidths
+											.to_diagnostic_builder()
+											.label(
+												location,
+												format!(
+													"Cannot assign signals - width mismatch. {} bits vs {} bits",
+													val2, val1
+												)
+												.as_str(),
+											)
+											.label(bus1.location, "First width specified here")
+											.label(bus.location, "Second width specified here")
+											.build(),
+									));
+								}
+							},
+							_ => (),
+						}
+						bus.width.clone()
+					},
+				};
+				SignalType::Bus(new)
+			},
+			(Bus(bus), Wire(wire)) => {
+				return Err(miette::Report::new(
+					SemanticError::BoundingWireWithBus
+						.to_diagnostic_builder()
+						.label(location, "Cannot assign bus to a wire and vice versa")
+						.label(*wire, "Signal specified as wire here")
+						.label(bus.location, "Signal specified as a bus here")
+						.build(),
+				))
+			},
+			(Bus(_), Auto(_)) => self.signal_type.clone(),
+			(Wire(wire), Bus(bus)) => {
+				return Err(miette::Report::new(
+					SemanticError::BoundingWireWithBus
+						.to_diagnostic_builder()
+						.label(location, "Cannot assign bus to a wire and vice versa")
+						.label(*wire, "Signal specified as wire here")
+						.label(bus.location, "Signal specified as a bus here")
+						.build(),
+				))
+			},
+			(Wire(_), _) => self.signal_type.clone(),
+		};
+		Ok(())
+	}
 	pub fn new_bus(width: Option<BusWidth>, signedness: SignalSignedness, location: SourceSpan) -> Self {
 		Self {
 			signal_type: SignalType::Bus(BusType {
