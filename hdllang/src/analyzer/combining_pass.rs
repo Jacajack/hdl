@@ -5,13 +5,10 @@ use std::collections::HashMap;
 use std::io::Write;
 
 use crate::{
-	analyzer::{BusWidth, ModuleImplementationScope, Signal, SignalSignedness},
-	core::{IdTable, NumericConstant},
-	lexer::{IdTableKey, NumericConstantTableKey},
-	parser::ast::{
-		analyze_qualifiers, ModuleImplementation, ModuleImplementationBlockStatement, ModuleImplementationStatement,
-		Root, SourceLocation, VariableBlock, VariableBlockStatement, VariableDefinition,
-	},
+	analyzer::{BusWidth, ModuleImplementationScope, Signal},
+	core::*,
+	lexer::*,
+	parser::ast::*,
 	CompilerError, ProvidesCompilerDiagnostic, SourceSpan,
 };
 
@@ -653,7 +650,7 @@ impl VariableDefinition {
 		scope_id: usize,
 	) -> miette::Result<()> {
 		local_ctx.scope_map.insert(self.location, scope_id);
-		let mut kind = VariableKind::from_type_declarator(
+		let kind = VariableKind::from_type_declarator(
 			&self.type_declarator,
 			scope_id,
 			already_created,
@@ -679,6 +676,7 @@ impl VariableDefinition {
 			VariableKind::ModuleInstance(_) => (),
 		}
 		for direct_initializer in &self.initializer_list {
+			let mut spec_kind = kind.clone();
 			if let Some(variable) = local_ctx
 				.scope
 				.get_variable_in_scope(scope_id, &direct_initializer.declarator.name)
@@ -727,30 +725,42 @@ impl VariableDefinition {
 					None => dimensions.push(BusWidth::Evaluable(array_declarator.get_location())),
 				}
 			}
-			kind.add_dimenstions(dimensions);
-			local_ctx.scope.define_variable(
-				scope_id,
-				Variable {
-					name: direct_initializer.declarator.name,
-					kind: kind.clone(),
-					location: direct_initializer.declarator.get_location(),
-				},
-			)?;
+			spec_kind.add_dimenstions(dimensions);
 			match &direct_initializer.expression {
 				Some(expr) => {
-					let lhs = kind.to_signal();
+					let mut lhs = spec_kind.to_signal();
+					if lhs.is_array(){
+						return Err(miette::Report::new(
+							SemanticError::ArrayInExpression
+								.to_diagnostic_builder()
+								.label(
+									direct_initializer.get_location(),
+									"Array cannot be initialized with expression",
+								)
+								.build(),
+						));
+					}
 					let rhs = expr.evaluate_type(
 						ctx,
 						scope_id,
 						local_ctx,
-						lhs,
+						lhs.clone(),
 						false,
 						direct_initializer.declarator.get_location(),
-					)?; // FIXME
-					 // todo finish this assignment
+					)?; 
+					lhs.evaluate_as_lhs(true, ctx, rhs, direct_initializer.declarator.get_location())?;
+					spec_kind = VariableKind::Signal(lhs);
 				},
 				None => (),
 			}
+			local_ctx.scope.define_variable(
+				scope_id,
+				Variable {
+					name: direct_initializer.declarator.name,
+					kind: spec_kind,
+					location: direct_initializer.declarator.get_location(),
+				},
+			)?;
 			debug!(
 				"Defined variable {:?} in scope {}",
 				ctx.id_table.get_by_key(&direct_initializer.declarator.name).unwrap(),
