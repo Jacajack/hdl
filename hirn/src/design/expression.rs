@@ -88,33 +88,44 @@ impl BuiltinOp {
 			ZeroExtend{expr, width}
 			| SignExtend{expr, width} => {
 				f(expr)?;
+				expr.transform(f)?;
 				f(width)?;
+				width.transform(f)?;
 			},
 
 			BusSelect{expr, msb, lsb} => {
 				f(expr)?;
+				expr.transform(f)?;
 				f(lsb)?;
+				lsb.transform(f)?;
 				f(msb)?;
+				msb.transform(f)?;
 			},
 
 			BitSelect{expr, index} => {
 				f(expr)?;
+				expr.transform(f)?;
 				f(index)?;
+				index.transform(f)?;
 			},
 
 			Replicate{expr, count} => {
 				f(expr)?;
+				expr.transform(f)?;
 				f(count)?;
+				count.transform(f)?;
 			},
 
 			Join(exprs) => {
 				for expr in exprs {
 					f(expr)?;
+					expr.transform(f)?;
 				}
 			},
 
 			Width(expr) => {
 				f(expr)?;
+				expr.transform(f)?;
 			},
 		}
 		Ok(())
@@ -174,9 +185,12 @@ impl ConditionalExpression {
 
 	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
 		f(&mut self.default)?;
+		self.default.transform(f)?;
 		for branch in &mut self.branches {
 			f(&mut branch.condition)?;
+			branch.condition.transform(f)?;
 			f(&mut branch.value)?;
+			branch.value.transform(f)?;
 		}
 		Ok(())
 	}
@@ -221,6 +235,7 @@ pub struct CastExpression {
 impl CastExpression {
 	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
 		f(&mut self.src)?;
+		self.src.transform(f)?;
 		Ok(())
 	}
 }
@@ -241,7 +256,9 @@ pub struct BinaryExpression {
 impl BinaryExpression {
 	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
 		f(&mut self.lhs)?;
+		self.lhs.transform(f)?;
 		f(&mut self.rhs)?;
+		self.rhs.transform(f)?;
 		Ok(())
 	}
 }
@@ -259,6 +276,7 @@ pub struct UnaryExpression {
 impl UnaryExpression {
 	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
 		f(&mut self.operand)?;
+		self.operand.transform(f)?;
 		Ok(())
 	}
 }
