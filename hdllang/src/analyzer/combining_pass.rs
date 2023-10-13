@@ -387,10 +387,7 @@ impl ModuleImplementationStatement {
 					return Err(miette::Report::new(
 						SemanticError::ArrayInExpression
 							.to_diagnostic_builder()
-							.label(
-								assignment.location,
-								"Array assignment is not supported yet",
-							)
+							.label(assignment.location, "Array assignment is not supported yet")
 							.build(),
 					));
 				}
@@ -402,14 +399,8 @@ impl ModuleImplementationStatement {
 					return Err(miette::Report::new(
 						SemanticError::ArrayInExpression
 							.to_diagnostic_builder()
-							.label(
-								assignment.location,
-								"Array assignment is not supported yet",
-							)
-							.label(
-								assignment.rhs.get_location(),
-								"This expression is an array",
-							)
+							.label(assignment.location, "Array assignment is not supported yet")
+							.label(assignment.rhs.get_location(), "This expression is an array")
 							.build(),
 					));
 				}
@@ -774,7 +765,7 @@ impl VariableDefinition {
 						false,
 						direct_initializer.declarator.get_location(),
 					)?;
-					if rhs.is_array(){
+					if rhs.is_array() {
 						return Err(miette::Report::new(
 							SemanticError::ArrayInExpression
 								.to_diagnostic_builder()
