@@ -406,6 +406,10 @@ impl ModuleImplementationStatement {
 								assignment.location,
 								"Array assignment is not supported yet",
 							)
+							.label(
+								assignment.rhs.get_location(),
+								"This expression is an array",
+							)
 							.build(),
 					));
 				}
