@@ -720,9 +720,9 @@ impl Expression {
 							let val = stmt.expression.codegen(nc_table, id_table, scope_id, scope)?;
 							for expr in expressions {
 								builder = builder.branch(
-									hirn::Expression::Binary(hirn::design::expression::BinaryExpression {
+									hirn::Expression::Binary(hirn::design::BinaryExpression {
 										lhs: Box::new(cond.clone()),
-										op: hirn::design::expression::BinaryOp::Equal,
+										op: hirn::design::BinaryOp::Equal,
 										rhs: Box::new(expr.codegen(nc_table, id_table, scope_id, scope)?),
 									}),
 									val.clone(),
@@ -772,7 +772,7 @@ impl Expression {
 			PostfixWithRange(range) => {
 				let expr = range.expression.codegen(nc_table, id_table, scope_id, scope)?;
 				Ok(hirn::Expression::Builtin(
-					hirn::design::expression::BuiltinOp::BitSelect {
+					hirn::design::BuiltinOp::BusSelect {
 						expr: Box::new(expr),
 						msb: Box::new(range.range.lhs.codegen(nc_table, id_table, scope_id, scope)?),
 						lsb: Box::new(range.range.rhs.codegen(nc_table, id_table, scope_id, scope)?),
@@ -798,7 +798,7 @@ impl Expression {
 						for expr in &function.argument_list {
 							exprs.push(expr.codegen(nc_table, id_table, scope_id, scope)?);
 						}
-						Ok(hirn::Expression::Builtin(hirn::design::expression::BuiltinOp::Join(
+						Ok(hirn::Expression::Builtin(hirn::design::BuiltinOp::Join(
 							exprs,
 						)))
 					},
@@ -814,7 +814,7 @@ impl Expression {
 							.unwrap()
 							.codegen(nc_table, id_table, scope_id, scope)?;
 						Ok(hirn::Expression::Builtin(
-							hirn::design::expression::BuiltinOp::Replicate {
+							hirn::design::BuiltinOp::Replicate {
 								expr: Box::new(expr),
 								count: Box::new(count),
 							},
@@ -826,8 +826,8 @@ impl Expression {
 							.first()
 							.unwrap()
 							.codegen(nc_table, id_table, scope_id, scope)?;
-						Ok(hirn::Expression::Unary(hirn::design::expression::UnaryExpression {
-							op: hirn::design::expression::UnaryOp::ReductionOr,
+						Ok(hirn::Expression::Unary(hirn::design::UnaryExpression {
+							op: hirn::design::UnaryOp::ReductionOr,
 							operand: Box::new(expr),
 						}))
 					},
@@ -837,8 +837,8 @@ impl Expression {
 							.first()
 							.unwrap()
 							.codegen(nc_table, id_table, scope_id, scope)?;
-						Ok(hirn::Expression::Unary(hirn::design::expression::UnaryExpression {
-							op: hirn::design::expression::UnaryOp::ReductionXor,
+						Ok(hirn::Expression::Unary(hirn::design::UnaryExpression {
+							op: hirn::design::UnaryOp::ReductionXor,
 							operand: Box::new(expr),
 						}))
 					},
@@ -848,8 +848,8 @@ impl Expression {
 							.first()
 							.unwrap()
 							.codegen(nc_table, id_table, scope_id, scope)?;
-						Ok(hirn::Expression::Unary(hirn::design::expression::UnaryExpression {
-							op: hirn::design::expression::UnaryOp::ReductionAnd,
+						Ok(hirn::Expression::Unary(hirn::design::UnaryExpression {
+							op: hirn::design::UnaryOp::ReductionAnd,
 							operand: Box::new(expr),
 						}))
 					},
