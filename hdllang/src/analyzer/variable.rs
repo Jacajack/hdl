@@ -376,7 +376,7 @@ impl Signal {
 			Self {
 				signal_type: SignalType::Wire(location),
 				dimensions: Vec::new(),
-				sensitivity: SignalSensitivity::NoSensitivity,
+				sensitivity: SignalSensitivity::Const(location),
 				direction: Direction::None,
 			}
 		}
