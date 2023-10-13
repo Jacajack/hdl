@@ -206,8 +206,14 @@ pub struct Signal {
 	pub direction: Direction,
 }
 impl Signal {
-	pub fn evaluate_as_lhs(&mut self, is_lhs: bool, global_ctx: &GlobalAnalyzerContext ,coupling_type: Signal, location: SourceSpan) -> miette::Result<()>{
-		if is_lhs{
+	pub fn evaluate_as_lhs(
+		&mut self,
+		is_lhs: bool,
+		global_ctx: &GlobalAnalyzerContext,
+		coupling_type: Signal,
+		location: SourceSpan,
+	) -> miette::Result<()> {
+		if is_lhs {
 			self.sensitivity
 				.can_drive(&coupling_type.sensitivity, location, global_ctx)?;
 		}

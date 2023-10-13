@@ -729,7 +729,7 @@ impl VariableDefinition {
 			match &direct_initializer.expression {
 				Some(expr) => {
 					let mut lhs = spec_kind.to_signal();
-					if lhs.is_array(){
+					if lhs.is_array() {
 						return Err(miette::Report::new(
 							SemanticError::ArrayInExpression
 								.to_diagnostic_builder()
@@ -747,7 +747,7 @@ impl VariableDefinition {
 						lhs.clone(),
 						false,
 						direct_initializer.declarator.get_location(),
-					)?; 
+					)?;
 					lhs.evaluate_as_lhs(true, ctx, rhs, direct_initializer.declarator.get_location())?;
 					spec_kind = VariableKind::Signal(lhs);
 				},
