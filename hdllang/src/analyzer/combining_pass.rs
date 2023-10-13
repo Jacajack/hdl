@@ -383,10 +383,36 @@ impl ModuleImplementationStatement {
 					assignment.location,
 				)?;
 				info!("Lhs type at the beginning: {:?}", lhs_type);
+				if lhs_type.is_array() {
+					return Err(miette::Report::new(
+						SemanticError::ArrayInExpression
+							.to_diagnostic_builder()
+							.label(
+								assignment.location,
+								"Array assignment is not supported yet",
+							)
+							.build(),
+					));
+				}
 				let rhs_type =
 					assignment
 						.rhs
 						.evaluate_type(ctx, scope_id, local_ctx, lhs_type, false, assignment.location)?;
+				if rhs_type.is_array() {
+					return Err(miette::Report::new(
+						SemanticError::ArrayInExpression
+							.to_diagnostic_builder()
+							.label(
+								assignment.location,
+								"Array assignment is not supported yet",
+							)
+							.label(
+								assignment.rhs.get_location(),
+								"This expression is an array",
+							)
+							.build(),
+					));
+				}
 				info!("Rhs type at the end: {:?}", rhs_type);
 				info!(
 					"Lhs type at the and: {:?}",
@@ -748,6 +774,17 @@ impl VariableDefinition {
 						false,
 						direct_initializer.declarator.get_location(),
 					)?;
+					if rhs.is_array(){
+						return Err(miette::Report::new(
+							SemanticError::ArrayInExpression
+								.to_diagnostic_builder()
+								.label(
+									direct_initializer.get_location(),
+									"Array cannot be initialized with expression",
+								)
+								.build(),
+						));
+					}
 					lhs.evaluate_as_lhs(true, ctx, rhs, direct_initializer.declarator.get_location())?;
 					spec_kind = VariableKind::Signal(lhs);
 				},
