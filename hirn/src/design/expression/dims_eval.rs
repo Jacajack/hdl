@@ -14,7 +14,7 @@ impl EvaluatesDimensions for SignalId {
 	fn eval_dims(&self, ctx: &EvalContext) -> Result<EvalDims, EvalError> {
 		if let Some(design) = ctx.design() {
 			let design = design.borrow();
-			let signal = design.get_signal(*self).unwrap();
+			let _signal = design.get_signal(*self).unwrap();
 			// let width = signal.class.width().eval(ctx)?.try_into_u64().unwrap(); // FIXME unwrap
 
 			// TODO check the width I guess???
@@ -62,31 +62,31 @@ impl EvaluatesDimensions for SignalSlice {
 }
 
 impl EvaluatesDimensions for BinaryExpression {
-	fn eval_dims(&self, ctx: &EvalContext) -> Result<EvalDims, EvalError> {
+	fn eval_dims(&self, _ctx: &EvalContext) -> Result<EvalDims, EvalError> {
 		todo!();
 	}
 }
 
 impl EvaluatesDimensions for ConditionalExpression {
-	fn eval_dims(&self, ctx: &EvalContext) -> Result<EvalDims, EvalError> {
+	fn eval_dims(&self, _ctx: &EvalContext) -> Result<EvalDims, EvalError> {
 		todo!();
 	}
 }
 
 impl EvaluatesDimensions for CastExpression {
-	fn eval_dims(&self, ctx: &EvalContext) -> Result<EvalDims, EvalError> {
+	fn eval_dims(&self, _ctx: &EvalContext) -> Result<EvalDims, EvalError> {
 		todo!();
 	}
 }
 
 impl EvaluatesDimensions for UnaryExpression {
-	fn eval_dims(&self, ctx: &EvalContext) -> Result<EvalDims, EvalError> {
+	fn eval_dims(&self, _ctx: &EvalContext) -> Result<EvalDims, EvalError> {
 		todo!();
 	}
 }
 
 impl EvaluatesDimensions for BuiltinOp {
-	fn eval_dims(&self, ctx: &EvalContext) -> Result<EvalDims, EvalError> {
+	fn eval_dims(&self, _ctx: &EvalContext) -> Result<EvalDims, EvalError> {
 		todo!();
 	}
 }

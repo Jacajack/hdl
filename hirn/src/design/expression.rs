@@ -409,6 +409,7 @@ impl Expression {
 			Signal(slice) => {
 				for index_expr in &mut slice.indices {
 					f(index_expr)?;
+					index_expr.transform(f)?;
 				}
 			},
 		}

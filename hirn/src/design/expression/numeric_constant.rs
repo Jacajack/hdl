@@ -15,6 +15,7 @@ pub struct NumericConstant {
 }
 
 impl NumericConstant {
+	/// New invalid constant storing provided EvalError
 	pub fn new_invalid(error: EvalError) -> Self {
 		Self{
 			error: Some(error),
@@ -36,6 +37,12 @@ impl NumericConstant {
 		Self::new(value, SignalSignedness::Unsigned, width).unwrap()
 	}
 
+	/// New boolean (unsigned 1-bit) constant
+	pub fn new_bool(value: bool) -> Self {
+		Self::new_unsigned(if value { 1.into() } else { 0.into() })
+	}
+
+	/// Creates a new NumericConstant from parts
 	pub fn new(value: BigInt, signedness: SignalSignedness, width: u64) -> Result<Self, EvalError> {
 		let min_width = value.bits();
 		let sign_bit = if signedness == SignalSignedness::Signed { 1 } else { 0 };
@@ -107,8 +114,110 @@ impl NumericConstant {
 		self.error.is_none()
 	}
 
+	pub fn is_bool(&self) -> bool {
+		self.is_valid() && self.width == 1 && self.signedness == SignalSignedness::Unsigned
+	}
+
+	pub fn is_zero(&self) -> bool {
+		self.is_valid() && self.value == 0.into()
+	}
+
+	pub fn is_nonzero(&self) -> bool {
+		self.is_valid() && !self.is_zero()
+	}
+
 	pub fn get_error(&self) -> Option<EvalError> {
 		self.error.clone()
+	}
+
+	/// Performs less-than comparison. The result is a boolean NumericConstant
+	pub fn op_lt(&self, rhs: &NumericConstant) -> Self {
+		Self::propagate_err(self, rhs)
+			.or(Self::require_sign_match(self, rhs))
+			.unwrap_or(Self::new_bool(self < rhs))
+	}
+
+	pub fn op_lte(&self, rhs: &NumericConstant) -> Self {
+		Self::propagate_err(self, rhs)
+			.or(Self::require_sign_match(self, rhs))
+			.unwrap_or(Self::new_bool(self <= rhs))
+	}
+
+	pub fn op_gt(&self, rhs: &NumericConstant) -> Self {
+		Self::propagate_err(self, rhs)
+			.or(Self::require_sign_match(self, rhs))
+			.unwrap_or(Self::new_bool(self > rhs))
+	}
+
+	pub fn op_gte(&self, rhs: &NumericConstant) -> Self {
+		Self::propagate_err(self, rhs)
+			.or(Self::require_sign_match(self, rhs))
+			.unwrap_or(Self::new_bool(self >= rhs))
+	}
+
+	pub fn op_eq(&self, rhs: &NumericConstant) -> Self {
+		Self::propagate_err(self, rhs)
+			.or(Self::require_sign_match(self, rhs))
+			.unwrap_or(Self::new_bool(self == rhs))
+	}
+
+	pub fn op_ne(&self, rhs: &NumericConstant) -> Self {
+		Self::propagate_err(self, rhs)
+			.or(Self::require_sign_match(self, rhs))
+			.unwrap_or(Self::new_bool(self != rhs))
+	}
+
+	pub fn op_min(&self, rhs: &NumericConstant) -> Self {
+		Self::propagate_err(self, rhs)
+			.or(Self::require_sign_match(self, rhs))
+			.unwrap_or(if self < rhs {self.clone()} else {rhs.clone()})
+	}
+
+	pub fn op_max(&self, rhs: &NumericConstant) -> Self {
+		Self::propagate_err(self, rhs)
+			.or(Self::require_sign_match(self, rhs))
+			.unwrap_or(if self > rhs {self.clone()} else {rhs.clone()})
+	}
+
+	pub fn op_land(&self, rhs: &NumericConstant) -> Self {
+		Self::propagate_err(self, rhs)
+			.or(Self::require_boolean_operands(self, rhs))
+			.unwrap_or(Self::new_bool(self.is_nonzero() && rhs.is_nonzero()))
+	}
+
+	pub fn op_lor(&self, rhs: &NumericConstant) -> Self {
+		Self::propagate_err(self, rhs)
+			.or(Self::require_boolean_operands(self, rhs))
+			.unwrap_or(Self::new_bool(self.is_nonzero() || rhs.is_nonzero()))
+	}
+
+	fn propagate_err(lhs: &NumericConstant, rhs: &NumericConstant) -> Option<NumericConstant> {
+		match (lhs.get_error(), rhs.get_error()) {
+			(Some(lhs_err), _) => Some(Self::new_invalid(lhs_err)),
+			(_, Some(rhs_err)) => Some(Self::new_invalid(rhs_err)),
+			(None, None) => None,
+		}
+	}
+
+	fn require_sign_match(lhs: &Self, rhs: &Self) -> Option<NumericConstant> {
+		if lhs.signedness != rhs.signedness {
+			return Some(Self::new_invalid(EvalError::MixedSignedness));
+		}
+		None
+	}
+
+	fn require_width_match(lhs: &Self, rhs: &Self) -> Option<NumericConstant> {
+		if lhs.width != rhs.width {
+			return Some(Self::new_invalid(EvalError::WidthMismatch));
+		}
+		None
+	}
+
+	fn require_boolean_operands(lhs: &Self, rhs: &Self) -> Option<NumericConstant> {
+		if !lhs.is_bool() || !rhs.is_bool() {
+			return Some(Self::new_invalid(EvalError::NonBooleanOperand));
+		}
+		None
 	}
 
 	fn normalize_unsigned(&mut self) {
@@ -119,6 +228,12 @@ impl NumericConstant {
 			let (_sign, mag) = (base + self.value.clone()).into_parts();
 			self.value = BigInt::from_biguint(num_bigint::Sign::Plus, mag);
 		}
+	}
+}
+
+impl From<bool> for NumericConstant {
+	fn from(value: bool) -> Self {
+		Self::new_bool(value)
 	}
 }
 
@@ -149,6 +264,13 @@ impl From<i32> for NumericConstant {
 fn check_sign_match(lhs: &NumericConstant, rhs: &NumericConstant) -> Result<(), EvalError> {
 	if lhs.signedness()? != rhs.signedness()? {
 		return Err(EvalError::MixedSignedness);
+	}
+	Ok(())
+}
+
+fn check_width_match(lhs: &NumericConstant, rhs: &NumericConstant) -> Result<(), EvalError> {
+	if lhs.width()? != rhs.width()? {
+		return Err(EvalError::WidthMismatch);
 	}
 	Ok(())
 }
@@ -198,16 +320,115 @@ macro_rules! impl_rust_binary_constant_op {
 	}
 }
 
+impl PartialEq for NumericConstant {
+	fn eq(&self, other: &Self) -> bool {
+		match (self.is_valid(), other.is_valid()) {
+			(false, false) => true,
+			(false, true) => false,
+			(true, false) => false,
+			(true, true) => self.value == other.value,
+		}
+	}
+}
+
+impl Ord for NumericConstant {
+	fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+		use std::cmp::Ordering::*;
+		match (self.is_valid(), other.is_valid()) {
+			(false, false) => Equal,
+			(false, true) => Greater,
+			(true, false) => Less,
+			(true, true) => self.value.cmp(&other.value),
+		}
+	}
+}
+
+impl PartialOrd for NumericConstant {
+	fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+		Some(self.cmp(other))
+	}
+}
+
+impl Eq for NumericConstant {}
+
 impl_rust_binary_constant_op!(Add, add, +);
 impl_rust_binary_constant_op!(Sub, sub, -);
 impl_rust_binary_constant_op!(Mul, mul, *);
 impl_rust_binary_constant_op!(Div, div, /);
 impl_rust_binary_constant_op!(Rem, rem, %);
-// impl_rust_binary_constant_op!(Shl, shl, <<); // FIXME
-// impl_rust_binary_constant_op!(Shr, shr, >>); // FIXME
-impl_rust_binary_constant_op!(BitAnd, bitand, &);
-impl_rust_binary_constant_op!(BitOr, bitor, |);
-impl_rust_binary_constant_op!(BitXor, bitxor, ^);
+
+impl_binary_constant_op!(Shl, shl,  |lhs: &NumericConstant, rhs: &NumericConstant| -> Result<NumericConstant, EvalError> {
+	check_sign_match(lhs, rhs)?;
+	let width_expr = Expression::from(lhs.clone()) << rhs.clone().into();
+	let mut result = NumericConstant::new(
+		lhs.value()? << rhs.try_into_u64()?, // FIXME force reasonable RHS range
+		lhs.signedness()?,
+		width_expr.width()?.const_narrow_eval()? as u64
+	)?;
+	if lhs.signedness()? == SignalSignedness::Unsigned {
+		result.normalize_unsigned();
+	}
+	Ok(result)
+});
+
+impl_binary_constant_op!(Shr, shr,  |lhs: &NumericConstant, rhs: &NumericConstant| -> Result<NumericConstant, EvalError> {
+	check_sign_match(lhs, rhs)?;
+	let width_expr = Expression::from(lhs.clone()) >> rhs.clone().into();
+	let mut result = NumericConstant::new(
+		lhs.value()? >> rhs.try_into_u64()?, // FIXME force reasonable RHS range
+		lhs.signedness()?,
+		width_expr.width()?.const_narrow_eval()? as u64
+	)?;
+	if lhs.signedness()? == SignalSignedness::Unsigned {
+		result.normalize_unsigned();
+	}
+	Ok(result)
+});
+
+impl_binary_constant_op!(BitAnd, bitand,  |lhs: &NumericConstant, rhs: &NumericConstant| -> Result<NumericConstant, EvalError> {
+	check_sign_match(lhs, rhs)?;
+	check_width_match(lhs, rhs)?;
+	let width_expr = Expression::from(lhs.clone()) & rhs.clone().into();
+	let mut result = NumericConstant::new(
+		lhs.value()? & rhs.value()?,
+		lhs.signedness()?,
+		width_expr.width()?.const_narrow_eval()? as u64
+	)?;
+	if lhs.signedness()? == SignalSignedness::Unsigned {
+		result.normalize_unsigned();
+	}
+	Ok(result)
+});
+
+impl_binary_constant_op!(BitOr, bitor,  |lhs: &NumericConstant, rhs: &NumericConstant| -> Result<NumericConstant, EvalError> {
+	check_sign_match(lhs, rhs)?;
+	check_width_match(lhs, rhs)?;
+	let width_expr = Expression::from(lhs.clone()) | rhs.clone().into();
+	let mut result = NumericConstant::new(
+		lhs.value()? | rhs.value()?,
+		lhs.signedness()?,
+		width_expr.width()?.const_narrow_eval()? as u64
+	)?;
+	if lhs.signedness()? == SignalSignedness::Unsigned {
+		result.normalize_unsigned();
+	}
+	Ok(result)
+});
+
+impl_binary_constant_op!(BitXor, bitxor,  |lhs: &NumericConstant, rhs: &NumericConstant| -> Result<NumericConstant, EvalError> {
+	check_sign_match(lhs, rhs)?;
+	check_width_match(lhs, rhs)?;
+	let width_expr = Expression::from(lhs.clone()) ^ rhs.clone().into();
+	let mut result = NumericConstant::new(
+		lhs.value()? ^ rhs.value()?,
+		lhs.signedness()?,
+		width_expr.width()?.const_narrow_eval()? as u64
+	)?;
+	if lhs.signedness()? == SignalSignedness::Unsigned {
+		result.normalize_unsigned();
+	}
+	Ok(result)
+});
 
 
 #[cfg(test)]
@@ -279,4 +500,39 @@ mod test {
 		check_value_u(ncu(5) % ncu(3), 2, 2);
 		check_value_u(ncu(560) % ncu(33), 560 % 33, 6);
 	}
+
+	#[test]
+	fn test_bitwise_and() {
+		check_value_u(ncu(0b1010) & ncu(0b1100), 0b1000, 4);
+		// TODO tests for width mismatch
+	}
+
+	#[test]
+	fn test_bitwise_or() {
+		check_value_u(ncu(0b1010) | ncu(0b1100), 0b1110, 4);
+		// TODO tests for width mismatch
+	}
+
+	#[test]
+	fn test_bitwise_xor() {
+		check_value_u(ncu(0b1010) ^ ncu(0b1100), 0b0110, 4);
+		// TODO tests for width mismatch
+	}
+
+	#[test]
+	fn test_logic() {
+		let t = NumericConstant::new_bool(true);
+		let f = NumericConstant::new_bool(false);
+
+		assert_eq!(t.op_land(&t), t);
+		assert_eq!(t.op_land(&f), f);
+		assert_eq!(f.op_land(&t), f);
+		assert_eq!(f.op_land(&f), f);
+
+		assert_eq!(t.op_lor(&t), t);
+		assert_eq!(t.op_lor(&f), t);
+		assert_eq!(f.op_lor(&t), t);
+		assert_eq!(f.op_lor(&f), f);
+	}
+
 }

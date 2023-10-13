@@ -61,20 +61,46 @@ impl Evaluates for CastExpression {
 
 impl Evaluates for BinaryExpression {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
-		let lhs = self.lhs.eval(ctx)?;
-		let rhs = self.rhs.eval(ctx)?;
-
 		use BinaryOp::*;
 		match self.op {
-			Add => Ok(lhs + rhs),
-			Subtract => Ok(lhs - rhs),
-			Multiply => Ok(lhs * rhs),
-			Divide => Ok(lhs / rhs),
-			Modulo => Ok(lhs % rhs),
-			BitwiseAnd => Ok(lhs & rhs),
-			BitwiseOr => Ok(lhs | rhs),
-			BitwiseXor => Ok(lhs ^ rhs),
-			_ => todo!(),
+			LogicalAnd => {
+				match self.lhs.eval(ctx)?.is_nonzero() {
+					true => Ok(self.rhs.eval(ctx)?),
+					false => Ok(false.into()),
+				}
+			},
+			LogicalOr => {
+				match self.lhs.eval(ctx)?.is_nonzero() {
+					true => Ok(true.into()),
+					false => Ok(self.rhs.eval(ctx)?),
+				}
+			},
+
+			_ => {
+				let lhs = self.lhs.eval(ctx)?;
+				let rhs = self.rhs.eval(ctx)?;
+				match self.op {
+					Add => Ok(lhs + rhs),
+					Subtract => Ok(lhs - rhs),
+					Multiply => Ok(lhs * rhs),
+					Divide => Ok(lhs / rhs),
+					Modulo => Ok(lhs % rhs),
+					BitwiseAnd => Ok(lhs & rhs),
+					BitwiseOr => Ok(lhs | rhs),
+					BitwiseXor => Ok(lhs ^ rhs),
+					ShiftLeft => Ok(lhs << rhs),
+					ShiftRight => Ok(lhs >> rhs),
+					Equal => Ok(lhs.op_eq(&rhs)),
+					NotEqual => Ok(lhs.op_ne(&rhs)),
+					Less => Ok(lhs.op_lt(&rhs)),
+					LessEqual => Ok(lhs.op_lte(&rhs)),
+					Greater => Ok(lhs.op_gt(&rhs)),
+					GreaterEqual => Ok(lhs.op_gte(&rhs)),
+					Max => Ok(lhs.op_max(&rhs)),
+					Min => Ok(lhs.op_min(&rhs)),
+					_ => unreachable!(),	
+				}
+			}
 		}
 	}
 }
