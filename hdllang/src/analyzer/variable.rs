@@ -440,6 +440,20 @@ impl Signal {
 			Wire(_) => true,
 		}
 	}
+	pub fn set_signedness(&mut self, signedness: SignalSignedness, location: SourceSpan){
+		use SignalType::*;
+		match &mut self.signal_type {
+    		Bus(bus) => bus.signedness = signedness,
+    		Wire(_) => panic!("You cannot set signedness on a wire"),
+    		Auto(_) => {
+				self.signal_type = SignalType::Bus(BusType {
+					width: None,
+					signedness,
+					location,
+				})
+			},
+		}
+	}
 	pub fn new_from_constant(constant: &crate::core::NumericConstant, location: SourceSpan) -> Self {
 		let signedness = match constant.signed {
 			Some(value) => {
