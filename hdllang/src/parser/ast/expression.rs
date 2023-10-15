@@ -688,7 +688,7 @@ impl Expression {
 				};
 				debug!("Width is {:?}", w);
 				Ok(hirn::Expression::Constant(
-					hirn::design::NumericConstant::new(
+					hirn::design::NumericConstant::from_bigint(
 						constant.value.clone(),
 						if signed {
 							hirn::design::SignalSignedness::Signed
