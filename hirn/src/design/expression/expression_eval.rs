@@ -85,26 +85,26 @@ impl Evaluates for BinaryExpression {
 				let lhs = self.lhs.eval(ctx)?;
 				let rhs = self.rhs.eval(ctx)?;
 				match self.op {
-					Add => Ok(lhs + rhs),
-					Subtract => Ok(lhs - rhs),
-					Multiply => Ok(lhs * rhs),
-					Divide => Ok(lhs / rhs),
-					Modulo => Ok(lhs % rhs),
-					BitwiseAnd => Ok(lhs & rhs),
-					BitwiseOr => Ok(lhs | rhs),
-					BitwiseXor => Ok(lhs ^ rhs),
-					ShiftLeft => Ok(lhs << rhs),
-					ShiftRight => Ok(lhs >> rhs),
-					Equal => Ok(lhs.op_eq(&rhs)),
-					NotEqual => Ok(lhs.op_ne(&rhs)),
-					Less => Ok(lhs.op_lt(&rhs)),
-					LessEqual => Ok(lhs.op_lte(&rhs)),
-					Greater => Ok(lhs.op_gt(&rhs)),
-					GreaterEqual => Ok(lhs.op_gte(&rhs)),
-					Max => Ok(lhs.op_max(&rhs)),
-					Min => Ok(lhs.op_min(&rhs)),
+					Add => lhs + rhs,
+					Subtract => lhs - rhs,
+					Multiply => lhs * rhs,
+					Divide => lhs / rhs,
+					Modulo => lhs % rhs,
+					BitwiseAnd => lhs & rhs,
+					BitwiseOr => lhs | rhs,
+					BitwiseXor => lhs ^ rhs,
+					ShiftLeft => lhs << rhs,
+					ShiftRight => lhs >> rhs,
+					Equal => lhs.op_eq(&rhs),
+					NotEqual => lhs.op_ne(&rhs),
+					Less => lhs.op_lt(&rhs),
+					LessEqual => lhs.op_lte(&rhs),
+					Greater => lhs.op_gt(&rhs),
+					GreaterEqual => lhs.op_gte(&rhs),
+					Max => lhs.op_max(&rhs),
+					Min => lhs.op_min(&rhs),
 					_ => unreachable!(),	
-				}
+				}.into()
 			}
 		}
 	}
@@ -116,12 +116,12 @@ impl Evaluates for UnaryExpression {
 		let operand_value = self.operand.eval(ctx)?;
 		match self.op {
 			Negate => todo!(), //Ok(operand_value.op_neg()),
-			LogicalNot => Ok(operand_value.op_lnot()),
+			LogicalNot => operand_value.op_lnot(),
 			BitwiseNot => todo!(), //Ok(operand_value.op_bitwise_not()),
-			ReductionAnd => Ok(operand_value.op_reduction_and()),
-			ReductionOr => Ok(operand_value.op_reduction_or()),
-			ReductionXor => Ok(operand_value.op_reduction_xor()),
-		}
+			ReductionAnd => operand_value.op_reduction_and(),
+			ReductionOr => operand_value.op_reduction_or(),
+			ReductionXor => operand_value.op_reduction_xor(),
+		}.into()
 	}
 }
 
@@ -146,7 +146,9 @@ impl Evaluates for BuiltinOp {
 			},
 
 			Replicate{expr, count} => {
-				todo!();
+				let lhs = expr.eval(ctx)?;
+				let rhs = count.eval(ctx)?;
+				lhs.op_replicate(rhs).into()
 			},
 
 			Width(expr) => {
@@ -154,7 +156,8 @@ impl Evaluates for BuiltinOp {
 			},
 
 			Join(exprs) => {
-				todo!();
+				let args: Result<Vec<_>, EvalError> = exprs.iter().map(|e| e.eval(ctx)).collect();
+				NumericConstant::join(args?).into()
 			},
 		}
 	}

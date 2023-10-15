@@ -131,6 +131,12 @@ pub enum EvalError {
 
 	#[error("Numeric constant width too small")]
 	NumericConstantWidthTooSmall,
+
+	#[error("Shift width too large or negative")]
+	BadShiftWidth,
+
+	#[error("Signed shift RHS")]
+	SignedShiftRhs,
 }
 
 /// Provides type evaluation rules for both expressions and compile-time evaluation
