@@ -1,5 +1,5 @@
 use super::{NarrowEval, WidthExpression};
-use crate::{design::{DesignError, SignalSignedness}, Expression};
+use crate::{design::SignalSignedness, Expression};
 
 use num_bigint::{BigInt, BigUint};
 
@@ -220,6 +220,32 @@ impl NumericConstant {
 		Self::new_bool(self.count_ones() % 2 == 1)
 	}
 
+
+	pub fn join(values: Vec<NumericConstant>) -> Self {
+		if values.is_empty() {
+			return Self::new_invalid(EvalError::EmptyJoinList);
+		}
+
+		todo!();
+
+		for v in &values {
+			if let Some(err) = v.get_error() {
+				return Self::new_invalid(err);
+			}
+		}
+
+		let result_width: u64 = values.iter().map(|v| v.width).sum();
+		let mut shift_width = result_width - values[0].width;
+		let mut result = Self::zero();
+
+		for value in &values {
+			// TODO value before shifting
+			result = result | (value.clone() << shift_width.into());
+			shift_width -= value.width;
+		}
+
+		result
+	}
 
 	fn propagate_err(lhs: &NumericConstant, rhs: &NumericConstant) -> Option<NumericConstant> {
 		match (lhs.get_error(), rhs.get_error()) {
@@ -529,6 +555,11 @@ mod test {
 		check_value(nc(1247) % nc(1247), 0, 12);
 		check_value_u(ncu(5) % ncu(3), 2, 2);
 		check_value_u(ncu(560) % ncu(33), 560 % 33, 6);
+	}
+
+	#[test]
+	fn test_shift_logic() {
+		check_value_u(ncu(0b1010) << ncu(2), 0b1000, 4);
 	}
 
 	#[test]

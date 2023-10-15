@@ -96,6 +96,9 @@ pub enum EvalError {
 	#[error("Width mismatch")]
 	WidthMismatch,
 
+	#[error("Empty join list")]
+	EmptyJoinList,
+
 	#[error("Non-boolean operand in logical expression")]
 	NonBooleanOperand,
 
