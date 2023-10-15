@@ -1651,28 +1651,9 @@ impl Expression {
 				)?;
 				match &kind {
 					VariableKind::Signal(sig) => {
-						if sig.is_auto() {
-							return Err(miette::Report::new(
-								SemanticError::BadCast
-									.to_diagnostic_builder()
-									.label(cast.type_name.location, "Casting to auto type is not allowed")
-									.build(),
-							));
-						}
-						if !sig.is_width_specified() {
-							return Err(miette::Report::new(
-								SemanticError::BadCast
-									.to_diagnostic_builder()
-									.label(
-										cast.type_name.location,
-										"Casting to width unspecified type is not allowed",
-									)
-									.build(),
-							));
-						}
-
-						if sig.width().unwrap().get_value().unwrap() != expr.width().unwrap().get_value().unwrap() {
-							return Err(miette::Report::new(
+						if sig.is_width_specified(){
+							if sig.width().unwrap().get_value().unwrap() != expr.width().unwrap().get_value().unwrap() {
+								return Err(miette::Report::new(
 								SemanticError::BadCast
 									.to_diagnostic_builder()
 									.label(
@@ -1682,9 +1663,24 @@ impl Expression {
 									.label(sig.get_width_location().unwrap(), "Width of this type")
 									.label(expr.get_width_location().unwrap(), "Width of this expression")
 									.build(),
-							));
+								));
+							}
 						}
-						Ok(sig.clone())
+						let mut r = sig.clone();
+						if !r.is_sensititivity_specified(){
+							r.sensitivity = expr.sensitivity.clone();
+						}
+						if !r.is_direction_specified(){
+							r.direction = expr.direction.clone();
+						}
+						if ! r.is_signedness_specified(){
+							r.set_signedness(expr.get_signedness(), location);
+						}
+						if !r.is_width_specified(){
+							r.set_width(expr.width().expect("Width is checked not to be none"), r.get_signedness(), location)
+						}
+						debug!("casted to: {:?}", r);
+						Ok(r)
 					},
 					VariableKind::Generic(_) => {
 						return Err(miette::Report::new(
