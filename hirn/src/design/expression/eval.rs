@@ -137,6 +137,15 @@ pub enum EvalError {
 
 	#[error("Signed shift RHS")]
 	SignedShiftRhs,
+
+	#[error("ext/sext/zext width cannot be signed")]
+	SignedWidth,
+
+	#[error("Cannot use ext/sext/zext to shrink")]
+	CannotShrink,
+
+	#[error("Cannot negate unsigned")]
+	NegateUnsigned,
 }
 
 /// Provides type evaluation rules for both expressions and compile-time evaluation

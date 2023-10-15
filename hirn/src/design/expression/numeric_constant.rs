@@ -14,9 +14,13 @@ pub struct NumericConstant {
 	width: u64,
 }
 
-fn neg_biguint(value: BigUint, width: u64) -> BigUint {
+fn not_biguint(value: BigUint, width: u64) -> BigUint {
 	let mask = (BigUint::from(1u32) << width) - 1u32;
-	(value ^ mask) + 1u32
+	value ^ mask
+}
+
+fn neg_biguint(value: BigUint, width: u64) -> BigUint {
+	not_biguint(value, width) + 1u32
 }
 
 impl NumericConstant {
@@ -239,6 +243,13 @@ impl NumericConstant {
 		self.value.count_ones()
 	}
 
+	pub fn get_bit(&self, n: u64) -> Option<bool> {
+		match &self.error {
+			Some(_) => None,
+			None => Some(self.value.bit(n)),
+		}
+	}
+
 	pub fn op_reduction_and(&self) -> Self {
 		if !self.is_valid() {return self.clone();}
 		Self::new_bool(self.count_ones() == self.width)
@@ -283,7 +294,7 @@ impl NumericConstant {
 		for i in 0..(rhs.min(self.width)) {
 			result.value.set_bit(self.width - 1 - i, msb);
 		}
-		result
+		result.normalized()
 	}
 
 	fn check_shift_rhs(rhs: &NumericConstant) -> Option<Self> {
@@ -335,6 +346,77 @@ impl NumericConstant {
 		match self.signedness {
 			SignalSignedness::Unsigned => self.op_lsr(rhs),
 			SignalSignedness::Signed => self.op_asr(rhs),
+		}
+	}
+
+	pub fn op_bit_select(&self, rhs: NumericConstant) -> Self {
+		todo!();
+	}
+
+	fn op_bus_select_i(&self, lsb: u64, msb: u64) -> Self {
+		todo!();
+	}
+
+	pub fn op_bus_select(&self, lsb: NumericConstant, msb: NumericConstant) -> Self {
+		todo!();
+	}
+
+	pub fn op_bitwise_not(&self) -> Self {
+		if let Some(err) = self.get_error() {return Self::new_invalid(err);}
+		let mut result = self.clone();
+		result.value = not_biguint(result.value, self.width);
+		result.normalized()
+	}
+
+	pub fn op_neg(&self) -> Self {
+		if let Some(err) = self.get_error() {return Self::new_invalid(err);}
+		if self.signedness == SignalSignedness::Unsigned {
+			return Self::new_invalid(EvalError::NegateUnsigned);
+		}
+
+		let mut result = self.clone();
+		result.value = neg_biguint(result.value, self.width);
+		result.normalized()
+	}
+
+	fn op_zext_i(&self, n: u64) -> Self {
+		if let Some(err) = self.get_error() {return Self::new_invalid(err);}
+		if n < self.width {return Self::new_invalid(EvalError::CannotShrink);}
+		let mut result = self.clone();
+		result.width = n;
+		result.normalized()
+	}
+
+	fn op_sext_i(&self, n: u64) -> Self {
+		let mut result = self.op_zext_i(n);
+		if !result.is_valid() {return result;}
+		let msb = self.msb().expect("self is valid");
+		for n in (self.width)..n {
+			result.value.set_bit(n, msb);
+		}
+		result.normalized()
+	}
+
+	pub fn op_zext(&self, rhs: NumericConstant) -> Self {
+		match (rhs.try_into_u64(), rhs.signedness()) {
+			(_, Err(e)) | (Err(e), _) => Self::new_invalid(e),
+			(_, Ok(SignalSignedness::Signed)) => Self::new_invalid(EvalError::SignedWidth),
+			(Ok(n), Ok(SignalSignedness::Unsigned)) => self.op_zext_i(n),
+		}
+	}
+
+	pub fn op_sext(&self, rhs: NumericConstant) -> Self {
+		match (rhs.try_into_u64(), rhs.signedness()) {
+			(_, Err(e)) | (Err(e), _) => Self::new_invalid(e),
+			(_, Ok(SignalSignedness::Signed)) => Self::new_invalid(EvalError::SignedWidth),
+			(Ok(n), Ok(SignalSignedness::Unsigned)) => self.op_sext_i(n),
+		}
+	}
+
+	pub fn op_ext(&self, rhs: NumericConstant) -> Self {
+		match self.signedness {
+			SignalSignedness::Unsigned => self.op_zext(rhs),
+			SignalSignedness::Signed => self.op_sext(rhs),
 		}
 	}
 
@@ -725,6 +807,14 @@ mod test {
 		check_value(nc(-8) >> ncu(2), -2, 5);
 		check_value(nc(-8) << ncu(1), -16, 5);
 		check_value(nc(-8) << ncu(2), 0, 5);
+	}
+
+	#[test]
+	fn test_ext() {
+		check_value(nc(10).op_ext(ncu(50)), 10, 50);
+		check_value(nc(-10).op_ext(ncu(50)), -10, 50);
+		check_value(nc(-10).op_sext(ncu(50)), -10, 50);
+		check_value(nc(-10).op_zext(ncu(8)), 22, 8);
 	}
 
 	#[test]

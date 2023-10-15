@@ -115,9 +115,9 @@ impl Evaluates for UnaryExpression {
 		use UnaryOp::*;
 		let operand_value = self.operand.eval(ctx)?;
 		match self.op {
-			Negate => todo!(), //Ok(operand_value.op_neg()),
+			Negate => operand_value.op_neg(),
 			LogicalNot => operand_value.op_lnot(),
-			BitwiseNot => todo!(), //Ok(operand_value.op_bitwise_not()),
+			BitwiseNot => operand_value.op_bitwise_not(),
 			ReductionAnd => operand_value.op_reduction_and(),
 			ReductionOr => operand_value.op_reduction_or(),
 			ReductionXor => operand_value.op_reduction_xor(),
@@ -130,19 +130,28 @@ impl Evaluates for BuiltinOp {
 		use BuiltinOp::*;
 		match self {
 			ZeroExtend{expr, width} => {
-				todo!();
+				let lhs = expr.eval(ctx)?;
+				let width_value = width.eval(ctx)?;
+				lhs.op_zext(width_value).into()
 			},
 
 			SignExtend{expr, width} => {
-				todo!();
+				let lhs = expr.eval(ctx)?;
+				let width_value = width.eval(ctx)?;
+				lhs.op_sext(width_value).into()
 			},
 
 			BusSelect{expr, msb, lsb} => {
-				todo!();
+				let lhs = expr.eval(ctx)?;
+				let lsb_value = lsb.eval(ctx)?;
+				let msb_value = msb.eval(ctx)?;
+				lhs.op_bus_select(lsb_value, msb_value).into()
 			},
 
 			BitSelect{expr, index} => {
-				todo!();
+				let lhs = expr.eval(ctx)?;
+				let rhs = index.eval(ctx)?;
+				lhs.op_bit_select(rhs).into()
 			},
 
 			Replicate{expr, count} => {
