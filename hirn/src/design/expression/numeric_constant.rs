@@ -1,5 +1,5 @@
 use super::{NarrowEval, WidthExpression};
-use crate::{design::SignalSignedness, Expression};
+use crate::design::{SignalSignedness, Expression};
 
 use num_bigint::{BigInt, BigUint};
 

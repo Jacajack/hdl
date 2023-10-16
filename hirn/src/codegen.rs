@@ -1,7 +1,6 @@
-pub mod indenter;
-pub mod sv_codegen;
+pub mod sv;
 
-use crate::ModuleId;
+use crate::design::ModuleId;
 use std::fmt;
 use thiserror::Error;
 

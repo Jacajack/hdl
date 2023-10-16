@@ -1,10 +1,9 @@
-use super::{Codegen, CodegenError};
+use crate::codegen::{Codegen, CodegenError};
 use crate::{
 	design::InterfaceSignal,
 	design::SignalSignedness,
-	design::{BlockInstance, ScopeHandle},
-	design::{BuiltinOp, ModuleInstance, SignalDirection, SignalSensitivity, WidthExpression},
-	BinaryOp, Design, Expression, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp,
+	design::BlockInstance,
+	design::{BuiltinOp, ModuleInstance, SignalDirection, SignalSensitivity, WidthExpression, BinaryOp, Design, Expression, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp},
 };
 use log::debug;
 use std::collections::HashSet;

@@ -165,8 +165,8 @@ impl<'a> SemanticalAnalyzer<'a> {
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
-			let mut sv_codegen = hirn::SVCodegen::new(&mut self.ctx.design);
-			use hirn::Codegen;
+			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(&mut self.ctx.design);
+			use hirn::codegen::Codegen;
 			let mut output_string = String::new();
 			sv_codegen
 				.emit_module(
@@ -614,8 +614,8 @@ impl ModuleImplementationStatement {
 								.condition
 								.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
 						let mut else_scope = api_scope
-							.if_scope(hirn::Expression::Unary(UnaryExpression {
-								op: hirn::UnaryOp::LogicalNot,
+							.if_scope(hirn::design::Expression::Unary(UnaryExpression {
+								op: hirn::design::UnaryOp::LogicalNot,
 								operand: Box::new(expr),
 							}))
 							.unwrap();
