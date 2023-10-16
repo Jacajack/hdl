@@ -239,7 +239,7 @@ impl<'a> SVCodegen<'a> {
 		let preprocessed = self.preprocess_expression(expr.clone())?;
 		match preprocessed.const_eval() {
 			Ok(value) => self.translate_constant(&value, width_casts),
-			Err(_) => self.translate_expression_no_preprocess(expr, width_casts),
+			Err(_) => self.translate_expression_no_preprocess(&preprocessed, width_casts),
 		}
 	}
 }

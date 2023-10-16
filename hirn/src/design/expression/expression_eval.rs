@@ -45,6 +45,7 @@ impl Evaluates for SignalSlice {
 
 impl Evaluates for ConditionalExpression {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
+		// FIXME require all branches to be booleans
 		for branch in &self.branches {
 			if branch.condition.eval(ctx)?.is_nonzero() {
 				return branch.value.eval(ctx);
