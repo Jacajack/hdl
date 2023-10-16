@@ -7,7 +7,7 @@ mod signal;
 mod utils;
 
 pub use comment::HasComment;
-pub use expression::{BinaryOp, BinaryExpression, UnaryExpression, Expression, UnaryOp, BuiltinOp, EvalError, EvalContext, WidthExpression, NumericConstant, EvalType, Evaluates, EvaluatesDimensions, EvaluatesType};
+pub use expression::{BinaryOp, BinaryExpression, UnaryExpression, Expression, UnaryOp, BuiltinOp, EvalError, EvalContext, WidthExpression, NumericConstant, EvalType, Evaluates, EvaluatesType};
 pub use functional_blocks::{Register, RegisterBuilder, BlockInstance, ModuleInstance, ModuleInstanceBuilder};
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
 pub use scope::{Scope, ScopeHandle};
@@ -361,7 +361,7 @@ mod test {
 	pub fn design_basic_test() -> Result<(), DesignError> {
 		// init();
 		let mut d = Design::new();
-		let mut m = d.new_module("test")?;
+		let m = d.new_module("test")?;
 
 		let sig = m
 			.scope()
@@ -422,7 +422,7 @@ mod test {
 	#[test]
 	fn test_unique_signal_names() -> Result<(), DesignError> {
 		let mut d = Design::new();
-		let mut m = d.new_module("test")?;
+		let m = d.new_module("test")?;
 
 		let _sig = m
 			.scope()
@@ -477,7 +477,7 @@ mod test {
 	#[test]
 	fn test_register() -> Result<(), DesignError> {
 		let mut d = Design::new();
-		let mut m = d.new_module("foo")?;
+		let m = d.new_module("foo")?;
 
 		let clk = m
 			.scope()
@@ -536,7 +536,7 @@ mod test {
 
 		m.expose(m_clk, SignalDirection::Input)?;
 
-		let mut m_parent = d.new_module("bar")?;
+		let m_parent = d.new_module("bar")?;
 		let m_parent_clk = m_parent.scope().new_signal("clk")?.clock().wire().build()?;
 
 		m_parent
@@ -557,7 +557,7 @@ mod test {
 
 		m.expose(m_clk, SignalDirection::Input)?;
 
-		let mut m_parent = d.new_module("bar")?;
+		let m_parent = d.new_module("bar")?;
 		let m_parent_async = m_parent.scope().new_signal("async")?.asynchronous().wire().build()?;
 
 		let err = m_parent
@@ -573,7 +573,7 @@ mod test {
 	#[test]
 	fn signal_add_eval_test() -> Result<(), DesignError> {
 		let mut d = Design::new();
-		let mut m = d.new_module("test")?;
+		let m = d.new_module("test")?;
 
 		let a = m.scope().new_signal("a")?.unsigned(8.into()).constant().build()?;
 
@@ -582,8 +582,8 @@ mod test {
 		let expr = Expression::from(a) + b.into();
 
 		let mut ctx = EvalContext::without_assumptions(d.handle());
-		ctx.assume_scalar(a, 14.into());
-		ctx.assume_scalar(b, 16.into());
+		ctx.assume(a, 14u32.into())?;
+		ctx.assume(b, 16u32.into())?;
 
 		let result = expr.eval(&ctx)?;
 		assert_eq!(result.try_into_u64()?, 30u64);
@@ -594,21 +594,21 @@ mod test {
 	#[test]
 	fn signal_array_eval_test() -> Result<(), DesignError> {
 		let mut d = Design::new();
-		let mut m = d.new_module("test")?;
+		let m = d.new_module("test")?;
 
 		let a = m
 			.scope()
 			.new_signal("a")?
-			.unsigned(8.into())
+			.signed(8.into())
 			.constant()
 			.array(4.into())?
 			.build()?;
 
 		let mut ctx = EvalContext::without_assumptions(d.handle());
-		ctx.assume(a, vec![0], 1.into());
-		ctx.assume(a, vec![1], 2.into());
-		ctx.assume(a, vec![2], 15.into());
-		ctx.assume(a, vec![3], 10.into());
+		ctx.assume_array(a, vec![0], 1.into())?;
+		ctx.assume_array(a, vec![1], 2.into())?;
+		ctx.assume_array(a, vec![2], 15.into())?;
+		ctx.assume_array(a, vec![3], 10.into())?;
 
 		let result0 = Expression::Signal(a.index(0.into())).eval(&ctx)?;
 		let result1 = Expression::Signal(a.index(1.into())).eval(&ctx)?;

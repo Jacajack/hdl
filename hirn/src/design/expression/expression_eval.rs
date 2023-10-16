@@ -1,10 +1,9 @@
-use super::eval::EvaluatesDimensions;
 use super::{
 	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, UnaryExpression, UnaryOp,
 };
 use super::{
-	eval::EvalDims, eval::EvalType, eval::Evaluates, eval::EvaluatesType, EvalContext, EvalError,
-	Expression, NumericConstant, SignalId, SignalSensitivity, SignalSlice, WidthExpression
+	eval::Evaluates, EvalContext, EvalError,
+	Expression, NumericConstant, SignalId, SignalSlice, WidthExpression
 };
 
 impl Evaluates for NumericConstant {

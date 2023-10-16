@@ -260,6 +260,10 @@ impl Signal {
 		&self.name
 	}
 
+	pub fn rank(&self) -> usize {
+		self.dimensions.len()
+	}
+
 	pub fn is_array(&self) -> bool {
 		!self.is_scalar()
 	}

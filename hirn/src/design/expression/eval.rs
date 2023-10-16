@@ -21,13 +21,36 @@ impl EvalContext {
 		self.design.clone()
 	}
 
-	pub fn assume(&mut self, signal: SignalId, indices: Vec<i64>, value: NumericConstant) {
-		// FIXME check if constant width matches the assumed signal
-		self.assumptions.insert((signal, indices), value);
+	fn check_assumption(&self, signal: SignalId, indices: &Vec<i64>, value: &NumericConstant) -> Result<(), EvalError> {
+		if let Some(design) = &self.design {
+			let design = design.borrow();
+			let sig = design.get_signal(signal).unwrap();
+
+			// We cannot fully check for errors here - e.g. in case where
+			// an array has generic dimensions/width
+
+			// TODO more checks here
+
+			if sig.rank() != indices.len() {
+				return Err(AssumptionError::RankMismatch.into());
+			}
+
+			if sig.class.signedness() != value.signedness()? {
+				return Err(AssumptionError::SignednessMismatch.into());
+			}
+		}
+
+		Ok(())
 	}
 
-	pub fn assume_scalar(&mut self, signal: SignalId, value: NumericConstant) {
-		self.assume(signal, vec![], value);
+	pub fn assume_array(&mut self, signal: SignalId, indices: Vec<i64>, value: NumericConstant) -> Result<(), EvalError> {
+		self.check_assumption(signal, &indices, &value)?;
+		self.assumptions.insert((signal, indices), value);
+		Ok(())
+	}
+
+	pub fn assume(&mut self, signal: SignalId, value: NumericConstant) -> Result<(), EvalError> {
+		self.assume_array(signal, vec![], value)
 	}
 
 	pub fn signal(&self, signal: SignalId, indices: &Vec<i64>) -> Option<&NumericConstant> {
@@ -44,10 +67,12 @@ pub trait EvaluatesType {
 	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError>;
 
 	fn const_eval_type(&self) -> Result<EvalType, EvalError> {
-		self.eval_type(&EvalContext::default())
+		// self.eval_type(&EvalContext::default())
+		unimplemented!()
 	}
 }
 
+/*
 pub struct EvalDims {
 	pub width: Expression,
 	pub dimensions: Vec<Expression>,
@@ -66,13 +91,17 @@ impl EvalDims {
 	}
 }
 
+
 pub trait EvaluatesDimensions {
 	fn eval_dims(&self, ctx: &EvalContext) -> Result<EvalDims, EvalError>;
 
 	fn const_eval_dims(&self) -> Result<EvalDims, EvalError> {
-		self.eval_dims(&EvalContext::default())
+		// self.eval_dims(&EvalContext::default())
+		unimplemented!()
 	}
 }
+
+*/
 
 pub trait Evaluates {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError>;
@@ -80,6 +109,18 @@ pub trait Evaluates {
 	fn const_eval(&self) -> Result<NumericConstant, EvalError> {
 		self.eval(&EvalContext::default())
 	}
+}
+
+#[derive(Debug, Clone, Copy, Error)]
+pub enum AssumptionError {
+	#[error("Assumption does not refer to an array signal properly")]
+	RankMismatch,
+
+	#[error("Assumed value's bit width is different from signal's width")]
+	WidthMismatch,
+
+	#[error("Signal's and assumed value's signedness differ")]
+	SignednessMismatch,
 }
 
 #[derive(Debug, Clone, Error)]
@@ -152,6 +193,9 @@ pub enum EvalError {
 
 	#[error("Invalid LSB, MSB indices in bus select")]
 	BadBusSelect,
+
+	#[error(transparent)]
+	InvalidAssumption(#[from] AssumptionError),
 }
 
 /// Provides type evaluation rules for both expressions and compile-time evaluation

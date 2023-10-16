@@ -8,7 +8,7 @@ mod narrow_eval;
 
 pub use numeric_constant::NumericConstant;
 pub use width_expression::WidthExpression;
-pub use eval::{EvalError, EvalContext, Evaluates, EvaluatesDimensions, EvaluatesType, EvalDims, EvalType};
+pub use eval::{EvalError, EvalContext, Evaluates, EvaluatesType, EvalType};
 pub use narrow_eval::NarrowEval;
 
 use super::signal::{SignalClass, SignalSensitivity, SignalSlice};
