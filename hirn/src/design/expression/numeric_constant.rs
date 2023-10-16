@@ -141,6 +141,16 @@ impl NumericConstant {
 		}
 	}
 
+	pub fn as_unsigned(mut self) -> Self {
+		self.signedness = SignalSignedness::Unsigned;
+		self
+	}
+
+	pub fn as_signed(mut self) -> Self {
+		self.signedness = SignalSignedness::Signed;
+		self
+	}
+
 	pub fn to_hex_str(&self) -> String {
 		format!("{:x}", self.value)
 	}

@@ -1,7 +1,7 @@
 use super::{
 	eval::Evaluates, EvalContext, EvalError, Expression, NumericConstant, SignalId, SignalSlice, WidthExpression,
 };
-use super::{BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, UnaryExpression, UnaryOp};
+use super::{SignalSignedness, BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, UnaryExpression, UnaryOp};
 
 impl Evaluates for NumericConstant {
 	fn eval(&self, _ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
@@ -57,7 +57,11 @@ impl Evaluates for ConditionalExpression {
 
 impl Evaluates for CastExpression {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
-		self.src.eval(ctx)
+		match self.signedness {
+			Some(SignalSignedness::Signed) => self.src.eval(ctx)?.as_signed().into(),
+			Some(SignalSignedness::Unsigned) => self.src.eval(ctx)?.as_unsigned().into(),
+			None => self.src.eval(ctx)?.into()
+		}
 	}
 }
 

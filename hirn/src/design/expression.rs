@@ -12,7 +12,7 @@ pub use numeric_constant::NumericConstant;
 pub use width_expression::WidthExpression;
 
 use super::signal::{SignalClass, SignalSensitivity, SignalSlice};
-use super::SignalId;
+use super::{SignalId, SignalSignedness};
 
 /// Binary operators
 /// TODO check if we have all
@@ -219,11 +219,9 @@ impl ConditionalExpressionBuilder {
 /// Cast expression
 #[derive(Clone, Debug)]
 pub struct CastExpression {
-	/// Destination signal class
-	pub dest_class: Option<SignalClass>, // FIXME we cannot cast width - this should be sensitivity + sign only
+	pub signedness: Option<SignalSignedness>,
 
-	/// Destination signal sensitivity
-	pub dest_sensitivity: Option<SignalSensitivity>,
+	pub sensitivity: Option<SignalSensitivity>,
 
 	/// Source expression
 	pub src: Box<Expression>,
@@ -320,17 +318,27 @@ impl Expression {
 	}
 
 	/// Cassts expression to a different type
-	pub fn cast(self, dest_class: Option<SignalClass>, dest_sensitivity: Option<SignalSensitivity>) -> Self {
+	pub fn cast(self, dest_signedness: Option<SignalSignedness>, dest_sensitivity: Option<SignalSensitivity>) -> Self {
 		Self::Cast(CastExpression {
-			dest_class,
-			dest_sensitivity,
+			signedness: dest_signedness,
+			sensitivity: dest_sensitivity,
 			src: Box::new(self),
 		})
 	}
 
+	/// Casts to unsigned
+	pub fn cast_unsigned(self) -> Self {
+		self.cast(Some(SignalSignedness::Unsigned), None)
+	}
+
+	/// Casts to signed
+	pub fn cast_signed(self) -> Self {
+		self.cast(Some(SignalSignedness::Signed), None)
+	}
+
 	/// Performs zero extension
 	pub fn zero_extend(self, width: Expression) -> Self {
-		// TODO rewrite as join(rep(width - this_width, 0u1), this)
+		// TODO assert width is unsigned
 		Self::Builtin(BuiltinOp::ZeroExtend {
 			expr: Box::new(self),
 			width: Box::new(width),
@@ -339,7 +347,7 @@ impl Expression {
 
 	/// Performs sign extension
 	pub fn sign_extend(self, width: Expression) -> Self {
-		// TODO rewrite as join(rep(width - this_width, this[this_width - 1]), this)
+		// TODO assert width unsigned
 		Self::Builtin(BuiltinOp::SignExtend {
 			expr: Box::new(self),
 			width: Box::new(width),
@@ -348,7 +356,6 @@ impl Expression {
 
 	/// Get max of two expressions
 	pub fn max(self, rhs: Expression) -> Self {
-		// TODO rewrite as conditional?
 		Self::Binary(BinaryExpression {
 			op: BinaryOp::Max,
 			lhs: Box::new(self),
@@ -358,7 +365,6 @@ impl Expression {
 
 	/// Get min of two expressions
 	pub fn min(self, rhs: Expression) -> Self {
-		// TODO rewrite as conditional?
 		Self::Binary(BinaryExpression {
 			op: BinaryOp::Min,
 			lhs: Box::new(self),
@@ -380,6 +386,7 @@ impl Expression {
 
 	/// Selects one bit from the expression
 	pub fn bit_select(self, n: Expression) -> Self {
+		// TODO assert n unsigned
 		Self::Builtin(BuiltinOp::BitSelect {
 			expr: Box::new(self),
 			index: Box::new(n),
@@ -388,6 +395,7 @@ impl Expression {
 
 	/// Selects range of bits from the expression
 	pub fn bus_select(self, msb: Expression, lsb: Expression) -> Self {
+		// TODO assert lsb msb unsigned
 		Self::Builtin(BuiltinOp::BusSelect {
 			expr: Box::new(self),
 			msb: Box::new(msb),
@@ -439,8 +447,6 @@ impl Expression {
 	// TODO from bool
 	// TODO remaining binary ops
 
-	// Casts:
-	// TODO from bool
 }
 
 /// Implements a conversion from signal ID to an expression
@@ -494,6 +500,12 @@ impl From<u32> for Expression {
 
 impl From<i32> for Expression {
 	fn from(value: i32) -> Self {
+		Self::Constant(value.into())
+	}
+}
+
+impl From<bool> for Expression {
+	fn from(value: bool) -> Self {
 		Self::Constant(value.into())
 	}
 }

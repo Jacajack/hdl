@@ -55,7 +55,7 @@ impl<'a> SVCodegen<'a> {
 					Signal(ref slice) => {
 						// FIXME this likely requires more graceful handling
 						let signal = self.design.get_signal(slice.signal).expect("Invalid signal ID");
-						*e = signal.class.width().clone();
+						*e = signal.class.width().clone().cast_unsigned();
 					},
 
 					// Eradicate trivial width() called on constants

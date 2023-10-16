@@ -38,6 +38,7 @@ impl WidthExpression for BinaryExpression {
 impl WidthExpression for BuiltinOp {
 	fn width(&self) -> Result<Expression, EvalError> {
 		use BuiltinOp::*;
+		// TODO require proper width/index signedness
 		Ok(match self {
 			ZeroExtend { width, .. } => (**width).clone(),
 			SignExtend { width, .. } => (**width).clone(),
