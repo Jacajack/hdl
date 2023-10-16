@@ -146,6 +146,12 @@ pub enum EvalError {
 
 	#[error("Cannot negate unsigned")]
 	NegateUnsigned,
+
+	#[error("Invalid index in bit select")]
+	BadBitSelect,
+
+	#[error("Invalid LSB, MSB indices in bus select")]
+	BadBusSelect,
 }
 
 /// Provides type evaluation rules for both expressions and compile-time evaluation

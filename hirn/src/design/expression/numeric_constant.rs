@@ -350,15 +350,44 @@ impl NumericConstant {
 	}
 
 	pub fn op_bit_select(&self, rhs: NumericConstant) -> Self {
-		todo!();
+		if let Some(err) = self.get_error() {return Self::new_invalid(err);}
+		if rhs.signedness == SignalSignedness::Signed {return Self::new_invalid(EvalError::SignedWidth);}
+		match rhs.try_into_u64() {
+			Err(_) => Self::new_invalid(EvalError::BadBitSelect),
+			Ok(n) => {
+				if n > self.width {
+					Self::new_invalid(EvalError::BadBitSelect)
+				}
+				else {
+					Self::new_bool(self.value.bit(n))
+				}
+			}
+		}
 	}
 
 	fn op_bus_select_i(&self, lsb: u64, msb: u64) -> Self {
-		todo!();
+		if msb < lsb {return Self::new_invalid(EvalError::BadBusSelect);}
+		let new_width = msb - lsb + 1;
+		let mask = (BigUint::from(1u32) << new_width) - 1u32;
+		Self::new(
+			(self.value.clone() >> lsb) & mask,
+			self.signedness,
+			new_width
+		).expect("new() params must be valid here")
 	}
 
 	pub fn op_bus_select(&self, lsb: NumericConstant, msb: NumericConstant) -> Self {
-		todo!();
+		match (lsb.signedness, msb.signedness) {
+			(SignalSignedness::Signed, _) | (_, SignalSignedness::Signed) => {
+				return Self::new_invalid(EvalError::SignedWidth);
+			}
+			_ => {}
+		}
+
+		match (lsb.try_into_u64(), msb.try_into_u64()) {
+			(Err(e), _) | (_, Err(e)) => Self::new_invalid(e),
+			(Ok(lsb), Ok(msb)) => self.op_bus_select_i(lsb, msb),
+		}
 	}
 
 	pub fn op_bitwise_not(&self) -> Self {
@@ -707,6 +736,8 @@ impl_binary_constant_op!(BitXor, bitxor,  |lhs: &NumericConstant, rhs: &NumericC
 mod test {
 	use super::*;
 
+	// TODO tests for error cases
+
 	fn check_value(nc: NumericConstant, val: i64, width: u64) {
 		assert!(matches!(nc.get_error(), None));
 		assert_eq!(nc.to_bigint().unwrap(), BigInt::from(val));
@@ -823,21 +854,39 @@ mod test {
 	}
 
 	#[test]
+	fn test_replicate() {
+		check_value(ncu(5).op_replicate(ncu(2)), 45, 6);
+	}
+
+	#[test]
+	fn test_bit_select() {
+		check_value_u(ncu(0b1010).op_bit_select(ncu(0)), 0, 1);
+		check_value_u(ncu(0b1010).op_bit_select(ncu(1)), 1, 1);
+		check_value_u(ncu(0b1010).op_bit_select(ncu(2)), 0, 1);
+		check_value_u(ncu(0b1010).op_bit_select(ncu(3)), 1, 1);
+	}
+
+	#[test]
+	fn test_bus_select() {
+		check_value_u(ncu(0b110011).op_bus_select(ncu(1), ncu(4)), 9, 4);
+		check_value_u(ncu(0b110011).op_bus_select(ncu(0), ncu(0)), 1, 1);
+		check_value_u(ncu(0b110011).op_bus_select(ncu(2), ncu(2)), 0, 1);
+		check_value_u(ncu(0b110011).op_bus_select(ncu(0), ncu(5)), 0b110011, 6);
+	}
+
+	#[test]
 	fn test_bitwise_and() {
 		check_value_u(ncu(0b1010) & ncu(0b1100), 0b1000, 4);
-		// TODO tests for width mismatch
 	}
 
 	#[test]
 	fn test_bitwise_or() {
 		check_value_u(ncu(0b1010) | ncu(0b1100), 0b1110, 4);
-		// TODO tests for width mismatch
 	}
 
 	#[test]
 	fn test_bitwise_xor() {
 		check_value_u(ncu(0b1010) ^ ncu(0b1100), 0b0110, 4);
-		// TODO tests for width mismatch
 	}
 
 	#[test]
