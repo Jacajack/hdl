@@ -9,7 +9,7 @@ use crate::{
 	SourceSpan,
 };
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AssignmentStatement {
 	pub lhs: Expression,
 	pub assignment_opcode: AssignmentOpcode,
@@ -17,7 +17,7 @@ pub struct AssignmentStatement {
 	pub location: SourceSpan,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct IfElseStatement {
 	pub condition: Expression,
 	pub if_statement: Box<ModuleImplementationStatement>,
@@ -25,7 +25,7 @@ pub struct IfElseStatement {
 	pub location: SourceSpan,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct IterationStatement {
 	pub id: IdTableKey,
 	pub range: RangeExpression,
@@ -33,7 +33,7 @@ pub struct IterationStatement {
 	pub location: SourceSpan,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct InstantiationStatement {
 	pub metadata: Vec<CommentTableKey>,
 	pub module_name: ImportPath,
@@ -42,12 +42,12 @@ pub struct InstantiationStatement {
 	pub location: SourceSpan,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ModuleImplementationBlockStatement {
 	pub statements: Vec<ModuleImplementationStatement>,
 	pub location: SourceSpan,
 }
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub enum ModuleImplementationStatement {
 	VariableBlock(VariableBlock),
 	VariableDefinition(VariableDefinition),

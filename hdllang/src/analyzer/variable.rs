@@ -1,12 +1,10 @@
 use core::panic;
-use std::collections::HashMap;
 
 use hirn::{
 	design::{signal::SignalBuilder, NumericConstant},
 	Expression, SignalId,
 };
 use log::debug;
-use logos::Source;
 use num_bigint::BigInt;
 
 use crate::{
@@ -24,6 +22,27 @@ pub enum SignalSignedness {
 	NoSignedness,
 }
 impl SignalSignedness {
+	pub fn is_none(&self) -> bool {
+		use SignalSignedness::*;
+		match self {
+			NoSignedness => true,
+			_ => false,
+		}
+	}
+	pub fn is_signed(&self) -> bool {
+		use SignalSignedness::*;
+		match self {
+			Signed(_) => true,
+			_ => false,
+		}
+	}
+	pub fn is_unsigned(&self) -> bool {
+		use SignalSignedness::*;
+		match self {
+			Unsigned(_) => true,
+			_ => false,
+		}
+	}
 	pub fn name(&self) -> &'static str {
 		use SignalSignedness::*;
 		match self {
@@ -114,8 +133,10 @@ impl BusWidth {
 			Evaluated(_) => (),
 			EvaluatedLocated(_, _) => (),
 			Evaluable(location) => {
-				let expr = scope.evaluated_expressions.get(location).unwrap().evaluate(&nc_table, 0, scope)?.unwrap();
-				*self = BusWidth::Evaluated(expr)
+				let expr = scope.evaluated_expressions.get(location).unwrap();
+				debug!("Expr is known!");
+				let nc = expr.expression.evaluate(&nc_table, expr.scope_id, scope)?.unwrap();
+				*self = BusWidth::Evaluated(nc)
 			},
 			WidthOf(location) => {
 				//let expr = scope.evaluated_expressions.get(location).unwrap().evaluate_type(&nc_table, 0, scope)?.unwrap();
@@ -490,7 +511,7 @@ impl Signal {
 				None,
 				None,
 			))),
-			None =>  return Self {
+			None => return Self {
 				signal_type: SignalType::Bus(BusType {
 					width: None,
 					signedness,
@@ -685,21 +706,27 @@ impl Variable {
 							Evaluated(value) => {
 								Expression::Constant(hirn::design::NumericConstant::new_signed(value.clone().value))
 							},
-							EvaluatedLocated(_, location) => scope
+							EvaluatedLocated(_, location) => {
+								let expr_ast = scope
 								.evaluated_expressions
 								.get(&location)
-								.unwrap()
-								.codegen(nc_table, id_table, scope_id, scope)?,
-							Evaluable(location) => scope
+								.unwrap();
+							expr_ast.expression
+								.codegen(nc_table, id_table, expr_ast.scope_id, scope)?},
+							Evaluable(location) => {
+								let expr_ast = scope
 								.evaluated_expressions
 								.get(&location)
-								.unwrap()
-								.codegen(nc_table, id_table, scope_id, scope)?,
-							WidthOf(location) => scope
+								.unwrap();
+							expr_ast.expression
+								.codegen(nc_table, id_table, expr_ast.scope_id, scope)?},
+							WidthOf(location) => {
+								let expr_ast = scope
 								.evaluated_expressions
 								.get(&location)
-								.unwrap()
-								.codegen(nc_table, id_table, scope_id, scope)?, //FIXME coming soon
+								.unwrap();
+							expr_ast.expression
+								.codegen(nc_table, id_table, expr_ast.scope_id, scope)?}, //FIXME coming soon
 						};
 						match bus.signedness {
 							SignalSignedness::Signed(_) => builder = builder.signed(width),
@@ -722,15 +749,16 @@ impl Variable {
 							let expr = scope
 								.evaluated_expressions
 								.get(location)
-								.unwrap()
-								.codegen(nc_table, id_table, scope_id, scope)?;
-							builder = builder.array(expr).unwrap();
+								.unwrap();
+							let codegened = expr.expression
+								.codegen(nc_table, id_table, expr.scope_id, scope)?;
+							builder = builder.array(codegened).unwrap();
 						},
 						Evaluable(location) => {
 							let expr = scope
 								.evaluated_expressions
 								.get(location)
-								.unwrap()
+								.unwrap().expression
 								.codegen(nc_table, id_table, scope_id, scope)?;
 							builder = builder.array(expr).unwrap();
 						},
@@ -738,7 +766,7 @@ impl Variable {
 							let expr = scope
 								.evaluated_expressions
 								.get(location)
-								.unwrap()
+								.unwrap().expression
 								.codegen(nc_table, id_table, scope_id, scope)?;
 							builder = builder.array(expr).unwrap(); // FIXME it should be width of
 						},

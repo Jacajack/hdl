@@ -4,7 +4,7 @@ use crate::SourceSpan;
 
 use crate::parser::ast::{Expression, SourceLocation};
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct MatchExpressionStatement {
 	pub antecedent: MatchExpressionAntecendent,
 	pub expression: Expression,
@@ -16,7 +16,7 @@ impl SourceLocation for MatchExpressionStatement {
 		self.location
 	}
 }
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub enum MatchExpressionAntecendent {
 	Expression {
 		expressions: Vec<Expression>,

@@ -1,13 +1,14 @@
 mod pretty_printable;
 
 use crate::analyzer::*;
+use crate::analyzer::module_implementation_scope::EvaluatedEntry;
 use crate::lexer::CommentTableKey;
 use crate::lexer::IdTable;
 use crate::parser::ast::SourceLocation;
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 
 use super::{DirectDeclarator, TypeDeclarator, TypeQualifier, TypeSpecifier};
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct VariableDeclarationStatement {
 	pub metadata: Vec<CommentTableKey>,
 	pub type_declarator: TypeDeclarator,
@@ -75,7 +76,7 @@ impl VariableDeclarationStatement {
 				let size = array_declarator.evaluate(nc_table, 0, scope)?;
 				scope
 					.evaluated_expressions
-					.insert(array_declarator.get_location(), array_declarator.clone());
+					.insert(array_declarator.get_location(), EvaluatedEntry::new(array_declarator.clone(),0));
 				match &size {
 					Some(val) => {
 						if val.value <= num_bigint::BigInt::from(0) {
@@ -197,7 +198,7 @@ impl VariableKind {
 				)?;
 				scope
 					.evaluated_expressions
-					.insert(bus.width.get_location(), *bus.width.clone());
+					.insert(bus.width.get_location(), EvaluatedEntry::new(*bus.width.clone(),current_scope));
 				let width = bus.width.evaluate(nc_table, current_scope, scope)?;
 				let w = if scope.is_generic() {
 					match &width {
@@ -404,7 +405,7 @@ pub fn analyze_qualifiers(
 	}
 	Ok(already_created)
 }
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ModuleDeclarationVariableBlock {
 	pub metadata: Vec<CommentTableKey>,
 	pub types: Vec<TypeQualifier>,
@@ -438,7 +439,7 @@ impl ModuleDeclarationVariableBlock {
 		Ok(variables)
 	}
 }
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub enum ModuleDeclarationStatement {
 	VariableDeclarationStatement(VariableDeclarationStatement),
 	VariableBlock(ModuleDeclarationVariableBlock),

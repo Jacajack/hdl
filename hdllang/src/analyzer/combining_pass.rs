@@ -551,6 +551,7 @@ impl ModuleImplementationStatement {
 								},
         						_=> unreachable!(),
     						}
+							scope.redeclare_variable(interface_variable);
 						},
 						IdWithDeclaration(id_decl) => {
 							debug!("Id with declaration");
@@ -560,6 +561,7 @@ impl ModuleImplementationStatement {
 						},
 					}
 				}
+				debug!("Scope is {:?}", scope);
 				debug!("Binding non generic variables!");
 				for stmt in &inst.port_bind {
 					let mut interface_variable = scope
@@ -568,7 +570,8 @@ impl ModuleImplementationStatement {
 					if interface_variable.var.kind.is_generic(){
 						continue;
 					}
-					interface_variable.var.kind.evaluate_bus_width(&scope, ctx.id_table, ctx.nc_table)?;
+					debug!("Interface variable is {:?}", interface_variable.var.kind);
+					//interface_variable.var.kind.evaluate_bus_width(&scope, ctx.id_table, ctx.nc_table)?;
 					use crate::parser::ast::PortBindStatement::*;
 					match &stmt {
 						OnlyId(id) => {
@@ -598,6 +601,7 @@ impl ModuleImplementationStatement {
 							match (&mut local_sig.var.kind, &mut interface_variable.var.kind) {
 								(Signal(sig1), Signal(sig2)) => {
 									sig2.evaluate_as_lhs(true, ctx, sig1.clone(), stmt.location())?;
+									// sig 2 change width to the ones known in local scope
 									sig1.evaluate_as_lhs(false, ctx, sig2.clone(), stmt.location())?;
 									//local_ctx.scope.evaluated_expressions.insert(sig2.width().unwrap().get_location().unwrap(), scope.evaluated_expressions.get(&sig2.width().unwrap().get_location().unwrap()).unwrap().clone());
 									local_ctx.scope.redeclare_variable(local_sig);
@@ -815,7 +819,7 @@ impl VariableDefinition {
 				local_ctx
 					.scope
 					.evaluated_expressions
-					.insert(array_declarator.get_location(), array_declarator.clone());
+					.insert(array_declarator.get_location(), crate::analyzer::module_implementation_scope::EvaluatedEntry::new(array_declarator.clone(), scope_id));
 				match &size {
 					Some(val) => {
 						if val.value <= num_bigint::BigInt::from(0) {

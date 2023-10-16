@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash, fmt::format};
+use std::{collections::HashMap, hash::Hash};
 
 use hirn::{design::ModuleHandle, SignalId};
 use log::*;
@@ -20,10 +20,24 @@ impl InternalVariableId {
 		Self { id }
 	}
 }
-
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct EvaluatedEntry{
+	pub expression: crate::parser::ast::Expression,
+	pub scope_id: usize,
+}
+impl EvaluatedEntry{
+	pub fn new(expression: crate::parser::ast::Expression, scope_id: usize)->Self{
+		Self{
+			expression,
+			scope_id,
+		}
+	}
+}
+use crate::analyzer::BusWidth;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleImplementationScope {
-	pub evaluated_expressions: HashMap<SourceSpan, crate::parser::ast::Expression>,
+	pub widths: HashMap<SourceSpan, BusWidth>,
+	pub evaluated_expressions: HashMap<SourceSpan, EvaluatedEntry>,
 	pub enriched_constants: HashMap<SourceSpan, crate::core::NumericConstant>,
 	scopes: Vec<InternalScope>,
 	is_generic: bool,
@@ -133,6 +147,7 @@ impl ModuleImplementationScope {
 	}
 	pub fn new() -> Self {
 		Self {
+			widths: HashMap::new(),
 			evaluated_expressions: HashMap::new(),
 			scopes: vec![InternalScope::new(None)],
 			api_ids: HashMap::new(),

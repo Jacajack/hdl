@@ -107,7 +107,7 @@ impl SignalSensitivity {
 			| (Const(_), Const(_))
 			| (Clock(_), Clock(_)) => (),
 			(NoSensitivity, _) => *self = rhs.clone(),
-			(Comb(curent, lhs_location), Comb(incoming, incoming_location)) => {
+			(Comb(curent, lhs_location), Comb(incoming, _)) => {
 				for value in &incoming.list {
 					if !curent.contains_clock(value.clock_signal) {
 						return Err(miette::Report::new(
@@ -164,7 +164,7 @@ impl SignalSensitivity {
 				));
 			},
 			(Sync(..), _) => (),
-			(_, Const(sensitivity_location)) => (),
+			(_, Const(_)) => (),
 			(Const(sensitivity_location), _) => {
 				return Err(miette::Report::new(
 					SemanticError::DifferingSensitivities
@@ -231,6 +231,6 @@ mod tests {
 	}
 	#[test]
 	fn const_clock() {
-		sensitivity_test_ok!(const, clock);
+		sensitivity_test_ok!(clock, const);
 	}
 }

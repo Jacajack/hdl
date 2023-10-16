@@ -3,17 +3,17 @@ mod pretty_printable;
 use crate::parser::ast::{Expression, SourceLocation};
 use crate::SourceSpan;
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Sync {
 	pub expressions: Vec<Expression>,
 	pub location: SourceSpan,
 }
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct Comb {
 	pub expressions: Vec<Expression>,
 	pub location: SourceSpan,
 }
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub enum TypeQualifier {
 	Signed { location: SourceSpan },
 	Unsigned { location: SourceSpan },
