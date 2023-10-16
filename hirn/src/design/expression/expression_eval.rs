@@ -154,7 +154,30 @@ impl Evaluates for BuiltinOp {
 				lhs.op_replicate(rhs).into()
 			},
 
-			Width(expr) => expr.width()?.eval(ctx),
+			Width(arg) => match **arg {
+				Expression::Signal(ref slice) => {
+					// FIXME nasty cast
+					let indices: Result<Vec<_>, EvalError> = slice.indices.iter().map(|e| e.eval(ctx)?.try_into_u64().map(|v| v as i64)).collect();
+					match ctx.signal(slice.signal, &indices?) {
+						Some(value) => NumericConstant::new(
+							value.width()?.into(),
+							crate::design::SignalSignedness::Unsigned,
+							64
+						),
+
+						None => Err(EvalError::MissingAssumption(slice.signal))
+					}
+				},
+
+				Expression::Constant(ref c) => {
+					NumericConstant::new(
+						c.width()?.into(),
+						crate::design::SignalSignedness::Unsigned,
+						64
+					)
+				},
+				_ => arg.width()?.eval(ctx),
+			},
 
 			Join(exprs) => {
 				let args: Result<Vec<_>, EvalError> = exprs.iter().map(|e| e.eval(ctx)).collect();
