@@ -1,6 +1,35 @@
 use crate::compiler_diagnostic::*;
 use thiserror::Error;
-
+#[derive(Copy, Clone, Error, Debug)]
+pub enum InstationError{
+	#[error("Wrong arguments provided")]
+	ArgumentsMismatch,
+	#[error("Generic arguments must have a value if used in instantiation")]
+	GenericArgumentWithoutValue,
+	#[error("You cannot bind generic variables with signal")]
+	TypeMismatch,
+	#[error("You cannot bind a variable twice")]
+	DoubleBinding,
+}
+impl ProvidesCompilerDiagnostic for InstationError{
+    fn to_diagnostic(&self) -> CompilerDiagnostic {
+		use InstationError::*;
+        match self{
+            ArgumentsMismatch => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure provided arguments are valid")
+				.build(),
+            GenericArgumentWithoutValue => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure this argument has a value")
+				.build(),
+			TypeMismatch => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Make sure you are binding correct signals")
+				.build(),
+            DoubleBinding => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please remove second binding")
+				.build(),
+        }
+    }
+}
 #[derive(Copy, Clone, Error, Debug)]
 pub enum SemanticError {
 	#[error("Module has more than one `impl` block reffering to it")]
@@ -81,6 +110,8 @@ pub enum SemanticError {
 	IndexOutOfBounds,
 	#[error("Conditional and match expressions must have a default branch")]
 	ConditionalWithoutDefault,
+	#[error("It is not allowed to use unindexed module instance in expresion")]
+	ModuleInstanceNotIndexed,
 	#[error("It is not allowed to use array in this expression")]
 	ArrayInExpression,
 	#[error("It is not allowed to mix signed and unsigned types in expressions")]
@@ -91,6 +122,8 @@ pub enum SemanticError {
 	UnknownBuiltInFunction,
 	#[error("Bad function arguments")]
 	BadFunctionArguments,
+	#[error(transparent)]
+	InstationError(InstationError),
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -229,6 +262,10 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 			BadFunctionArguments => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all function arguments are valid")
 				.build(),
+    		InstationError(err) => err.into(),
+    		ModuleInstanceNotIndexed => CompilerDiagnosticBuilder::from_error(&self)
+			.help("Please make sure that all module instance is always accessed properly in expression")
+			.build(),
 		}
 	}
 }

@@ -98,6 +98,8 @@ impl SignalSensitivity {
 		global_ctx: &GlobalAnalyzerContext,
 	) -> miette::Result<()> {
 		use SignalSensitivity::*;
+		log::debug!("Self {:?}", self);
+		log::debug!("Other {:?}", rhs);
 		match (&self, rhs) {
 			(_, NoSensitivity)
 			| (Async(_), Async(_))
@@ -162,16 +164,17 @@ impl SignalSensitivity {
 				));
 			},
 			(Sync(..), _) => (),
-			(Const(_), _) => (),
-			(_, Const(sensitivity_location)) => {
+			(_, Const(sensitivity_location)) => (),
+			(Const(sensitivity_location), _) => {
 				return Err(miette::Report::new(
 					SemanticError::DifferingSensitivities
 						.to_diagnostic_builder()
 						.label(
 							location,
-							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the right hand side",
+							"Cannot bind signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the right hand side",
 						)
 						.label(*sensitivity_location, "This sensitivity is const")
+						.label(*rhs.location().unwrap(), "This sensitivity is worse than const")
 						.build(),
 				));
 			},

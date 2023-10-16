@@ -1,4 +1,4 @@
-use std::{collections::HashMap, hash::Hash};
+use std::{collections::HashMap, hash::Hash, fmt::format};
 
 use hirn::{design::ModuleHandle, SignalId};
 use log::*;
@@ -60,6 +60,33 @@ pub trait ScopeTrait {
 	fn is_generic(&self) -> bool;
 }
 impl ModuleImplementationScope {
+	pub fn display_interface(&self, id_table: &IdTable)->String{
+		let mut s = String::new();
+		let scope = self.scopes.first().unwrap();
+		for (name, var) in &scope.variables{
+			s+=format!("Variable {}: {:?}\n", id_table.get_value(name), var.var.kind).as_str();
+		}
+		s+=format!("dupa").as_str();
+
+		s
+	}
+	pub fn get_interface_len(&self)->usize{
+		return self.scopes.first().unwrap().variables.len()
+	}
+	pub fn get_var(&self, scope_id: usize, name: &IdTableKey)->Result<&VariableDefined, SemanticError>{
+		let scope = &self.scopes[scope_id];
+		if let Some(variable) = scope.variables.get(name) {
+			Ok(variable)
+		}
+		else {
+			if let Some(parent_scope) = scope.parent_scope {
+				self.get_var(parent_scope, name)
+			}
+			else {
+				Err(SemanticError::VariableNotDeclared)
+			}
+		}
+	}
 	pub fn transorm_to_generic(&mut self) {
 		debug!("Transforming scope to generic");
 		for scope in self.scopes.iter_mut() {
