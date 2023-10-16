@@ -1,5 +1,5 @@
 use super::{AlreadyCreated, ModuleDeclared, SemanticError, Variable, VariableKind};
-use hirn::design::{expression::UnaryExpression, ScopeHandle};
+use hirn::design::{UnaryExpression, ScopeHandle};
 use log::{debug, info};
 use std::collections::HashMap;
 use std::io::Write;

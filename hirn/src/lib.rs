@@ -1,10 +1,8 @@
 pub mod codegen;
 pub mod design;
 
+pub use design::{Design, DesignError, BinaryOp, Expression, Module, ModuleId, ModuleHandle, ScopeHandle, ScopeId, SignalId, UnaryOp};
 pub use codegen::{sv_codegen::SVCodegen, Codegen, CodegenError};
-pub use design::{
-	BinaryOp, Design, DesignError, Expression, Module, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp,
-};
 
 use thiserror::Error;
 

@@ -1,7 +1,7 @@
 use core::panic;
 
 use hirn::{
-	design::{signal::SignalBuilder, NumericConstant},
+	design::{SignalBuilder, NumericConstant},
 	Expression, SignalId,
 };
 use log::debug;
