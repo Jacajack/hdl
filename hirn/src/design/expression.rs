@@ -1,15 +1,13 @@
 mod expression_eval;
 mod type_eval;
-mod rust_ops;
-mod expression_width;
+mod expression_rust_ops;
+mod width_expression;
 mod numeric_constant;
-mod dims_eval;
 mod eval;
 mod narrow_eval;
 
-use num_bigint::Sign;
 pub use numeric_constant::NumericConstant;
-pub use expression_width::WidthExpression;
+pub use width_expression::WidthExpression;
 pub use eval::{EvalError, EvalContext, Evaluates, EvaluatesDimensions, EvaluatesType, EvalDims, EvalType};
 pub use narrow_eval::NarrowEval;
 

@@ -1,6 +1,6 @@
 use crate::BinaryOp;
 use super::{EvalContext, Expression, EvalError, BinaryExpression, BuiltinOp};
-use super::expression_width::WidthExpression;
+use super::width_expression::WidthExpression;
 
 pub trait NarrowEval {
 	fn narrow_eval(&self, ctx: &EvalContext) -> Result<i64, EvalError>;
