@@ -67,7 +67,30 @@ impl<'a> SVCodegen<'a> {
 					_ => {
 						*e = e.width()?;
 					},
-				}
+				},
+
+				// Expand zero-extension builtins
+				BuiltinOp::ZeroExtend { expr: argument, width: desired_width } => {
+					*e = Expression::new_join(vec![
+						Expression::new_replicate(
+							NumericConstant::new_bool(false).into(),
+							(**desired_width).clone() - argument.width()?
+						),
+						(**argument).clone()
+					]);
+				},
+
+				// Expand zero-extension builtins
+				BuiltinOp::SignExtend { expr: argument, width: desired_width } => {
+					*e = Expression::new_join(vec![
+						Expression::new_replicate(
+							argument.clone().bit_select(argument.width()? - 1u32.into()), // MSB
+							(**desired_width).clone() - argument.width()?
+						),
+						(**argument).clone()
+					]);
+				},
+
 				_ => {},
 			}
 			_ => {},
@@ -155,8 +178,40 @@ impl<'a> SVCodegen<'a> {
 	fn translate_builtin_op(&self, op: &BuiltinOp, width_casts: bool) -> Result<String, CodegenError> {
 		use BuiltinOp::*;
 		Ok(match op {
-			Width(e) => format!("$bits({})", self.translate_expression_no_preprocess(&e, width_casts)?),
-			_ => todo!(),
+			Width(e) => unimplemented!("$bits() shall never be emitted"),
+			ZeroExtend {..} | SignExtend{..} => unimplemented!("Zero/sign extensions shall be expanded before codegen"),
+			
+			BitSelect{expr, index} => {
+				let expr_str = self.translate_expression_no_preprocess(&expr, width_casts)?;
+				let index_str = self.translate_expression_no_preprocess(&index, width_casts)?;
+				format!("{}[{}]", expr_str, index_str)
+			},
+			
+			BusSelect{expr, msb, lsb} => {
+				let expr_str = self.translate_expression_no_preprocess(&expr, width_casts)?;
+				let msb_str = self.translate_expression_no_preprocess(&msb, width_casts)?;
+				let lsb_str = self.translate_expression_no_preprocess(&lsb, width_casts)?;
+				format!("{}[{}:{}]", expr_str, msb_str, lsb_str)
+			},
+
+			Replicate{expr, count} => {
+				let expr_str = self.translate_expression_no_preprocess(&expr, width_casts)?;
+				let count_str = self.translate_expression_no_preprocess(&count, width_casts)?;
+				format!("{{ {} {{ {} }} }}", count_str, expr_str)
+			},
+
+			Join(exprs) => {
+				let mut str = "{ ".into();
+				for (index, expr) in exprs.iter().enumerate() {
+					str = format!(
+						"{}{}{}",
+						str,
+						self.translate_expression_no_preprocess(&expr, width_casts)?,
+						if index == exprs.len() - 1 {""} else {", "}
+					);
+				}
+				format!("{} }}", str)
+			},
 		})
 	}
 

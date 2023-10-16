@@ -306,6 +306,19 @@ impl Expression {
 		ConditionalExpressionBuilder::new(default)
 	}
 
+	/// Returns a new join expression
+	pub fn new_join(expressions: Vec<Expression>) -> Self {
+		Self::Builtin(BuiltinOp::Join(expressions))
+	}
+
+	/// Returns a new replicate expression
+	pub fn new_replicate(expr: Expression, count: Expression) -> Self {
+		Self::Builtin(BuiltinOp::Replicate {
+			expr: Box::new(expr),
+			count: Box::new(count),
+		})
+	}
+
 	/// Cassts expression to a different type
 	pub fn cast(self, dest_class: Option<SignalClass>, dest_sensitivity: Option<SignalSensitivity>) -> Self {
 		Self::Cast(CastExpression {
@@ -365,8 +378,16 @@ impl Expression {
 		Self::Builtin(BuiltinOp::Join(list))
 	}
 
+	/// Selects one bit from the expression
+	pub fn bit_select(self, n: Expression) -> Self {
+		Self::Builtin(BuiltinOp::BitSelect {
+			expr: Box::new(self),
+			index: Box::new(n),
+		})
+	}
+
 	/// Selects range of bits from the expression
-	pub fn select_bits(self, msb: Expression, lsb: Expression) -> Self {
+	pub fn bus_select(self, msb: Expression, lsb: Expression) -> Self {
 		Self::Builtin(BuiltinOp::BusSelect {
 			expr: Box::new(self),
 			msb: Box::new(msb),
