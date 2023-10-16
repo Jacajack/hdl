@@ -1,5 +1,5 @@
+use super::{Expression, NumericConstant, SignalId, SignalSensitivity};
 use crate::design::{DesignHandle, SignalSignedness};
-use super::{NumericConstant, SignalId, SignalSensitivity, Expression};
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -43,7 +43,12 @@ impl EvalContext {
 		Ok(())
 	}
 
-	pub fn assume_array(&mut self, signal: SignalId, indices: Vec<i64>, value: NumericConstant) -> Result<(), EvalError> {
+	pub fn assume_array(
+		&mut self,
+		signal: SignalId,
+		indices: Vec<i64>,
+		value: NumericConstant,
+	) -> Result<(), EvalError> {
 		self.check_assumption(signal, &indices, &value)?;
 		self.assumptions.insert((signal, indices), value);
 		Ok(())

@@ -1,10 +1,7 @@
 use super::{
-	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, UnaryExpression, UnaryOp,
+	eval::Evaluates, EvalContext, EvalError, Expression, NumericConstant, SignalId, SignalSlice, WidthExpression,
 };
-use super::{
-	eval::Evaluates, EvalContext, EvalError,
-	Expression, NumericConstant, SignalId, SignalSlice, WidthExpression
-};
+use super::{BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, UnaryExpression, UnaryOp};
 
 impl Evaluates for NumericConstant {
 	fn eval(&self, _ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
@@ -67,17 +64,13 @@ impl Evaluates for BinaryExpression {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
 		use BinaryOp::*;
 		match self.op {
-			LogicalAnd => {
-				match self.lhs.eval(ctx)?.is_nonzero() {
-					true => Ok(self.rhs.eval(ctx)?),
-					false => Ok(false.into()),
-				}
+			LogicalAnd => match self.lhs.eval(ctx)?.is_nonzero() {
+				true => Ok(self.rhs.eval(ctx)?),
+				false => Ok(false.into()),
 			},
-			LogicalOr => {
-				match self.lhs.eval(ctx)?.is_nonzero() {
-					true => Ok(true.into()),
-					false => Ok(self.rhs.eval(ctx)?),
-				}
+			LogicalOr => match self.lhs.eval(ctx)?.is_nonzero() {
+				true => Ok(true.into()),
+				false => Ok(self.rhs.eval(ctx)?),
 			},
 
 			_ => {
@@ -102,9 +95,10 @@ impl Evaluates for BinaryExpression {
 					GreaterEqual => lhs.op_gte(&rhs),
 					Max => lhs.op_max(&rhs),
 					Min => lhs.op_min(&rhs),
-					_ => unreachable!(),	
-				}.into()
-			}
+					_ => unreachable!(),
+				}
+				.into()
+			},
 		}
 	}
 }
@@ -120,7 +114,8 @@ impl Evaluates for UnaryExpression {
 			ReductionAnd => operand_value.op_reduction_and(),
 			ReductionOr => operand_value.op_reduction_or(),
 			ReductionXor => operand_value.op_reduction_xor(),
-		}.into()
+		}
+		.into()
 	}
 }
 
@@ -128,40 +123,38 @@ impl Evaluates for BuiltinOp {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
 		use BuiltinOp::*;
 		match self {
-			ZeroExtend{expr, width} => {
+			ZeroExtend { expr, width } => {
 				let lhs = expr.eval(ctx)?;
 				let width_value = width.eval(ctx)?;
 				lhs.op_zext(width_value).into()
 			},
 
-			SignExtend{expr, width} => {
+			SignExtend { expr, width } => {
 				let lhs = expr.eval(ctx)?;
 				let width_value = width.eval(ctx)?;
 				lhs.op_sext(width_value).into()
 			},
 
-			BusSelect{expr, msb, lsb} => {
+			BusSelect { expr, msb, lsb } => {
 				let lhs = expr.eval(ctx)?;
 				let lsb_value = lsb.eval(ctx)?;
 				let msb_value = msb.eval(ctx)?;
 				lhs.op_bus_select(lsb_value, msb_value).into()
 			},
 
-			BitSelect{expr, index} => {
+			BitSelect { expr, index } => {
 				let lhs = expr.eval(ctx)?;
 				let rhs = index.eval(ctx)?;
 				lhs.op_bit_select(rhs).into()
 			},
 
-			Replicate{expr, count} => {
+			Replicate { expr, count } => {
 				let lhs = expr.eval(ctx)?;
 				let rhs = count.eval(ctx)?;
 				lhs.op_replicate(rhs).into()
 			},
 
-			Width(expr) => {
-				expr.width()?.eval(ctx)
-			},
+			Width(expr) => expr.width()?.eval(ctx),
 
 			Join(exprs) => {
 				let args: Result<Vec<_>, EvalError> = exprs.iter().map(|e| e.eval(ctx)).collect();

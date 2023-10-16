@@ -28,7 +28,7 @@ impl NumericConstant {
 
 	/// New invalid constant storing provided EvalError
 	pub fn new_invalid(error: EvalError) -> Self {
-		Self{
+		Self {
 			error: Some(error),
 			value: 0u32.into(),
 			signedness: SignalSignedness::Unsigned,
@@ -63,13 +63,13 @@ impl NumericConstant {
 				mag
 			},
 			signedness,
-			width
+			width,
 		)
 	}
 
 	/// Creates a new NumericConstant from parts
 	pub fn new(value: BigUint, signedness: SignalSignedness, width: u64) -> Result<Self, EvalError> {
-		let mut nc = Self{
+		let mut nc = Self {
 			error: None,
 			value,
 			signedness,
@@ -92,10 +92,13 @@ impl NumericConstant {
 	pub fn msb(&self) -> Result<bool, EvalError> {
 		match &self.error {
 			Some(e) => Err(e.clone()),
-			None => if self.value.bits() < self.width {
-				Ok(false)
-			} else {
-				Ok(self.value.bit(self.width - 1))
+			None => {
+				if self.value.bits() < self.width {
+					Ok(false)
+				}
+				else {
+					Ok(self.value.bit(self.width - 1))
+				}
 			},
 		}
 	}
@@ -120,7 +123,10 @@ impl NumericConstant {
 		}
 		else {
 			if self.msb()? {
-				Ok(BigInt::from_biguint(num_bigint::Sign::Minus, neg_biguint(self.value.clone(), self.width)))
+				Ok(BigInt::from_biguint(
+					num_bigint::Sign::Minus,
+					neg_biguint(self.value.clone(), self.width),
+				))
 			}
 			else {
 				Ok(BigInt::from_biguint(num_bigint::Sign::Plus, self.value.clone()))
@@ -140,12 +146,16 @@ impl NumericConstant {
 	}
 
 	pub fn try_into_u64(&self) -> Result<u64, EvalError> {
-		if let Some(ref err) = self.error {return Err(err.clone());}
+		if let Some(ref err) = self.error {
+			return Err(err.clone());
+		}
 		u64::try_from(&self.value).or(Err(EvalError::NarrowEvalRange))
 	}
 
 	pub fn try_into_i64(&self) -> Result<i64, EvalError> {
-		if let Some(ref err) = self.error {return Err(err.clone());}
+		if let Some(ref err) = self.error {
+			return Err(err.clone());
+		}
 		i64::try_from(self.to_bigint()?).or(Err(EvalError::NarrowEvalRange))
 	}
 
@@ -209,13 +219,13 @@ impl NumericConstant {
 	pub fn op_min(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or(Self::require_sign_match(self, rhs))
-			.unwrap_or(if self < rhs {self.clone()} else {rhs.clone()})
+			.unwrap_or(if self < rhs { self.clone() } else { rhs.clone() })
 	}
 
 	pub fn op_max(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or(Self::require_sign_match(self, rhs))
-			.unwrap_or(if self > rhs {self.clone()} else {rhs.clone()})
+			.unwrap_or(if self > rhs { self.clone() } else { rhs.clone() })
 	}
 
 	pub fn op_land(&self, rhs: &NumericConstant) -> Self {
@@ -251,23 +261,33 @@ impl NumericConstant {
 	}
 
 	pub fn op_reduction_and(&self) -> Self {
-		if !self.is_valid() {return self.clone();}
+		if !self.is_valid() {
+			return self.clone();
+		}
 		Self::new_bool(self.count_ones() == self.width)
 	}
 
 	pub fn op_reduction_or(&self) -> Self {
-		if !self.is_valid() {return self.clone();}
+		if !self.is_valid() {
+			return self.clone();
+		}
 		Self::new_bool(self.count_ones() > 0)
 	}
 
 	pub fn op_reduction_xor(&self) -> Self {
-		if !self.is_valid() {return self.clone();}
+		if !self.is_valid() {
+			return self.clone();
+		}
 		Self::new_bool(self.count_ones() % 2 == 1)
 	}
 
 	fn op_lsl_i(&self, rhs: u64, expand: bool) -> Self {
-		if !self.is_valid() {return self.clone();}
-		if rhs > Self::MAX_SHIFT_WIDTH {return Self::new_invalid(EvalError::BadShiftWidth);}
+		if !self.is_valid() {
+			return self.clone();
+		}
+		if rhs > Self::MAX_SHIFT_WIDTH {
+			return Self::new_invalid(EvalError::BadShiftWidth);
+		}
 		let mut result = self.clone();
 		result.value <<= rhs;
 		if expand {
@@ -280,15 +300,21 @@ impl NumericConstant {
 	}
 
 	fn op_lsr_i(&self, rhs: u64) -> Self {
-		if !self.is_valid() {return self.clone();}
-		if rhs > Self::MAX_SHIFT_WIDTH {return Self::new_invalid(EvalError::BadShiftWidth);}
+		if !self.is_valid() {
+			return self.clone();
+		}
+		if rhs > Self::MAX_SHIFT_WIDTH {
+			return Self::new_invalid(EvalError::BadShiftWidth);
+		}
 		let mut result = self.clone();
 		result.value >>= rhs;
 		result.normalized()
 	}
 
 	fn op_asr_i(&self, rhs: u64) -> Self {
-		if !self.is_valid() {return self.clone();}
+		if !self.is_valid() {
+			return self.clone();
+		}
 		let msb = self.msb().expect("self is valid");
 		let mut result = self.op_lsr_i(rhs);
 		for i in 0..(rhs.min(self.width)) {
@@ -307,7 +333,9 @@ impl NumericConstant {
 
 	/// Arithmetic shift right
 	pub fn op_asr(&self, rhs: NumericConstant) -> Self {
-		if let Some(err) = Self::check_shift_rhs(&rhs) {return err;}
+		if let Some(err) = Self::check_shift_rhs(&rhs) {
+			return err;
+		}
 		match rhs.try_into_u64() {
 			Ok(rhs) => self.op_asr_i(rhs),
 			Err(err) => Self::new_invalid(err),
@@ -316,7 +344,9 @@ impl NumericConstant {
 
 	/// Logical shift right
 	pub fn op_lsr(&self, rhs: NumericConstant) -> Self {
-		if let Some(err) = Self::check_shift_rhs(&rhs) {return err;}
+		if let Some(err) = Self::check_shift_rhs(&rhs) {
+			return err;
+		}
 		match rhs.try_into_u64() {
 			Ok(rhs) => self.op_lsr_i(rhs),
 			Err(err) => Self::new_invalid(err),
@@ -325,7 +355,9 @@ impl NumericConstant {
 
 	/// Shift left
 	pub fn op_shl(&self, rhs: NumericConstant) -> Self {
-		if let Some(err) = Self::check_shift_rhs(&rhs) {return err;}
+		if let Some(err) = Self::check_shift_rhs(&rhs) {
+			return err;
+		}
 		match rhs.try_into_u64() {
 			Ok(rhs) => self.op_lsl_i(rhs, false),
 			Err(err) => Self::new_invalid(err),
@@ -334,7 +366,9 @@ impl NumericConstant {
 
 	// Shift left with expansion
 	pub fn op_shl_expand(&self, rhs: NumericConstant) -> Self {
-		if let Some(err) = Self::check_shift_rhs(&rhs) {return err;}
+		if let Some(err) = Self::check_shift_rhs(&rhs) {
+			return err;
+		}
 		match rhs.try_into_u64() {
 			Ok(rhs) => self.op_lsl_i(rhs, true),
 			Err(err) => Self::new_invalid(err),
@@ -350,8 +384,12 @@ impl NumericConstant {
 	}
 
 	pub fn op_bit_select(&self, rhs: NumericConstant) -> Self {
-		if let Some(err) = self.get_error() {return Self::new_invalid(err);}
-		if rhs.signedness == SignalSignedness::Signed {return Self::new_invalid(EvalError::SignedWidth);}
+		if let Some(err) = self.get_error() {
+			return Self::new_invalid(err);
+		}
+		if rhs.signedness == SignalSignedness::Signed {
+			return Self::new_invalid(EvalError::SignedWidth);
+		}
 		match rhs.try_into_u64() {
 			Err(_) => Self::new_invalid(EvalError::BadBitSelect),
 			Ok(n) => {
@@ -361,27 +399,26 @@ impl NumericConstant {
 				else {
 					Self::new_bool(self.value.bit(n))
 				}
-			}
+			},
 		}
 	}
 
 	fn op_bus_select_i(&self, lsb: u64, msb: u64) -> Self {
-		if msb < lsb {return Self::new_invalid(EvalError::BadBusSelect);}
+		if msb < lsb {
+			return Self::new_invalid(EvalError::BadBusSelect);
+		}
 		let new_width = msb - lsb + 1;
 		let mask = (BigUint::from(1u32) << new_width) - 1u32;
-		Self::new(
-			(self.value.clone() >> lsb) & mask,
-			self.signedness,
-			new_width
-		).expect("new() params must be valid here")
+		Self::new((self.value.clone() >> lsb) & mask, self.signedness, new_width)
+			.expect("new() params must be valid here")
 	}
 
 	pub fn op_bus_select(&self, lsb: NumericConstant, msb: NumericConstant) -> Self {
 		match (lsb.signedness, msb.signedness) {
 			(SignalSignedness::Signed, _) | (_, SignalSignedness::Signed) => {
 				return Self::new_invalid(EvalError::SignedWidth);
-			}
-			_ => {}
+			},
+			_ => {},
 		}
 
 		match (lsb.try_into_u64(), msb.try_into_u64()) {
@@ -391,14 +428,18 @@ impl NumericConstant {
 	}
 
 	pub fn op_bitwise_not(&self) -> Self {
-		if let Some(err) = self.get_error() {return Self::new_invalid(err);}
+		if let Some(err) = self.get_error() {
+			return Self::new_invalid(err);
+		}
 		let mut result = self.clone();
 		result.value = not_biguint(result.value, self.width);
 		result.normalized()
 	}
 
 	pub fn op_neg(&self) -> Self {
-		if let Some(err) = self.get_error() {return Self::new_invalid(err);}
+		if let Some(err) = self.get_error() {
+			return Self::new_invalid(err);
+		}
 		if self.signedness == SignalSignedness::Unsigned {
 			return Self::new_invalid(EvalError::NegateUnsigned);
 		}
@@ -409,8 +450,12 @@ impl NumericConstant {
 	}
 
 	fn op_zext_i(&self, n: u64) -> Self {
-		if let Some(err) = self.get_error() {return Self::new_invalid(err);}
-		if n < self.width {return Self::new_invalid(EvalError::CannotShrink);}
+		if let Some(err) = self.get_error() {
+			return Self::new_invalid(err);
+		}
+		if n < self.width {
+			return Self::new_invalid(EvalError::CannotShrink);
+		}
 		let mut result = self.clone();
 		result.width = n;
 		result.normalized()
@@ -418,7 +463,9 @@ impl NumericConstant {
 
 	fn op_sext_i(&self, n: u64) -> Self {
 		let mut result = self.op_zext_i(n);
-		if !result.is_valid() {return result;}
+		if !result.is_valid() {
+			return result;
+		}
 		let msb = self.msb().expect("self is valid");
 		for n in (self.width)..n {
 			result.value.set_bit(n, msb);
@@ -453,7 +500,7 @@ impl NumericConstant {
 		if values.is_empty() {
 			return Self::new_invalid(EvalError::EmptyJoinList);
 		}
-		
+
 		// Propagate errors from any argument
 		for v in &values {
 			if let Some(err) = v.get_error() {
@@ -463,11 +510,8 @@ impl NumericConstant {
 
 		let result_width: u64 = values.iter().map(|v| v.width).sum();
 		assert_ne!(result_width, 0, "result width is zero");
-		let mut result = Self::new(
-			0u32.into(), 
-			SignalSignedness::Unsigned,
-			result_width
-		).expect("Self::new() has no reason to fail here");
+		let mut result = Self::new(0u32.into(), SignalSignedness::Unsigned, result_width)
+			.expect("Self::new() has no reason to fail here");
 
 		let mut result_bit_num = result_width;
 		for arg in &values {
@@ -487,10 +531,12 @@ impl NumericConstant {
 	}
 
 	pub fn op_replicate(self, rhs: NumericConstant) -> Self {
-		if let Some(err) = rhs.get_error() {return Self::new_invalid(err);}
+		if let Some(err) = rhs.get_error() {
+			return Self::new_invalid(err);
+		}
 		match rhs.try_into_u64() {
 			Err(err) => Self::new_invalid(err),
-			Ok(n) => Self::join(vec![self; n as usize])
+			Ok(n) => Self::join(vec![self; n as usize]),
 		}
 	}
 
@@ -608,7 +654,7 @@ macro_rules! impl_binary_constant_op {
 				match (self.get_error(), other.get_error()) {
 					(Some(lhs_err), _) => return Self::new_invalid(lhs_err),
 					(_, Some(rhs_err)) => return Self::new_invalid(rhs_err),
-					(None, None) => {}
+					(None, None) => {},
 				}
 
 				// This lambda can assume that both constants are valid
@@ -692,45 +738,50 @@ impl std::ops::Shl for NumericConstant {
 	}
 }
 
-impl_binary_constant_op!(BitAnd, bitand,  |lhs: &NumericConstant, rhs: &NumericConstant| -> Result<NumericConstant, EvalError> {
+impl_binary_constant_op!(BitAnd, bitand, |lhs: &NumericConstant,
+                                          rhs: &NumericConstant|
+ -> Result<NumericConstant, EvalError> {
 	check_sign_match(lhs, rhs)?;
 	check_width_match(lhs, rhs)?;
 	let width_expr = Expression::from(lhs.clone()) & rhs.clone().into();
 	let mut result = NumericConstant::new(
 		lhs.to_biguint()? & rhs.to_biguint()?,
 		lhs.signedness()?,
-		width_expr.width()?.const_narrow_eval()? as u64
+		width_expr.width()?.const_narrow_eval()? as u64,
 	)?;
 	result.normalize();
 	Ok(result)
 });
 
-impl_binary_constant_op!(BitOr, bitor,  |lhs: &NumericConstant, rhs: &NumericConstant| -> Result<NumericConstant, EvalError> {
+impl_binary_constant_op!(BitOr, bitor, |lhs: &NumericConstant,
+                                        rhs: &NumericConstant|
+ -> Result<NumericConstant, EvalError> {
 	check_sign_match(lhs, rhs)?;
 	check_width_match(lhs, rhs)?;
 	let width_expr = Expression::from(lhs.clone()) | rhs.clone().into();
 	let mut result = NumericConstant::new(
 		lhs.to_biguint()? | rhs.to_biguint()?,
 		lhs.signedness()?,
-		width_expr.width()?.const_narrow_eval()? as u64
+		width_expr.width()?.const_narrow_eval()? as u64,
 	)?;
 	result.normalize();
 	Ok(result)
 });
 
-impl_binary_constant_op!(BitXor, bitxor,  |lhs: &NumericConstant, rhs: &NumericConstant| -> Result<NumericConstant, EvalError> {
+impl_binary_constant_op!(BitXor, bitxor, |lhs: &NumericConstant,
+                                          rhs: &NumericConstant|
+ -> Result<NumericConstant, EvalError> {
 	check_sign_match(lhs, rhs)?;
 	check_width_match(lhs, rhs)?;
 	let width_expr = Expression::from(lhs.clone()) ^ rhs.clone().into();
 	let mut result = NumericConstant::new(
 		lhs.to_biguint()? ^ rhs.to_biguint()?,
 		lhs.signedness()?,
-		width_expr.width()?.const_narrow_eval()? as u64
+		width_expr.width()?.const_narrow_eval()? as u64,
 	)?;
 	result.normalize();
 	Ok(result)
 });
-
 
 #[cfg(test)]
 mod test {
@@ -760,9 +811,18 @@ mod test {
 
 	#[test]
 	fn test_bigint_conversions() {
-		assert_eq!(NumericConstant::new_signed(0.into()).to_bigint().unwrap(), BigInt::from(0));
-		assert_eq!(NumericConstant::new_signed((-4).into()).to_bigint().unwrap(), BigInt::from(-4));
-		assert_eq!(NumericConstant::new_signed(4.into()).to_bigint().unwrap(), BigInt::from(4));
+		assert_eq!(
+			NumericConstant::new_signed(0.into()).to_bigint().unwrap(),
+			BigInt::from(0)
+		);
+		assert_eq!(
+			NumericConstant::new_signed((-4).into()).to_bigint().unwrap(),
+			BigInt::from(-4)
+		);
+		assert_eq!(
+			NumericConstant::new_signed(4.into()).to_bigint().unwrap(),
+			BigInt::from(4)
+		);
 	}
 
 	#[test]
@@ -788,7 +848,7 @@ mod test {
 	fn test_mul() {
 		check_value(nc(0) * nc(0), 0, 2);
 		check_value(nc(17) * nc(-1), -17, 8); // 6b * 2b => 8b
-		check_value(nc(-1) * nc(-1), 1, 4); 
+		check_value(nc(-1) * nc(-1), 1, 4);
 		check_value(nc(10) * nc(10), 100, 10);
 		check_value(ncu(10) * ncu(10), 100, 8);
 	}
@@ -904,5 +964,4 @@ mod test {
 		assert_eq!(f.op_lor(&t), t);
 		assert_eq!(f.op_lor(&f), f);
 	}
-
 }

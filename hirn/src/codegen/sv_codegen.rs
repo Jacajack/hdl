@@ -3,7 +3,7 @@ use crate::{
 	design::InterfaceSignal,
 	design::SignalSignedness,
 	design::{BlockInstance, ScopeHandle},
-	design::{ModuleInstance, WidthExpression, SignalDirection, SignalSensitivity, BuiltinOp},
+	design::{BuiltinOp, ModuleInstance, SignalDirection, SignalSensitivity, WidthExpression},
 	BinaryOp, Design, Expression, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp,
 };
 use log::debug;
@@ -64,7 +64,11 @@ impl<'a> SVCodegen<'a> {
 						self.translate_expression(&br.value(), width_casts)
 					);
 				}
-				format!("{} ({})", str, self.translate_expression(e.default_value(), width_casts))
+				format!(
+					"{} ({})",
+					str,
+					self.translate_expression(e.default_value(), width_casts)
+				)
 			},
 			Constant(c) => {
 				format!("{}'h{}", c.width().unwrap(), c.to_hex_str()) // FIXME unwrap!
@@ -86,7 +90,7 @@ impl<'a> SVCodegen<'a> {
 						Add => {
 							let cast_str = self.translate_expression(&expr.width().unwrap(), false); // FIXME unwrap!
 							format!("(({})'({}) + ({})'({}))", cast_str, lhs_str, cast_str, rhs_str)
-						}
+						},
 						_ => todo!(), // TODO
 					}
 				}
@@ -118,7 +122,7 @@ impl<'a> SVCodegen<'a> {
 			Builtin(b) => match b {
 				BuiltinOp::Width(e) => format!("$bits({})", self.translate_expression(&e, width_casts)),
 				_ => todo!(),
-			}
+			},
 			Cast(c) => self.translate_expression(&c.src, width_casts),
 		}
 	}
@@ -252,13 +256,13 @@ impl<'a> SVCodegen<'a> {
 				self,
 				w,
 				"{}if ({}) begin",
-				if in_generate {""} else {"generate "},
+				if in_generate { "" } else { "generate " },
 				self.translate_expression(&conditional_scope.condition, true)
 			)?;
 			self.begin_indent();
 			self.emit_scope(w, conditional_scope.scope, true, true, HashSet::new())?;
 			self.end_indent();
-			emitln!(self, w, "end{}", if in_generate {""} else {" endgenerate"})?;
+			emitln!(self, w, "end{}", if in_generate { "" } else { " endgenerate" })?;
 			processed_subscopes.insert(conditional_scope.scope);
 		}
 
@@ -270,7 +274,7 @@ impl<'a> SVCodegen<'a> {
 				self,
 				w,
 				"{}for (genvar {} = ({}); ({}) <= ({}); ({})++) begin",
-				if in_generate {""} else {"generate "},
+				if in_generate { "" } else { "generate " },
 				self.translate_expression(&loop_scope.iterator_var.into(), true),
 				self.translate_expression(&loop_scope.iterator_begin, true),
 				self.translate_expression(&loop_scope.iterator_var.into(), true),
@@ -286,7 +290,7 @@ impl<'a> SVCodegen<'a> {
 				HashSet::from([loop_scope.iterator_var]),
 			)?;
 			self.end_indent();
-			emitln!(self, w, "end{}", if in_generate {""} else {" endgenerate"})?;
+			emitln!(self, w, "end{}", if in_generate { "" } else { " endgenerate" })?;
 			processed_subscopes.insert(loop_scope.scope);
 		}
 

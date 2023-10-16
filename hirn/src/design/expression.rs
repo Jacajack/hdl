@@ -1,15 +1,15 @@
-mod expression_eval;
-mod type_eval;
-mod expression_rust_ops;
-mod width_expression;
-mod numeric_constant;
 mod eval;
+mod expression_eval;
+mod expression_rust_ops;
 mod narrow_eval;
+mod numeric_constant;
+mod type_eval;
+mod width_expression;
 
+pub use eval::{EvalContext, EvalError, EvalType, Evaluates, EvaluatesType};
+pub use narrow_eval::NarrowEval;
 pub use numeric_constant::NumericConstant;
 pub use width_expression::WidthExpression;
-pub use eval::{EvalError, EvalContext, Evaluates, EvaluatesType, EvalType};
-pub use narrow_eval::NarrowEval;
 
 use super::signal::{SignalClass, SignalSensitivity, SignalSlice};
 use super::SignalId;
@@ -83,15 +83,14 @@ impl BuiltinOp {
 	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
 		use BuiltinOp::*;
 		match self {
-			ZeroExtend{expr, width}
-			| SignExtend{expr, width} => {
+			ZeroExtend { expr, width } | SignExtend { expr, width } => {
 				f(expr)?;
 				expr.transform(f)?;
 				f(width)?;
 				width.transform(f)?;
 			},
 
-			BusSelect{expr, msb, lsb} => {
+			BusSelect { expr, msb, lsb } => {
 				f(expr)?;
 				expr.transform(f)?;
 				f(lsb)?;
@@ -100,14 +99,14 @@ impl BuiltinOp {
 				msb.transform(f)?;
 			},
 
-			BitSelect{expr, index} => {
+			BitSelect { expr, index } => {
 				f(expr)?;
 				expr.transform(f)?;
 				f(index)?;
 				index.transform(f)?;
 			},
 
-			Replicate{expr, count} => {
+			Replicate { expr, count } => {
 				f(expr)?;
 				expr.transform(f)?;
 				f(count)?;
@@ -337,7 +336,7 @@ impl Expression {
 	/// Get max of two expressions
 	pub fn max(self, rhs: Expression) -> Self {
 		// TODO rewrite as conditional?
-		Self::Binary(BinaryExpression{
+		Self::Binary(BinaryExpression {
 			op: BinaryOp::Max,
 			lhs: Box::new(self),
 			rhs: Box::new(rhs),
@@ -347,7 +346,7 @@ impl Expression {
 	/// Get min of two expressions
 	pub fn min(self, rhs: Expression) -> Self {
 		// TODO rewrite as conditional?
-		Self::Binary(BinaryExpression{
+		Self::Binary(BinaryExpression {
 			op: BinaryOp::Min,
 			lhs: Box::new(self),
 			rhs: Box::new(rhs),

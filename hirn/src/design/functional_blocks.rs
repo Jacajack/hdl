@@ -2,11 +2,7 @@ use std::collections::HashSet;
 
 use crate::SignalId;
 
-use super::{
-	module::SignalDirection, DesignError,
-	HasComment, ModuleHandle, ScopeHandle,
-	EvalContext, EvaluatesType
-};
+use super::{module::SignalDirection, DesignError, EvalContext, EvaluatesType, HasComment, ModuleHandle, ScopeHandle};
 
 pub trait HasInstanceName {
 	fn instance_name(&self) -> &str;

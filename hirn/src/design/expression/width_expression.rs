@@ -1,4 +1,6 @@
-use super::{Expression, UnaryExpression, BinaryExpression, BuiltinOp, ConditionalExpression, UnaryOp, BinaryOp, EvalError};
+use super::{
+	BinaryExpression, BinaryOp, BuiltinOp, ConditionalExpression, EvalError, Expression, UnaryExpression, UnaryOp,
+};
 
 pub trait WidthExpression {
 	fn width(&self) -> Result<Expression, EvalError>;
@@ -37,10 +39,10 @@ impl WidthExpression for BuiltinOp {
 	fn width(&self) -> Result<Expression, EvalError> {
 		use BuiltinOp::*;
 		Ok(match self {
-			ZeroExtend { width, ..} => (**width).clone(),
-			SignExtend { width, ..} => (**width).clone(),
-			BusSelect { msb, lsb, ..} => (**msb).clone() - (**lsb).clone() + 1.into(),
-			BitSelect {..} => 1.into(),
+			ZeroExtend { width, .. } => (**width).clone(),
+			SignExtend { width, .. } => (**width).clone(),
+			BusSelect { msb, lsb, .. } => (**msb).clone() - (**lsb).clone() + 1.into(),
+			BitSelect { .. } => 1.into(),
 			Replicate { expr, count } => (**expr).clone() * (**count).clone(),
 			Width(..) => 64.into(), // FIXME?
 			Join(exprs) => {
@@ -49,7 +51,7 @@ impl WidthExpression for BuiltinOp {
 					result = result + ex.width()?;
 				}
 				result
-			}
+			},
 		})
 	}
 }

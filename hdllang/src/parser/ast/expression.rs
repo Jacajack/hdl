@@ -771,13 +771,11 @@ impl Expression {
 			},
 			PostfixWithRange(range) => {
 				let expr = range.expression.codegen(nc_table, id_table, scope_id, scope)?;
-				Ok(hirn::Expression::Builtin(
-					hirn::design::BuiltinOp::BusSelect {
-						expr: Box::new(expr),
-						msb: Box::new(range.range.lhs.codegen(nc_table, id_table, scope_id, scope)?),
-						lsb: Box::new(range.range.rhs.codegen(nc_table, id_table, scope_id, scope)?),
-					},
-				))
+				Ok(hirn::Expression::Builtin(hirn::design::BuiltinOp::BusSelect {
+					expr: Box::new(expr),
+					msb: Box::new(range.range.lhs.codegen(nc_table, id_table, scope_id, scope)?),
+					lsb: Box::new(range.range.rhs.codegen(nc_table, id_table, scope_id, scope)?),
+				}))
 			},
 			PostfixWithArgs(function) => {
 				let func_name = id_table.get_value(&function.id);
@@ -798,9 +796,7 @@ impl Expression {
 						for expr in &function.argument_list {
 							exprs.push(expr.codegen(nc_table, id_table, scope_id, scope)?);
 						}
-						Ok(hirn::Expression::Builtin(hirn::design::BuiltinOp::Join(
-							exprs,
-						)))
+						Ok(hirn::Expression::Builtin(hirn::design::BuiltinOp::Join(exprs)))
 					},
 					"rep" => {
 						let expr = function
@@ -813,12 +809,10 @@ impl Expression {
 							.last()
 							.unwrap()
 							.codegen(nc_table, id_table, scope_id, scope)?;
-						Ok(hirn::Expression::Builtin(
-							hirn::design::BuiltinOp::Replicate {
-								expr: Box::new(expr),
-								count: Box::new(count),
-							},
-						))
+						Ok(hirn::Expression::Builtin(hirn::design::BuiltinOp::Replicate {
+							expr: Box::new(expr),
+							count: Box::new(count),
+						}))
 					},
 					"fold_or" => {
 						let expr = function

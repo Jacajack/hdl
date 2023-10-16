@@ -7,17 +7,19 @@ mod signal;
 mod utils;
 
 pub use comment::HasComment;
-pub use expression::{BinaryOp, BinaryExpression, UnaryExpression, Expression, UnaryOp, BuiltinOp, EvalError, EvalContext, WidthExpression, NumericConstant, EvalType, Evaluates, EvaluatesType};
-pub use functional_blocks::{Register, RegisterBuilder, BlockInstance, ModuleInstance, ModuleInstanceBuilder};
+pub use expression::{
+	BinaryExpression, BinaryOp, BuiltinOp, EvalContext, EvalError, EvalType, Evaluates, EvaluatesType, Expression,
+	NumericConstant, UnaryExpression, UnaryOp, WidthExpression,
+};
+pub use functional_blocks::{BlockInstance, ModuleInstance, ModuleInstanceBuilder, Register, RegisterBuilder};
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
 pub use scope::{Scope, ScopeHandle};
-pub use signal::{Signal, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice, SignalBuilder};
+pub use signal::{Signal, SignalBuilder, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice};
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use thiserror::Error;
-
 
 /// References a module in a design
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
