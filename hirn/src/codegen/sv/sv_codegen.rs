@@ -61,13 +61,13 @@ impl<'a> SVCodegen<'a> {
 		};
 
 		let bus_width_str = match sig.class.is_wire() {
-			false => format!("[({}) - 1 : 0]", self.translate_expression(&sig.class.width(), false)?),
+			false => format!("[({}): 0]", self.translate_expression_try_eval(&(sig.class.width().clone() - 1.into()), false)?),
 			true => "".into(),
 		};
 
 		let mut array_size_str = String::new();
 		for dim in &sig.dimensions {
-			array_size_str = format!("{}[{}]", array_size_str, self.translate_expression(&dim, false)?);
+			array_size_str = format!("{}[{}]", array_size_str, self.translate_expression_try_eval(&dim, false)?);
 		}
 
 		Ok(format!("wire{}{} {}{}", sign_str, bus_width_str, sig.name(), array_size_str))

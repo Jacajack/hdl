@@ -95,7 +95,7 @@ impl Evaluates for BinaryExpression {
 					GreaterEqual => lhs.op_gte(&rhs),
 					Max => lhs.op_max(&rhs),
 					Min => lhs.op_min(&rhs),
-					_ => unreachable!(),
+					LogicalAnd | LogicalOr => unreachable!("handled separately earlier"),
 				}
 				.into()
 			},

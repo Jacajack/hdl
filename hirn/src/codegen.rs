@@ -1,6 +1,6 @@
 pub mod sv;
 
-use crate::design::ModuleId;
+use crate::design::{ModuleId, EvalError};
 use std::fmt;
 use thiserror::Error;
 
@@ -8,6 +8,9 @@ use thiserror::Error;
 pub enum CodegenError {
 	#[error(transparent)]
 	FormatError(#[from] fmt::Error),
+
+	#[error(transparent)]
+	EvalError(#[from] EvalError),
 
 	#[error("Invalid module ID")]
 	InvalidModuleId(ModuleId),
