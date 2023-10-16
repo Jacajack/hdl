@@ -490,7 +490,16 @@ impl Signal {
 				None,
 				None,
 			))),
-			None => None, // error FIXME
+			None =>  return Self {
+				signal_type: SignalType::Bus(BusType {
+					width: None,
+					signedness,
+					location,
+				}),
+				dimensions: Vec::new(),
+				sensitivity: SignalSensitivity::Const(location),
+				direction: Direction::None,
+			}
 		};
 		if width.clone().unwrap().get_value().unwrap() == 1.into() {
 			Self {
