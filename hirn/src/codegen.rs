@@ -1,6 +1,6 @@
 pub mod sv;
 
-use crate::design::{ModuleId, EvalError};
+use crate::design::{EvalError, ModuleId};
 use std::fmt;
 use thiserror::Error;
 

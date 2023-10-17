@@ -1,7 +1,10 @@
 use super::{
 	eval::Evaluates, EvalContext, EvalError, Expression, NumericConstant, SignalId, SignalSlice, WidthExpression,
 };
-use super::{SignalSignedness, BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, UnaryExpression, UnaryOp};
+use super::{
+	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, SignalSignedness, UnaryExpression,
+	UnaryOp,
+};
 
 impl Evaluates for NumericConstant {
 	fn eval(&self, _ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
@@ -60,7 +63,7 @@ impl Evaluates for CastExpression {
 		match self.signedness {
 			Some(SignalSignedness::Signed) => self.src.eval(ctx)?.as_signed().into(),
 			Some(SignalSignedness::Unsigned) => self.src.eval(ctx)?.as_unsigned().into(),
-			None => self.src.eval(ctx)?.into()
+			None => self.src.eval(ctx)?.into(),
 		}
 	}
 }
@@ -162,24 +165,22 @@ impl Evaluates for BuiltinOp {
 			Width(arg) => match **arg {
 				Expression::Signal(ref slice) => {
 					// FIXME nasty cast
-					let indices: Result<Vec<_>, EvalError> = slice.indices.iter().map(|e| e.eval(ctx)?.try_into_u64().map(|v| v as i64)).collect();
+					let indices: Result<Vec<_>, EvalError> = slice
+						.indices
+						.iter()
+						.map(|e| e.eval(ctx)?.try_into_u64().map(|v| v as i64))
+						.collect();
 					match ctx.signal(slice.signal, &indices?) {
-						Some(value) => NumericConstant::new(
-							value.width()?.into(),
-							crate::design::SignalSignedness::Unsigned,
-							64
-						),
+						Some(value) => {
+							NumericConstant::new(value.width()?.into(), crate::design::SignalSignedness::Unsigned, 64)
+						},
 
-						None => Err(EvalError::MissingAssumption(slice.signal))
+						None => Err(EvalError::MissingAssumption(slice.signal)),
 					}
 				},
 
 				Expression::Constant(ref c) => {
-					NumericConstant::new(
-						c.width()?.into(),
-						crate::design::SignalSignedness::Unsigned,
-						64
-					)
+					NumericConstant::new(c.width()?.into(), crate::design::SignalSignedness::Unsigned, 64)
 				},
 				_ => arg.width()?.eval(ctx),
 			},

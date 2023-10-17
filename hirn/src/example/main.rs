@@ -1,7 +1,8 @@
 extern crate hirn;
 use hirn::{
-	design::{InterfaceSignal, SignalDirection, Expression, Design},
-	codegen::{Codegen, sv::SVCodegen}, HirnError,
+	codegen::{sv::SVCodegen, Codegen},
+	design::{Design, Expression, InterfaceSignal, SignalDirection},
+	HirnError,
 };
 
 fn main() -> Result<(), HirnError> {

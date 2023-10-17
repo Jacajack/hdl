@@ -708,8 +708,9 @@ impl Expression {
 			ParenthesizedExpression(expr) => expr.expression.codegen(nc_table, id_table, scope_id, scope),
 			MatchExpression(match_expr) => {
 				let def = match_expr.get_default().unwrap();
-				let mut builder =
-					hirn::design::Expression::new_conditional(def.expression.codegen(nc_table, id_table, scope_id, scope)?);
+				let mut builder = hirn::design::Expression::new_conditional(
+					def.expression.codegen(nc_table, id_table, scope_id, scope)?,
+				);
 				for stmt in &match_expr.statements {
 					let cond = match_expr.value.codegen(nc_table, id_table, scope_id, scope)?;
 					match &stmt.antecedent {
@@ -736,8 +737,9 @@ impl Expression {
 			},
 			ConditionalExpression(cond) => {
 				let def = cond.get_default().unwrap();
-				let mut builder =
-					hirn::design::Expression::new_conditional(def.expression.codegen(nc_table, id_table, scope_id, scope)?);
+				let mut builder = hirn::design::Expression::new_conditional(
+					def.expression.codegen(nc_table, id_table, scope_id, scope)?,
+				);
 				for stmt in &cond.statements {
 					match &stmt.antecedent {
 						MatchExpressionAntecendent::Expression {

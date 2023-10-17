@@ -1,9 +1,12 @@
 use crate::codegen::{Codegen, CodegenError};
 use crate::{
+	design::BlockInstance,
 	design::InterfaceSignal,
 	design::SignalSignedness,
-	design::BlockInstance,
-	design::{BuiltinOp, ModuleInstance, SignalDirection, SignalSensitivity, WidthExpression, BinaryOp, Design, Expression, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp},
+	design::{
+		BinaryOp, BuiltinOp, Design, Expression, ModuleHandle, ModuleId, ModuleInstance, ScopeId, SignalDirection,
+		SignalId, SignalSensitivity, UnaryOp, WidthExpression,
+	},
 };
 use log::debug;
 use std::collections::HashSet;
@@ -61,16 +64,29 @@ impl<'a> SVCodegen<'a> {
 		};
 
 		let bus_width_str = match sig.class.is_wire() {
-			false => format!("[({}): 0]", self.translate_expression_try_eval(&(sig.class.width().clone() - 1.into()), false)?),
+			false => format!(
+				"[({}): 0]",
+				self.translate_expression_try_eval(&(sig.class.width().clone() - 1.into()), false)?
+			),
 			true => "".into(),
 		};
 
 		let mut array_size_str = String::new();
 		for dim in &sig.dimensions {
-			array_size_str = format!("{}[{}]", array_size_str, self.translate_expression_try_eval(&dim, false)?);
+			array_size_str = format!(
+				"{}[{}]",
+				array_size_str,
+				self.translate_expression_try_eval(&dim, false)?
+			);
 		}
 
-		Ok(format!("wire{}{} {}{}", sign_str, bus_width_str, sig.name(), array_size_str))
+		Ok(format!(
+			"wire{}{} {}{}",
+			sign_str,
+			bus_width_str,
+			sig.name(),
+			array_size_str
+		))
 	}
 
 	fn module_interface_definition(&self, m: ModuleHandle, s: InterfaceSignal) -> Result<String, CodegenError> {
@@ -83,11 +99,18 @@ impl<'a> SVCodegen<'a> {
 			_ => unimplemented!(),
 		};
 
-		Ok(format!("{} {}", direction_str, self.format_signal_declaration(s.signal)?))
+		Ok(format!(
+			"{} {}",
+			direction_str,
+			self.format_signal_declaration(s.signal)?
+		))
 	}
 
 	fn module_parameter_definition(&self, s: InterfaceSignal) -> Result<String, CodegenError> {
-		Ok(format!("parameter {} = 'x", self.translate_expression(&s.signal.into(), false)?))
+		Ok(format!(
+			"parameter {} = 'x",
+			self.translate_expression(&s.signal.into(), false)?
+		))
 	}
 
 	fn emit_assignment(

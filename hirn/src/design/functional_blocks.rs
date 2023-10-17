@@ -1,6 +1,8 @@
 use std::collections::HashSet;
 
-use super::{module::SignalDirection, DesignError, EvalContext, EvaluatesType, HasComment, ModuleHandle, ScopeHandle, SignalId};
+use super::{
+	module::SignalDirection, DesignError, EvalContext, EvaluatesType, HasComment, ModuleHandle, ScopeHandle, SignalId,
+};
 
 pub trait HasInstanceName {
 	fn instance_name(&self) -> &str;

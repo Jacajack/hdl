@@ -1,8 +1,6 @@
 use core::panic;
 
-use hirn::{
-	design::{NumericConstant, SignalBuilder, Expression, SignalId},
-};
+use hirn::design::{Expression, NumericConstant, SignalBuilder, SignalId};
 use log::debug;
 use num_bigint::BigInt;
 

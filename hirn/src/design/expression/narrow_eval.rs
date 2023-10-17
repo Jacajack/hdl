@@ -1,5 +1,5 @@
 use super::width_expression::WidthExpression;
-use super::{BinaryExpression, BuiltinOp, EvalContext, EvalError, Expression, BinaryOp};
+use super::{BinaryExpression, BinaryOp, BuiltinOp, EvalContext, EvalError, Expression};
 
 pub trait NarrowEval {
 	fn narrow_eval(&self, ctx: &EvalContext) -> Result<i64, EvalError>;

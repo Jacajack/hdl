@@ -447,7 +447,6 @@ impl Expression {
 	// TODO bitwise not
 	// TODO from bool
 	// TODO remaining binary ops
-
 }
 
 /// Implements a conversion from signal ID to an expression

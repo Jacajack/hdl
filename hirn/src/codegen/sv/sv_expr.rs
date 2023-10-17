@@ -1,5 +1,11 @@
 use super::SVCodegen;
-use crate::{design::{Expression, SignalId, BuiltinOp, UnaryOp, BinaryOp, NumericConstant, WidthExpression, ConditionalExpression, BinaryExpression, UnaryExpression, SignalSlice, Evaluates}, codegen::CodegenError};
+use crate::{
+	codegen::CodegenError,
+	design::{
+		BinaryExpression, BinaryOp, BuiltinOp, ConditionalExpression, Evaluates, Expression, NumericConstant, SignalId,
+		SignalSlice, UnaryExpression, UnaryOp, WidthExpression,
+	},
+};
 
 impl<'a> SVCodegen<'a> {
 	fn translate_signal_id(&self, id: SignalId) -> String {
@@ -7,7 +13,11 @@ impl<'a> SVCodegen<'a> {
 		sig.name().into()
 	}
 
-	fn translate_conditional_expression(&self, expr: &ConditionalExpression, width_casts: bool) -> Result<String, CodegenError> {
+	fn translate_conditional_expression(
+		&self,
+		expr: &ConditionalExpression,
+		width_casts: bool,
+	) -> Result<String, CodegenError> {
 		assert!(expr.branches().len() > 0);
 		let mut str: String = "".into();
 		for br in expr.branches() {
@@ -70,29 +80,35 @@ impl<'a> SVCodegen<'a> {
 				},
 
 				// Expand zero-extension builtins
-				BuiltinOp::ZeroExtend { expr: argument, width: desired_width } => {
+				BuiltinOp::ZeroExtend {
+					expr: argument,
+					width: desired_width,
+				} => {
 					*e = Expression::new_join(vec![
 						Expression::new_replicate(
 							NumericConstant::new_bool(false).into(),
-							(**desired_width).clone() - argument.width()?
+							(**desired_width).clone() - argument.width()?,
 						),
-						(**argument).clone()
+						(**argument).clone(),
 					]);
 				},
 
 				// Expand zero-extension builtins
-				BuiltinOp::SignExtend { expr: argument, width: desired_width } => {
+				BuiltinOp::SignExtend {
+					expr: argument,
+					width: desired_width,
+				} => {
 					*e = Expression::new_join(vec![
 						Expression::new_replicate(
 							argument.clone().bit_select(argument.width()? - 1u32.into()), // MSB
-							(**desired_width).clone() - argument.width()?
+							(**desired_width).clone() - argument.width()?,
 						),
-						(**argument).clone()
+						(**argument).clone(),
 					]);
 				},
 
 				_ => {},
-			}
+			},
 			_ => {},
 		}
 
@@ -108,7 +124,7 @@ impl<'a> SVCodegen<'a> {
 	fn translate_binary_expression(&self, expr: &BinaryExpression, width_casts: bool) -> Result<String, CodegenError> {
 		let lhs_str = self.translate_expression_no_preprocess(&expr.lhs, width_casts)?;
 		let rhs_str = self.translate_expression_no_preprocess(&expr.rhs, width_casts)?;
-		
+
 		// Special handling for min/max operators
 		use BinaryOp::*;
 		match expr.op {
@@ -116,7 +132,7 @@ impl<'a> SVCodegen<'a> {
 			Max => return self.translate_min_max_expression(true, &lhs_str, &rhs_str),
 			_ => (),
 		}
-		
+
 		let cast_str = if width_casts {
 			Some(self.translate_expression_try_eval(&expr.width()?, false)?)
 		}
@@ -147,7 +163,10 @@ impl<'a> SVCodegen<'a> {
 		};
 
 		let expr_str = match cast_str {
-			Some(cast_str) => format!("(({})'({}) {} ({})'({}))", cast_str, lhs_str, operator_str, cast_str, rhs_str),
+			Some(cast_str) => format!(
+				"(({})'({}) {} ({})'({}))",
+				cast_str, lhs_str, operator_str, cast_str, rhs_str
+			),
 			None => format!("({} {} {})", lhs_str, operator_str, rhs_str),
 		};
 
@@ -170,7 +189,11 @@ impl<'a> SVCodegen<'a> {
 	fn translate_signal_slice(&self, slice: &SignalSlice, width_casts: bool) -> Result<String, CodegenError> {
 		let mut str: String = self.translate_signal_id(slice.signal);
 		for index_expr in &slice.indices {
-			str = format!("{}[{}]", str, self.translate_expression_no_preprocess(&index_expr, width_casts)?);
+			str = format!(
+				"{}[{}]",
+				str,
+				self.translate_expression_no_preprocess(&index_expr, width_casts)?
+			);
 		}
 		Ok(str)
 	}
@@ -179,22 +202,24 @@ impl<'a> SVCodegen<'a> {
 		use BuiltinOp::*;
 		Ok(match op {
 			Width(e) => unimplemented!("$bits() shall never be emitted"),
-			ZeroExtend {..} | SignExtend{..} => unimplemented!("Zero/sign extensions shall be expanded before codegen"),
-			
-			BitSelect{expr, index} => {
+			ZeroExtend { .. } | SignExtend { .. } => {
+				unimplemented!("Zero/sign extensions shall be expanded before codegen")
+			},
+
+			BitSelect { expr, index } => {
 				let expr_str = self.translate_expression_no_preprocess(&expr, width_casts)?;
 				let index_str = self.translate_expression_no_preprocess(&index, width_casts)?;
 				format!("{}[{}]", expr_str, index_str)
 			},
-			
-			BusSelect{expr, msb, lsb} => {
+
+			BusSelect { expr, msb, lsb } => {
 				let expr_str = self.translate_expression_no_preprocess(&expr, width_casts)?;
 				let msb_str = self.translate_expression_no_preprocess(&msb, width_casts)?;
 				let lsb_str = self.translate_expression_no_preprocess(&lsb, width_casts)?;
 				format!("{}[{}:{}]", expr_str, msb_str, lsb_str)
 			},
 
-			Replicate{expr, count} => {
+			Replicate { expr, count } => {
 				let expr_str = self.translate_expression_no_preprocess(&expr, width_casts)?;
 				let count_str = self.translate_expression_no_preprocess(&count, width_casts)?;
 				format!("{{ {} {{ {} }} }}", count_str, expr_str)
@@ -207,7 +232,7 @@ impl<'a> SVCodegen<'a> {
 						"{}{}{}",
 						str,
 						self.translate_expression_no_preprocess(&expr, width_casts)?,
-						if index == exprs.len() - 1 {""} else {", "}
+						if index == exprs.len() - 1 { "" } else { ", " }
 					);
 				}
 				format!("{} }}", str)
@@ -229,13 +254,14 @@ impl<'a> SVCodegen<'a> {
 	}
 
 	pub(super) fn translate_expression(&self, expr: &Expression, width_casts: bool) -> Result<String, CodegenError> {
-		self.translate_expression_no_preprocess(
-			&self.preprocess_expression(expr.clone())?,
-			width_casts
-		)
+		self.translate_expression_no_preprocess(&self.preprocess_expression(expr.clone())?, width_casts)
 	}
 
-	pub(super) fn translate_expression_try_eval(&self, expr: &Expression, width_casts: bool) -> Result<String, CodegenError> {
+	pub(super) fn translate_expression_try_eval(
+		&self,
+		expr: &Expression,
+		width_casts: bool,
+	) -> Result<String, CodegenError> {
 		let preprocessed = self.preprocess_expression(expr.clone())?;
 		match preprocessed.const_eval() {
 			Ok(value) => self.translate_constant(&value, width_casts),

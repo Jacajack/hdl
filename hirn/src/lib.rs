@@ -1,9 +1,9 @@
 pub mod codegen;
 pub mod design;
 
-use thiserror::Error;
-use design::DesignError;
 use codegen::CodegenError;
+use design::DesignError;
+use thiserror::Error;
 
 #[derive(Clone, Error, Debug)]
 pub enum HirnError {
