@@ -14,7 +14,7 @@ impl basic_ops {
 	bus<1> result_fold = fold_or(a);
 	bus<8> result_ternaty = a == 8u8 ? a : b; // FIXME when type deduction is fixed
 	bus<168> result_fancy = zext(a);
-	bus<8> or = a | b;
-	bus<8> and = a & b;
-	bus<8> xor = a ^ b;
+	bus<8> result_or = a | b;
+	bus<8> result_and = a & b;
+	bus<8> result_xor = a ^ b;
 }
