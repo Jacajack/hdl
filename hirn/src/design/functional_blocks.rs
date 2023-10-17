@@ -1,10 +1,7 @@
 use std::collections::HashSet;
 
-use crate::SignalId;
-
 use super::{
-	eval::EvaluatesType, module::SignalDirection, DesignCore, DesignError, DesignHandle, EvalContext, Expression,
-	HasComment, ModuleHandle, ModuleId, ScopeHandle, ScopeId,
+	module::SignalDirection, DesignError, EvalContext, EvaluatesType, HasComment, ModuleHandle, ScopeHandle, SignalId,
 };
 
 pub trait HasInstanceName {

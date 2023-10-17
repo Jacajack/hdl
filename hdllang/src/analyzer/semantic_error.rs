@@ -110,7 +110,7 @@ pub enum SemanticError {
 	IndexOutOfBounds,
 	#[error("Conditional and match expressions must have a default branch")]
 	ConditionalWithoutDefault,
-	#[error("It is not allowed to use unindexed module instance in expresion")]
+	#[error("Cannot use unsubscripted module instance name in an expression")]
 	ModuleInstanceNotIndexed,
 	#[error("It is not allowed to use array in this expression")]
 	ArrayInExpression,
@@ -264,7 +264,7 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
     		InstanceError(err) => err.into(),
     		ModuleInstanceNotIndexed => CompilerDiagnosticBuilder::from_error(&self)
-			.help("Please make sure that all module instance is always accessed properly in expression")
+			.help("Please make sure that module interface signals are accessed properly")
 			.build(),
 		}
 	}

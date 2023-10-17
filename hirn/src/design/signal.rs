@@ -136,6 +136,22 @@ impl SignalSensitivity {
 		})
 	}
 
+	/// Returns worse of two signal sensitivities
+	pub fn or_worse(&self, other: &SignalSensitivity) -> Self {
+		use SignalSensitivity::*;
+		match (self, other) {
+			(Async, _) | (_, Async) => Async,
+			(Comb(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
+			(Sync(lhs), Sync(rhs)) => Sync(lhs.combine(rhs)),
+			(Sync(lhs), Comb(rhs)) | (Comb(lhs), Sync(rhs)) => Comb(lhs.combine(rhs)),
+			(Comb(sen), _) | (_, Comb(sen)) => Comb(sen.clone()),
+			(Sync(sen), _) | (_, Sync(sen)) => Sync(sen.clone()),
+			(Clock, _) | (_, Clock) => Clock,
+			(Const, _) | (_, Const) => Const,
+			(Generic, Generic) => Generic,
+		}
+	}
+
 	/// Determines whether this signal can drive the other specified signal
 	/// The logic in this function implements both sensitivity and clocking semantics
 	pub fn can_drive(&self, dest: &SignalSensitivity) -> bool {
@@ -242,6 +258,10 @@ impl Signal {
 
 	pub fn name(&self) -> &str {
 		&self.name
+	}
+
+	pub fn rank(&self) -> usize {
+		self.dimensions.len()
 	}
 
 	pub fn is_array(&self) -> bool {

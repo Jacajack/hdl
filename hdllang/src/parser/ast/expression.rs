@@ -693,7 +693,7 @@ impl Expression {
 		id_table: &crate::lexer::IdTable,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
-	) -> miette::Result<hirn::Expression> {
+	) -> miette::Result<hirn::design::Expression> {
 		use self::Expression::*;
 		match self {
 			Number(num) => {
@@ -707,8 +707,8 @@ impl Expression {
 					_ => 64,
 				};
 				debug!("Width is {:?}", w);
-				Ok(hirn::Expression::Constant(
-					hirn::design::NumericConstant::new(
+				Ok(hirn::design::Expression::Constant(
+					hirn::design::NumericConstant::from_bigint(
 						constant.value.clone(),
 						if signed {
 							hirn::design::SignalSignedness::Signed
@@ -727,8 +727,9 @@ impl Expression {
 			ParenthesizedExpression(expr) => expr.expression.codegen(nc_table, id_table, scope_id, scope),
 			MatchExpression(match_expr) => {
 				let def = match_expr.get_default().unwrap();
-				let mut builder =
-					hirn::Expression::new_conditional(def.expression.codegen(nc_table, id_table, scope_id, scope)?);
+				let mut builder = hirn::design::Expression::new_conditional(
+					def.expression.codegen(nc_table, id_table, scope_id, scope)?,
+				);
 				for stmt in &match_expr.statements {
 					let cond = match_expr.value.codegen(nc_table, id_table, scope_id, scope)?;
 					match &stmt.antecedent {
@@ -739,9 +740,9 @@ impl Expression {
 							let val = stmt.expression.codegen(nc_table, id_table, scope_id, scope)?;
 							for expr in expressions {
 								builder = builder.branch(
-									hirn::Expression::Binary(hirn::design::expression::BinaryExpression {
+									hirn::design::Expression::Binary(hirn::design::BinaryExpression {
 										lhs: Box::new(cond.clone()),
-										op: hirn::design::expression::BinaryOp::Equal,
+										op: hirn::design::BinaryOp::Equal,
 										rhs: Box::new(expr.codegen(nc_table, id_table, scope_id, scope)?),
 									}),
 									val.clone(),
@@ -755,8 +756,9 @@ impl Expression {
 			},
 			ConditionalExpression(cond) => {
 				let def = cond.get_default().unwrap();
-				let mut builder =
-					hirn::Expression::new_conditional(def.expression.codegen(nc_table, id_table, scope_id, scope)?);
+				let mut builder = hirn::design::Expression::new_conditional(
+					def.expression.codegen(nc_table, id_table, scope_id, scope)?,
+				);
 				for stmt in &cond.statements {
 					match &stmt.antecedent {
 						MatchExpressionAntecendent::Expression {
@@ -779,24 +781,22 @@ impl Expression {
 				let cond = ternary.condition.codegen(nc_table, id_table, scope_id, scope)?;
 				let true_branch = ternary.true_branch.codegen(nc_table, id_table, scope_id, scope)?;
 				let false_branch = ternary.false_branch.codegen(nc_table, id_table, scope_id, scope)?;
-				let builder = hirn::Expression::new_conditional(false_branch);
+				let builder = hirn::design::Expression::new_conditional(false_branch);
 				Ok(builder.branch(cond, true_branch).build())
 			},
 			PostfixWithIndex(ind) => {
 				let index = ind.index.codegen(nc_table, id_table, scope_id, scope)?;
 				let mut expr = ind.expression.get_slice(nc_table, id_table, scope_id, scope)?;
 				expr.indices.push(index);
-				Ok(hirn::Expression::Signal(expr))
+				Ok(hirn::design::Expression::Signal(expr))
 			},
 			PostfixWithRange(range) => {
 				let expr = range.expression.codegen(nc_table, id_table, scope_id, scope)?;
-				Ok(hirn::Expression::Builtin(
-					hirn::design::expression::BuiltinOp::BitSelect {
-						expr: Box::new(expr),
-						msb: Box::new(range.range.lhs.codegen(nc_table, id_table, scope_id, scope)?),
-						lsb: Box::new(range.range.rhs.codegen(nc_table, id_table, scope_id, scope)?),
-					},
-				))
+				Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::BusSelect {
+					expr: Box::new(expr),
+					msb: Box::new(range.range.lhs.codegen(nc_table, id_table, scope_id, scope)?),
+					lsb: Box::new(range.range.rhs.codegen(nc_table, id_table, scope_id, scope)?),
+				}))
 			},
 			PostfixWithArgs(function) => {
 				let func_name = id_table.get_value(&function.id);
@@ -880,9 +880,7 @@ impl Expression {
 						for expr in &function.argument_list {
 							exprs.push(expr.codegen(nc_table, id_table, scope_id, scope)?);
 						}
-						Ok(hirn::Expression::Builtin(hirn::design::expression::BuiltinOp::Join(
-							exprs,
-						)))
+						Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Join(exprs)))
 					},
 					"rep" => {
 						let expr = function
@@ -895,12 +893,10 @@ impl Expression {
 							.last()
 							.unwrap()
 							.codegen(nc_table, id_table, scope_id, scope)?;
-						Ok(hirn::Expression::Builtin(
-							hirn::design::expression::BuiltinOp::Replicate {
-								expr: Box::new(expr),
-								count: Box::new(count),
-							},
-						))
+						Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Replicate {
+							expr: Box::new(expr),
+							count: Box::new(count),
+						}))
 					},
 					"fold_or" => {
 						let expr = function
@@ -908,8 +904,8 @@ impl Expression {
 							.first()
 							.unwrap()
 							.codegen(nc_table, id_table, scope_id, scope)?;
-						Ok(hirn::Expression::Unary(hirn::design::expression::UnaryExpression {
-							op: hirn::design::expression::UnaryOp::ReductionOr,
+						Ok(hirn::design::Expression::Unary(hirn::design::UnaryExpression {
+							op: hirn::design::UnaryOp::ReductionOr,
 							operand: Box::new(expr),
 						}))
 					},
@@ -919,8 +915,8 @@ impl Expression {
 							.first()
 							.unwrap()
 							.codegen(nc_table, id_table, scope_id, scope)?;
-						Ok(hirn::Expression::Unary(hirn::design::expression::UnaryExpression {
-							op: hirn::design::expression::UnaryOp::ReductionXor,
+						Ok(hirn::design::Expression::Unary(hirn::design::UnaryExpression {
+							op: hirn::design::UnaryOp::ReductionXor,
 							operand: Box::new(expr),
 						}))
 					},
@@ -930,8 +926,8 @@ impl Expression {
 							.first()
 							.unwrap()
 							.codegen(nc_table, id_table, scope_id, scope)?;
-						Ok(hirn::Expression::Unary(hirn::design::expression::UnaryExpression {
-							op: hirn::design::expression::UnaryOp::ReductionAnd,
+						Ok(hirn::design::Expression::Unary(hirn::design::UnaryExpression {
+							op: hirn::design::UnaryOp::ReductionAnd,
 							operand: Box::new(expr),
 						}))
 					},
@@ -944,8 +940,8 @@ impl Expression {
 				let operand = unary.expression.codegen(nc_table, id_table, scope_id, scope)?;
 				match unary.code {
 					LogicalNot => Ok(!operand),
-					BitwiseNot => Ok(hirn::Expression::Unary(hirn::design::expression::UnaryExpression {
-						op: hirn::design::expression::UnaryOp::BitwiseNot,
+					BitwiseNot => Ok(hirn::design::Expression::Unary(hirn::design::UnaryExpression {
+						op: hirn::design::UnaryOp::BitwiseNot,
 						operand: Box::new(operand),
 					})),
 					Minus => Ok(-operand),
@@ -963,14 +959,14 @@ impl Expression {
 					Addition => Ok(lhs + rhs),
 					Subtraction => Ok(lhs - rhs),
 					Modulo => Ok(lhs % rhs),
-					Equal => Ok(hirn::Expression::Binary(hirn::design::expression::BinaryExpression {
+					Equal => Ok(hirn::design::Expression::Binary(hirn::design::BinaryExpression {
 						lhs: Box::new(lhs),
-						op: hirn::design::expression::BinaryOp::Equal,
+						op: hirn::design::BinaryOp::Equal,
 						rhs: Box::new(rhs),
 					})),
-					NotEqual => Ok(hirn::Expression::Binary(hirn::design::expression::BinaryExpression {
+					NotEqual => Ok(hirn::design::Expression::Binary(hirn::design::BinaryExpression {
 						lhs: Box::new(lhs),
-						op: hirn::design::expression::BinaryOp::NotEqual,
+						op: hirn::design::BinaryOp::NotEqual,
 						rhs: Box::new(rhs),
 					})),
 					LShift => Ok(lhs << rhs),
@@ -978,34 +974,34 @@ impl Expression {
 					BitwiseAnd => Ok(lhs & rhs),
 					BitwiseOr => Ok(lhs | rhs),
 					BitwiseXor => Ok(lhs ^ rhs),
-					Less => Ok(hirn::Expression::Binary(hirn::design::expression::BinaryExpression {
+					Less => Ok(hirn::design::Expression::Binary(hirn::design::BinaryExpression {
 						lhs: Box::new(lhs),
-						op: hirn::design::expression::BinaryOp::Less,
+						op: hirn::design::BinaryOp::Less,
 						rhs: Box::new(rhs),
 					})),
-					Greater => Ok(hirn::Expression::Binary(hirn::design::expression::BinaryExpression {
+					Greater => Ok(hirn::design::Expression::Binary(hirn::design::BinaryExpression {
 						lhs: Box::new(lhs),
-						op: hirn::design::expression::BinaryOp::Greater,
+						op: hirn::design::BinaryOp::Greater,
 						rhs: Box::new(rhs),
 					})),
-					LessEqual => Ok(hirn::Expression::Binary(hirn::design::expression::BinaryExpression {
+					LessEqual => Ok(hirn::design::Expression::Binary(hirn::design::BinaryExpression {
 						lhs: Box::new(lhs),
-						op: hirn::design::expression::BinaryOp::LessEqual,
+						op: hirn::design::BinaryOp::LessEqual,
 						rhs: Box::new(rhs),
 					})),
-					GreaterEqual => Ok(hirn::Expression::Binary(hirn::design::expression::BinaryExpression {
+					GreaterEqual => Ok(hirn::design::Expression::Binary(hirn::design::BinaryExpression {
 						lhs: Box::new(lhs),
-						op: hirn::design::expression::BinaryOp::GreaterEqual,
+						op: hirn::design::BinaryOp::GreaterEqual,
 						rhs: Box::new(rhs),
 					})),
-					LogicalAnd => Ok(hirn::Expression::Binary(hirn::design::expression::BinaryExpression {
+					LogicalAnd => Ok(hirn::design::Expression::Binary(hirn::design::BinaryExpression {
 						lhs: Box::new(lhs),
-						op: hirn::design::expression::BinaryOp::LogicalAnd,
+						op: hirn::design::BinaryOp::LogicalAnd,
 						rhs: Box::new(rhs),
 					})),
-					LogicalOr => Ok(hirn::Expression::Binary(hirn::design::expression::BinaryExpression {
+					LogicalOr => Ok(hirn::design::Expression::Binary(hirn::design::BinaryExpression {
 						lhs: Box::new(lhs),
-						op: hirn::design::expression::BinaryOp::LogicalOr,
+						op: hirn::design::BinaryOp::LogicalOr,
 						rhs: Box::new(rhs),
 					})),
 				}

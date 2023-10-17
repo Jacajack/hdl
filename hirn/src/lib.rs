@@ -1,11 +1,8 @@
 pub mod codegen;
 pub mod design;
 
-pub use codegen::{sv_codegen::SVCodegen, Codegen, CodegenError};
-pub use design::{
-	BinaryOp, Design, DesignError, Expression, Module, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp,
-};
-
+use codegen::CodegenError;
+use design::DesignError;
 use thiserror::Error;
 
 #[derive(Clone, Error, Debug)]

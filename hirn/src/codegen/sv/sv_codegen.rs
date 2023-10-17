@@ -1,10 +1,12 @@
-use super::{Codegen, CodegenError};
+use crate::codegen::{Codegen, CodegenError};
 use crate::{
+	design::BlockInstance,
 	design::InterfaceSignal,
 	design::SignalSignedness,
-	design::{functional_blocks::BlockInstance, ScopeHandle},
-	design::{functional_blocks::ModuleInstance, SignalDirection, SignalSensitivity},
-	BinaryOp, Design, DesignError, Expression, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp,
+	design::{
+		BinaryOp, BuiltinOp, Design, Expression, ModuleHandle, ModuleId, ModuleInstance, ScopeId, SignalDirection,
+		SignalId, SignalSensitivity, UnaryOp, WidthExpression,
+	},
 };
 use log::debug;
 use std::collections::HashSet;
@@ -12,8 +14,8 @@ use std::fmt;
 
 #[derive(Clone)]
 pub struct SVCodegen<'a> {
-	design: &'a Design,
-	indent_level: u32,
+	pub(super) design: &'a Design,
+	pub(super) indent_level: u32,
 }
 
 macro_rules! emitln {
@@ -45,75 +47,13 @@ impl<'a> SVCodegen<'a> {
 		self.indent_level -= 1;
 	}
 
-	fn translate_signal_id(&self, id: SignalId) -> String {
-		let sig = self.design.get_signal(id).unwrap();
-		sig.name().into()
-	}
-
-	fn translate_expression(&self, expr: &Expression) -> String {
-		use Expression::*;
-		match expr {
-			Conditional(e) => {
-				assert!(e.branches().len() > 0);
-				let mut str: String = "".into();
-				for br in e.branches() {
-					str = format!(
-						"{} ({}) ? ({}) : ",
-						str,
-						self.translate_expression(&br.condition),
-						self.translate_expression(&br.value)
-					);
-				}
-				format!("{} ({})", str, self.translate_expression(e.default()))
-			},
-			Constant(c) => {
-				format!("{}'h{}", c.width(), c.to_hex_str())
-			},
-			Signal(s) => {
-				let mut str: String = self.translate_signal_id(s.signal);
-				for slice in &s.indices {
-					str = format!("{}[{}]", str, self.translate_expression(&slice));
-				}
-				str
-			},
-			Binary(e) => {
-				let lhs_str = self.translate_expression(&e.lhs);
-				let rhs_str = self.translate_expression(&e.rhs);
-				// TODO proper width rules
-				use BinaryOp::*;
-				match e.op {
-					Add => format!("{} + {}", lhs_str, rhs_str),
-					Subtract => format!("{} - {}", lhs_str, rhs_str),
-					Multiply => format!("{} * {}", lhs_str, rhs_str),
-					Divide => format!("{} * {}", lhs_str, rhs_str),
-					_ => todo!(), // TODO
-				}
-			},
-			Unary(u) => {
-				let operand_str = self.translate_expression(&u.operand);
-
-				use UnaryOp::*;
-				match u.op {
-					Negate => format!("-{}", operand_str),
-					LogicalNot => format!("!{}", operand_str),
-					BitwiseNot => format!("~{}", operand_str),
-					ReductionAnd => format!("&{}", operand_str),
-					ReductionOr => format!("|{}", operand_str),
-					ReductionXor => format!("^{}", operand_str),
-				}
-			},
-			Builtin(b) => todo!(),
-			Cast(c) => self.translate_expression(&c.src),
-		}
-	}
-
 	fn mangle_module_name(&self, name: String, namespaces: Vec<String>) -> String {
 		let mut segments = namespaces;
 		segments.push(name);
 		segments.join("_")
 	}
 
-	fn format_signal_declaration(&self, sig_id: SignalId) -> String {
+	fn format_signal_declaration(&self, sig_id: SignalId) -> Result<String, CodegenError> {
 		let sig = self.design.get_signal(sig_id).unwrap();
 
 		use SignalSignedness::*;
@@ -124,19 +64,32 @@ impl<'a> SVCodegen<'a> {
 		};
 
 		let bus_width_str = match sig.class.is_wire() {
-			false => format!("[({}) - 1 : 0]", self.translate_expression(&sig.class.width())),
+			false => format!(
+				"[({}): 0]",
+				self.translate_expression_try_eval(&(sig.class.width().clone() - 1.into()), false)?
+			),
 			true => "".into(),
 		};
 
 		let mut array_size_str = String::new();
 		for dim in &sig.dimensions {
-			array_size_str = format!("{}[{}]", array_size_str, self.translate_expression(&dim));
+			array_size_str = format!(
+				"{}[{}]",
+				array_size_str,
+				self.translate_expression_try_eval(&dim, false)?
+			);
 		}
 
-		format!("wire{}{} {}{}", sign_str, bus_width_str, sig.name(), array_size_str)
+		Ok(format!(
+			"wire{}{} {}{}",
+			sign_str,
+			bus_width_str,
+			sig.name(),
+			array_size_str
+		))
 	}
 
-	fn module_interface_definition(&self, m: ModuleHandle, s: InterfaceSignal) -> String {
+	fn module_interface_definition(&self, m: ModuleHandle, s: InterfaceSignal) -> Result<String, CodegenError> {
 		let sig = self.design.get_signal(s.signal).unwrap();
 
 		use SignalDirection::*;
@@ -146,11 +99,18 @@ impl<'a> SVCodegen<'a> {
 			_ => unimplemented!(),
 		};
 
-		format!("{} {}", direction_str, self.format_signal_declaration(s.signal))
+		Ok(format!(
+			"{} {}",
+			direction_str,
+			self.format_signal_declaration(s.signal)?
+		))
 	}
 
-	fn module_parameter_definition(&self, s: InterfaceSignal) -> String {
-		format!("parameter {} = 'x", self.translate_expression(&s.signal.into()))
+	fn module_parameter_definition(&self, s: InterfaceSignal) -> Result<String, CodegenError> {
+		Ok(format!(
+			"parameter {} = 'x",
+			self.translate_expression(&s.signal.into(), false)?
+		))
 	}
 
 	fn emit_assignment(
@@ -163,12 +123,13 @@ impl<'a> SVCodegen<'a> {
 			self,
 			w,
 			"assign {} = {};",
-			self.translate_expression(&lhs),
-			self.translate_expression(&rhs)
+			self.translate_expression(&lhs, true)?,
+			self.translate_expression(&rhs, true)?
 		)?;
 		Ok(())
 	}
 
+	// FIXME implement io::Write?
 	fn emit_module_instance(&mut self, w: &mut dyn fmt::Write, instance: &ModuleInstance) -> Result<(), CodegenError> {
 		emitln!(self, w, "{} #(", instance.module.name())?;
 		self.begin_indent();
@@ -183,7 +144,7 @@ impl<'a> SVCodegen<'a> {
 				w,
 				".{}({}),",
 				binding.0,
-				self.translate_expression(&binding.1.into())
+				self.translate_expression(&binding.1.into(), true)?
 			)?;
 		}
 
@@ -197,15 +158,16 @@ impl<'a> SVCodegen<'a> {
 		w: &mut dyn fmt::Write,
 		scope_id: ScopeId,
 		naked: bool,
-		in_generate: bool,
+		within_generate: bool,
 		skip_signals: HashSet<SignalId>,
 	) -> Result<(), CodegenError> {
 		debug!("Scope codegen ({:?})", scope_id);
 		let scope = self.design.get_scope_handle(scope_id).unwrap();
 
+		let in_generate = within_generate || (!naked && !within_generate); // FIXME not a big fan of that
 		if !naked {
-			if in_generate {
-				emitln!(self, w, "begin")?;
+			if within_generate {
+				emitln!(self, w, "if ('1) begin")?;
 			}
 			else {
 				emitln!(self, w, "generate if ('1) begin")?;
@@ -216,7 +178,7 @@ impl<'a> SVCodegen<'a> {
 		emitln!(self, w, "/* signals */")?;
 		for sig_id in scope.signals() {
 			if !skip_signals.contains(&sig_id) {
-				emitln!(self, w, "{};", self.format_signal_declaration(sig_id))?;
+				emitln!(self, w, "{};", self.format_signal_declaration(sig_id)?)?;
 			}
 		}
 
@@ -234,13 +196,14 @@ impl<'a> SVCodegen<'a> {
 			emitln!(
 				self,
 				w,
-				"generate if ({}) begin",
-				self.translate_expression(&conditional_scope.condition)
+				"{}if ({}) begin",
+				if in_generate { "" } else { "generate " },
+				self.translate_expression(&conditional_scope.condition, true)?
 			)?;
 			self.begin_indent();
 			self.emit_scope(w, conditional_scope.scope, true, true, HashSet::new())?;
 			self.end_indent();
-			emitln!(self, w, "end endgenerate")?;
+			emitln!(self, w, "end{}", if in_generate { "" } else { " endgenerate" })?;
 			processed_subscopes.insert(conditional_scope.scope);
 		}
 
@@ -251,12 +214,13 @@ impl<'a> SVCodegen<'a> {
 			emitln!(
 				self,
 				w,
-				"generate for (genvar {} = ({}); ({}) <= ({}); ({})++) begin",
-				self.translate_expression(&loop_scope.iterator_var.into()),
-				self.translate_expression(&loop_scope.iterator_begin),
-				self.translate_expression(&loop_scope.iterator_var.into()),
-				self.translate_expression(&loop_scope.iterator_end),
-				self.translate_expression(&loop_scope.iterator_var.into())
+				"{}for (genvar {} = ({}); ({}) <= ({}); ({})++) begin",
+				if in_generate { "" } else { "generate " },
+				self.translate_expression(&loop_scope.iterator_var.into(), true)?,
+				self.translate_expression(&loop_scope.iterator_begin, true)?,
+				self.translate_expression(&loop_scope.iterator_var.into(), true)?,
+				self.translate_expression(&loop_scope.iterator_end, true)?,
+				self.translate_expression(&loop_scope.iterator_var.into(), true)?
 			)?;
 			self.begin_indent();
 			self.emit_scope(
@@ -267,7 +231,7 @@ impl<'a> SVCodegen<'a> {
 				HashSet::from([loop_scope.iterator_var]),
 			)?;
 			self.end_indent();
-			emitln!(self, w, "end endgenerate")?;
+			emitln!(self, w, "end{}", if in_generate { "" } else { " endgenerate" })?;
 			processed_subscopes.insert(loop_scope.scope);
 		}
 
@@ -294,7 +258,7 @@ impl<'a> SVCodegen<'a> {
 
 		if !naked {
 			self.end_indent();
-			if in_generate {
+			if within_generate {
 				emitln!(self, w, "end")?;
 			}
 			else {
@@ -351,7 +315,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 						self,
 						w,
 						"{}{}",
-						self.module_parameter_definition(sig),
+						self.module_parameter_definition(sig)?,
 						if last_param_id == Some(sig.signal) { "" } else { "," }
 					)?;
 				}
@@ -375,7 +339,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 						self,
 						w,
 						"{}{}",
-						self.module_interface_definition(m.clone(), sig),
+						self.module_interface_definition(m.clone(), sig)?,
 						if last_interface_id == Some(sig.signal) { "" } else { "," }
 					)?;
 				}
@@ -390,7 +354,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 		self.emit_scope(w, m.scope().id(), true, false, interface_signal_ids)?;
 		self.end_indent();
 
-		writeln!(w, "endmodule;")?;
+		writeln!(w, "endmodule")?;
 		Ok(())
 	}
 }
