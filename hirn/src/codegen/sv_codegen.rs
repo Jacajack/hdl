@@ -414,7 +414,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 		self.emit_scope(w, m.scope().id(), true, false, interface_signal_ids)?;
 		self.end_indent();
 
-		writeln!(w, "endmodule;")?;
+		writeln!(w, "endmodule")?;
 		Ok(())
 	}
 }
