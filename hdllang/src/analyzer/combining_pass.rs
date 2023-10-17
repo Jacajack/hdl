@@ -840,7 +840,7 @@ impl VariableDefinition {
 				Some(expr) => {
 					if spec_kind.is_generic(){
 						let rhs_val = expr.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
-					
+						// FIXME
 					}
 					let mut lhs = spec_kind.to_signal();
 					if lhs.is_array() {
@@ -854,6 +854,7 @@ impl VariableDefinition {
 								.build(),
 						));
 					}
+					debug!("Lhs is {:?}", lhs);
 					let rhs = expr.evaluate_type(
 						ctx,
 						scope_id,
@@ -862,6 +863,7 @@ impl VariableDefinition {
 						false,
 						direct_initializer.declarator.get_location(),
 					)?;
+					debug!("Rhs is {:?}", rhs);
 					if rhs.is_array() {
 						return Err(miette::Report::new(
 							SemanticError::ArrayInExpression

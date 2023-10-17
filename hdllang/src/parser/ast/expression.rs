@@ -264,116 +264,116 @@ impl Expression {
 			_ => unreachable!(),
 		}
 	}
-	pub fn evaluate_as_lhs(
-		&self,
-		global_ctx: &GlobalAnalyzerContext,
-		scope_id: usize,
-		local_ctx: &mut LocalAnalyzerContex,
-		coupling_type: Option<Signal>,
-		location: SourceSpan,
-	) -> miette::Result<Signal> {
-		use Expression::*;
-		match self {
-			Identifier(id) => {
-				let mut var = match local_ctx.scope.get_variable(scope_id, &id.id) {
-					Some(var) => var,
-					None => {
-						return Err(miette::Report::new(
-							SemanticError::VariableNotDeclared
-								.to_diagnostic_builder()
-								.label(id.location, "This variable is not defined in this scope")
-								.build(),
-						))
-					},
-				}
-				.clone();
-				let mut sig = var.var.kind.to_signal();
-				if coupling_type.is_none() {
-					return Ok(sig);
-				}
+	//pub fn evaluate_as_lhs(
+	//	&self,
+	//	global_ctx: &GlobalAnalyzerContext,
+	//	scope_id: usize,
+	//	local_ctx: &mut LocalAnalyzerContex,
+	//	coupling_type: Option<Signal>,
+	//	location: SourceSpan,
+	//) -> miette::Result<Signal> {
+	//	use Expression::*;
+	//	match self {
+	//		Identifier(id) => {
+	//			let mut var = match local_ctx.scope.get_variable(scope_id, &id.id) {
+	//				Some(var) => var,
+	//				None => {
+	//					return Err(miette::Report::new(
+	//						SemanticError::VariableNotDeclared
+	//							.to_diagnostic_builder()
+	//							.label(id.location, "This variable is not defined in this scope")
+	//							.build(),
+	//					))
+	//				},
+	//			}
+	//			.clone();
+	//			let mut sig = var.var.kind.to_signal();
+	//			if coupling_type.is_none() {
+	//				return Ok(sig);
+	//			}
 
-				let mut coupling_type = coupling_type.unwrap();
-				sig.sensitivity
-					.can_drive(&coupling_type.sensitivity, location, global_ctx)?;
-				use crate::analyzer::SignalType::*;
-				sig.signal_type = match (&sig.signal_type, &coupling_type.signal_type) {
-					(Auto(_), Auto(_)) => sig.signal_type.clone(),
-					(Auto(_), _) => coupling_type.signal_type.clone(),
-					(Bus(bus), Bus(bus1)) => {
-						use crate::analyzer::SignalSignedness::*;
-						let mut new: crate::analyzer::BusType = bus1.clone();
-						new.signedness = match (&bus.signedness, &bus1.signedness) {
-							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => bus.signedness.clone(),
-							(Signed(_), Unsigned(_)) => todo!(),
-							(_, NoSignedness) => bus.signedness.clone(),
-							(Unsigned(_), Signed(_)) => todo!(),
-							(NoSignedness, _) => bus1.signedness.clone(),
-						};
-						new.width = match (&bus.width, &bus1.width) {
-							(_, None) => bus.width.clone(),
-							(None, Some(_)) => bus1.width.clone(),
-							(Some(coming), Some(original)) => {
-								match (&coming.get_value(), &original.get_value()) {
-									(Some(val1), Some(val2)) => {
-										if val1 != val2 {
-											return Err(miette::Report::new(
-												SemanticError::DifferingBusWidths
-													.to_diagnostic_builder()
-													.label(
-														location,
-														format!(
-															"Cannot assign signals - width mismatch. {} bits vs {} bits",
-															val2, val1
-														)
-														.as_str(),
-													)
-													.label(bus1.location, "First width specified here")
-													.label(bus.location, "Second width specified here")
-													.build(),
-											));
-										}
-									},
-									_ => (),
-								}
+	//			let mut coupling_type = coupling_type.unwrap();
+	//			sig.sensitivity
+	//				.can_drive(&coupling_type.sensitivity, location, global_ctx)?;
+	//			use crate::analyzer::SignalType::*;
+	//			sig.signal_type = match (&sig.signal_type, &coupling_type.signal_type) {
+	//				(Auto(_), Auto(_)) => sig.signal_type.clone(),
+	//				(Auto(_), _) => coupling_type.signal_type.clone(),
+	//				(Bus(bus), Bus(bus1)) => {
+	//					use crate::analyzer::SignalSignedness::*;
+	//					let mut new: crate::analyzer::BusType = bus1.clone();
+	//					new.signedness = match (&bus.signedness, &bus1.signedness) {
+	//						(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => bus.signedness.clone(),
+	//						(Signed(_), Unsigned(_)) => todo!(),
+	//						(_, NoSignedness) => bus.signedness.clone(),
+	//						(Unsigned(_), Signed(_)) => todo!(),
+	//						(NoSignedness, _) => bus1.signedness.clone(),
+	//					};
+	//					new.width = match (&bus.width, &bus1.width) {
+	//						(_, None) => bus.width.clone(),
+	//						(None, Some(_)) => bus1.width.clone(),
+	//						(Some(coming), Some(original)) => {
+	//							match (&coming.get_value(), &original.get_value()) {
+	//								(Some(val1), Some(val2)) => {
+	//									if val1 != val2 {
+	//										return Err(miette::Report::new(
+	//											SemanticError::DifferingBusWidths
+	//												.to_diagnostic_builder()
+	//												.label(
+	//													location,
+	//													format!(
+	//														"Cannot assign signals - width mismatch. {} bits vs {} bits",
+	//														val2, val1
+	//													)
+	//													.as_str(),
+	//												)
+	//												.label(bus1.location, "First width specified here")
+	//												.label(bus.location, "Second width specified here")
+	//												.build(),
+	//										));
+	//									}
+	//								},
+	//								_ => (),
+	//							}
 
-								bus.width.clone()
-							},
-						};
-						SignalType::Bus(new)
-					},
-					(Bus(bus), Wire(wire)) | (Wire(wire), Bus(bus)) => {
-						if bus.width.clone().unwrap().get_value().unwrap() != 1.into(){
-							return Err(miette::Report::new(
-								SemanticError::BoundingWireWithBus
-									.to_diagnostic_builder()
-									.label(location, "Cannot assign bus to a wire and vice versa")
-									.label(*wire, "Signal specified as wire here")
-									.label(bus.location, "Signal specified as a bus here")
-									.build(),
-							));
-						}
-						else {
-							sig.signal_type.clone()
-						}
-					},
-					(Bus(_), Auto(_)) => sig.signal_type.clone(),
-					(Wire(_), _) => sig.signal_type.clone(),
-				};
-				if var.var.kind == crate::analyzer::VariableKind::Signal(sig.clone()) {
-					return Ok(sig);
-				}
-				var.var.kind = crate::analyzer::VariableKind::Signal(sig.clone());
-				local_ctx.scope.redeclare_variable(var);
-				Ok(sig)
-			},
-			ParenthesizedExpression(_) => todo!(),
-			PostfixWithIndex(_) => todo!(),
-			PostfixWithRange(_) => todo!(),
-			PostfixWithArgs(_) => todo!(),
-			PostfixWithId(_) => todo!(),
-			_ => report_not_allowed_lhs(self.get_location()),
-		}
-	}
+	//							bus.width.clone()
+	//						},
+	//					};
+	//					SignalType::Bus(new)
+	//				},
+	//				(Bus(bus), Wire(wire)) | (Wire(wire), Bus(bus)) => {
+	//					if bus.width.clone().unwrap().get_value().unwrap() != 1.into(){
+	//						return Err(miette::Report::new(
+	//							SemanticError::BoundingWireWithBus
+	//								.to_diagnostic_builder()
+	//								.label(location, "Cannot assign bus to a wire and vice versa")
+	//								.label(*wire, "Signal specified as wire here")
+	//								.label(bus.location, "Signal specified as a bus here")
+	//								.build(),
+	//						));
+	//					}
+	//					else {
+	//						sig.signal_type.clone()
+	//					}
+	//				},
+	//				(Bus(_), Auto(_)) => sig.signal_type.clone(),
+	//				(Wire(_), _) => sig.signal_type.clone(),
+	//			};
+	//			if var.var.kind == crate::analyzer::VariableKind::Signal(sig.clone()) {
+	//				return Ok(sig);
+	//			}
+	//			var.var.kind = crate::analyzer::VariableKind::Signal(sig.clone());
+	//			local_ctx.scope.redeclare_variable(var);
+	//			Ok(sig)
+	//		},
+	//		ParenthesizedExpression(_) => todo!(),
+	//		PostfixWithIndex(_) => todo!(),
+	//		PostfixWithRange(_) => todo!(),
+	//		PostfixWithArgs(_) => todo!(),
+	//		PostfixWithId(_) => todo!(),
+	//		_ => report_not_allowed_lhs(self.get_location()),
+	//	}
+	//}
 	pub fn evaluate(
 		// 1) jest, bo jest 2) jest, tu masz wartośc 3) nie może być bo nie wiadomo
 		&self,
@@ -1537,15 +1537,9 @@ impl Expression {
 							if !expr.get_signedness().is_unsigned() {
 								todo!()
 							}
-							if !coupling_type.get_signedness().is_unsigned() {
-								todo!()
-							}
 						}
 						if func_name.as_str() == "sext" {
 							if !expr.get_signedness().is_signed() {
-								todo!()
-							}
-							if !coupling_type.get_signedness().is_signed() {
 								todo!()
 							}
 						}
@@ -1678,7 +1672,7 @@ impl Expression {
 							global_ctx,
 							scope_id,
 							local_ctx,
-							coupling_type,
+							Signal::new_empty(),
 							is_lhs,
 							location,
 						)?;

@@ -11,13 +11,10 @@ impl basic_ops {
 	bus<8> result_not = ~a;
 	bus<8> result_lshift = a << b;
 
-	// FIXME AR Wojtek
-	/*
-		bus<1> result_fold = fold_or(a);
-		bus<8> result_ternaty = a == 8 ? a : b;
-		bus<168> result_fancy = zext(a);
-		bus<8> or = a | b;
-		bus<8> and = a & b;
-		bus<8> xor = a ^ b;
-	*/
+	bus<1> result_fold = fold_or(a);
+	bus<8> result_ternaty = a == 8u8 ? a : b;
+	bus<168> result_fancy = zext(a);
+	bus<8> or = a | b;
+	bus<8> and = a & b;
+	bus<8> xor = a ^ b;
 }
