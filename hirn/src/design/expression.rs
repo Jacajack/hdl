@@ -1,5 +1,18 @@
+mod eval;
+mod expression_eval;
+mod expression_rust_ops;
+mod narrow_eval;
+mod numeric_constant;
+mod type_eval;
+mod width_expression;
+
+pub use eval::{EvalContext, EvalError, EvalType, Evaluates, EvaluatesType};
+pub use narrow_eval::NarrowEval;
+pub use numeric_constant::NumericConstant;
+pub use width_expression::WidthExpression;
+
 use super::signal::{SignalClass, SignalSensitivity, SignalSlice};
-use super::{NumericConstant, SignalId};
+use super::{SignalId, SignalSignedness};
 
 /// Binary operators
 /// TODO check if we have all
@@ -23,6 +36,8 @@ pub enum BinaryOp {
 	LessEqual,
 	Greater,
 	GreaterEqual,
+	Max,
+	Min,
 }
 
 /// Unary operators
@@ -47,12 +62,12 @@ pub enum BuiltinOp {
 		expr: Box<Expression>,
 		width: Box<Expression>,
 	},
-	BitSelect {
+	BusSelect {
 		expr: Box<Expression>,
 		msb: Box<Expression>,
 		lsb: Box<Expression>,
 	},
-	BusSelect {
+	BitSelect {
 		expr: Box<Expression>,
 		index: Box<Expression>,
 	},
@@ -61,16 +76,77 @@ pub enum BuiltinOp {
 		count: Box<Expression>,
 	},
 	Join(Vec<Expression>),
+	Width(Box<Expression>),
+}
+
+impl BuiltinOp {
+	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
+		use BuiltinOp::*;
+		match self {
+			ZeroExtend { expr, width } | SignExtend { expr, width } => {
+				f(expr)?;
+				expr.transform(f)?;
+				f(width)?;
+				width.transform(f)?;
+			},
+
+			BusSelect { expr, msb, lsb } => {
+				f(expr)?;
+				expr.transform(f)?;
+				f(lsb)?;
+				lsb.transform(f)?;
+				f(msb)?;
+				msb.transform(f)?;
+			},
+
+			BitSelect { expr, index } => {
+				f(expr)?;
+				expr.transform(f)?;
+				f(index)?;
+				index.transform(f)?;
+			},
+
+			Replicate { expr, count } => {
+				f(expr)?;
+				expr.transform(f)?;
+				f(count)?;
+				count.transform(f)?;
+			},
+
+			Join(exprs) => {
+				for expr in exprs {
+					f(expr)?;
+					expr.transform(f)?;
+				}
+			},
+
+			Width(expr) => {
+				f(expr)?;
+				expr.transform(f)?;
+			},
+		}
+		Ok(())
+	}
 }
 
 /// Represents a conditional expression branch
 #[derive(Clone, Debug)]
 pub struct ConditionalExpressionBranch {
 	/// Condition expression
-	pub condition: Expression,
+	condition: Expression,
 
 	/// Value when condition is true
-	pub value: Expression,
+	value: Expression,
+}
+
+impl ConditionalExpressionBranch {
+	pub fn condition(&self) -> &Expression {
+		&self.condition
+	}
+
+	pub fn value(&self) -> &Expression {
+		&self.value
+	}
 }
 
 /// Conditional expression
@@ -96,12 +172,24 @@ impl ConditionalExpression {
 		&self.branches
 	}
 
-	pub fn default(&self) -> &Expression {
+	pub fn default_value(&self) -> &Expression {
 		&self.default
 	}
 
 	fn add_branch(&mut self, condition: Expression, value: Expression) {
 		self.branches.push(ConditionalExpressionBranch { condition, value });
+	}
+
+	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
+		f(&mut self.default)?;
+		self.default.transform(f)?;
+		for branch in &mut self.branches {
+			f(&mut branch.condition)?;
+			branch.condition.transform(f)?;
+			f(&mut branch.value)?;
+			branch.value.transform(f)?;
+		}
+		Ok(())
 	}
 }
 
@@ -131,14 +219,20 @@ impl ConditionalExpressionBuilder {
 /// Cast expression
 #[derive(Clone, Debug)]
 pub struct CastExpression {
-	/// Destination signal class
-	pub dest_class: Option<SignalClass>,
+	pub signedness: Option<SignalSignedness>,
 
-	/// Destination signal sensitivity
-	pub dest_sensitivity: Option<SignalSensitivity>,
+	pub sensitivity: Option<SignalSensitivity>,
 
 	/// Source expression
 	pub src: Box<Expression>,
+}
+
+impl CastExpression {
+	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
+		f(&mut self.src)?;
+		self.src.transform(f)?;
+		Ok(())
+	}
 }
 
 /// A binary expression
@@ -154,6 +248,16 @@ pub struct BinaryExpression {
 	pub rhs: Box<Expression>,
 }
 
+impl BinaryExpression {
+	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
+		f(&mut self.lhs)?;
+		self.lhs.transform(f)?;
+		f(&mut self.rhs)?;
+		self.rhs.transform(f)?;
+		Ok(())
+	}
+}
+
 /// A unary expression
 #[derive(Clone, Debug)]
 pub struct UnaryExpression {
@@ -162,6 +266,14 @@ pub struct UnaryExpression {
 
 	/// Operand expression
 	pub operand: Box<Expression>,
+}
+
+impl UnaryExpression {
+	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
+		f(&mut self.operand)?;
+		self.operand.transform(f)?;
+		Ok(())
+	}
 }
 
 /// Language expression
@@ -192,17 +304,41 @@ impl Expression {
 		ConditionalExpressionBuilder::new(default)
 	}
 
+	/// Returns a new join expression
+	pub fn new_join(expressions: Vec<Expression>) -> Self {
+		Self::Builtin(BuiltinOp::Join(expressions))
+	}
+
+	/// Returns a new replicate expression
+	pub fn new_replicate(expr: Expression, count: Expression) -> Self {
+		Self::Builtin(BuiltinOp::Replicate {
+			expr: Box::new(expr),
+			count: Box::new(count),
+		})
+	}
+
 	/// Cassts expression to a different type
-	pub fn cast(self, dest_class: Option<SignalClass>, dest_sensitivity: Option<SignalSensitivity>) -> Self {
+	pub fn cast(self, dest_signedness: Option<SignalSignedness>, dest_sensitivity: Option<SignalSensitivity>) -> Self {
 		Self::Cast(CastExpression {
-			dest_class,
-			dest_sensitivity,
+			signedness: dest_signedness,
+			sensitivity: dest_sensitivity,
 			src: Box::new(self),
 		})
 	}
 
+	/// Casts to unsigned
+	pub fn cast_unsigned(self) -> Self {
+		self.cast(Some(SignalSignedness::Unsigned), None)
+	}
+
+	/// Casts to signed
+	pub fn cast_signed(self) -> Self {
+		self.cast(Some(SignalSignedness::Signed), None)
+	}
+
 	/// Performs zero extension
 	pub fn zero_extend(self, width: Expression) -> Self {
+		// TODO assert width is unsigned
 		Self::Builtin(BuiltinOp::ZeroExtend {
 			expr: Box::new(self),
 			width: Box::new(width),
@@ -211,41 +347,118 @@ impl Expression {
 
 	/// Performs sign extension
 	pub fn sign_extend(self, width: Expression) -> Self {
+		// TODO assert width unsigned
 		Self::Builtin(BuiltinOp::SignExtend {
 			expr: Box::new(self),
 			width: Box::new(width),
 		})
 	}
 
+	/// Get max of two expressions
+	pub fn max(self, rhs: Expression) -> Self {
+		Self::Binary(BinaryExpression {
+			op: BinaryOp::Max,
+			lhs: Box::new(self),
+			rhs: Box::new(rhs),
+		})
+	}
+
+	/// Get min of two expressions
+	pub fn min(self, rhs: Expression) -> Self {
+		Self::Binary(BinaryExpression {
+			op: BinaryOp::Min,
+			lhs: Box::new(self),
+			rhs: Box::new(rhs),
+		})
+	}
+
+	/// Join bits with another expression
+	pub fn join(self, rhs: Expression) -> Self {
+		Self::Builtin(BuiltinOp::Join(vec![self, rhs]))
+	}
+
+	/// Joins bits with provided expressions
+	pub fn join_many(self, expressions: Vec<Expression>) -> Self {
+		let mut list = vec![self];
+		list.extend(expressions);
+		Self::Builtin(BuiltinOp::Join(list))
+	}
+
+	/// Selects one bit from the expression
+	pub fn bit_select(self, n: Expression) -> Self {
+		// TODO assert n unsigned
+		Self::Builtin(BuiltinOp::BitSelect {
+			expr: Box::new(self),
+			index: Box::new(n),
+		})
+	}
+
 	/// Selects range of bits from the expression
-	pub fn bit_select(self, msb: u32, lsb: u32) -> Self {
-		assert!(msb >= lsb);
-		todo!();
+	pub fn bus_select(self, msb: Expression, lsb: Expression) -> Self {
+		// TODO assert lsb msb unsigned
+		Self::Builtin(BuiltinOp::BusSelect {
+			expr: Box::new(self),
+			msb: Box::new(msb),
+			lsb: Box::new(lsb),
+		})
 	}
 
 	/// Attempt to drive the expression if possible.
 	/// Returns affected signal slice if drivable.
+	/// TODO is it necessary to return a slice here?
 	pub fn try_drive(&self) -> Option<SignalSlice> {
 		match self {
 			Self::Signal(slice) => Some(slice.clone()),
+			// Self::Builtin(BuiltinOp::BusSelect { expr, msb, lsb }) => {
+			// 	SingalSlice{
+
+			// 	}
+			// },
+
+			// Self::Builtin(BuiltinOp::BitSelect { expr, index }) => {
+
+			// }
 			// TODO index/range expression drive
 			_ => None,
 		}
+	}
+
+	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
+		f(self)?;
+		use Expression::*;
+		match self {
+			Binary(expr) => expr.transform(f)?,
+			Unary(expr) => expr.transform(f)?,
+			Conditional(expr) => expr.transform(f)?,
+			Builtin(expr) => expr.transform(f)?,
+			Cast(expr) => expr.transform(f)?,
+			Constant(_) => (),
+			Signal(slice) => {
+				for index_expr in &mut slice.indices {
+					f(index_expr)?;
+					index_expr.transform(f)?;
+				}
+			},
+		}
+		Ok(())
 	}
 
 	// TODO reduction AND/OR/XOR
 	// TODO bitwise not
 	// TODO from bool
 	// TODO remaining binary ops
-
-	// Casts:
-	// TODO from bool
 }
 
 /// Implements a conversion from signal ID to an expression
 impl From<SignalId> for Expression {
 	fn from(signal: SignalId) -> Self {
 		Self::Signal(signal.into())
+	}
+}
+
+impl From<SignalSlice> for Expression {
+	fn from(slice: SignalSlice) -> Self {
+		Self::Signal(slice)
 	}
 }
 
@@ -258,6 +471,12 @@ impl From<NumericConstant> for Expression {
 impl From<ConditionalExpression> for Expression {
 	fn from(expr: ConditionalExpression) -> Self {
 		Self::Conditional(expr)
+	}
+}
+
+impl From<BuiltinOp> for Expression {
+	fn from(expr: BuiltinOp) -> Self {
+		Self::Builtin(expr)
 	}
 }
 
@@ -281,6 +500,12 @@ impl From<u32> for Expression {
 
 impl From<i32> for Expression {
 	fn from(value: i32) -> Self {
+		Self::Constant(value.into())
+	}
+}
+
+impl From<bool> for Expression {
+	fn from(value: bool) -> Self {
 		Self::Constant(value.into())
 	}
 }

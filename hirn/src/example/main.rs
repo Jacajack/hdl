@@ -1,7 +1,8 @@
 extern crate hirn;
 use hirn::{
-	design::{InterfaceSignal, SignalDirection},
-	Codegen, Design, Expression, HirnError, SVCodegen,
+	codegen::{sv::SVCodegen, Codegen},
+	design::{Design, Expression, InterfaceSignal, SignalDirection},
+	HirnError,
 };
 
 fn main() -> Result<(), HirnError> {
@@ -29,7 +30,7 @@ fn main() -> Result<(), HirnError> {
 
 	m.scope().new_subscope()?;
 
-	m.scope().if_scope(hirn::Expression::new_one())?;
+	m.scope().if_scope(Expression::new_one())?;
 
 	m.scope()
 		.new_module(m_internal, "cool_module")?

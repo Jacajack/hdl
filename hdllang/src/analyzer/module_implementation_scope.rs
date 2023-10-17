@@ -1,6 +1,6 @@
 use std::{collections::HashMap, hash::Hash};
 
-use hirn::{design::ModuleHandle, SignalId};
+use hirn::design::{ModuleHandle, SignalId};
 use log::*;
 
 use crate::{

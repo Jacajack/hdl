@@ -1,30 +1,25 @@
-pub mod comment;
-pub mod eval;
-pub mod expression;
-pub mod expression_eval;
-pub mod expression_ops;
-pub mod functional_blocks;
-pub mod module;
-pub mod numeric_constant;
-pub mod scope;
-pub mod signal;
-pub mod utils;
+mod comment;
+mod expression;
+mod functional_blocks;
+mod module;
+mod scope;
+mod signal;
+mod utils;
 
 pub use comment::HasComment;
-pub use eval::{EvalContext, EvalError};
-pub use expression::{BinaryOp, Expression, UnaryOp};
-pub use functional_blocks::{Register, RegisterBuilder};
+pub use expression::{
+	BinaryExpression, BinaryOp, BuiltinOp, ConditionalExpression, ConditionalExpressionBranch, EvalContext, EvalError,
+	EvalType, Evaluates, EvaluatesType, Expression, NumericConstant, UnaryExpression, UnaryOp, WidthExpression,
+};
+pub use functional_blocks::{BlockInstance, ModuleInstance, ModuleInstanceBuilder, Register, RegisterBuilder};
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
-pub use numeric_constant::NumericConstant;
 pub use scope::{Scope, ScopeHandle};
-pub use signal::{Signal, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice};
+pub use signal::{Signal, SignalBuilder, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice};
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
 use thiserror::Error;
-
-use self::eval::EvalType;
 
 /// References a module in a design
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
@@ -362,13 +357,13 @@ pub enum DesignError {
 
 #[cfg(test)]
 mod test {
-	use super::{eval::Evaluates, *};
+	use super::{expression::Evaluates, *};
 
 	#[test]
 	pub fn design_basic_test() -> Result<(), DesignError> {
 		// init();
 		let mut d = Design::new();
-		let mut m = d.new_module("test")?;
+		let m = d.new_module("test")?;
 
 		let sig = m
 			.scope()
@@ -429,7 +424,7 @@ mod test {
 	#[test]
 	fn test_unique_signal_names() -> Result<(), DesignError> {
 		let mut d = Design::new();
-		let mut m = d.new_module("test")?;
+		let m = d.new_module("test")?;
 
 		let _sig = m
 			.scope()
@@ -484,7 +479,7 @@ mod test {
 	#[test]
 	fn test_register() -> Result<(), DesignError> {
 		let mut d = Design::new();
-		let mut m = d.new_module("foo")?;
+		let m = d.new_module("foo")?;
 
 		let clk = m
 			.scope()
@@ -543,7 +538,7 @@ mod test {
 
 		m.expose(m_clk, SignalDirection::Input)?;
 
-		let mut m_parent = d.new_module("bar")?;
+		let m_parent = d.new_module("bar")?;
 		let m_parent_clk = m_parent.scope().new_signal("clk")?.clock().wire().build()?;
 
 		m_parent
@@ -564,7 +559,7 @@ mod test {
 
 		m.expose(m_clk, SignalDirection::Input)?;
 
-		let mut m_parent = d.new_module("bar")?;
+		let m_parent = d.new_module("bar")?;
 		let m_parent_async = m_parent.scope().new_signal("async")?.asynchronous().wire().build()?;
 
 		let err = m_parent
@@ -580,7 +575,7 @@ mod test {
 	#[test]
 	fn signal_add_eval_test() -> Result<(), DesignError> {
 		let mut d = Design::new();
-		let mut m = d.new_module("test")?;
+		let m = d.new_module("test")?;
 
 		let a = m.scope().new_signal("a")?.unsigned(8.into()).constant().build()?;
 
@@ -589,11 +584,11 @@ mod test {
 		let expr = Expression::from(a) + b.into();
 
 		let mut ctx = EvalContext::without_assumptions(d.handle());
-		ctx.assume_scalar(a, 14.into());
-		ctx.assume_scalar(b, 16.into());
+		ctx.assume(a, 14u32.into())?;
+		ctx.assume(b, 16u32.into())?;
 
 		let result = expr.eval(&ctx)?;
-		assert_eq!(result.try_into_u64(), 30.into());
+		assert_eq!(result.try_into_u64()?, 30u64);
 
 		Ok(())
 	}
@@ -601,34 +596,34 @@ mod test {
 	#[test]
 	fn signal_array_eval_test() -> Result<(), DesignError> {
 		let mut d = Design::new();
-		let mut m = d.new_module("test")?;
+		let m = d.new_module("test")?;
 
 		let a = m
 			.scope()
 			.new_signal("a")?
-			.unsigned(8.into())
+			.signed(8.into())
 			.constant()
 			.array(4.into())?
 			.build()?;
 
 		let mut ctx = EvalContext::without_assumptions(d.handle());
-		ctx.assume(a, vec![0], 1.into());
-		ctx.assume(a, vec![1], 2.into());
-		ctx.assume(a, vec![2], 15.into());
-		ctx.assume(a, vec![3], 10.into());
+		ctx.assume_array(a, vec![0], 1.into())?;
+		ctx.assume_array(a, vec![1], 2.into())?;
+		ctx.assume_array(a, vec![2], 15.into())?;
+		ctx.assume_array(a, vec![3], 10.into())?;
 
 		let result0 = Expression::Signal(a.index(0.into())).eval(&ctx)?;
 		let result1 = Expression::Signal(a.index(1.into())).eval(&ctx)?;
 		let result2 = Expression::Signal(a.index(2.into())).eval(&ctx)?;
 		let result3 = Expression::Signal(a.index(3.into())).eval(&ctx)?;
-		assert_eq!(result0.try_into_i64(), 1.into());
-		assert_eq!(result1.try_into_i64(), 2.into());
-		assert_eq!(result2.try_into_i64(), 15.into());
-		assert_eq!(result3.try_into_i64(), 10.into());
+		assert_eq!(result0.try_into_i64()?, 1.into());
+		assert_eq!(result1.try_into_i64()?, 2.into());
+		assert_eq!(result2.try_into_i64()?, 15.into());
+		assert_eq!(result3.try_into_i64()?, 10.into());
 
 		let index_expr = Expression::from(1) + Expression::from(2);
 		let result = a.index(index_expr).eval(&ctx)?;
-		assert_eq!(result.try_into_i64(), 10.into());
+		assert_eq!(result.try_into_i64()?, 10.into());
 
 		Ok(())
 	}
