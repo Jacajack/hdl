@@ -1,4 +1,4 @@
-#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Hash)]
 pub struct MatchExpression {
 	pub value: Box<super::Expression>,
 	pub statements: Vec<crate::parser::ast::MatchExpressionStatement>,

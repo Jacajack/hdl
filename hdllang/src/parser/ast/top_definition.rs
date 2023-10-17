@@ -10,7 +10,7 @@ use crate::ProvidesCompilerDiagnostic;
 use crate::{lexer::CommentTableKey, lexer::IdTableKey, SourceSpan};
 use std::collections::HashMap;
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub enum TopDefinition {
 	ModuleDeclaration(ModuleDeclaration),
 	ModuleImplementation(ModuleImplementation),
@@ -183,7 +183,7 @@ pub trait Scope {
 //        self.signals.get(name).cloned()
 //    }
 //}
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ModuleDeclaration {
 	pub metadata: Vec<CommentTableKey>,
 	pub id: IdTableKey,
@@ -259,7 +259,7 @@ impl ModuleDeclaration {
 	}
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ModuleImplementation {
 	pub metadata: Vec<CommentTableKey>,
 	pub id: IdTableKey,
@@ -267,7 +267,7 @@ pub struct ModuleImplementation {
 	pub location: SourceSpan,
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct PackageDeclaration {
 	pub metadata: Vec<CommentTableKey>,
 	pub path: ImportPath,
@@ -344,7 +344,7 @@ fn create_label_message(file_name: &String) -> String {
 		_ => format!("File already packaged in {}", file_name),
 	}
 }
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct UseStatement {
 	pub metadata: Vec<CommentTableKey>,
 	pub path: ImportPath,

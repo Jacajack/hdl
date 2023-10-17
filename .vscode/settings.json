@@ -12,6 +12,6 @@
 	"rustTestExplorer.rootCargoManifestFilePath": "/home/j/Projects/hdl/hdllang/Cargo.toml",
 	"rust-analyzer.linkedProjects": [
 		"./hirn/Cargo.toml",
-		"./hdllang/Cargo.toml"
+		"./hdllang/Cargo.toml",
 	],
 }

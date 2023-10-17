@@ -20,10 +20,24 @@ impl InternalVariableId {
 		Self { id }
 	}
 }
-
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct EvaluatedEntry{
+	pub expression: crate::parser::ast::Expression,
+	pub scope_id: usize,
+}
+impl EvaluatedEntry{
+	pub fn new(expression: crate::parser::ast::Expression, scope_id: usize)->Self{
+		Self{
+			expression,
+			scope_id,
+		}
+	}
+}
+use crate::analyzer::BusWidth;
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ModuleImplementationScope {
-	pub evaluated_expressions: HashMap<SourceSpan, crate::parser::ast::Expression>,
+	pub widths: HashMap<SourceSpan, BusWidth>,
+	pub evaluated_expressions: HashMap<SourceSpan, EvaluatedEntry>,
 	pub enriched_constants: HashMap<SourceSpan, crate::core::NumericConstant>,
 	scopes: Vec<InternalScope>,
 	is_generic: bool,
@@ -60,6 +74,33 @@ pub trait ScopeTrait {
 	fn is_generic(&self) -> bool;
 }
 impl ModuleImplementationScope {
+	pub fn display_interface(&self, id_table: &IdTable)->String{
+		let mut s = String::new();
+		let scope = self.scopes.first().unwrap();
+		for (name, var) in &scope.variables{
+			s+=format!("Variable {}: {:?}\n", id_table.get_value(name), var.var.kind).as_str();
+		}
+		s+=format!("dupa").as_str();
+
+		s
+	}
+	pub fn get_interface_len(&self)->usize{
+		return self.scopes.first().unwrap().variables.len()
+	}
+	pub fn get_var(&self, scope_id: usize, name: &IdTableKey)->Result<&VariableDefined, SemanticError>{
+		let scope = &self.scopes[scope_id];
+		if let Some(variable) = scope.variables.get(name) {
+			Ok(variable)
+		}
+		else {
+			if let Some(parent_scope) = scope.parent_scope {
+				self.get_var(parent_scope, name)
+			}
+			else {
+				Err(SemanticError::VariableNotDeclared)
+			}
+		}
+	}
 	pub fn transorm_to_generic(&mut self) {
 		debug!("Transforming scope to generic");
 		for scope in self.scopes.iter_mut() {
@@ -106,6 +147,7 @@ impl ModuleImplementationScope {
 	}
 	pub fn new() -> Self {
 		Self {
+			widths: HashMap::new(),
 			evaluated_expressions: HashMap::new(),
 			scopes: vec![InternalScope::new(None)],
 			api_ids: HashMap::new(),

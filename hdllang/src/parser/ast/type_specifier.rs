@@ -5,13 +5,13 @@ use crate::parser::ast::SourceLocation;
 use crate::SourceSpan;
 use num_bigint::BigInt;
 use std::fmt::{Debug, Error, Formatter};
-#[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq, Hash)]
 pub struct Bus {
 	pub width: Box<Expression>,
 	pub location: SourceSpan,
 	pub compiled_width: Option<BigInt>, // to be transferred to a hashmap,
 }
-#[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq, Hash)]
 pub enum TypeSpecifier {
 	Auto { location: SourceSpan },
 	Int { location: SourceSpan },

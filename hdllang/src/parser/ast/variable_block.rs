@@ -4,7 +4,7 @@ use crate::lexer::CommentTableKey;
 use crate::parser::ast::{SourceLocation, TypeQualifier, VariableDefinition};
 use crate::SourceSpan;
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct VariableBlock {
 	pub metadata: Vec<CommentTableKey>,
 	pub types: Vec<TypeQualifier>,
@@ -18,7 +18,7 @@ impl SourceLocation for VariableBlock {
 	}
 }
 
-#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq)]
+#[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub enum VariableBlockStatement {
 	VariableDefinition(VariableDefinition),
 	VariableBlock(VariableBlock),
