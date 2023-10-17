@@ -139,9 +139,8 @@ impl EvaluatesType for BuiltinOp {
 impl EvaluatesType for CastExpression {
 	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
 		let src_type = self.src.eval_type(ctx)?;
-		let signedness = self.dest_class.clone().map_or(src_type.signedness, |c| c.signedness());
-
-		let sensitivity = self.dest_sensitivity.clone().or(Some(src_type.sensitivity)).unwrap(); // FIXME
+		let signedness = self.signedness.clone().unwrap_or(src_type.signedness);
+		let sensitivity = self.sensitivity.clone().unwrap_or(src_type.sensitivity);
 
 		Ok(EvalType {
 			signedness,

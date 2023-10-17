@@ -1,5 +1,5 @@
 use super::{NarrowEval, WidthExpression};
-use crate::{design::SignalSignedness, Expression};
+use crate::design::{SignalSignedness, Expression};
 
 use num_bigint::{BigInt, BigUint};
 
@@ -139,6 +139,16 @@ impl NumericConstant {
 			Some(e) => Err(e.clone()),
 			None => Ok(&self.value),
 		}
+	}
+
+	pub fn as_unsigned(mut self) -> Self {
+		self.signedness = SignalSignedness::Unsigned;
+		self
+	}
+
+	pub fn as_signed(mut self) -> Self {
+		self.signedness = SignalSignedness::Signed;
+		self
 	}
 
 	pub fn to_hex_str(&self) -> String {

@@ -1,10 +1,9 @@
-use super::{Codegen, CodegenError};
+use crate::codegen::{Codegen, CodegenError};
 use crate::{
 	design::InterfaceSignal,
 	design::SignalSignedness,
-	design::{BlockInstance, ScopeHandle},
-	design::{BuiltinOp, ModuleInstance, SignalDirection, SignalSensitivity, WidthExpression},
-	BinaryOp, Design, Expression, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp,
+	design::BlockInstance,
+	design::{BuiltinOp, ModuleInstance, SignalDirection, SignalSensitivity, WidthExpression, BinaryOp, Design, Expression, ModuleHandle, ModuleId, ScopeId, SignalId, UnaryOp},
 };
 use log::debug;
 use std::collections::HashSet;
@@ -12,8 +11,8 @@ use std::fmt;
 
 #[derive(Clone)]
 pub struct SVCodegen<'a> {
-	design: &'a Design,
-	indent_level: u32,
+	pub(super) design: &'a Design,
+	pub(super) indent_level: u32,
 }
 
 macro_rules! emitln {
@@ -45,95 +44,13 @@ impl<'a> SVCodegen<'a> {
 		self.indent_level -= 1;
 	}
 
-	fn translate_signal_id(&self, id: SignalId) -> String {
-		let sig = self.design.get_signal(id).unwrap();
-		sig.name().into()
-	}
-
-	fn translate_expression(&self, expr: &Expression, width_casts: bool) -> String {
-		use Expression::*;
-		match expr {
-			Conditional(e) => {
-				assert!(e.branches().len() > 0);
-				let mut str: String = "".into();
-				for br in e.branches() {
-					str = format!(
-						"{} ({}) ? ({}) : ",
-						str,
-						self.translate_expression(&br.condition(), width_casts),
-						self.translate_expression(&br.value(), width_casts)
-					);
-				}
-				format!(
-					"{} ({})",
-					str,
-					self.translate_expression(e.default_value(), width_casts)
-				)
-			},
-			Constant(c) => {
-				format!("{}'h{}", c.width().unwrap(), c.to_hex_str()) // FIXME unwrap!
-			},
-			Signal(s) => {
-				let mut str: String = self.translate_signal_id(s.signal);
-				for slice in &s.indices {
-					str = format!("{}[{}]", str, self.translate_expression(&slice, width_casts));
-				}
-				str
-			},
-			Binary(e) => {
-				let lhs_str = self.translate_expression(&e.lhs, width_casts);
-				let rhs_str = self.translate_expression(&e.rhs, width_casts);
-				// TODO proper width rules
-				use BinaryOp::*;
-				if width_casts {
-					match e.op {
-						Add => {
-							let cast_str = self.translate_expression(&expr.width().unwrap(), false); // FIXME unwrap!
-							format!("(({})'({}) + ({})'({}))", cast_str, lhs_str, cast_str, rhs_str)
-						},
-						_ => todo!(), // TODO
-					}
-				}
-				else {
-					match e.op {
-						Add => format!("({} + {})", lhs_str, rhs_str),
-						Subtract => format!("{} - {}", lhs_str, rhs_str),
-						Multiply => format!("{} * {}", lhs_str, rhs_str),
-						Divide => format!("{} * {}", lhs_str, rhs_str),
-						Max => format!("({} > {} ? {} : {})", lhs_str, rhs_str, lhs_str, rhs_str),
-						_ => todo!(),
-					}
-				}
-			},
-			Unary(u) => {
-				let operand_str = self.translate_expression(&u.operand, width_casts);
-
-				use UnaryOp::*;
-				match u.op {
-					Negate => format!("-{}", operand_str),
-					LogicalNot => format!("!{}", operand_str),
-					BitwiseNot => format!("~{}", operand_str),
-					ReductionAnd => format!("&{}", operand_str),
-					ReductionOr => format!("|{}", operand_str),
-					ReductionXor => format!("^{}", operand_str),
-				}
-			},
-
-			Builtin(b) => match b {
-				BuiltinOp::Width(e) => format!("$bits({})", self.translate_expression(&e, width_casts)),
-				_ => todo!(),
-			},
-			Cast(c) => self.translate_expression(&c.src, width_casts),
-		}
-	}
-
 	fn mangle_module_name(&self, name: String, namespaces: Vec<String>) -> String {
 		let mut segments = namespaces;
 		segments.push(name);
 		segments.join("_")
 	}
 
-	fn format_signal_declaration(&self, sig_id: SignalId) -> String {
+	fn format_signal_declaration(&self, sig_id: SignalId) -> Result<String, CodegenError> {
 		let sig = self.design.get_signal(sig_id).unwrap();
 
 		use SignalSignedness::*;
@@ -144,19 +61,19 @@ impl<'a> SVCodegen<'a> {
 		};
 
 		let bus_width_str = match sig.class.is_wire() {
-			false => format!("[({}) - 1 : 0]", self.translate_expression(&sig.class.width(), false)),
+			false => format!("[({}): 0]", self.translate_expression_try_eval(&(sig.class.width().clone() - 1.into()), false)?),
 			true => "".into(),
 		};
 
 		let mut array_size_str = String::new();
 		for dim in &sig.dimensions {
-			array_size_str = format!("{}[{}]", array_size_str, self.translate_expression(&dim, false));
+			array_size_str = format!("{}[{}]", array_size_str, self.translate_expression_try_eval(&dim, false)?);
 		}
 
-		format!("wire{}{} {}{}", sign_str, bus_width_str, sig.name(), array_size_str)
+		Ok(format!("wire{}{} {}{}", sign_str, bus_width_str, sig.name(), array_size_str))
 	}
 
-	fn module_interface_definition(&self, m: ModuleHandle, s: InterfaceSignal) -> String {
+	fn module_interface_definition(&self, m: ModuleHandle, s: InterfaceSignal) -> Result<String, CodegenError> {
 		let sig = self.design.get_signal(s.signal).unwrap();
 
 		use SignalDirection::*;
@@ -166,11 +83,11 @@ impl<'a> SVCodegen<'a> {
 			_ => unimplemented!(),
 		};
 
-		format!("{} {}", direction_str, self.format_signal_declaration(s.signal))
+		Ok(format!("{} {}", direction_str, self.format_signal_declaration(s.signal)?))
 	}
 
-	fn module_parameter_definition(&self, s: InterfaceSignal) -> String {
-		format!("parameter {} = 'x", self.translate_expression(&s.signal.into(), false))
+	fn module_parameter_definition(&self, s: InterfaceSignal) -> Result<String, CodegenError> {
+		Ok(format!("parameter {} = 'x", self.translate_expression(&s.signal.into(), false)?))
 	}
 
 	fn emit_assignment(
@@ -183,8 +100,8 @@ impl<'a> SVCodegen<'a> {
 			self,
 			w,
 			"assign {} = {};",
-			self.translate_expression(&lhs, true),
-			self.translate_expression(&rhs, true)
+			self.translate_expression(&lhs, true)?,
+			self.translate_expression(&rhs, true)?
 		)?;
 		Ok(())
 	}
@@ -204,7 +121,7 @@ impl<'a> SVCodegen<'a> {
 				w,
 				".{}({}),",
 				binding.0,
-				self.translate_expression(&binding.1.into(), true)
+				self.translate_expression(&binding.1.into(), true)?
 			)?;
 		}
 
@@ -238,7 +155,7 @@ impl<'a> SVCodegen<'a> {
 		emitln!(self, w, "/* signals */")?;
 		for sig_id in scope.signals() {
 			if !skip_signals.contains(&sig_id) {
-				emitln!(self, w, "{};", self.format_signal_declaration(sig_id))?;
+				emitln!(self, w, "{};", self.format_signal_declaration(sig_id)?)?;
 			}
 		}
 
@@ -258,7 +175,7 @@ impl<'a> SVCodegen<'a> {
 				w,
 				"{}if ({}) begin",
 				if in_generate { "" } else { "generate " },
-				self.translate_expression(&conditional_scope.condition, true)
+				self.translate_expression(&conditional_scope.condition, true)?
 			)?;
 			self.begin_indent();
 			self.emit_scope(w, conditional_scope.scope, true, true, HashSet::new())?;
@@ -276,11 +193,11 @@ impl<'a> SVCodegen<'a> {
 				w,
 				"{}for (genvar {} = ({}); ({}) <= ({}); ({})++) begin",
 				if in_generate { "" } else { "generate " },
-				self.translate_expression(&loop_scope.iterator_var.into(), true),
-				self.translate_expression(&loop_scope.iterator_begin, true),
-				self.translate_expression(&loop_scope.iterator_var.into(), true),
-				self.translate_expression(&loop_scope.iterator_end, true),
-				self.translate_expression(&loop_scope.iterator_var.into(), true)
+				self.translate_expression(&loop_scope.iterator_var.into(), true)?,
+				self.translate_expression(&loop_scope.iterator_begin, true)?,
+				self.translate_expression(&loop_scope.iterator_var.into(), true)?,
+				self.translate_expression(&loop_scope.iterator_end, true)?,
+				self.translate_expression(&loop_scope.iterator_var.into(), true)?
 			)?;
 			self.begin_indent();
 			self.emit_scope(
@@ -375,7 +292,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 						self,
 						w,
 						"{}{}",
-						self.module_parameter_definition(sig),
+						self.module_parameter_definition(sig)?,
 						if last_param_id == Some(sig.signal) { "" } else { "," }
 					)?;
 				}
@@ -399,7 +316,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 						self,
 						w,
 						"{}{}",
-						self.module_interface_definition(m.clone(), sig),
+						self.module_interface_definition(m.clone(), sig)?,
 						if last_interface_id == Some(sig.signal) { "" } else { "," }
 					)?;
 				}

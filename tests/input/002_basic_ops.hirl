@@ -1,0 +1,23 @@
+module basic_ops {
+	input async unsigned bus<8> a, b;
+}
+
+impl basic_ops {
+	bus<9> result_add = a + b;
+	bus<9> result_sub = a - b;
+	bus<16> result_mul = a * b;
+	bus<8> result_div = a / b;
+	bus<8> result_mod = a % b;
+	bus<8> result_not = ~a;
+	bus<8> result_lshift = a << b;
+
+	// FIXME AR Wojtek
+	/*
+		bus<1> result_fold = fold_or(a);
+		bus<8> result_ternaty = a == 8 ? a : b;
+		bus<168> result_fancy = zext(a);
+		bus<8> or = a | b;
+		bus<8> and = a & b;
+		bus<8> xor = a ^ b;
+	*/
+}

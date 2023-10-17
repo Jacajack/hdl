@@ -9,7 +9,7 @@ mod utils;
 pub use comment::HasComment;
 pub use expression::{
 	BinaryExpression, BinaryOp, BuiltinOp, EvalContext, EvalError, EvalType, Evaluates, EvaluatesType, Expression,
-	NumericConstant, UnaryExpression, UnaryOp, WidthExpression,
+	NumericConstant, UnaryExpression, UnaryOp, WidthExpression, ConditionalExpression, ConditionalExpressionBranch
 };
 pub use functional_blocks::{BlockInstance, ModuleInstance, ModuleInstanceBuilder, Register, RegisterBuilder};
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};

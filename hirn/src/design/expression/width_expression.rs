@@ -11,9 +11,9 @@ impl WidthExpression for UnaryExpression {
 		use UnaryOp::*;
 		Ok(match self.op {
 			Negate => self.operand.width()?,
-			LogicalNot => 1.into(),
+			LogicalNot => 1u32.into(),
 			BitwiseNot => self.operand.width()?,
-			ReductionAnd | ReductionOr | ReductionXor => 1.into(),
+			ReductionAnd | ReductionOr | ReductionXor => 1u32.into(),
 		})
 	}
 }
@@ -22,14 +22,14 @@ impl WidthExpression for BinaryExpression {
 	fn width(&self) -> Result<Expression, EvalError> {
 		use BinaryOp::*;
 		Ok(match self.op {
-			Add | Subtract => self.lhs.width()?.max(self.rhs.width()?) + 1.into(),
+			Add | Subtract => self.lhs.width()?.max(self.rhs.width()?) + 1u32.into(),
 			Multiply => self.lhs.width()? + self.rhs.width()?,
 			Divide => self.lhs.width()?,
 			Modulo => self.rhs.width()?,
 			ShiftLeft | ShiftRight => self.lhs.width()?,
-			LogicalAnd | LogicalOr => 1.into(),
+			LogicalAnd | LogicalOr => 1u32.into(),
 			BitwiseAnd | BitwiseOr | BitwiseXor => self.lhs.width()?, // FIXME verify width match
-			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual => 1.into(),
+			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual => 1u32.into(),
 			Max | Min => self.lhs.width()?,
 		})
 	}
@@ -38,13 +38,14 @@ impl WidthExpression for BinaryExpression {
 impl WidthExpression for BuiltinOp {
 	fn width(&self) -> Result<Expression, EvalError> {
 		use BuiltinOp::*;
+		// TODO require proper width/index signedness
 		Ok(match self {
 			ZeroExtend { width, .. } => (**width).clone(),
 			SignExtend { width, .. } => (**width).clone(),
-			BusSelect { msb, lsb, .. } => (**msb).clone() - (**lsb).clone() + 1.into(),
-			BitSelect { .. } => 1.into(),
+			BusSelect { msb, lsb, .. } => (**msb).clone() - (**lsb).clone() + 1u32.into(),
+			BitSelect { .. } => 1u32.into(),
 			Replicate { expr, count } => (**expr).clone() * (**count).clone(),
-			Width(..) => 64.into(), // FIXME?
+			Width(..) => 64u32.into(),
 			Join(exprs) => {
 				let mut result = Expression::new_zero();
 				for ex in exprs {
