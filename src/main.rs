@@ -210,7 +210,7 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 	writeln!(output, "{}", "done").map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())
 }
-fn compile(mut code: String, file_name: String, output: Box<dyn Write>) -> miette::Result<()> {
+fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let root: Root;
 	let mut ctx = LogosLexerContext {
 		id_table: IdTable::new(),
@@ -230,7 +230,7 @@ fn compile(mut code: String, file_name: String, output: Box<dyn Write>) -> miett
 	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
 	// analyse semantically
 	hdllang::analyzer::SemanticalAnalyzer::new(global_ctx, &modules)
-		.compile(output)
+		.compile(&mut *output)
 		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code)))?;
 	//hdllang::analyzer::analyze_semantically(&mut global_ctx, &modules)?;
 	info!("File {} compiled succesfully", file_name);

@@ -106,6 +106,7 @@ impl<'a> SVCodegen<'a> {
 		Ok(())
 	}
 
+	// FIXME implement io::Write?
 	fn emit_module_instance(&mut self, w: &mut dyn fmt::Write, instance: &ModuleInstance) -> Result<(), CodegenError> {
 		emitln!(self, w, "{} #(", instance.module.name())?;
 		self.begin_indent();
