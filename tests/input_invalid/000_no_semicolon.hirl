@@ -1,0 +1,6 @@
+module no_semicolon {
+	input wire x;
+	input wire y
+}
+
+impl no_semicolon {}
