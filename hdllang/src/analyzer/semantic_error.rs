@@ -264,7 +264,7 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
     		InstationError(err) => err.into(),
     		ModuleInstanceNotIndexed => CompilerDiagnosticBuilder::from_error(&self)
-			.help("Please make sure that all module instance is always accessed properly in expression")
+			.help("Please make sure that module interface signals are accessed properly")
 			.build(),
 		}
 	}
