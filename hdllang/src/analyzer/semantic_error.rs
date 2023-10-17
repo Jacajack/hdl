@@ -110,7 +110,7 @@ pub enum SemanticError {
 	IndexOutOfBounds,
 	#[error("Conditional and match expressions must have a default branch")]
 	ConditionalWithoutDefault,
-	#[error("It is not allowed to use unindexed module instance in expresion")]
+	#[error("Cannot use unsubscripted module instance name in an expression")]
 	ModuleInstanceNotIndexed,
 	#[error("It is not allowed to use array in this expression")]
 	ArrayInExpression,
