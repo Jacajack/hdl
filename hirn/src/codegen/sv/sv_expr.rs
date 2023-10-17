@@ -30,7 +30,7 @@ impl<'a> SVCodegen<'a> {
 			Ok(format!("{}'h{}", c.width()?, c.to_hex_str()))
 		}
 		else {
-			Ok(format!("0x{}", c.to_hex_str()))
+			Ok(format!("'h{}", c.to_hex_str()))
 		}
 	}
 
