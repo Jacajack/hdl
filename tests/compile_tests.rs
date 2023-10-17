@@ -96,7 +96,17 @@ fn test_compile_success(#[files("tests/input/*.hirl")] path: PathBuf) {
 	
 	if !std::env::var("NO_IVERILOG").is_ok() {
 		let iverilog_path = std::env::var("IVERILOG_PATH").unwrap_or("iverilog".into());
-		let _bin_file = run_iverilog(Path::new(&iverilog_path), sv_file.path()).unwrap();
+		match run_iverilog(Path::new(&iverilog_path), sv_file.path()) {
+			Ok(_) => {},
+			Err(e) => {
+				eprintln!("iverilog failed: {}", e);
+				eprintln!("Faulty SV codegen follows:");
+				eprintln!("============================");
+				eprintln!("{}", std::fs::read_to_string(sv_file.path()).unwrap());
+				eprintln!("============================");
+				panic!("iverilog failed");
+			}
+		}
 	}
 }
 
