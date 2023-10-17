@@ -424,6 +424,7 @@ impl Expression {
 	}
 
 	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
+		f(self)?;
 		use Expression::*;
 		match self {
 			Binary(expr) => expr.transform(f)?,
