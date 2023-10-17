@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::io::Write;
 
 use crate::{
-	analyzer::{BusWidth, ModuleImplementationScope, Signal, ModuleInstance, semantic_error::InstationError, GenericVariable},
+	analyzer::{BusWidth, ModuleImplementationScope, Signal, ModuleInstance, semantic_error::InstanceError, GenericVariable},
 	core::*,
 	lexer::*,
 	parser::ast::*,
@@ -465,7 +465,7 @@ impl ModuleImplementationStatement {
 				let mut scope = module.scope.clone();
 				let mut module_instance = ModuleInstance::new(name,inst.location);
 				if scope.get_interface_len() != inst.port_bind.len() {
-					return Err(miette::Report::new(InstationError::ArgumentsMismatch.to_diagnostic_builder()
+					return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
 					.label(inst.location, "This binding list does not match interface of module instantiated")
 					.help(format!("Interface of the module xx is {}", scope.display_interface(ctx.id_table)).as_str())
 					.build()))
@@ -510,7 +510,7 @@ impl ModuleImplementationStatement {
 							.clone();
 							debug!("Local sig is {:?}", local_sig.var.kind);
 							if local_sig.var.kind.is_module_instance() {
-								return Err(miette::Report::new(InstationError::ArgumentsMismatch.to_diagnostic_builder()
+								return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
 								.label(stmt.location(), "Here was an attempt to bind module instance as a interface signal")
 								.label(local_sig.var.location, "Local signal defined here")
 								.build()))
@@ -519,14 +519,14 @@ impl ModuleImplementationStatement {
 							use VariableKind::*;
 							match (&mut local_sig.var.kind, &mut interface_variable.var.kind) {
 								(Signal(_), Generic(_))=> {
-									return Err(miette::Report::new(InstationError::ArgumentsMismatch.to_diagnostic_builder()
+									return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
 									.label(stmt.location(), "Here was an attempt to bind generic and signal togther")
 									.label(local_sig.var.location, "Local signal defined here")
 									.build()))
 								},
 								(Generic(gen1), Generic(gen2)) => {
 									if gen1.value.is_none() {
-										return Err(miette::Report::new(InstationError::GenericArgumentWithoutValue.to_diagnostic_builder()
+										return Err(miette::Report::new(InstanceError::GenericArgumentWithoutValue.to_diagnostic_builder()
 										.label(local_sig.var.location, "This variable does not have a value")
 										.label(stmt.location(), "Here there was an attempt to bind generic variable without a value")
 										.build()));
@@ -555,7 +555,7 @@ impl ModuleImplementationStatement {
 						},
 						IdWithDeclaration(id_decl) => {
 							debug!("Id with declaration");
-							return Err(miette::Report::new(InstationError::ArgumentsMismatch.to_diagnostic_builder()
+							return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
 							.label(stmt.location(), "Here was an attempt to bind generic and signal togther")
 							.build()));
 						},
@@ -591,7 +591,7 @@ impl ModuleImplementationStatement {
 							.clone();
 							debug!("Local sig is {:?}", local_sig.var.kind);
 							if local_sig.var.kind.is_module_instance() {
-								return Err(miette::Report::new(InstationError::ArgumentsMismatch.to_diagnostic_builder()
+								return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
 								.label(stmt.location(), "Here was an attempt to bind module instance as a interface signal")
 								.label(local_sig.var.location, "Local signal defined here")
 								.build()))
@@ -607,7 +607,7 @@ impl ModuleImplementationStatement {
 									local_ctx.scope.redeclare_variable(local_sig);
 								},
 								(Generic(_), Signal(_)) => {
-									return Err(miette::Report::new(InstationError::ArgumentsMismatch.to_diagnostic_builder()
+									return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
 									.label(stmt.location(), "Here was an attempt to bind generic and signal togther")
 									.label(local_sig.var.location, "Local signal defined here")
 									.build()))

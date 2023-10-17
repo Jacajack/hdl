@@ -1,7 +1,7 @@
 use crate::compiler_diagnostic::*;
 use thiserror::Error;
 #[derive(Copy, Clone, Error, Debug)]
-pub enum InstationError{
+pub enum InstanceError{
 	#[error("Wrong arguments provided")]
 	ArgumentsMismatch,
 	#[error("Generic arguments must have a value if used in instantiation")]
@@ -11,9 +11,9 @@ pub enum InstationError{
 	#[error("You cannot bind a variable twice")]
 	DoubleBinding,
 }
-impl ProvidesCompilerDiagnostic for InstationError{
+impl ProvidesCompilerDiagnostic for InstanceError{
     fn to_diagnostic(&self) -> CompilerDiagnostic {
-		use InstationError::*;
+		use InstanceError::*;
         match self{
             ArgumentsMismatch => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure provided arguments are valid")
@@ -123,7 +123,7 @@ pub enum SemanticError {
 	#[error("Bad function arguments")]
 	BadFunctionArguments,
 	#[error(transparent)]
-	InstationError(InstationError),
+	InstanceError(InstanceError),
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -262,7 +262,7 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 			BadFunctionArguments => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all function arguments are valid")
 				.build(),
-    		InstationError(err) => err.into(),
+    		InstanceError(err) => err.into(),
     		ModuleInstanceNotIndexed => CompilerDiagnosticBuilder::from_error(&self)
 			.help("Please make sure that all module instance is always accessed properly in expression")
 			.build(),
