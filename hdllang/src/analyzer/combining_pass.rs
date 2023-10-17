@@ -153,7 +153,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 		}
 		Ok(())
 	}
-	pub fn compile(&mut self, mut output: Box<dyn Write>) -> miette::Result<()> {
+	pub fn compile(&mut self, output: &mut dyn Write) -> miette::Result<()> {
 		self.passes.push(first_pass);
 		self.passes.push(second_pass);
 		self.passes.push(codegen_pass);

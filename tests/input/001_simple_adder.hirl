@@ -1,0 +1,11 @@
+module simple_adder {
+	input async {
+		signed bus<4> a, b;
+	};
+
+	output async signed bus<5> c;
+}
+
+impl simple_adder {
+	c = a + b;
+}

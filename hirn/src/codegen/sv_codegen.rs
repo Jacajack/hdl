@@ -189,6 +189,7 @@ impl<'a> SVCodegen<'a> {
 		Ok(())
 	}
 
+	// FIXME implement io::Write?
 	fn emit_module_instance(&mut self, w: &mut dyn fmt::Write, instance: &ModuleInstance) -> Result<(), CodegenError> {
 		emitln!(self, w, "{} #(", instance.module.name())?;
 		self.begin_indent();
@@ -413,7 +414,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 		self.emit_scope(w, m.scope().id(), true, false, interface_signal_ids)?;
 		self.end_indent();
 
-		writeln!(w, "endmodule;")?;
+		writeln!(w, "endmodule")?;
 		Ok(())
 	}
 }
