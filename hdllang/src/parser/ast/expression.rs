@@ -812,7 +812,7 @@ impl Expression {
 						log::debug!("Width is {:?}", width);
 						if let Some(loc) = width.get_location() {
 							let op = match func_name.as_str() {
-								"zext" => hirn::design::expression::BuiltinOp::ZeroExtend {
+								"zext" => hirn::design::BuiltinOp::ZeroExtend {
 									expr: Box::new(expr),
 									width: Box::new(
 										scope
@@ -823,7 +823,7 @@ impl Expression {
 											.codegen(nc_table, id_table, scope_id, scope)?,
 									),
 								},
-								"ext" => hirn::design::expression::BuiltinOp::SignExtend {
+								"ext" => hirn::design::BuiltinOp::SignExtend {
 									expr: Box::new(expr),
 									width: Box::new(
 										scope
@@ -834,7 +834,7 @@ impl Expression {
 											.codegen(nc_table, id_table, scope_id, scope)?,
 									),
 								},
-								"sext" => hirn::design::expression::BuiltinOp::SignExtend {
+								"sext" => hirn::design::BuiltinOp::SignExtend {
 									expr: Box::new(expr),
 									width: Box::new(
 										scope
@@ -847,31 +847,31 @@ impl Expression {
 								},
 								_ => unreachable!(),
 							};
-							return Ok(hirn::Expression::Builtin(op));
+							return Ok(hirn::design::Expression::Builtin(op));
 						}
 						if let Some(val) = &width.get_value() {
 							let op = match func_name.as_str() {
-								"zext" => hirn::design::expression::BuiltinOp::ZeroExtend {
+								"zext" => hirn::design::BuiltinOp::ZeroExtend {
 									expr: Box::new(expr),
-									width: Box::new(hirn::Expression::Constant(
+									width: Box::new(hirn::design::Expression::Constant(
 										hirn::design::NumericConstant::new_unsigned(val.clone()),
 									)),
 								},
-								"ext" => hirn::design::expression::BuiltinOp::SignExtend {
+								"ext" => hirn::design::BuiltinOp::SignExtend {
 									expr: Box::new(expr),
-									width: Box::new(hirn::Expression::Constant(
+									width: Box::new(hirn::design::Expression::Constant(
 										hirn::design::NumericConstant::new_unsigned(val.clone()),
 									)),
 								},
-								"sext" => hirn::design::expression::BuiltinOp::SignExtend {
+								"sext" => hirn::design::BuiltinOp::SignExtend {
 									expr: Box::new(expr),
-									width: Box::new(hirn::Expression::Constant(
+									width: Box::new(hirn::design::Expression::Constant(
 										hirn::design::NumericConstant::new_unsigned(val.clone()),
 									)),
 								},
 								_ => unreachable!(),
 							};
-							return Ok(hirn::Expression::Builtin(op));
+							return Ok(hirn::design::Expression::Builtin(op));
 						}
 						unreachable!()
 					},
