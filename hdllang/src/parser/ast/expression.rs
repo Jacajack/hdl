@@ -445,7 +445,8 @@ impl Expression {
 				Ok(
 					if tern.condition.evaluate(nc_table, scope_id, scope)?.unwrap().value != BigInt::from(0) {
 						tern.true_branch.evaluate(nc_table, scope_id, scope)?
-					} else {
+					}
+					else {
 						tern.false_branch.evaluate(nc_table, scope_id, scope)?
 					},
 				)
@@ -490,7 +491,8 @@ impl Expression {
 									None,
 									Some(NumericConstantBase::Boolean),
 								))
-							} else {
+							}
+							else {
 								Some(NumericConstant::new(
 									BigInt::from(0),
 									None,
@@ -562,7 +564,8 @@ impl Expression {
 							Some(false),
 							Some(NumericConstantBase::Boolean),
 						))
-					} else {
+					}
+					else {
 						Some(NumericConstant::from_u64(
 							0,
 							Some(1),
@@ -577,7 +580,8 @@ impl Expression {
 							Some(false),
 							Some(NumericConstantBase::Boolean),
 						))
-					} else {
+					}
+					else {
 						Some(NumericConstant::from_u64(
 							0,
 							Some(1),
@@ -593,7 +597,8 @@ impl Expression {
 									.label(binop.rhs.get_location(), "Shift by negative number is not allowed")
 									.build(),
 							));
-						} else {
+						}
+						else {
 							let mut i = BigInt::from(0);
 							let mut lhs = lhs.clone().unwrap();
 							while i < rhs.clone().unwrap().value {
@@ -611,7 +616,8 @@ impl Expression {
 									.label(binop.rhs.get_location(), "Shift by negative number is not allowed")
 									.build(),
 							));
-						} else {
+						}
+						else {
 							let mut i = BigInt::from(0);
 							let mut lhs = lhs.clone().unwrap();
 							while i < rhs.clone().unwrap().value {
@@ -626,35 +632,41 @@ impl Expression {
 					BitwiseXor => Ok(NumericConstant::new_from_binary(lhs, rhs, |e1, e2| e1 ^ e2)),
 					Less => Ok(if lhs.unwrap().value < rhs.unwrap().value {
 						Some(NumericConstant::new_true())
-					} else {
+					}
+					else {
 						Some(NumericConstant::new_false())
 					}),
 					Greater => Ok(if lhs.unwrap().value > rhs.unwrap().value {
 						Some(NumericConstant::new_true())
-					} else {
+					}
+					else {
 						Some(NumericConstant::new_false())
 					}),
 					LessEqual => Ok(if lhs.unwrap().value <= rhs.unwrap().value {
 						Some(NumericConstant::new_true())
-					} else {
+					}
+					else {
 						Some(NumericConstant::new_false())
 					}),
 					GreaterEqual => Ok(if lhs.unwrap().value >= rhs.unwrap().value {
 						Some(NumericConstant::new_true())
-					} else {
+					}
+					else {
 						Some(NumericConstant::new_false())
 					}),
 					LogicalAnd => Ok(
 						if lhs.unwrap().value != BigInt::from(0) && rhs.unwrap().value != BigInt::from(0) {
 							Some(NumericConstant::new_true())
-						} else {
+						}
+						else {
 							Some(NumericConstant::new_false())
 						},
 					),
 					LogicalOr => Ok(
 						if lhs.unwrap().value != BigInt::from(0) || rhs.unwrap().value != BigInt::from(0) {
 							Some(NumericConstant::new_true())
-						} else {
+						}
+						else {
 							Some(NumericConstant::new_false())
 						},
 					),
@@ -712,7 +724,8 @@ impl Expression {
 						constant.value.clone(),
 						if signed {
 							hirn::design::SignalSignedness::Signed
-						} else {
+						}
+						else {
 							hirn::design::SignalSignedness::Unsigned
 						},
 						w.into(),
@@ -1282,10 +1295,14 @@ impl Expression {
 				Ok(type_first) // FIXME
 			},
 			PostfixWithIndex(index) => {
-				let mut expr =
-					index
-						.expression
-						.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_empty(), is_lhs, location)?;
+				let mut expr = index.expression.evaluate_type(
+					global_ctx,
+					scope_id,
+					local_ctx,
+					Signal::new_empty(),
+					is_lhs,
+					location,
+				)?;
 				if !expr.is_array() && !expr.is_bus() {
 					return Err(miette::Report::new(
 						SemanticError::ExpressionNonIndexable
@@ -1424,14 +1441,16 @@ impl Expression {
 													bus.signedness.clone(),
 													range.location,
 												);
-											} else {
+											}
+											else {
 												expr.set_width(
 													crate::analyzer::BusWidth::Evaluable(range.location),
 													bus.signedness.clone(),
 													range.location,
 												);
 											}
-										} else {
+										}
+										else {
 											expr.set_width(
 												crate::analyzer::BusWidth::Evaluable(range.location),
 												bus.signedness.clone(),

@@ -1,7 +1,7 @@
 mod pretty_printable;
 
-use crate::analyzer::*;
 use crate::analyzer::module_implementation_scope::EvaluatedEntry;
+use crate::analyzer::*;
 use crate::lexer::CommentTableKey;
 use crate::lexer::IdTable;
 use crate::parser::ast::SourceLocation;
@@ -74,9 +74,10 @@ impl VariableDeclarationStatement {
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_declarator.array_declarators {
 				let size = array_declarator.evaluate(nc_table, 0, scope)?;
-				scope
-					.evaluated_expressions
-					.insert(array_declarator.get_location(), EvaluatedEntry::new(array_declarator.clone(),0));
+				scope.evaluated_expressions.insert(
+					array_declarator.get_location(),
+					EvaluatedEntry::new(array_declarator.clone(), 0),
+				);
 				match &size {
 					Some(val) => {
 						if val.value <= num_bigint::BigInt::from(0) {
@@ -196,9 +197,10 @@ impl VariableKind {
 					current_scope,
 					id_table,
 				)?;
-				scope
-					.evaluated_expressions
-					.insert(bus.width.get_location(), EvaluatedEntry::new(*bus.width.clone(),current_scope));
+				scope.evaluated_expressions.insert(
+					bus.width.get_location(),
+					EvaluatedEntry::new(*bus.width.clone(), current_scope),
+				);
 				let width = bus.width.evaluate(nc_table, current_scope, scope)?;
 				let w = if scope.is_generic() {
 					match &width {

@@ -5,7 +5,9 @@ use std::collections::HashMap;
 use std::io::Write;
 
 use crate::{
-	analyzer::{BusWidth, ModuleImplementationScope, Signal, ModuleInstance, semantic_error::InstanceError, GenericVariable},
+	analyzer::{
+		semantic_error::InstanceError, BusWidth, GenericVariable, ModuleImplementationScope, ModuleInstance, Signal,
+	},
 	core::*,
 	lexer::*,
 	parser::ast::*,
@@ -463,12 +465,24 @@ impl ModuleImplementationStatement {
 				}
 				let module = ctx.modules_declared.get(&name).unwrap();
 				let mut scope = module.scope.clone();
-				let mut module_instance = ModuleInstance::new(name,inst.location);
+				let mut module_instance = ModuleInstance::new(name, inst.location);
 				if scope.get_interface_len() != inst.port_bind.len() {
-					return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-					.label(inst.location, "This binding list does not match interface of module instantiated")
-					.help(format!("Interface of the module xx is {}", scope.display_interface(ctx.id_table)).as_str())
-					.build()))
+					return Err(miette::Report::new(
+						InstanceError::ArgumentsMismatch
+							.to_diagnostic_builder()
+							.label(
+								inst.location,
+								"This binding list does not match interface of module instantiated",
+							)
+							.help(
+								format!(
+									"Interface of the module xx is {}",
+									scope.display_interface(ctx.id_table)
+								)
+								.as_str(),
+							)
+							.build(),
+					));
 				}
 				debug!("Binding generic variables!");
 				for stmt in &inst.port_bind {
@@ -488,41 +502,56 @@ impl ModuleImplementationStatement {
 								.build()
 						})?
 						.clone();
-					if !interface_variable.var.kind.is_generic(){
+					if !interface_variable.var.kind.is_generic() {
 						continue;
 					}
 					use crate::parser::ast::PortBindStatement::*;
 					match &stmt {
 						OnlyId(id) => {
 							debug!("Only id");
-							let mut local_sig = local_ctx.scope.get_var(scope_id, &id.id).map_err(|err|
-								err.to_diagnostic_builder()
-											.label(
-												id.location,
-												format!(
-													"Variable \"{}\" is not declared",
-													ctx.id_table.get_by_key(&id.id).unwrap()
-												)
-												.as_str(),
+							let mut local_sig = local_ctx
+								.scope
+								.get_var(scope_id, &id.id)
+								.map_err(|err| {
+									err.to_diagnostic_builder()
+										.label(
+											id.location,
+											format!(
+												"Variable \"{}\" is not declared",
+												ctx.id_table.get_by_key(&id.id).unwrap()
 											)
-											.build(),
-									)?
-							.clone();
+											.as_str(),
+										)
+										.build()
+								})?
+								.clone();
 							debug!("Local sig is {:?}", local_sig.var.kind);
 							if local_sig.var.kind.is_module_instance() {
-								return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-								.label(stmt.location(), "Here was an attempt to bind module instance as a interface signal")
-								.label(local_sig.var.location, "Local signal defined here")
-								.build()))
+								return Err(miette::Report::new(
+									InstanceError::ArgumentsMismatch
+										.to_diagnostic_builder()
+										.label(
+											stmt.location(),
+											"Here was an attempt to bind module instance as a interface signal",
+										)
+										.label(local_sig.var.location, "Local signal defined here")
+										.build(),
+								));
 							}
 							debug!("Remote sig is {:?}", interface_variable.var.kind);
 							use VariableKind::*;
 							match (&mut local_sig.var.kind, &mut interface_variable.var.kind) {
-								(Signal(_), Generic(_))=> {
-									return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-									.label(stmt.location(), "Here was an attempt to bind generic and signal togther")
-									.label(local_sig.var.location, "Local signal defined here")
-									.build()))
+								(Signal(_), Generic(_)) => {
+									return Err(miette::Report::new(
+										InstanceError::ArgumentsMismatch
+											.to_diagnostic_builder()
+											.label(
+												stmt.location(),
+												"Here was an attempt to bind generic and signal togther",
+											)
+											.label(local_sig.var.location, "Local signal defined here")
+											.build(),
+									))
 								},
 								(Generic(gen1), Generic(gen2)) => {
 									if gen1.value.is_none() {
@@ -534,30 +563,36 @@ impl ModuleImplementationStatement {
 									gen2.value = gen1.value.clone();
 									scope.redeclare_variable(interface_variable);
 								},
-								(_, _) => unreachable!()
+								(..) => unreachable!(),
 							}
 						},
 						IdWithExpression(id_expr) => {
 							debug!("Id with expression");
 
 							let new_sig = id_expr.expression.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
-							if new_sig.is_none(){
+							if new_sig.is_none() {
 								todo!() //FIXME
 							}
 							use VariableKind::*;
-							match &mut  interface_variable.var.kind {
-        						Generic(gen) => {
+							match &mut interface_variable.var.kind {
+								Generic(gen) => {
 									gen.value = Some(BusWidth::Evaluated(new_sig.unwrap()));
 								},
-        						_=> unreachable!(),
-    						}
+								_ => unreachable!(),
+							}
 							scope.redeclare_variable(interface_variable);
 						},
 						IdWithDeclaration(id_decl) => {
 							debug!("Id with declaration");
-							return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-							.label(stmt.location(), "Here was an attempt to bind generic and signal togther")
-							.build()));
+							return Err(miette::Report::new(
+								InstanceError::ArgumentsMismatch
+									.to_diagnostic_builder()
+									.label(
+										stmt.location(),
+										"Here was an attempt to bind generic and signal togther",
+									)
+									.build(),
+							));
 						},
 					}
 				}
@@ -565,9 +600,10 @@ impl ModuleImplementationStatement {
 				debug!("Binding non generic variables!");
 				for stmt in &inst.port_bind {
 					let mut interface_variable = scope
-						.get_var(0, &stmt.get_id()).expect("This was checked in a previous loop")
+						.get_var(0, &stmt.get_id())
+						.expect("This was checked in a previous loop")
 						.clone();
-					if interface_variable.var.kind.is_generic(){
+					if interface_variable.var.kind.is_generic() {
 						continue;
 					}
 					debug!("Interface variable is {:?}", interface_variable.var.kind);
@@ -576,25 +612,34 @@ impl ModuleImplementationStatement {
 					match &stmt {
 						OnlyId(id) => {
 							debug!("Only id");
-							let mut local_sig = local_ctx.scope.get_var(scope_id, &id.id).map_err(|err|
-								err.to_diagnostic_builder()
-											.label(
-												id.location,
-												format!(
-													"Variable \"{}\" is not declared",
-													ctx.id_table.get_by_key(&id.id).unwrap()
-												)
-												.as_str(),
+							let mut local_sig = local_ctx
+								.scope
+								.get_var(scope_id, &id.id)
+								.map_err(|err| {
+									err.to_diagnostic_builder()
+										.label(
+											id.location,
+											format!(
+												"Variable \"{}\" is not declared",
+												ctx.id_table.get_by_key(&id.id).unwrap()
 											)
-											.build(),
-									)?
-							.clone();
+											.as_str(),
+										)
+										.build()
+								})?
+								.clone();
 							debug!("Local sig is {:?}", local_sig.var.kind);
 							if local_sig.var.kind.is_module_instance() {
-								return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-								.label(stmt.location(), "Here was an attempt to bind module instance as a interface signal")
-								.label(local_sig.var.location, "Local signal defined here")
-								.build()))
+								return Err(miette::Report::new(
+									InstanceError::ArgumentsMismatch
+										.to_diagnostic_builder()
+										.label(
+											stmt.location(),
+											"Here was an attempt to bind module instance as a interface signal",
+										)
+										.label(local_sig.var.location, "Local signal defined here")
+										.build(),
+								));
 							}
 							debug!("Remote sig is {:?}", interface_variable.var.kind);
 							use VariableKind::*;
@@ -607,12 +652,18 @@ impl ModuleImplementationStatement {
 									local_ctx.scope.redeclare_variable(local_sig);
 								},
 								(Generic(_), Signal(_)) => {
-									return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-									.label(stmt.location(), "Here was an attempt to bind generic and signal togther")
-									.label(local_sig.var.location, "Local signal defined here")
-									.build()))
+									return Err(miette::Report::new(
+										InstanceError::ArgumentsMismatch
+											.to_diagnostic_builder()
+											.label(
+												stmt.location(),
+												"Here was an attempt to bind generic and signal togther",
+											)
+											.label(local_sig.var.location, "Local signal defined here")
+											.build(),
+									))
 								},
-								(_, _) => unreachable!()
+								(..) => unreachable!(),
 							}
 						},
 						IdWithExpression(id_expr) => {
@@ -643,7 +694,14 @@ impl ModuleImplementationStatement {
 						},
 					}
 				}
-				local_ctx.scope.define_variable(scope_id, Variable::new(inst.instance_name,inst.location, VariableKind::ModuleInstance(module_instance)))?;
+				local_ctx.scope.define_variable(
+					scope_id,
+					Variable::new(
+						inst.instance_name,
+						inst.location,
+						VariableKind::ModuleInstance(module_instance),
+					),
+				)?;
 			},
 			ModuleImplementationBlockStatement(block) => {
 				let id = local_ctx.scope.new_scope(Some(scope_id));
@@ -718,7 +776,7 @@ impl ModuleImplementationStatement {
 				}
 			},
 			IterationStatement(_) => todo!(),
-			InstantiationStatement(_) =>(), //FIXME
+			InstantiationStatement(_) => (), //FIXME
 			ModuleImplementationBlockStatement(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
 		};
 		Ok(())
@@ -816,10 +874,13 @@ impl VariableDefinition {
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_initializer.declarator.array_declarators {
 				let size = array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
-				local_ctx
-					.scope
-					.evaluated_expressions
-					.insert(array_declarator.get_location(), crate::analyzer::module_implementation_scope::EvaluatedEntry::new(array_declarator.clone(), scope_id));
+				local_ctx.scope.evaluated_expressions.insert(
+					array_declarator.get_location(),
+					crate::analyzer::module_implementation_scope::EvaluatedEntry::new(
+						array_declarator.clone(),
+						scope_id,
+					),
+				);
 				match &size {
 					Some(val) => {
 						if val.value <= num_bigint::BigInt::from(0) {
@@ -838,7 +899,7 @@ impl VariableDefinition {
 			spec_kind.add_dimenstions(dimensions);
 			match &direct_initializer.expression {
 				Some(expr) => {
-					if spec_kind.is_generic(){
+					if spec_kind.is_generic() {
 						let rhs_val = expr.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
 						// FIXME
 					}
