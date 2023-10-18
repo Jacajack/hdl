@@ -1,0 +1,8 @@
+module if_else_test {}
+
+impl if_else_test {
+	int result;
+	if (7 == 1) {
+	} else {
+	}
+}
