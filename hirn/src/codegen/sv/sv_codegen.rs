@@ -202,9 +202,18 @@ impl<'a> SVCodegen<'a> {
 			)?;
 			self.begin_indent();
 			self.emit_scope(w, conditional_scope.scope, true, true, HashSet::new())?;
-			self.end_indent();
-			emitln!(self, w, "end{}", if in_generate { "" } else { " endgenerate" })?;
 			processed_subscopes.insert(conditional_scope.scope);
+			self.end_indent();
+
+			if let Some(else_scope) = conditional_scope.else_scope {
+				emitln!(self, w, "end else begin")?;
+				self.begin_indent();
+				self.emit_scope(w, else_scope, true, true, HashSet::new())?;
+				processed_subscopes.insert(else_scope);
+				self.end_indent();
+			}
+			
+			emitln!(self, w, "end{}", if in_generate { "" } else { " endgenerate" })?;
 		}
 
 		emitln!(self, w, "")?;

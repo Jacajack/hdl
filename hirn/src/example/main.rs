@@ -30,7 +30,8 @@ fn main() -> Result<(), HirnError> {
 
 	m.scope().new_subscope()?;
 
-	m.scope().if_scope(Expression::new_one())?;
+	let (_if_block, mut else_block) = m.scope().if_else_scope(Expression::new_one())?;
+	else_block.assign(m_clkout.into(), 1.into())?;
 
 	m.scope()
 		.new_module(m_internal, "cool_module")?
