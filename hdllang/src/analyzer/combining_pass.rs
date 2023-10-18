@@ -838,45 +838,51 @@ impl VariableDefinition {
 			spec_kind.add_dimenstions(dimensions);
 			match &direct_initializer.expression {
 				Some(expr) => {
+					if spec_kind.is_array() {
+						return Err(miette::Report::new(
+							SemanticError::ArrayInExpression
+								.to_diagnostic_builder()
+								.label(
+									direct_initializer.get_location(),
+									"Array cannot be initialized with expression",
+								)
+								.build(),
+						));
+					}
 					if spec_kind.is_generic(){
 						let rhs_val = expr.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
-						// FIXME
+						if let VariableKind::Generic(GenericVariable{value, ..}) = &mut spec_kind {
+							value.replace(BusWidth::Evaluated(rhs_val.unwrap()));
+						} else {
+							unreachable!()
+						}
 					}
-					let mut lhs = spec_kind.to_signal();
-					if lhs.is_array() {
-						return Err(miette::Report::new(
-							SemanticError::ArrayInExpression
-								.to_diagnostic_builder()
-								.label(
-									direct_initializer.get_location(),
-									"Array cannot be initialized with expression",
-								)
-								.build(),
-						));
+					else {
+						let mut lhs = spec_kind.to_signal();
+						debug!("Lhs is {:?}", lhs);
+						let rhs = expr.evaluate_type(
+							ctx,
+							scope_id,
+							local_ctx,
+							lhs.clone(),
+							false,
+							direct_initializer.declarator.get_location(),
+						)?;
+						debug!("Rhs is {:?}", rhs);
+						if rhs.is_array() {
+							return Err(miette::Report::new(
+								SemanticError::ArrayInExpression
+									.to_diagnostic_builder()
+									.label(
+										direct_initializer.get_location(),
+										"Array cannot be initialized with expression",
+									)
+									.build(),
+							));
+						}
+						lhs.evaluate_as_lhs(true, ctx, rhs, direct_initializer.declarator.get_location())?;
+						spec_kind = VariableKind::Signal(lhs);
 					}
-					debug!("Lhs is {:?}", lhs);
-					let rhs = expr.evaluate_type(
-						ctx,
-						scope_id,
-						local_ctx,
-						lhs.clone(),
-						false,
-						direct_initializer.declarator.get_location(),
-					)?;
-					debug!("Rhs is {:?}", rhs);
-					if rhs.is_array() {
-						return Err(miette::Report::new(
-							SemanticError::ArrayInExpression
-								.to_diagnostic_builder()
-								.label(
-									direct_initializer.get_location(),
-									"Array cannot be initialized with expression",
-								)
-								.build(),
-						));
-					}
-					lhs.evaluate_as_lhs(true, ctx, rhs, direct_initializer.declarator.get_location())?;
-					spec_kind = VariableKind::Signal(lhs);
 				},
 				None => (),
 			}
