@@ -212,7 +212,7 @@ impl<'a> SVCodegen<'a> {
 				processed_subscopes.insert(else_scope);
 				self.end_indent();
 			}
-			
+
 			emitln!(self, w, "end{}", if in_generate { "" } else { " endgenerate" })?;
 		}
 
