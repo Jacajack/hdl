@@ -10,7 +10,12 @@ fn main() -> Result<(), HirnError> {
 
 	let mut m_internal = d.new_module("inner_module").unwrap();
 	let internal_clk = m_internal.scope().new_signal("clk")?.clock().wire().build()?;
-	let internal_param = m_internal.scope().new_signal("p")?.generic().unsigned(64.into()).build()?;
+	let internal_param = m_internal
+		.scope()
+		.new_signal("p")?
+		.generic()
+		.unsigned(64.into())
+		.build()?;
 	m_internal.expose(internal_clk, SignalDirection::Input)?;
 	m_internal.expose(internal_param, SignalDirection::Input)?;
 
@@ -39,8 +44,8 @@ fn main() -> Result<(), HirnError> {
 	m.scope()
 		.assign(m_clk.into(), hirn::design::Expression::from(m_clkout) + m_clkout.into())?;
 
-
-	m.scope().new_register("my_register")?
+	m.scope()
+		.new_register("my_register")?
 		.clk(m_clk)
 		.en(m_clk)
 		.next(m_bus)

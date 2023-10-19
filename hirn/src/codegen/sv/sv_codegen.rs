@@ -1,16 +1,16 @@
 use crate::codegen::{Codegen, CodegenError};
-use crate::design::{ScopeHandle, Register};
+use crate::design::{Register, ScopeHandle};
 use crate::{
 	design::BlockInstance,
 	design::InterfaceSignal,
 	design::SignalSignedness,
 	design::{
-		Design, Expression, ModuleHandle, ModuleId, ModuleInstance, ScopeId, SignalDirection,
-		SignalId, SignalSensitivity, HasInstanceName, HasComment,
+		Design, Expression, HasComment, HasInstanceName, ModuleHandle, ModuleId, ModuleInstance, ScopeId,
+		SignalDirection, SignalId, SignalSensitivity,
 	},
 };
 use log::debug;
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 #[derive(Clone)]
@@ -90,13 +90,20 @@ impl<'a> SVCodegen<'a> {
 		))
 	}
 
-	fn format_localparam_declaration(&self, sig_id: SignalId, value: &Option<Expression>) -> Result<String, CodegenError> {
+	fn format_localparam_declaration(
+		&self,
+		sig_id: SignalId,
+		value: &Option<Expression>,
+	) -> Result<String, CodegenError> {
 		let sig = self.design.get_signal(sig_id).unwrap();
-		Ok(format!("localparam {} = {}", sig.name(),
+		Ok(format!(
+			"localparam {} = {}",
+			sig.name(),
 			match value {
 				Some(expr) => self.translate_expression(expr, false)?,
-				None => "'x".into() // This is evil
-		}))
+				None => "'x".into(), // This is evil
+			}
+		))
 	}
 
 	fn module_interface_definition(&self, _m: ModuleHandle, s: InterfaceSignal) -> Result<String, CodegenError> {
@@ -163,19 +170,22 @@ impl<'a> SVCodegen<'a> {
 
 		// Sanity check: the design must be valid
 		assert!(generic_bindings.len() + electric_bindings.len() == interface.len());
-		
+
 		emit!(self, w, "{}", instance.module.name())?;
 		if !generic_bindings.is_empty() {
 			emit!(self, w, " #(\n")?;
 			self.begin_indent();
 
 			for (index, (name, signal_id)) in generic_bindings.iter().enumerate() {
-				emitln!(self, w, ".{}({}){}",
+				emitln!(
+					self,
+					w,
+					".{}({}){}",
 					name,
 					self.translate_expression(&Expression::from(*signal_id), true)?,
 					if index == generic_bindings.len() - 1 { "" } else { "," }
 				)?;
-			}	
+			}
 
 			self.end_indent();
 			emitln!(self, w, ")")?;
@@ -188,7 +198,10 @@ impl<'a> SVCodegen<'a> {
 			self.begin_indent();
 
 			for (index, (name, signal_id)) in electric_bindings.iter().enumerate() {
-				emitln!(self, w, ".{}({}){}",
+				emitln!(
+					self,
+					w,
+					".{}({}){}",
 					name,
 					self.translate_expression(&Expression::from(*signal_id), true)?,
 					if index == electric_bindings.len() - 1 { "" } else { "," }
@@ -211,23 +224,54 @@ impl<'a> SVCodegen<'a> {
 
 		if input_signal.is_wire() {
 			emitln!(self, w, "reg {};", reg_name)?;
-		} else {
-			emitln!(self, w, "reg {}[{}:0] {};", 
-				if input_signal.is_unsigned() {"unsigned"} else {"signed"},
+		}
+		else {
+			emitln!(
+				self,
+				w,
+				"reg {}[{}:0] {};",
+				if input_signal.is_unsigned() {
+					"unsigned"
+				}
+				else {
+					"signed"
+				},
 				self.translate_expression_try_eval(&(input_signal.width().clone() - 1u32.into()), false)?,
 				reg_name
 			)?;
 		}
-		emitln!(self, w, "assign {} = {};", self.translate_expression(&reg.output_data.into(), true)?, reg_name)?;
-		emitln!(self, w, "always @(posedge {})", self.translate_expression(&reg.input_clk.into(), true)?)?;
+		emitln!(
+			self,
+			w,
+			"assign {} = {};",
+			self.translate_expression(&reg.output_data.into(), true)?,
+			reg_name
+		)?;
+		emitln!(
+			self,
+			w,
+			"always @(posedge {})",
+			self.translate_expression(&reg.input_clk.into(), true)?
+		)?;
 		self.begin_indent();
 		emitln!(self, w, "if ({})", self.translate_expression(&nreset_expr, true)?)?;
 		self.begin_indent();
 		emitln!(self, w, "{} <= '0;", reg_name)?;
 		self.end_indent();
-		emitln!(self, w, "else if ({})", self.translate_expression(&reg.input_en.into(), true)?)?;
+		emitln!(
+			self,
+			w,
+			"else if ({})",
+			self.translate_expression(&reg.input_en.into(), true)?
+		)?;
 		self.begin_indent();
-		emitln!(self, w, "{} <= {};", reg_name, self.translate_expression(&reg.input_next.into(), true)?)?;
+		emitln!(
+			self,
+			w,
+			"{} <= {};",
+			reg_name,
+			self.translate_expression(&reg.input_next.into(), true)?
+		)?;
 		self.end_indent();
 		emitln!(self, w, "else")?;
 		self.begin_indent();
@@ -265,14 +309,14 @@ impl<'a> SVCodegen<'a> {
 		for sig_id in scope.signals() {
 			if !skip_signals.contains(&sig_id) {
 				if self.design.get_signal(sig_id).unwrap().is_generic() {
-					
 					fn search_scope(design: &Design, scope: ScopeHandle, sig_id: SignalId) -> Option<Expression> {
 						for asmt in scope.assignments() {
 							match asmt.lhs.try_drive() {
-								Some(lhs_slice) => 
-								if lhs_slice.signal == sig_id {
-									return Some(asmt.rhs)
-								}
+								Some(lhs_slice) => {
+									if lhs_slice.signal == sig_id {
+										return Some(asmt.rhs);
+									}
+								},
 								None => {},
 							}
 						}
@@ -283,10 +327,10 @@ impl<'a> SVCodegen<'a> {
 								return Some(expr);
 							}
 						}
-						
+
 						return None;
 					}
-					
+
 					let rhs_expr = search_scope(self.design, scope.clone(), sig_id);
 					self.emit_metadata_comment(w, &self.design.get_signal(sig_id).unwrap())?;
 					emitln!(self, w, "{};", self.format_localparam_declaration(sig_id, &rhs_expr)?)?;
@@ -296,7 +340,9 @@ impl<'a> SVCodegen<'a> {
 			}
 		}
 
-		if emitted_any_localparam {emitln!(self, w, "")?;}
+		if emitted_any_localparam {
+			emitln!(self, w, "")?;
+		}
 
 		let mut emitted_any_signals = false;
 		for sig_id in scope.signals() {
@@ -308,7 +354,9 @@ impl<'a> SVCodegen<'a> {
 			}
 		}
 
-		if emitted_any_signals {emitln!(self, w, "")?;}
+		if emitted_any_signals {
+			emitln!(self, w, "")?;
+		}
 
 		let mut emitted_any_assignemnts = false;
 		for asmt in scope.assignments() {
@@ -318,12 +366,14 @@ impl<'a> SVCodegen<'a> {
 						self.emit_assignment(w, &asmt.lhs, &asmt.rhs)?;
 						emitted_any_assignemnts = true;
 					}
-				}
+				},
 				None => panic!("Cannot assign to this LHS expression"),
 			}
 		}
 
-		if emitted_any_assignemnts {emitln!(self, w, "")?;}
+		if emitted_any_assignemnts {
+			emitln!(self, w, "")?;
+		}
 
 		let mut processed_subscopes = HashSet::new();
 
@@ -407,7 +457,8 @@ impl<'a> SVCodegen<'a> {
 			else {
 				emitln!(self, w, "end endgenerate\n")?;
 			}
-		} else {
+		}
+		else {
 			emitln!(self, w, "")?;
 		}
 		Ok(())
