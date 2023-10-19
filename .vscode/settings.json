@@ -13,5 +13,6 @@
 	"rust-analyzer.linkedProjects": [
 		"./hirn/Cargo.toml",
 		"./hdllang/Cargo.toml",
+		"Cargo.toml",
 	],
 }
