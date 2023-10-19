@@ -328,6 +328,18 @@ impl Signal {
 		self.sensitivity.is_generic()
 	}
 
+	pub fn is_signed(&self) -> bool {
+		self.class.is_signed()
+	}
+
+	pub fn is_unsigned(&self) -> bool {
+		self.class.is_unsigned()
+	}
+
+	pub fn width(&self) -> Expression {
+		self.class.width().clone()
+	}
+
 	pub fn comment(&mut self, comment: &str) {
 		self.comment = Some(comment.into());
 	}

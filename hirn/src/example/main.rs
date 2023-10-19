@@ -16,19 +16,37 @@ fn main() -> Result<(), HirnError> {
 
 	let mut m = d.new_module("test").unwrap();
 	let m_clk = m.scope().new_signal("clk")?.clock().wire().build()?;
+	let m_nreset = m.scope().new_signal("nreset")?.asynchronous().wire().build()?;
 	let m_clkout = m.scope().new_signal("clkout")?.clock().wire().build()?;
 	let m_bus = m
 		.scope()
 		.new_signal("asdfg")?
 		.asynchronous()
-		.unsigned(8.into())
+		.unsigned(8u32.into())
 		.build()?;
+
+	let m_output_bus = m
+		.scope()
+		.new_signal("reg_output")?
+		.asynchronous()
+		.unsigned(8u32.into())
+		.build()?;
+
 	let m_param = m.scope().new_signal("bingo")?.generic().unsigned(64.into()).build()?;
 	m.expose(m_clk, SignalDirection::Input)?;
 	m.expose(m_clkout, SignalDirection::Output)?;
 	m.expose(m_param, SignalDirection::Input)?; // TODO do not allow output const signals or move to interface?
 	m.scope()
 		.assign(m_clk.into(), hirn::design::Expression::from(m_clkout) + m_clkout.into())?;
+
+
+	m.scope().new_register("my_register")?
+		.clk(m_clk)
+		.en(m_clk)
+		.next(m_bus)
+		.output(m_output_bus)
+		.nreset(m_nreset)
+		.build()?;
 
 	m.scope().new_subscope()?;
 

@@ -66,7 +66,7 @@ impl<'a> SVCodegen<'a> {
 
 		let bus_width_str = match sig.class.is_wire() {
 			false => format!(
-				"[({}): 0]",
+				"[({}):0]",
 				self.translate_expression_try_eval(&(sig.class.width().clone() - 1.into()), false)?
 			),
 			true => "".into(),
@@ -206,7 +206,37 @@ impl<'a> SVCodegen<'a> {
 	}
 
 	fn emit_register_instance(&mut self, w: &mut dyn fmt::Write, reg: &Register) -> Result<(), CodegenError> {
-		todo!("TODO Register codegen");
+		let reg_name = format!("{}_r$", reg.instance_name());
+		let input_signal = &self.design.get_signal(reg.input_next).unwrap();
+		let nreset_expr = Expression::from(reg.input_nreset).logical_not();
+
+		if input_signal.is_wire() {
+			emitln!(self, w, "reg {};", reg_name)?;
+		} else {
+			emitln!(self, w, "reg {}[{}:0] {};", 
+				if input_signal.is_unsigned() {"unsigned"} else {"signed"},
+				self.translate_expression_try_eval(&(input_signal.width().clone() - 1u32.into()), false)?,
+				reg_name
+			)?;
+		}
+		emitln!(self, w, "assign {} = {};", self.translate_expression(&reg.output_data.into(), true)?, reg_name)?;
+		emitln!(self, w, "always @(posedge {})", self.translate_expression(&reg.input_clk.into(), true)?)?;
+		self.begin_indent();
+		emitln!(self, w, "if ({})", self.translate_expression(&nreset_expr, true)?)?;
+		self.begin_indent();
+		emitln!(self, w, "{} <= '0;", reg_name)?;
+		self.end_indent();
+		emitln!(self, w, "else if ({})", self.translate_expression(&reg.input_en.into(), true)?)?;
+		self.begin_indent();
+		emitln!(self, w, "{} <= {};", reg_name, self.translate_expression(&reg.input_next.into(), true)?)?;
+		self.end_indent();
+		emitln!(self, w, "else")?;
+		self.begin_indent();
+		emitln!(self, w, "{} <= {};", reg_name, reg_name)?;
+		self.end_indent();
+		self.end_indent();
+		emitln!(self, w, "")?;
+		Ok(())
 	}
 
 	fn emit_scope(
