@@ -21,16 +21,13 @@ impl InternalVariableId {
 	}
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct EvaluatedEntry{
+pub struct EvaluatedEntry {
 	pub expression: crate::parser::ast::Expression,
 	pub scope_id: usize,
 }
-impl EvaluatedEntry{
-	pub fn new(expression: crate::parser::ast::Expression, scope_id: usize)->Self{
-		Self{
-			expression,
-			scope_id,
-		}
+impl EvaluatedEntry {
+	pub fn new(expression: crate::parser::ast::Expression, scope_id: usize) -> Self {
+		Self { expression, scope_id }
 	}
 }
 use crate::analyzer::BusWidth;
@@ -74,20 +71,20 @@ pub trait ScopeTrait {
 	fn is_generic(&self) -> bool;
 }
 impl ModuleImplementationScope {
-	pub fn display_interface(&self, id_table: &IdTable)->String{
+	pub fn display_interface(&self, id_table: &IdTable) -> String {
 		let mut s = String::new();
 		let scope = self.scopes.first().unwrap();
-		for (name, var) in &scope.variables{
-			s+=format!("Variable {}: {:?}\n", id_table.get_value(name), var.var.kind).as_str();
+		for (name, var) in &scope.variables {
+			s += format!("Variable {}: {:?}\n", id_table.get_value(name), var.var.kind).as_str();
 		}
-		s+=format!("dupa").as_str();
+		s += format!("dupa").as_str();
 
 		s
 	}
-	pub fn get_interface_len(&self)->usize{
-		return self.scopes.first().unwrap().variables.len()
+	pub fn get_interface_len(&self) -> usize {
+		return self.scopes.first().unwrap().variables.len();
 	}
-	pub fn get_var(&self, scope_id: usize, name: &IdTableKey)->Result<&VariableDefined, SemanticError>{
+	pub fn get_var(&self, scope_id: usize, name: &IdTableKey) -> Result<&VariableDefined, SemanticError> {
 		let scope = &self.scopes[scope_id];
 		if let Some(variable) = scope.variables.get(name) {
 			Ok(variable)
@@ -261,6 +258,7 @@ impl ModuleImplementationScope {
 				id_table,
 				0,
 				&self,
+				None,
 				handle
 					.scope()
 					.new_signal(id_table.get_by_key(&name).unwrap().as_str())

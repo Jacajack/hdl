@@ -11,6 +11,9 @@ pub struct ConditionalScope {
 
 	/// Child scope
 	pub scope: ScopeId,
+
+	/// Child else scope
+	pub else_scope: Option<ScopeId>,
 }
 
 /// Scope associated with a loop statement
@@ -129,11 +132,17 @@ impl Scope {
 	}
 
 	/// Adds a new conditional sub-scope
-	fn add_conditional_scope(&mut self, condition: Expression, child: ScopeId) -> Result<ScopeId, DesignError> {
+	fn add_conditional_scope(
+		&mut self,
+		condition: Expression,
+		child: ScopeId,
+		else_scope: Option<ScopeId>,
+	) -> Result<ScopeId, DesignError> {
 		// self.add_subscope(child)?;
 		self.conditionals.push(ConditionalScope {
 			condition,
 			scope: child,
+			else_scope,
 		});
 		Ok(child)
 
@@ -170,6 +179,9 @@ impl Scope {
 		self.assignments.push(Assignment::new(lhs, rhs));
 		// TODO assert signal accessible from this scope
 		// TODO expression valid in this scope
+		// TODO assert no indexing if LHS is generic
+		// TODO assert LHS drivable
+		// TODO assert that scope is unconditional relative to the declaration if LSH is generic
 		Ok(self.assignments.last_mut().unwrap())
 	}
 
@@ -254,8 +266,20 @@ impl ScopeHandle {
 	/// Creates a new if statement in this scope
 	pub fn if_scope(&mut self, condition: Expression) -> Result<ScopeHandle, DesignError> {
 		let child = self.new_subscope()?;
-		this_scope!(self).add_conditional_scope(condition, child.id()).unwrap();
+		this_scope!(self)
+			.add_conditional_scope(condition, child.id(), None)
+			.unwrap();
 		Ok(child)
+	}
+
+	/// Creates a new if statement with else clause in this scope
+	pub fn if_else_scope(&mut self, condition: Expression) -> Result<(ScopeHandle, ScopeHandle), DesignError> {
+		let child = self.new_subscope()?;
+		let else_scope = self.new_subscope()?;
+		this_scope!(self)
+			.add_conditional_scope(condition, child.id(), Some(else_scope.id()))
+			.unwrap();
+		Ok((child, else_scope))
 	}
 
 	/// Creates a new loop statement in this scope

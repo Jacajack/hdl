@@ -217,9 +217,9 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 	}
 	else {
 		base = NumericConstantBase::Decimal;
-		if is_signed.is_none() {
-			is_signed = Some(true);
-		}
+		//if is_signed.is_none() {
+		//	is_signed = Some(true);
+		//}
 		parse_pure_decimal(&s[0..digits_end])?
 	};
 	//debug!("Succesfully parsed value: {:?}", value);
@@ -254,10 +254,10 @@ mod tests {
 
 	#[test]
 	fn test_parse_plain_numbers() {
-		check_parse("64", 64, None, Some(true));
-		check_parse("0011", 11, None, Some(true));
-		check_parse("000___00__000", 0, None, Some(true));
-		check_parse("0", 0, None, Some(true));
+		check_parse("64", 64, None, None);
+		check_parse("0011", 11, None, None);
+		check_parse("000___00__000", 0, None, None);
+		check_parse("0", 0, None, None);
 		check_parse("0b1101____", 13, None, Some(false));
 		check_parse("0x_f_f_", 255, Some(8), Some(false));
 	}

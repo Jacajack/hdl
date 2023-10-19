@@ -1,4 +1,5 @@
 use core::panic;
+use std::collections::HashMap;
 
 use hirn::design::{Expression, NumericConstant, SignalBuilder, SignalId};
 use log::debug;
@@ -124,11 +125,16 @@ impl BusWidth {
 			WidthOf(location) => Some(*location),
 		}
 	}
-	pub fn eval(&mut self, nc_table: &crate::lexer::NumericConstantTable, id_table: &IdTable, scope: &ModuleImplementationScope)->miette::Result<()>{
+	pub fn eval(
+		&mut self,
+		nc_table: &crate::lexer::NumericConstantTable,
+		id_table: &IdTable,
+		scope: &ModuleImplementationScope,
+	) -> miette::Result<()> {
 		use BusWidth::*;
 		match self {
 			Evaluated(_) => (),
-			EvaluatedLocated(_, _) => (),
+			EvaluatedLocated(..) => (),
 			Evaluable(location) => {
 				let expr = scope.evaluated_expressions.get(location).unwrap();
 				debug!("Expr is known!");
@@ -307,7 +313,7 @@ impl Signal {
 			},
 			(Bus(bus), Wire(wire)) | (Wire(wire), Bus(bus)) => {
 				debug!("Bus width is {:?}", bus.width.clone().unwrap().get_value().unwrap());
-				if bus.width.clone().unwrap().get_value().unwrap() != 1.into(){
+				if bus.width.clone().unwrap().get_value().unwrap() != 1.into() {
 					return Err(miette::Report::new(
 						SemanticError::BoundingWireWithBus
 							.to_diagnostic_builder()
@@ -504,16 +510,18 @@ impl Signal {
 				None,
 				None,
 			))),
-			None => return Self {
-				signal_type: SignalType::Bus(BusType {
-					width: None,
-					signedness,
-					location,
-				}),
-				dimensions: Vec::new(),
-				sensitivity: SignalSensitivity::Const(location),
-				direction: Direction::None,
-			}
+			None => {
+				return Self {
+					signal_type: SignalType::Bus(BusType {
+						width: None,
+						signedness,
+						location,
+					}),
+					dimensions: Vec::new(),
+					sensitivity: SignalSensitivity::Const(location),
+					direction: Direction::None,
+				}
+			},
 		};
 		if width.clone().unwrap().get_value().unwrap() == 1.into() {
 			Self {
@@ -545,7 +553,7 @@ pub struct Variable {
 	pub kind: VariableKind,
 }
 impl Variable {
-	pub fn new(name: IdTableKey, location: SourceSpan, kind:VariableKind)->Self{
+	pub fn new(name: IdTableKey, location: SourceSpan, kind: VariableKind) -> Self {
 		Self { name, location, kind }
 	}
 	pub fn is_clock(&self) -> bool {
@@ -564,6 +572,7 @@ impl Variable {
 		id_table: &id_table::IdTable,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
+		nc_widths: Option<&HashMap<SourceSpan, crate::core::NumericConstant>>,
 		mut builder: SignalBuilder,
 	) -> miette::Result<SignalId> {
 		debug!(
@@ -601,26 +610,23 @@ impl Variable {
 								Expression::Constant(hirn::design::NumericConstant::new_signed(value.clone().value))
 							},
 							EvaluatedLocated(_, location) => {
-								let expr_ast = scope
-								.evaluated_expressions
-								.get(&location)
-								.unwrap();
-							expr_ast.expression
-								.codegen(nc_table, id_table, expr_ast.scope_id, scope)?},
+								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+								expr_ast
+									.expression
+									.codegen(nc_table, id_table, expr_ast.scope_id, scope, nc_widths)?
+							},
 							Evaluable(location) => {
-								let expr_ast = scope
-								.evaluated_expressions
-								.get(&location)
-								.unwrap();
-							expr_ast.expression
-								.codegen(nc_table, id_table, expr_ast.scope_id, scope)?},
+								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+								expr_ast
+									.expression
+									.codegen(nc_table, id_table, expr_ast.scope_id, scope, nc_widths)?
+							},
 							WidthOf(location) => {
-								let expr_ast = scope
-								.evaluated_expressions
-								.get(&location)
-								.unwrap();
-							expr_ast.expression
-								.codegen(nc_table, id_table, expr_ast.scope_id, scope)?}, //FIXME coming soon
+								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+								expr_ast
+									.expression
+									.codegen(nc_table, id_table, expr_ast.scope_id, scope, nc_widths)?
+							}, //FIXME coming soon
 						};
 						match bus.signedness {
 							SignalSignedness::Signed(_) => builder = builder.signed(width),
@@ -640,28 +646,28 @@ impl Variable {
 								.unwrap()
 						},
 						EvaluatedLocated(_, location) => {
-							let expr = scope
-								.evaluated_expressions
-								.get(location)
-								.unwrap();
-							let codegened = expr.expression
-								.codegen(nc_table, id_table, expr.scope_id, scope)?;
+							let expr = scope.evaluated_expressions.get(location).unwrap();
+							let codegened =
+								expr.expression
+									.codegen(nc_table, id_table, expr.scope_id, scope, nc_widths)?;
 							builder = builder.array(codegened).unwrap();
 						},
 						Evaluable(location) => {
 							let expr = scope
 								.evaluated_expressions
 								.get(location)
-								.unwrap().expression
-								.codegen(nc_table, id_table, scope_id, scope)?;
+								.unwrap()
+								.expression
+								.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 							builder = builder.array(expr).unwrap();
 						},
 						WidthOf(location) => {
 							let expr = scope
 								.evaluated_expressions
 								.get(location)
-								.unwrap().expression
-								.codegen(nc_table, id_table, scope_id, scope)?;
+								.unwrap()
+								.expression
+								.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 							builder = builder.array(expr).unwrap(); // FIXME it should be width of
 						},
 					}
@@ -739,9 +745,9 @@ impl NonRegister {
 	pub fn new()->Self{
 		Self { interface: Vec::new() }
 	}
-	pub fn add_variable(&mut self, var: Variable)->Result<(),SemanticError>{
-		for v in &self.interface{
-			if v.name == var.name{
+	pub fn add_variable(&mut self, var: Variable) -> Result<(), SemanticError> {
+		for v in &self.interface {
+			if v.name == var.name {
 				return Err(SemanticError::DuplicateVariableDeclaration);
 			}
 		}
@@ -779,32 +785,35 @@ pub enum VariableKind {
 }
 
 impl VariableKind {
-	pub fn evaluate_bus_width(&mut self, scope: &ModuleImplementationScope, id_table: &IdTable, nc_table: &crate::lexer::NumericConstantTable)->miette::Result<()>{
+	pub fn evaluate_bus_width(
+		&mut self,
+		scope: &ModuleImplementationScope,
+		id_table: &IdTable,
+		nc_table: &crate::lexer::NumericConstantTable,
+	) -> miette::Result<()> {
 		use VariableKind::*;
-		match self{
-    	Signal(sig) => {
-			use SignalType::*;
-			match &mut sig.signal_type {
-    			Bus(bus) => {
-					match &mut bus.width {
-        				Some(b) => {
+		match self {
+			Signal(sig) => {
+				use SignalType::*;
+				match &mut sig.signal_type {
+					Bus(bus) => match &mut bus.width {
+						Some(b) => {
 							b.eval(nc_table, id_table, scope)?;
 						},
-        				None => (),
-    				}
-				},
-    			_=> (),
-			}
-		},
-    	_=> unreachable!(),
+						None => (),
+					},
+					_ => (),
+				}
+			},
+			_ => unreachable!(),
 		}
 		Ok(())
 	}
-	pub fn is_generic(&self)->bool{
+	pub fn is_generic(&self) -> bool {
 		use VariableKind::*;
-		match self{
+		match self {
 			Generic(_) => true,
-			_=> false,	
+			_ => false,
 		}
 	}
 	pub fn is_array(&self)->bool{
@@ -857,11 +866,11 @@ impl VariableKind {
 			VariableKind::ModuleInstance(_) => todo!(), // ERROR,
 		}
 	}
-	pub fn is_module_instance(&self)->bool {
+	pub fn is_module_instance(&self) -> bool {
 		use VariableKind::*;
-		match self{
+		match self {
 			ModuleInstance(_) => true,
-			_=> false,	
+			_ => false,
 		}
 	}
 }

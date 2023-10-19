@@ -78,9 +78,9 @@ fn run_iverilog(iverilog_path: &Path, input_path: &Path) -> Result<NamedTempFile
 			iverilog_path.to_str().unwrap(),
 			"-g2005-sv",
 			"-Wall",
-			input_path.to_str().unwrap(),
 			"-o",
 			bin_file.path().to_str().unwrap(),
+			input_path.to_str().unwrap(),
 		],
 		PopenConfig::default(),
 	)
