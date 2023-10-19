@@ -1,0 +1,9 @@
+module sig_assign {}
+impl sig_assign {
+    const unsigned bus<10> a = 0;
+    const unsigned bus<10> b = 0u10;
+    const unsigned bus<10> c = 0u;
+    unsigned bus<10> d = 0;
+    bus<10> e = 0u10;
+    auto f = 0u10;
+}

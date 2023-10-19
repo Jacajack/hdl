@@ -258,6 +258,7 @@ impl ModuleImplementationScope {
 				id_table,
 				0,
 				&self,
+				None,
 				handle
 					.scope()
 					.new_signal(id_table.get_by_key(&name).unwrap().as_str())
