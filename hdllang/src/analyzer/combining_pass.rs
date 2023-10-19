@@ -794,6 +794,24 @@ impl ModuleImplementationStatement {
 				debug!("Assignment done");
 			},
 			IfElseStatement(conditional) => {
+				let condition_expr = conditional.condition.codegen(
+					ctx.nc_table,
+					ctx.id_table,
+					scope_id,
+					&local_ctx.scope,
+					Some(&local_ctx.nc_widths),
+				)?;
+				match conditional.else_statement{
+					Some(ref else_stmt) => {
+						let (mut if_scope, mut else_scope) = api_scope.if_else_scope(condition_expr).map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
+						conditional.if_statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
+						else_stmt.codegen_pass(ctx, local_ctx, &mut else_scope)?;
+					}
+					None => {
+						let mut if_scope = api_scope.if_scope(condition_expr).map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
+						conditional.if_statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
+					}
+				}
 				let mut inner_scope = api_scope
 					.if_scope(conditional.condition.codegen(
 						ctx.nc_table,
