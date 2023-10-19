@@ -5,8 +5,8 @@ use crate::{
 	design::InterfaceSignal,
 	design::SignalSignedness,
 	design::{
-		BinaryOp, BuiltinOp, Design, Expression, ModuleHandle, ModuleId, ModuleInstance, ScopeId, SignalDirection,
-		SignalId, SignalSensitivity, UnaryOp, WidthExpression, HasInstanceName,
+		Design, Expression, ModuleHandle, ModuleId, ModuleInstance, ScopeId, SignalDirection,
+		SignalId, SignalSensitivity, HasInstanceName,
 	},
 };
 use log::debug;
@@ -99,9 +99,7 @@ impl<'a> SVCodegen<'a> {
 		}))
 	}
 
-	fn module_interface_definition(&self, m: ModuleHandle, s: InterfaceSignal) -> Result<String, CodegenError> {
-		let sig = self.design.get_signal(s.signal).unwrap();
-
+	fn module_interface_definition(&self, _m: ModuleHandle, s: InterfaceSignal) -> Result<String, CodegenError> {
 		use SignalDirection::*;
 		let direction_str = match s.direction {
 			Input => "input",
@@ -202,6 +200,7 @@ impl<'a> SVCodegen<'a> {
 		}
 
 		emitln!(self, w, ";")?;
+		emitln!(self, w, "")?;
 		Ok(())
 	}
 
@@ -262,7 +261,8 @@ impl<'a> SVCodegen<'a> {
 		}
 
 		// I very much don't like this code.
-		emitln!(self, w, "/* local params */")?;
+		// emitln!(self, w, "/* local params */")?;
+		let mut emitted_any_localparam = false;
 		for sig_id in scope.signals() {
 			if !skip_signals.contains(&sig_id) {
 				if self.design.get_signal(sig_id).unwrap().is_generic() {
@@ -291,36 +291,41 @@ impl<'a> SVCodegen<'a> {
 					let rhs_expr = search_scope(self.design, scope.clone(), sig_id);
 					emitln!(self, w, "{};", self.format_localparam_declaration(sig_id, &rhs_expr)?)?;
 					skip_signals.insert(sig_id);
+					emitted_any_localparam = true;
 				}
 			}
 		}
 
+		if emitted_any_localparam {emitln!(self, w, "")?;}
 
-		emitln!(self, w, "/* signals */")?;
+		let mut emitted_any_signals = false;
 		for sig_id in scope.signals() {
 			if !skip_signals.contains(&sig_id) {
 				emitln!(self, w, "{};", self.format_signal_declaration(sig_id)?)?;
 				skip_signals.insert(sig_id);
+				emitted_any_signals = true;
 			}
 		}
 
-		emitln!(self, w, "")?;
-		emitln!(self, w, "/* assignments */")?;
+		if emitted_any_signals {emitln!(self, w, "")?;}
+
+		let mut emitted_any_assignemnts = false;
 		for asmt in scope.assignments() {
 			match asmt.lhs.try_drive() {
 				Some(slice) => {
 					if !self.design.get_signal(slice.signal).unwrap().is_generic() {
 						self.emit_assignment(w, &asmt.lhs, &asmt.rhs)?;
+						emitted_any_assignemnts = true;
 					}
 				}
 				None => panic!("Cannot assign to this LHS expression"),
 			}
 		}
 
+		if emitted_any_assignemnts {emitln!(self, w, "")?;}
+
 		let mut processed_subscopes = HashSet::new();
 
-		emitln!(self, w, "")?;
-		emitln!(self, w, "/* if-subscopes */")?;
 		for conditional_scope in scope.conditional_subscopes() {
 			emitln!(
 				self,
@@ -343,10 +348,9 @@ impl<'a> SVCodegen<'a> {
 			}
 
 			emitln!(self, w, "end{}", if in_generate { "" } else { " endgenerate" })?;
+			emitln!(self, w, "")?;
 		}
 
-		emitln!(self, w, "")?;
-		emitln!(self, w, "/* loop subscopes */")?;
 		for loop_scope in scope.loop_subscopes() {
 			// TODO gb name
 			emitln!(
@@ -370,11 +374,10 @@ impl<'a> SVCodegen<'a> {
 			)?;
 			self.end_indent();
 			emitln!(self, w, "end{}", if in_generate { "" } else { " endgenerate" })?;
+			emitln!(self, w, "")?;
 			processed_subscopes.insert(loop_scope.scope);
 		}
 
-		emitln!(self, w, "")?;
-		emitln!(self, w, "/* unconditional subscopes */")?;
 		let subscope_ids = scope.subscopes();
 		for subscope_id in subscope_ids {
 			if !processed_subscopes.contains(&subscope_id) {
@@ -383,16 +386,12 @@ impl<'a> SVCodegen<'a> {
 			processed_subscopes.insert(subscope_id);
 		}
 
-		emitln!(self, w, "")?;
-		emitln!(self, w, "/* registers */")?;
 		for block in scope.blocks() {
 			if let BlockInstance::Register(reg) = block {
 				self.emit_register_instance(w, &reg)?;
 			}
 		}
 
-		emitln!(self, w, "")?;
-		emitln!(self, w, "/* module instances */")?;
 		for block in scope.blocks() {
 			if let BlockInstance::Module(instance) = block {
 				self.emit_module_instance(w, &instance)?;
@@ -402,11 +401,13 @@ impl<'a> SVCodegen<'a> {
 		if !naked {
 			self.end_indent();
 			if within_generate {
-				emitln!(self, w, "end")?;
+				emitln!(self, w, "end\n")?;
 			}
 			else {
-				emitln!(self, w, "end endgenerate")?;
+				emitln!(self, w, "end endgenerate\n")?;
 			}
+		} else {
+			emitln!(self, w, "")?;
 		}
 		Ok(())
 	}
@@ -447,7 +448,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 		if last_param_id.is_some() {
 			emitln!(self, w, " #(")?;
 			self.begin_indent();
-			emitln!(self, w, "/* parameters */")?;
+			// emitln!(self, w, "/* parameters */")?;
 
 			for sig in m.interface() {
 				if matches!(
@@ -471,7 +472,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 		if last_interface_id.is_some() {
 			emitln!(self, w, "(")?;
 			self.begin_indent();
-			emitln!(self, w, "/* interface */")?;
+			// emitln!(self, w, "/* interface */")?;
 
 			for sig in m.interface() {
 				if !matches!(
