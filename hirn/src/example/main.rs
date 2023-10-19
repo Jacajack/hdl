@@ -10,7 +10,9 @@ fn main() -> Result<(), HirnError> {
 
 	let mut m_internal = d.new_module("inner_module").unwrap();
 	let internal_clk = m_internal.scope().new_signal("clk")?.clock().wire().build()?;
+	let internal_param = m_internal.scope().new_signal("p")?.generic().unsigned(64.into()).build()?;
 	m_internal.expose(internal_clk, SignalDirection::Input)?;
+	m_internal.expose(internal_param, SignalDirection::Input)?;
 
 	let mut m = d.new_module("test").unwrap();
 	let m_clk = m.scope().new_signal("clk")?.clock().wire().build()?;
@@ -21,7 +23,7 @@ fn main() -> Result<(), HirnError> {
 		.asynchronous()
 		.unsigned(8.into())
 		.build()?;
-	let m_param = m.scope().new_signal("bingo")?.constant().unsigned(8.into()).build()?;
+	let m_param = m.scope().new_signal("bingo")?.generic().unsigned(64.into()).build()?;
 	m.expose(m_clk, SignalDirection::Input)?;
 	m.expose(m_clkout, SignalDirection::Output)?;
 	m.expose(m_param, SignalDirection::Input)?; // TODO do not allow output const signals or move to interface?
@@ -36,6 +38,7 @@ fn main() -> Result<(), HirnError> {
 	m.scope()
 		.new_module(m_internal, "cool_module")?
 		.bind("clk", m_clk.into())
+		.bind("p", m_param.into())
 		.build()?;
 
 	let (mut loop_scope, iter) = m.scope().loop_scope("index", 0.into(), 10.into())?;

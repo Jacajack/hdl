@@ -11,7 +11,7 @@ pub use expression::{
 	BinaryExpression, BinaryOp, BuiltinOp, ConditionalExpression, ConditionalExpressionBranch, EvalContext, EvalError,
 	EvalType, Evaluates, EvaluatesType, Expression, NumericConstant, UnaryExpression, UnaryOp, WidthExpression,
 };
-pub use functional_blocks::{BlockInstance, ModuleInstance, ModuleInstanceBuilder, Register, RegisterBuilder};
+pub use functional_blocks::{BlockInstance, ModuleInstance, ModuleInstanceBuilder, Register, RegisterBuilder, HasInstanceName};
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
 pub use scope::{Scope, ScopeHandle};
 pub use signal::{Signal, SignalBuilder, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice};

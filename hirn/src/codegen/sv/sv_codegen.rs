@@ -1,16 +1,16 @@
 use crate::codegen::{Codegen, CodegenError};
-use crate::design::ScopeHandle;
+use crate::design::{ScopeHandle, Register};
 use crate::{
 	design::BlockInstance,
 	design::InterfaceSignal,
 	design::SignalSignedness,
 	design::{
 		BinaryOp, BuiltinOp, Design, Expression, ModuleHandle, ModuleId, ModuleInstance, ScopeId, SignalDirection,
-		SignalId, SignalSensitivity, UnaryOp, WidthExpression,
+		SignalId, SignalSensitivity, UnaryOp, WidthExpression, HasInstanceName,
 	},
 };
 use log::debug;
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 use std::fmt;
 
 #[derive(Clone)]
@@ -141,26 +141,72 @@ impl<'a> SVCodegen<'a> {
 
 	// FIXME implement io::Write?
 	fn emit_module_instance(&mut self, w: &mut dyn fmt::Write, instance: &ModuleInstance) -> Result<(), CodegenError> {
-		emitln!(self, w, "{} #(", instance.module.name())?;
-		self.begin_indent();
-		emitln!(self, w, "/* TODO parameters */")?;
-		self.end_indent();
-		emitln!(self, w, ") {} (", "TODO_INSTANCE_NAME")?;
-		self.begin_indent();
+		// Get instantionated module interface
+		let m = &instance.module;
+		let interface = m.interface();
+		let bindings = instance.get_bindings();
 
-		for binding in instance.get_bindings() {
-			emitln!(
-				self,
-				w,
-				".{}({}),",
-				binding.0,
-				self.translate_expression(&binding.1.into(), true)?
-			)?;
+		let mut generic_bindings = HashMap::new();
+		let mut electric_bindings = HashMap::new();
+
+		for port in &interface {
+			let internal_sig = self.design.get_signal(port.signal).expect("Design must be valid");
+			for (binding_name, external_sig) in bindings {
+				if binding_name == internal_sig.name() {
+					if internal_sig.is_generic() {
+						generic_bindings.insert(binding_name, external_sig.clone());
+					}
+					else {
+						electric_bindings.insert(binding_name, external_sig.clone());
+					}
+				}
+			}
 		}
 
-		self.end_indent();
-		emitln!(self, w, ")")?;
+		// Sanity check: the design must be valid
+		assert!(generic_bindings.len() + electric_bindings.len() == interface.len());
+		
+		emit!(self, w, "{}", instance.module.name())?;
+		if !generic_bindings.is_empty() {
+			emit!(self, w, " #(\n")?;
+			self.begin_indent();
+
+			for (index, (name, signal_id)) in generic_bindings.iter().enumerate() {
+				emitln!(self, w, ".{}({}){}",
+					name,
+					self.translate_expression(&Expression::from(*signal_id), true)?,
+					if index == generic_bindings.len() - 1 { "" } else { "," }
+				)?;
+			}	
+
+			self.end_indent();
+			emitln!(self, w, ")")?;
+		}
+
+		emit!(self, w, " {}", instance.instance_name())?;
+
+		if !electric_bindings.is_empty() {
+			emitln!(self, w, " (")?;
+			self.begin_indent();
+
+			for (index, (name, signal_id)) in electric_bindings.iter().enumerate() {
+				emitln!(self, w, ".{}({}){}",
+					name,
+					self.translate_expression(&Expression::from(*signal_id), true)?,
+					if index == electric_bindings.len() - 1 { "" } else { "," }
+				)?;
+			}
+
+			self.end_indent();
+			emit!(self, w, ")")?;
+		}
+
+		emitln!(self, w, ";")?;
 		Ok(())
+	}
+
+	fn emit_register_instance(&mut self, w: &mut dyn fmt::Write, reg: &Register) -> Result<(), CodegenError> {
+		todo!("TODO Register codegen");
 	}
 
 	fn emit_scope(
@@ -307,14 +353,19 @@ impl<'a> SVCodegen<'a> {
 			processed_subscopes.insert(subscope_id);
 		}
 
-		// TODO registers
+		emitln!(self, w, "")?;
+		emitln!(self, w, "/* registers */")?;
+		for block in scope.blocks() {
+			if let BlockInstance::Register(reg) = block {
+				self.emit_register_instance(w, &reg)?;
+			}
+		}
 
 		emitln!(self, w, "")?;
 		emitln!(self, w, "/* module instances */")?;
 		for block in scope.blocks() {
-			match block {
-				BlockInstance::Module(instance) => self.emit_module_instance(w, &instance)?,
-				_ => todo!(),
+			if let BlockInstance::Module(instance) = block {
+				self.emit_module_instance(w, &instance)?;
 			}
 		}
 
