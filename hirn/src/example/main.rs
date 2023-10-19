@@ -1,7 +1,7 @@
 extern crate hirn;
 use hirn::{
 	codegen::{sv::SVCodegen, Codegen},
-	design::{Design, Expression, InterfaceSignal, SignalDirection},
+	design::{Design, Expression, SignalDirection},
 	HirnError,
 };
 

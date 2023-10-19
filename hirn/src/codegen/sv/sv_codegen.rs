@@ -6,7 +6,7 @@ use crate::{
 	design::SignalSignedness,
 	design::{
 		Design, Expression, ModuleHandle, ModuleId, ModuleInstance, ScopeId, SignalDirection,
-		SignalId, SignalSensitivity, HasInstanceName,
+		SignalId, SignalSensitivity, HasInstanceName, HasComment,
 	},
 };
 use log::debug;
@@ -261,7 +261,6 @@ impl<'a> SVCodegen<'a> {
 		}
 
 		// I very much don't like this code.
-		// emitln!(self, w, "/* local params */")?;
 		let mut emitted_any_localparam = false;
 		for sig_id in scope.signals() {
 			if !skip_signals.contains(&sig_id) {
@@ -289,6 +288,7 @@ impl<'a> SVCodegen<'a> {
 					}
 					
 					let rhs_expr = search_scope(self.design, scope.clone(), sig_id);
+					self.emit_metadata_comment(w, &self.design.get_signal(sig_id).unwrap())?;
 					emitln!(self, w, "{};", self.format_localparam_declaration(sig_id, &rhs_expr)?)?;
 					skip_signals.insert(sig_id);
 					emitted_any_localparam = true;
@@ -301,6 +301,7 @@ impl<'a> SVCodegen<'a> {
 		let mut emitted_any_signals = false;
 		for sig_id in scope.signals() {
 			if !skip_signals.contains(&sig_id) {
+				self.emit_metadata_comment(w, &self.design.get_signal(sig_id).unwrap())?;
 				emitln!(self, w, "{};", self.format_signal_declaration(sig_id)?)?;
 				skip_signals.insert(sig_id);
 				emitted_any_signals = true;
@@ -411,6 +412,20 @@ impl<'a> SVCodegen<'a> {
 		}
 		Ok(())
 	}
+
+	fn emit_multiline_comment(&mut self, w: &mut dyn fmt::Write, comment: &str) -> Result<(), CodegenError> {
+		for line in comment.lines() {
+			emitln!(self, w, "/// {}", line)?;
+		}
+		Ok(())
+	}
+
+	fn emit_metadata_comment(&mut self, w: &mut dyn fmt::Write, object: &dyn HasComment) -> Result<(), CodegenError> {
+		if let Some(comment) = object.get_comment() {
+			self.emit_multiline_comment(w, &comment)?;
+		}
+		Ok(())
+	}
 }
 
 impl<'a> Codegen for SVCodegen<'a> {
@@ -439,6 +454,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 			}
 		}
 
+		self.emit_metadata_comment(w, &m)?;
 		emit!(
 			self,
 			w,
