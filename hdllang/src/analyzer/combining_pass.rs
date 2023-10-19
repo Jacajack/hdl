@@ -235,7 +235,7 @@ pub struct GlobalAnalyzerContext<'a> {
 /// Per module context for semantic analysis
 pub struct LocalAnalyzerContex {
 	pub scope: ModuleImplementationScope,
-	pub nc_widths: HashMap<NumericConstantTableKey, NumericConstant>,
+	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
 	pub widths_map: HashMap<SourceSpan, BusWidth>,
 	pub scope_map: HashMap<SourceSpan, usize>,
 	pub module_id: IdTableKey,
@@ -724,10 +724,10 @@ impl ModuleImplementationStatement {
 			AssignmentStatement(assignment) => {
 				let lhs = assignment
 					.lhs
-					.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
+					.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope, Some(&local_ctx.nc_widths))?;
 				let rhs = assignment
 					.rhs
-					.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
+					.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope, Some(&local_ctx.nc_widths))?;
 				use crate::parser::ast::AssignmentOpcode::*;
 				match assignment.assignment_opcode {
 					Equal => api_scope
@@ -752,7 +752,7 @@ impl ModuleImplementationStatement {
 					.if_scope(
 						conditional
 							.condition
-							.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?,
+							.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope, Some(&local_ctx.nc_widths))?,
 					)
 					.unwrap();
 				conditional
@@ -763,7 +763,7 @@ impl ModuleImplementationStatement {
 						let expr =
 							conditional
 								.condition
-								.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?;
+								.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope, Some(&local_ctx.nc_widths))?;
 						let mut else_scope = api_scope
 							.if_scope(hirn::design::Expression::Unary(UnaryExpression {
 								op: hirn::design::UnaryOp::LogicalNot,
@@ -974,6 +974,7 @@ impl VariableDefinition {
 				ctx.id_table,
 				scope_id,
 				&local_ctx.scope,
+				Some(&local_ctx.nc_widths),
 				api_scope
 					.new_signal(ctx.id_table.get_by_key(&variable.var.name).unwrap().as_str())
 					.unwrap(),
@@ -982,7 +983,7 @@ impl VariableDefinition {
 				Some(expr) => api_scope
 					.assign(
 						api_id.into(),
-						expr.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope)?,
+						expr.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope, Some(&local_ctx.nc_widths))?,
 					)
 					.unwrap(),
 				None => (),
