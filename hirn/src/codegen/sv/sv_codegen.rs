@@ -322,7 +322,7 @@ impl<'a> SVCodegen<'a> {
 			emitln!(
 				self,
 				w,
-				"{}for (genvar {} = ({}); ({}) <= ({}); ({})++) begin",
+				"{}for (genvar {} = ({}); ({}) <= ({}); {}++) begin",
 				if in_generate { "" } else { "generate " },
 				self.translate_expression(&loop_scope.iterator_var.into(), true)?,
 				self.translate_expression(&loop_scope.iterator_begin, true)?,

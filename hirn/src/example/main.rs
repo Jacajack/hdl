@@ -36,7 +36,7 @@ fn main() -> Result<(), HirnError> {
 	else_block.assign(m_clkout.into(), 1.into())?;
 
 	m.scope()
-		.new_module(m_internal, "cool_module")?
+		.new_module(m_internal.clone(), "cool_module")?
 		.bind("clk", m_clk.into())
 		.bind("p", m_param.into())
 		.build()?;
@@ -46,6 +46,7 @@ fn main() -> Result<(), HirnError> {
 
 	let mut source = String::new();
 	let mut cg = SVCodegen::new(&d);
+	cg.emit_module(&mut source, m_internal.id())?;
 	cg.emit_module(&mut source, m.id())?;
 
 	println!("{}", source);
