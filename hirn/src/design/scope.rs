@@ -179,6 +179,9 @@ impl Scope {
 		self.assignments.push(Assignment::new(lhs, rhs));
 		// TODO assert signal accessible from this scope
 		// TODO expression valid in this scope
+		// TODO assert no indexing if LHS is generic
+		// TODO assert LHS drivable
+		// TODO assert that scope is unconditional relative to the declaration if LSH is generic
 		Ok(self.assignments.last_mut().unwrap())
 	}
 

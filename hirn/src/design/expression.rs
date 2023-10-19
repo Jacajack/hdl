@@ -354,6 +354,14 @@ impl Expression {
 		})
 	}
 
+	/// Perform logical NOT on this expression
+	pub fn logical_not(self) -> Self {
+		Self::Unary(UnaryExpression {
+			op: UnaryOp::LogicalNot,
+			operand: Box::new(self),
+		})
+	}
+
 	/// Get max of two expressions
 	pub fn max(self, rhs: Expression) -> Self {
 		Self::Binary(BinaryExpression {
