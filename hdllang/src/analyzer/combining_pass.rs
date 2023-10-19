@@ -1,11 +1,11 @@
-use super::{AlreadyCreated, ModuleDeclared, SemanticError, Variable, VariableKind};
+use super::{AlreadyCreated, ModuleDeclared, SemanticError, Variable, VariableKind, RegisterInstance};
 use hirn::design::{ScopeHandle, UnaryExpression};
 use log::{debug, info};
 use std::collections::HashMap;
 use std::io::Write;
 
 use crate::{
-	analyzer::{BusWidth, ModuleImplementationScope, Signal, ModuleInstance, semantic_error::InstanceError, GenericVariable},
+	analyzer::{BusWidth, ModuleImplementationScope, Signal, ModuleInstance, semantic_error::InstanceError, GenericVariable, SignalSensitivity, ClockSensitivityList},
 	core::*,
 	lexer::*,
 	parser::ast::*,
@@ -13,7 +13,7 @@ use crate::{
 };
 
 pub fn combine<'a>(
-	id_table: &'a IdTable,
+	id_table: &'a mut IdTable,
 	nc_table: &'a crate::lexer::NumericConstantTable,
 	ast: &'a Root,
 	mut path_from_root: String,
@@ -222,7 +222,7 @@ pub fn codegen_pass(
 }
 /// Global shared context for semantic analysis
 pub struct GlobalAnalyzerContext<'a> {
-	pub id_table: &'a IdTable,
+	pub id_table: &'a mut IdTable,
 	pub nc_table: &'a crate::lexer::NumericConstantTable,
 	/// represents all declared modules
 	pub modules_declared: HashMap<IdTableKey, ModuleDeclared>,
@@ -232,6 +232,7 @@ pub struct GlobalAnalyzerContext<'a> {
 }
 /// Per module context for semantic analysis
 pub struct LocalAnalyzerContex {
+	pub are_we_in_conditional: usize,
 	pub scope: ModuleImplementationScope,
 	pub nc_widths: HashMap<NumericConstantTableKey, NumericConstant>,
 	pub widths_map: HashMap<SourceSpan, BusWidth>,
@@ -241,6 +242,7 @@ pub struct LocalAnalyzerContex {
 impl LocalAnalyzerContex {
 	pub fn new(module_id: IdTableKey, scope: ModuleImplementationScope) -> Self {
 		LocalAnalyzerContex {
+			are_we_in_conditional: 0,
 			scope,
 			scope_map: HashMap::new(),
 			module_id,
@@ -357,6 +359,17 @@ impl ModuleImplementationStatement {
 			VariableDefinition(definition) => definition.analyze(AlreadyCreated::new(), ctx, local_ctx, scope_id)?,
 			AssignmentStatement(assignment) => {
 				if assignment.lhs.is_generic(ctx, scope_id, local_ctx)? {
+					if local_ctx.are_we_in_conditional > 0 {
+						return Err(miette::Report::new(
+							SemanticError::GenericInConditional
+								.to_diagnostic_builder()
+								.label(
+									assignment.location,
+									"Generic variable cannot be assigned in conditional statement",
+								)
+								.build(),
+						));
+					}
 					debug!("Lhs is generic");
 					match assignment.rhs.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)? {
 						Some(val) => {
@@ -417,6 +430,7 @@ impl ModuleImplementationStatement {
 					.condition
 					.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?;
 				let if_scope = local_ctx.scope.new_scope(Some(scope_id));
+				local_ctx.are_we_in_conditional += 1;
 				conditional.if_statement.first_pass(ctx, local_ctx, if_scope)?;
 				match &conditional.else_statement {
 					Some(stmt) => {
@@ -425,10 +439,36 @@ impl ModuleImplementationStatement {
 					},
 					None => (),
 				}
+				local_ctx.are_we_in_conditional -= 1;
 			},
-			IterationStatement(iteration) => todo!(),
+			IterationStatement(iteration) => {
+				local_ctx.are_we_in_conditional += 1;
+				todo!();
+				local_ctx.are_we_in_conditional -= 1;
+			},
 			InstantiationStatement(inst) => {
 				let name = inst.module_name.get_last_module();
+				match local_ctx.scope.is_declared(scope_id, &inst.instance_name){
+        			Some(location) => return Err(miette::Report::new(
+						SemanticError::DuplicateVariableDeclaration
+							.to_diagnostic_builder()
+							.label(
+								inst.location,
+								format!(
+									"Variable \"{}\" is already declared in this scope",
+									ctx.id_table.get_by_key(&inst.instance_name).unwrap()
+								)
+								.as_str(),
+							)
+							.label(location, "Previous declaration")
+							.build(),
+					)),
+        			None => (),
+    			} 
+				if ctx.id_table.get_value(&name).as_str() == "register"{
+					let v = Variable::new(inst.instance_name,inst.location, VariableKind::ModuleInstance(ModuleInstance { module_name: inst.instance_name, location: inst.location, kind: crate::analyzer::ModuleInstanceKind::Register(create_register(inst, scope_id, ctx, local_ctx)?)}));
+					local_ctx.scope.define_variable(scope_id, v )?;
+				}
 				ctx.modules_declared
 					.get_mut(&local_ctx.module_id)
 					.unwrap()
@@ -999,7 +1039,127 @@ impl VariableBlockStatement {
 		Ok(())
 	}
 }
-
+fn create_register(inst_stmt: &InstantiationStatement,scope_id: usize, ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex) ->miette::Result<RegisterInstance>{
+	if inst_stmt.port_bind.len() != 5 {
+		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+		.label(inst_stmt.location, "Register must have 5 arguments")
+		.build()))
+	}
+	let mut en_stmt: Option<&PortBindStatement> = None;
+	let mut next_stmt: Option<&PortBindStatement> = None;
+	let mut clk_stmt: Option<&PortBindStatement> = None;
+	let mut nreset_stmt: Option<&PortBindStatement> = None;
+	let mut data_stmt: Option<&PortBindStatement> = None;
+	for stmt in &inst_stmt.port_bind{
+		match ctx.id_table.get_value(&stmt.get_id()).as_str(){
+			"en" => match en_stmt{
+				Some(stmt1) => return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+				.label(stmt.location(), "This argument is already defined")
+				.label(stmt1.location(), "En signal is already defined here")
+				.build())),
+				None =>en_stmt.replace(stmt),
+			},
+			"next" => match next_stmt{
+				Some(stmt1) => return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+				.label(stmt.location(), "This argument is already defined")
+				.label(stmt1.location(), "Next signal is already defined here")
+				.build())),
+				None =>next_stmt.replace(stmt),
+			},
+			"clk" => match clk_stmt{
+				Some(stmt1) => return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+				.label(stmt.location(), "This argument is already defined")
+				.label(stmt1.location(), "Clk signal is already defined here")
+				.build())),
+				None =>clk_stmt.replace(stmt),
+			},
+			"nreset" => match nreset_stmt{
+				Some(stmt1) => return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+				.label(stmt.location(), "This argument is already defined")
+				.label(stmt1.location(), "NReset signal is already defined here")
+				.build())),
+				None =>nreset_stmt.replace(stmt),
+			},
+			"data" => match data_stmt{
+				Some(stmt1) => return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+				.label(stmt.location(), "This argument is already defined")
+				.label(stmt1.location(), "Data signal is already defined here")
+				.build())),
+				None =>data_stmt.replace(stmt),
+			},
+			_ => return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+			.label(stmt.location(), "This is not a valid argument for register")
+			.build()))
+		};
+	}
+	use crate::parser::ast::PortBindStatement::*;
+	let clk_signal = Signal{
+    	signal_type: crate::analyzer::SignalType::Wire(clk_stmt.unwrap().location()),
+    	dimensions: vec![],
+    	sensitivity: crate::analyzer::SignalSensitivity::Clock(clk_stmt.unwrap().location()),
+    	direction: crate::analyzer::Direction::Input(clk_stmt.unwrap().location()),
+	};
+	let clk_type = match clk_stmt.unwrap(){
+    	OnlyId(id) => todo!(),
+    	IdWithExpression(expr) => expr.expression.evaluate_type(ctx, scope_id, local_ctx, clk_signal.clone(), false, clk_stmt.unwrap().location())?,
+    	IdWithDeclaration(_) => todo!(),
+	};
+	debug!("Clk type is {:?}", clk_type);
+	if clk_type.is_array(){
+		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+		.label(clk_stmt.unwrap().location(), "Clock cannot be array")
+		.build()))
+	}
+	if let SignalSensitivity::Clock(_) = &clk_type.sensitivity{}
+	else {
+		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+		.label(clk_stmt.unwrap().location(), "Clk signal must be marked as clock")
+		.build()))
+	}
+	let clk_name = ctx.id_table.insert_or_get("clk_in2137");
+	let clk_var = Variable::new(clk_name, clk_stmt.unwrap().location(), VariableKind::Signal(clk_type.clone()));
+	let data_signal = Signal{
+		signal_type: crate::analyzer::SignalType::Auto(data_stmt.unwrap().location()),
+		dimensions: vec![],
+		sensitivity: crate::analyzer::SignalSensitivity::Comb(ClockSensitivityList::new().with_clock(clk_name, true, clk_stmt.unwrap().location()), clk_stmt.unwrap().location()), //FIXME
+		direction: crate::analyzer::Direction::Input(data_stmt.unwrap().location()),
+	};
+	let mut data_type = match data_stmt.unwrap(){
+		OnlyId(id) => todo!(),
+		IdWithExpression(expr) => expr.expression.evaluate_type(ctx, scope_id, local_ctx, data_signal.clone(), false, data_stmt.unwrap().location())?,
+		IdWithDeclaration(_) => todo!(),
+	};
+	debug!("Data type is {:?}", data_type);
+	if data_type.is_array(){
+		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+		.label(data_stmt.unwrap().location(), "Clock cannot be array")
+		.build()))
+	}
+	if !data_type.sensitivity.is_not_worse_than(&clk_type.sensitivity) {
+		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+		.label(data_stmt.unwrap().location(), "Data signal must be synchronized with clock")
+		.build()))
+	}
+	let next_signal = Signal{
+		signal_type: crate::analyzer::SignalType::Auto(data_stmt.unwrap().location()),
+		dimensions: vec![],
+		sensitivity: crate::analyzer::SignalSensitivity::NoSensitivity,
+		direction: crate::analyzer::Direction::Input(data_stmt.unwrap().location()),
+	};
+	let mut next_type = match next_stmt.unwrap(){
+		OnlyId(id) => todo!(),
+		IdWithExpression(expr) => expr.expression.evaluate_type(ctx, scope_id, local_ctx, data_type.clone(), false, data_stmt.unwrap().location())?,
+		IdWithDeclaration(_) => todo!(),
+	};
+	debug!("Next type is {:?}", next_type);
+	if next_type.is_array(){
+		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+		.label(clk_stmt.unwrap().location(), "Clock cannot be array")
+		.build()))
+	}
+	//data_type.sensitivity.can_drive(&clk_signal.sensitivity, data_stmt.unwrap().location(), ctx)?;
+	todo!()
+}
 pub fn report_qualifier_contradicting_specifier(
 	qualifier_location: &SourceSpan,
 	specifier_location: &SourceSpan,

@@ -15,6 +15,9 @@ pub struct ClockSensitivityList {
 	pub list: Vec<EdgeSensitivity>,
 }
 impl ClockSensitivityList {
+	pub fn new() -> Self {
+		Self { list: Vec::new() }
+	}
 	pub fn contains_clock(&self, id: IdTableKey) -> bool {
 		for edge in &self.list {
 			if edge.clock_signal == id {
@@ -22,6 +25,14 @@ impl ClockSensitivityList {
 			}
 		}
 		false
+	}
+	pub fn with_clock(mut self, id: IdTableKey, on_rising: bool, location: SourceSpan) -> Self {
+		self.add_clock(EdgeSensitivity {
+			clock_signal: id,
+			on_rising,
+			location,
+		});
+		self
 	}
 	pub fn add_clock(&mut self, clk: EdgeSensitivity) {
 		if !self.contains_clock(clk.clock_signal) {
@@ -89,6 +100,31 @@ impl SignalSensitivity {
 			Clock(x) => Some(x),
 			Const(x) => Some(x),
 			NoSensitivity => None,
+		}
+	}
+	pub fn is_not_worse_than(&self, other: &SignalSensitivity)->bool{
+		use SignalSensitivity::*;
+		match (self, other){
+			(_, Async(_)) => true,
+			(Async(_), _) => false,
+			(Comb(l1, _), Comb(l2, _)) => {
+				for edge in &l1.list {
+					if !l2.contains_clock(edge.clock_signal) {
+						return false;
+					}
+				}
+				true
+			},
+			(Comb(l1, _), Sync(l2, _)) => {
+				for edge in &l1.list {
+					if !l2.contains_clock(edge.clock_signal) {
+						return false;
+					}
+				}
+				true
+			},
+			(Comb(..), _) => false,
+			_ => true,
 		}
 	}
 	pub fn can_drive(
@@ -190,7 +226,7 @@ mod tests {
 	use crate::lexer::NumericConstantTable;
 	use paste::paste;
 	use std::collections::HashMap;
-	fn ctx<'a>(id_table: &'a IdTable, nc_table: &'a NumericConstantTable) -> GlobalAnalyzerContext<'a> {
+	fn ctx<'a>(id_table: &'a mut IdTable, nc_table: &'a NumericConstantTable) -> GlobalAnalyzerContext<'a> {
 		GlobalAnalyzerContext {
 			id_table,
 			nc_table,
@@ -214,10 +250,10 @@ mod tests {
 	macro_rules! sensitivity_test_ok {
 		($name1:ident, $name2:ident) => {
 			paste! {
-				let id_table = IdTable::new();
+				let mut id_table = IdTable::new();
 				let nc_table = NumericConstantTable::new();
-				assert!([<$name1 _sensitivity>]().can_drive(&[<$name2 _sensitivity>](), span(),&ctx(&id_table, &nc_table)).is_ok());
-				assert!([<$name2 _sensitivity>]().can_drive(&[<$name1 _sensitivity>](), span(),&ctx(&id_table, &nc_table)).is_err());
+				assert!([<$name1 _sensitivity>]().can_drive(&[<$name2 _sensitivity>](), span(),&ctx(&mut id_table, &nc_table)).is_ok());
+				assert!([<$name2 _sensitivity>]().can_drive(&[<$name1 _sensitivity>](), span(),&ctx(&mut id_table, &nc_table)).is_err());
 			}
 		};
 	}

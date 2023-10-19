@@ -122,6 +122,8 @@ pub enum SemanticError {
 	UnknownBuiltInFunction,
 	#[error("Bad function arguments")]
 	BadFunctionArguments,
+	#[error("It is not allowed to assign generics inside conditional statements")]
+	GenericInConditional,
 	#[error(transparent)]
 	InstanceError(InstanceError),
 }
@@ -264,8 +266,11 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
     		InstanceError(err) => err.into(),
     		ModuleInstanceNotIndexed => CompilerDiagnosticBuilder::from_error(&self)
-			.help("Please make sure that module interface signals are accessed properly")
-			.build(),
+				.help("Please make sure that module interface signals are accessed properly")
+				.build(),
+    		GenericInConditional => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that generic variables are not assigned in conditional statements")
+				.build(),
 		}
 	}
 }

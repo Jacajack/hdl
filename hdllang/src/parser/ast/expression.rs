@@ -1034,12 +1034,18 @@ impl Expression {
 				match m {
 					Some(var) => match &var.var.kind {
 						crate::analyzer::VariableKind::ModuleInstance(instance) => {
-							for var in &instance.interface {
-								if var.name == module_inst.id {
-									return Ok(var.kind.is_generic());
-								}
-							}
-							Ok(false)
+							match &instance.kind{
+        						crate::analyzer::ModuleInstanceKind::Module(m) => {
+									for var in &m.interface {
+										if var.name == module_inst.id {
+											return Ok(var.kind.is_generic());
+										}
+									}
+									Ok(false)
+								},
+        						crate::analyzer::ModuleInstanceKind::Register(_) => Ok(false),
+    						}
+							
 						},
 						_ => {
 							return Err(miette::Report::new(

@@ -41,7 +41,7 @@ fn compile(mut code: String, file_name: String, output: &mut dyn Write) -> miett
 	let mut map: HashMap<String, String> = HashMap::new();
 	(root, ctx, code) = parse_file_recover_tables(code, ctx)?;
 	let (_, global_ctx, modules) = hdllang::analyzer::combine(
-		&ctx.id_table,
+		&mut ctx.id_table,
 		&ctx.numeric_constants,
 		&root,
 		String::from("."),

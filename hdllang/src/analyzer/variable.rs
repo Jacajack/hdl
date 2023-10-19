@@ -536,105 +536,6 @@ impl Signal {
 			}
 		}
 	}
-	//pub fn combine_two(&mut self, other: &Signal, location: SourceSpan) -> miette::Result<()> {
-	//	if self.dimensions != other.dimensions {
-	//		return Err(miette::Report::new(
-	//			SemanticError::DifferingDimensions
-	//			.to_diagnostic_builder()
-	//			//.label(self.signal_type.location, "This signal has these dimensions") // FIXME PROPER LABELING
-	//			//.label(other.signal_type.location, "This signal has these dimensions")
-	//			.build(),
-	//		));
-	//	}
-	//	self.sensitivity = match (&self.sensitivity, &other.sensitivity) {
-	//		(SignalSensitivity::Async(_), _) => self.sensitivity.clone(),
-	//		(_, SignalSensitivity::Async(_)) => other.sensitivity.clone(),
-	//		(SignalSensitivity::Comb(_, _), _) => self.sensitivity.clone(),
-	//		(_, SignalSensitivity::Comb(_, _)) => other.sensitivity.clone(),
-	//		(SignalSensitivity::Sync(_, _), _) => self.sensitivity.clone(),
-	//		(_, SignalSensitivity::Sync(_, _)) => other.sensitivity.clone(),
-	//		(SignalSensitivity::Clock(_), _) => self.sensitivity.clone(),
-	//		(_, SignalSensitivity::Clock(_)) => other.sensitivity.clone(),
-	//		(SignalSensitivity::Const(_), _) => self.sensitivity.clone(),
-	//		(_, SignalSensitivity::Const(_)) => other.sensitivity.clone(),
-	//		(_, _) => SignalSensitivity::NoSensitivity,
-	//	};
-	//	match (&self.direction, &other.direction) {
-	//		(Direction::Input(_), Direction::Input(_)) => (),
-	//		(Direction::Input(_), Direction::Output(_)) => (), // warn
-	//		(Direction::Output(_), Direction::Input(_)) => (), // warn
-	//		(Direction::Output(_), Direction::Output(_)) => (),
-	//		(_, Direction::Tristate(_)) => (),
-	//		(Direction::Tristate(_), _) => (),
-	//		(_, Direction::None) => (),
-	//		(Direction::None, _) => (),
-	//	}
-	//	use SignalType::*;
-	//	self.signal_type = match (&self.signal_type, &other.signal_type) {
-	//		(Bus(bus1), Bus(bus2)) => {
-	//			let mut new = bus1.clone();
-	//			new.signedness = match (&bus1.signedness, &bus2.signedness) {
-	//				(SignalSignedness::Signed(_), SignalSignedness::Signed(_))
-	//				| (SignalSignedness::Unsigned(_), SignalSignedness::Unsigned(_)) => new.signedness,
-	//				(SignalSignedness::Signed(_), SignalSignedness::Unsigned(_))
-	//				| (SignalSignedness::Unsigned(_), SignalSignedness::Signed(_)) => todo!(), // report an erro
-	//				(_, SignalSignedness::NoSignedness) => new.signedness,
-	//				(SignalSignedness::NoSignedness, _) => bus2.signedness.clone(),
-	//			};
-	//			new.width = match (&bus1.width, &bus2.width) {
-	//				(None, None) => None,
-	//				(None, Some(_)) => bus2.width.clone(),
-	//				(Some(_), None) => bus1.width.clone(),
-	//				(Some(val1), Some(val2)) => {
-	//					if val1 == val2 {
-	//						bus1.width.clone()
-	//					} else {
-	//						return Err(miette::Report::new(
-	//							SemanticError::DifferingBusWidths
-	//								.to_diagnostic_builder()
-	//								.label(
-	//									location,
-	//									format!(
-	//										"Cannot assign signals - width mismatch. {} bits vs {} bits",
-	//										val1, val2
-	//									)
-	//									.as_str(),
-	//								)
-	//								.label(bus1.location, "First width specified here")
-	//								.label(bus2.location, "Second width specified here")
-	//								.build(),
-	//						));
-	//					}
-	//				},
-	//			};
-	//			SignalType::Bus(new)
-	//		},
-	//		(Bus(bus), Wire(wire)) => {
-	//			return Err(miette::Report::new(
-	//				SemanticError::BoundingWireWithBus
-	//					.to_diagnostic_builder()
-	//					.label(location, "Cannot assign bus to a wire")
-	//					.label(*wire, "Signal specified as wire here")
-	//					.label(bus.location, "Signal specified as a bus here")
-	//					.build(),
-	//			));
-	//		},
-	//		(Wire(wire), Bus(bus)) => {
-	//			return Err(miette::Report::new(
-	//				SemanticError::BoundingWireWithBus
-	//					.to_diagnostic_builder()
-	//					.label(location, "Cannot assign signals - type mismatch")
-	//					.label(*wire, "Wire type specified here")
-	//					.label(bus.location, "Bus type specified here")
-	//					.build(),
-	//			));
-	//		},
-	//		(Wire(_), Wire(_)) => self.signal_type.clone(),
-	//		(_, _) => todo!(),
-	//	};
-
-	//	Ok(())
-	//}
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Variable {
@@ -820,14 +721,23 @@ impl GenericVariable {
 	}
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ModuleInstance {
-	pub module_name: IdTableKey,
+pub struct RegisterInstance {
+	pub name: IdTableKey,
 	pub location: SourceSpan,
+	pub next: Box<Variable>,
+	pub clk: Box<Variable>,
+	pub nreset: Box<Variable>,
+	pub data: Box<Variable>,
+	pub enable: Box<Variable>,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct NonRegister{
 	pub interface: Vec<Variable>,
 }
-impl ModuleInstance {
-	pub fn new(module_name: IdTableKey, location: SourceSpan)->Self{
-		Self { module_name, location, interface: Vec::new()}
+
+impl NonRegister {
+	pub fn new()->Self{
+		Self { interface: Vec::new() }
 	}
 	pub fn add_variable(&mut self, var: Variable)->Result<(),SemanticError>{
 		for v in &self.interface{
@@ -837,6 +747,28 @@ impl ModuleInstance {
 		}
 		self.interface.push(var);
 		Ok(())
+	}
+}
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum ModuleInstanceKind{
+	Module(NonRegister),
+	Register(RegisterInstance),
+}
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ModuleInstance {
+	pub module_name: IdTableKey,
+	pub location: SourceSpan,
+	pub kind: ModuleInstanceKind,
+}
+impl ModuleInstance {
+	pub fn new(module_name: IdTableKey, location: SourceSpan)->Self{
+		Self { module_name, location, kind: ModuleInstanceKind::Module(NonRegister::new())}
+	}
+	pub fn add_variable(&mut self, var: Variable)->Result<(),SemanticError>{
+		match self.kind{
+			ModuleInstanceKind::Module(ref mut non_reg) => non_reg.add_variable(var),
+			ModuleInstanceKind::Register(_) => panic!("Register instance have others method of adding variables"),
+		}
 	}
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
@@ -872,6 +804,14 @@ impl VariableKind {
 		use VariableKind::*;
 		match self{
 			Generic(_) => true,
+			_=> false,	
+		}
+	}
+	pub fn is_array(&self)->bool{
+		use VariableKind::*;
+		match self{
+			Signal(sig) => sig.is_array(),
+			Generic(gen) => gen.dimensions.len() > 0,
 			_=> false,	
 		}
 	}
