@@ -1,4 +1,5 @@
 use crate::codegen::{Codegen, CodegenError};
+use crate::design::ScopeHandle;
 use crate::{
 	design::BlockInstance,
 	design::InterfaceSignal,
@@ -89,6 +90,15 @@ impl<'a> SVCodegen<'a> {
 		))
 	}
 
+	fn format_localparam_declaration(&self, sig_id: SignalId, value: &Option<Expression>) -> Result<String, CodegenError> {
+		let sig = self.design.get_signal(sig_id).unwrap();
+		Ok(format!("localparam {} = {}", sig.name(),
+			match value {
+				Some(expr) => self.translate_expression(expr, false)?,
+				None => "'x".into() // This is evil
+		}))
+	}
+
 	fn module_interface_definition(&self, m: ModuleHandle, s: InterfaceSignal) -> Result<String, CodegenError> {
 		let sig = self.design.get_signal(s.signal).unwrap();
 
@@ -159,7 +169,7 @@ impl<'a> SVCodegen<'a> {
 		scope_id: ScopeId,
 		naked: bool,
 		within_generate: bool,
-		skip_signals: HashSet<SignalId>,
+		mut skip_signals: HashSet<SignalId>,
 	) -> Result<(), CodegenError> {
 		debug!("Scope codegen ({:?})", scope_id);
 		let scope = self.design.get_scope_handle(scope_id).unwrap();
@@ -175,17 +185,60 @@ impl<'a> SVCodegen<'a> {
 			self.begin_indent();
 		}
 
+		// I very much don't like this code.
+		emitln!(self, w, "/* local params */")?;
+		for sig_id in scope.signals() {
+			if !skip_signals.contains(&sig_id) {
+				if self.design.get_signal(sig_id).unwrap().is_generic() {
+					
+					fn search_scope(design: &Design, scope: ScopeHandle, sig_id: SignalId) -> Option<Expression> {
+						for asmt in scope.assignments() {
+							match asmt.lhs.try_drive() {
+								Some(lhs_slice) => 
+								if lhs_slice.signal == sig_id {
+									return Some(asmt.rhs)
+								}
+								None => {},
+							}
+						}
+
+						for subscope_id in scope.subscopes() {
+							let subscope = design.get_scope_handle(subscope_id).unwrap();
+							if let Some(expr) = search_scope(design, subscope, sig_id) {
+								return Some(expr);
+							}
+						}
+						
+						return None;
+					}
+					
+					let rhs_expr = search_scope(self.design, scope.clone(), sig_id);
+					emitln!(self, w, "{};", self.format_localparam_declaration(sig_id, &rhs_expr)?)?;
+					skip_signals.insert(sig_id);
+				}
+			}
+		}
+
+
 		emitln!(self, w, "/* signals */")?;
 		for sig_id in scope.signals() {
 			if !skip_signals.contains(&sig_id) {
 				emitln!(self, w, "{};", self.format_signal_declaration(sig_id)?)?;
+				skip_signals.insert(sig_id);
 			}
 		}
 
 		emitln!(self, w, "")?;
 		emitln!(self, w, "/* assignments */")?;
 		for asmt in scope.assignments() {
-			self.emit_assignment(w, &asmt.lhs, &asmt.rhs)?;
+			match asmt.lhs.try_drive() {
+				Some(slice) => {
+					if !self.design.get_signal(slice.signal).unwrap().is_generic() {
+						self.emit_assignment(w, &asmt.lhs, &asmt.rhs)?;
+					}
+				}
+				None => panic!("Cannot assign to this LHS expression"),
+			}
 		}
 
 		let mut processed_subscopes = HashSet::new();

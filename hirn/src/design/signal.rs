@@ -60,6 +60,14 @@ impl SignalClass {
 	pub fn is_wire(&self) -> bool {
 		self.is_wire
 	}
+
+	pub fn is_signed(&self) -> bool {
+		self.signedness == SignalSignedness::Signed
+	}
+
+	pub fn is_unsigned(&self) -> bool {
+		self.signedness == SignalSignedness::Unsigned
+	}
 }
 
 /// Determines sensitivity of a signal to certain clock edges
@@ -170,6 +178,30 @@ impl SignalSensitivity {
 			_ => false,
 		}
 	}
+
+	pub fn is_async(&self) -> bool {
+		matches!(self, SignalSensitivity::Async)
+	}
+
+	pub fn is_comb(&self) -> bool {
+		matches!(self, SignalSensitivity::Comb(_))
+	}
+
+	pub fn is_sync(&self) -> bool {
+		matches!(self, SignalSensitivity::Sync(_))
+	}
+
+	pub fn is_clock(&self) -> bool {
+		matches!(self, SignalSensitivity::Clock)
+	}
+
+	pub fn is_const(&self) -> bool {
+		matches!(self, SignalSensitivity::Const)
+	}
+
+	pub fn is_generic(&self) -> bool {
+		matches!(self, SignalSensitivity::Generic)
+	}
 }
 
 /// Determines which part of a signal (or signal array) is accessed
@@ -270,6 +302,30 @@ impl Signal {
 
 	pub fn is_wire(&self) -> bool {
 		self.class.is_wire()
+	}
+
+	pub fn is_async(&self) -> bool {
+		self.sensitivity.is_async()
+	}
+
+	pub fn is_comb(&self) -> bool {
+		self.sensitivity.is_comb()
+	}
+
+	pub fn is_sync(&self) -> bool {
+		self.sensitivity.is_sync()
+	}
+
+	pub fn is_clock(&self) -> bool {
+		self.sensitivity.is_clock()
+	}
+
+	pub fn is_const(&self) -> bool {
+		self.sensitivity.is_const()
+	}
+
+	pub fn is_generic(&self) -> bool {
+		self.sensitivity.is_generic()
 	}
 
 	pub fn comment(&mut self, comment: &str) {
