@@ -217,9 +217,9 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 	}
 	else {
 		base = NumericConstantBase::Decimal;
-		if is_signed.is_none() {
-			is_signed = Some(true);
-		}
+		//if is_signed.is_none() {
+		//	is_signed = Some(true);
+		//}
 		parse_pure_decimal(&s[0..digits_end])?
 	};
 	//debug!("Succesfully parsed value: {:?}", value);
