@@ -722,12 +722,20 @@ impl ModuleImplementationStatement {
 			VariableBlock(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
 			VariableDefinition(definition) => definition.codegen_pass(ctx, local_ctx, api_scope)?,
 			AssignmentStatement(assignment) => {
-				let lhs = assignment
-					.lhs
-					.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope, Some(&local_ctx.nc_widths))?;
-				let rhs = assignment
-					.rhs
-					.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope, Some(&local_ctx.nc_widths))?;
+				let lhs = assignment.lhs.codegen(
+					ctx.nc_table,
+					ctx.id_table,
+					scope_id,
+					&local_ctx.scope,
+					Some(&local_ctx.nc_widths),
+				)?;
+				let rhs = assignment.rhs.codegen(
+					ctx.nc_table,
+					ctx.id_table,
+					scope_id,
+					&local_ctx.scope,
+					Some(&local_ctx.nc_widths),
+				)?;
 				use crate::parser::ast::AssignmentOpcode::*;
 				match assignment.assignment_opcode {
 					Equal => api_scope
@@ -749,21 +757,26 @@ impl ModuleImplementationStatement {
 			},
 			IfElseStatement(conditional) => {
 				let mut inner_scope = api_scope
-					.if_scope(
-						conditional
-							.condition
-							.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope, Some(&local_ctx.nc_widths))?,
-					)
+					.if_scope(conditional.condition.codegen(
+						ctx.nc_table,
+						ctx.id_table,
+						scope_id,
+						&local_ctx.scope,
+						Some(&local_ctx.nc_widths),
+					)?)
 					.unwrap();
 				conditional
 					.if_statement
 					.codegen_pass(ctx, local_ctx, &mut inner_scope)?;
 				match conditional.else_statement {
 					Some(ref else_statement) => {
-						let expr =
-							conditional
-								.condition
-								.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope, Some(&local_ctx.nc_widths))?;
+						let expr = conditional.condition.codegen(
+							ctx.nc_table,
+							ctx.id_table,
+							scope_id,
+							&local_ctx.scope,
+							Some(&local_ctx.nc_widths),
+						)?;
 						let mut else_scope = api_scope
 							.if_scope(hirn::design::Expression::Unary(UnaryExpression {
 								op: hirn::design::UnaryOp::LogicalNot,
@@ -983,7 +996,13 @@ impl VariableDefinition {
 				Some(expr) => api_scope
 					.assign(
 						api_id.into(),
-						expr.codegen(ctx.nc_table, ctx.id_table, scope_id, &local_ctx.scope, Some(&local_ctx.nc_widths))?,
+						expr.codegen(
+							ctx.nc_table,
+							ctx.id_table,
+							scope_id,
+							&local_ctx.scope,
+							Some(&local_ctx.nc_widths),
+						)?,
 					)
 					.unwrap(),
 				None => (),

@@ -31,7 +31,7 @@ pub use identifier::Identifier;
 use log::debug;
 pub use match_expression::MatchExpression;
 use num_bigint::{BigInt, Sign};
-use num_traits::{Zero, ToPrimitive};
+use num_traits::{ToPrimitive, Zero};
 pub use number::Number;
 pub use parenthesized::ParenthesizedExpression;
 pub use postfix_with_args::PostfixWithArgs;
@@ -681,7 +681,7 @@ impl Expression {
 		id_table: &crate::lexer::IdTable,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
-		nc_widths: Option<&HashMap<SourceSpan, NumericConstant>>
+		nc_widths: Option<&HashMap<SourceSpan, NumericConstant>>,
 	) -> miette::Result<SignalSlice> {
 		use self::Expression::*;
 		match self {
@@ -694,7 +694,9 @@ impl Expression {
 			},
 			PostfixWithIndex(ind) => {
 				let index_expr = ind.index.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
-				let mut slice = ind.expression.get_slice(nc_table, id_table, scope_id, scope, nc_widths)?;
+				let mut slice = ind
+					.expression
+					.get_slice(nc_table, id_table, scope_id, scope, nc_widths)?;
 				slice.indices.push(index_expr);
 				Ok(slice)
 			},
@@ -707,7 +709,7 @@ impl Expression {
 		id_table: &crate::lexer::IdTable,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
-		nc_widths: Option<&HashMap<SourceSpan, NumericConstant>>
+		nc_widths: Option<&HashMap<SourceSpan, NumericConstant>>,
 	) -> miette::Result<hirn::design::Expression> {
 		use self::Expression::*;
 		match self {
@@ -719,13 +721,13 @@ impl Expression {
 								nc.value.clone(),
 								match nc.signed {
 									Some(val) => {
-										if val{
+										if val {
 											hirn::design::SignalSignedness::Signed
 										}
-										else{
+										else {
 											hirn::design::SignalSignedness::Unsigned
 										}
-									}
+									},
 									None => hirn::design::SignalSignedness::Unsigned,
 								},
 								nc.width.unwrap().into(),
@@ -769,13 +771,17 @@ impl Expression {
 					def.expression.codegen(nc_table, id_table, scope_id, scope, nc_widths)?,
 				);
 				for stmt in &match_expr.statements {
-					let cond = match_expr.value.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+					let cond = match_expr
+						.value
+						.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 					match &stmt.antecedent {
 						MatchExpressionAntecendent::Expression {
 							expressions,
 							location: _,
 						} => {
-							let val = stmt.expression.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+							let val = stmt
+								.expression
+								.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 							for expr in expressions {
 								builder = builder.branch(
 									hirn::design::Expression::Binary(hirn::design::BinaryExpression {
@@ -803,10 +809,14 @@ impl Expression {
 							expressions,
 							location: _,
 						} => {
-							let val = stmt.expression.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+							let val = stmt
+								.expression
+								.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 							for expr in expressions {
-								builder =
-									builder.branch(expr.codegen(nc_table, id_table, scope_id, scope, nc_widths)?, val.clone());
+								builder = builder.branch(
+									expr.codegen(nc_table, id_table, scope_id, scope, nc_widths)?,
+									val.clone(),
+								);
 							}
 						},
 						MatchExpressionAntecendent::Default { location: _ } => (),
@@ -816,24 +826,44 @@ impl Expression {
 			},
 			Tuple(_) => unreachable!(),
 			TernaryExpression(ternary) => {
-				let cond = ternary.condition.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
-				let true_branch = ternary.true_branch.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
-				let false_branch = ternary.false_branch.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				let cond = ternary
+					.condition
+					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				let true_branch = ternary
+					.true_branch
+					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				let false_branch = ternary
+					.false_branch
+					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 				let builder = hirn::design::Expression::new_conditional(false_branch);
 				Ok(builder.branch(cond, true_branch).build())
 			},
 			PostfixWithIndex(ind) => {
 				let index = ind.index.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
-				let mut expr = ind.expression.get_slice(nc_table, id_table, scope_id, scope, nc_widths)?;
+				let mut expr = ind
+					.expression
+					.get_slice(nc_table, id_table, scope_id, scope, nc_widths)?;
 				expr.indices.push(index);
 				Ok(hirn::design::Expression::Signal(expr))
 			},
 			PostfixWithRange(range) => {
-				let expr = range.expression.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				let expr = range
+					.expression
+					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 				Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::BusSelect {
 					expr: Box::new(expr),
-					msb: Box::new(range.range.lhs.codegen(nc_table, id_table, scope_id, scope, nc_widths)?),
-					lsb: Box::new(range.range.rhs.codegen(nc_table, id_table, scope_id, scope, nc_widths)?),
+					msb: Box::new(
+						range
+							.range
+							.lhs
+							.codegen(nc_table, id_table, scope_id, scope, nc_widths)?,
+					),
+					lsb: Box::new(
+						range
+							.range
+							.rhs
+							.codegen(nc_table, id_table, scope_id, scope, nc_widths)?,
+					),
 				}))
 			},
 			PostfixWithArgs(function) => {
@@ -975,7 +1005,9 @@ impl Expression {
 			PostfixWithId(_) => todo!(),
 			UnaryOperatorExpression(unary) => {
 				use crate::parser::ast::UnaryOpcode::*;
-				let operand = unary.expression.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				let operand = unary
+					.expression
+					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 				match unary.code {
 					LogicalNot => Ok(!operand),
 					BitwiseNot => Ok(hirn::design::Expression::Unary(hirn::design::UnaryExpression {
@@ -1132,7 +1164,7 @@ impl Expression {
 					(Some(val), None) => {
 						debug!("Setting width of {:?} in local_ctx", constant);
 						constant.width = val.get_value().unwrap().to_u32();
-						local_ctx.nc_widths.insert(self.get_location(),constant);
+						local_ctx.nc_widths.insert(self.get_location(), constant);
 					},
 					(Some(coming), Some(original)) => {
 						if coming != original {

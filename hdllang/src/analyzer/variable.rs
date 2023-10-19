@@ -746,7 +746,9 @@ impl Variable {
 						},
 						EvaluatedLocated(_, location) => {
 							let expr = scope.evaluated_expressions.get(location).unwrap();
-							let codegened = expr.expression.codegen(nc_table, id_table, expr.scope_id, scope, nc_widths)?;
+							let codegened =
+								expr.expression
+									.codegen(nc_table, id_table, expr.scope_id, scope, nc_widths)?;
 							builder = builder.array(codegened).unwrap();
 						},
 						Evaluable(location) => {
