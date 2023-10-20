@@ -1,0 +1,11 @@
+module bad_sum_width {}
+
+impl bad_sum_width {
+	async unsigned {
+		bus<4> a;
+		bus<5> b;
+		bus<17> c;
+	};
+
+	c = a + b;
+}
