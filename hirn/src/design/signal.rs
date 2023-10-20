@@ -280,7 +280,7 @@ impl Signal {
 			dimensions,
 			class,
 			sensitivity,
-			comment: None,
+			comment,
 		})
 	}
 
