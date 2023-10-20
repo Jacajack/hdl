@@ -72,8 +72,7 @@ pub trait EvaluatesType {
 	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError>;
 
 	fn const_eval_type(&self) -> Result<EvalType, EvalError> {
-		// self.eval_type(&EvalContext::default())
-		unimplemented!()
+		self.eval_type(&EvalContext::default())
 	}
 }
 
