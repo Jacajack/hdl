@@ -1,4 +1,4 @@
-use super::{Expression, NumericConstant, SignalId, SignalSensitivity};
+use super::{NumericConstant, SignalId, SignalSensitivity, ExpressionError};
 use crate::design::{DesignHandle, SignalSignedness};
 use std::collections::HashMap;
 use thiserror::Error;
@@ -128,6 +128,7 @@ pub enum AssumptionError {
 	SignednessMismatch,
 }
 
+// TODO shrink this type
 #[derive(Debug, Clone, Error)]
 pub enum EvalError {
 	#[error("Value of signal was not assumed, cannot evaluate")]
@@ -201,6 +202,9 @@ pub enum EvalError {
 
 	#[error(transparent)]
 	InvalidAssumption(#[from] AssumptionError),
+
+	#[error(transparent)]
+	InvalidExpression(#[from] ExpressionError),
 }
 
 /// Provides type evaluation rules for both expressions and compile-time evaluation

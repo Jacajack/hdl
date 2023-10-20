@@ -11,8 +11,9 @@ pub use eval::{EvalContext, EvalError, EvalType, Evaluates, EvaluatesType};
 pub use narrow_eval::NarrowEval;
 pub use numeric_constant::NumericConstant;
 pub use width_expression::WidthExpression;
+pub use expression_validate::ExpressionError;
 
-use super::signal::{SignalClass, SignalSensitivity, SignalSlice};
+use super::signal::{SignalSensitivity, SignalSlice};
 use super::{SignalId, SignalSignedness};
 
 /// Binary operators

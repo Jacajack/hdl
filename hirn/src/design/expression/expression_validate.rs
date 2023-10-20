@@ -1,10 +1,10 @@
-use std::{collections::HashSet, rc::Rc, cell::{Cell, RefCell}, borrow::BorrowMut};
+use std::{collections::HashSet, rc::Rc, cell::RefCell};
 
 use thiserror::Error;
 
 use crate::design::{SignalId, ScopeHandle, SignalSensitivity, SignalSlice};
 
-use super::{Expression, EvalContext, UnaryExpression, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvaluatesType, NumericConstant};
+use super::{Expression, EvalContext, UnaryExpression, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvaluatesType, EvalError};
 
 #[derive(Clone, Debug, Copy, Error)]
 pub enum ExpressionError {
@@ -28,39 +28,39 @@ pub enum ExpressionError {
 }
 
 impl UnaryExpression {
-	fn shallow_validate(&self, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), ExpressionError> {
-		todo!();
+	fn shallow_validate(&self, _ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
+		Ok(()) // FIXME
 	}
 }
 
 impl BinaryExpression {
-	fn shallow_validate(&self, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), ExpressionError> {
-		todo!();
+	fn shallow_validate(&self, _ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
+		Ok(()) // FIXME
 	}
 }
 
 impl BuiltinOp {
-	fn shallow_validate(&self, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), ExpressionError> {
-		todo!();
+	fn shallow_validate(&self, _ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
+		Ok(()) // FIXME
 	}
 }
 
 impl CastExpression {
-	fn shallow_validate(&self, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), ExpressionError> {
+	fn shallow_validate(&self, _ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
 		// We must ensre that nothing is ever casted to generic sensitivity
 		// Note: this could be conditionally allowed for expressions which already
 		// are generic
 		use SignalSensitivity::*;
 		match self.sensitivity {
-			Some(Generic) => Err(ExpressionError::GenericCast),
+			Some(Generic) => Err(ExpressionError::GenericCast.into()),
 			_ => Ok(()),
 		}
 	}
 }
 
 impl ConditionalExpression {
-	fn shallow_validate(&self, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), ExpressionError> {
-		// let result_type = self.default_value().eval_type(ctx)?; // FIXME
+	fn shallow_validate(&self, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), EvalError> {
+		let result_type = self.default_value().eval_type(ctx)?;
 		/*
 			TODO:
 			 - branches conditions must be boolean
@@ -71,7 +71,7 @@ impl ConditionalExpression {
 	}
 }
 
-fn shallow_validate_slice(slice: &SignalSlice, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), ExpressionError> {
+fn shallow_validate_slice(slice: &SignalSlice, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), EvalError> {
 	let design_handle = scope.design();
 	let design = design_handle.borrow();
 	let signal = design.get_signal(slice.signal).expect("Signal not in design");
@@ -105,20 +105,20 @@ impl Expression {
 	}
 
 	/// Validates the expression
-	pub fn validate(&self, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), ExpressionError> {
-		self.traverse(&|e| -> Result<(), ExpressionError> {
+	pub fn validate(&self, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), EvalError> {
+		self.traverse(&|e| -> Result<(), EvalError> {
 			// Check if all variables used in the expression are a subset of the ones
 			// accessible within this scope
 			let expr_variables = self.get_variables();
 			let scope_variables = scope.visible_signals();
 			if !expr_variables.is_subset(&scope_variables) {
-				return Err(ExpressionError::ScopeError)
+				return Err(ExpressionError::ScopeError.into())
 			}
 
 			/// Peform shallow validation of each expresion sub-type (i.e. non-recursive)
 			use Expression::*;
-			match self {
-				Constant(nc) => Ok(()),
+			match e {
+				Constant(_) => Ok(()),
 				Signal(slice) => shallow_validate_slice(slice, ctx, scope),
 				Unary(e) => e.shallow_validate(ctx, scope),
 				Binary(e) => e.shallow_validate(ctx, scope),
@@ -127,5 +127,40 @@ impl Expression {
 				Conditional(c) => c.shallow_validate(ctx, scope),
 			}
 		})
+	}
+
+	/// Validate the expression without making any assumptions regarding values of signals
+	pub fn validate_no_assumptions(&self, scope: &ScopeHandle) -> Result<(), EvalError> {
+		self.validate(
+			&EvalContext::without_assumptions(scope.design()), 
+			scope
+		)
+	}
+}
+
+#[cfg(test)]
+mod test {
+	use crate::design::{Design, DesignError};
+
+	#[test]
+	fn basic_scope_rule_test() -> Result<(), DesignError> {
+		let mut d = Design::new();
+		let m1 = d.new_module("m1")?;
+		let m2 = d.new_module("m2")?;
+
+		let sig_foo = m1.scope().new_signal("foo")?
+			.generic()
+			.unsigned(16u32.into())
+			.build()?;
+
+		let sig_bar = m2.scope().new_signal("bar")?
+			.generic()
+			.unsigned(16u32.into())
+			.build()?;
+		
+		// Should fail cause bar is not accessible in m1
+		let assign_result = m1.scope().assign(sig_foo.into(), sig_bar.into());
+		assert!(assign_result.is_err());
+		Ok(())
 	}
 }

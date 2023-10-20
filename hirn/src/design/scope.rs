@@ -2,7 +2,7 @@ use std::collections::HashSet;
 
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::SignalBuilder;
-use super::{DesignError, DesignHandle, HasComment, ModuleId, RegisterBuilder, ScopeId, SignalId};
+use super::{DesignError, DesignHandle, HasComment, ModuleId, RegisterBuilder, ScopeId, SignalId, EvalContext};
 use super::{Expression, ModuleHandle};
 
 /// Scope associated with an if statement
@@ -176,35 +176,6 @@ impl Scope {
 		// TODO assert iterator_end is compile-time constant
 	}
 
-	/// Signal assignment - internal implementation
-	fn assign_signal_impl(&mut self, lhs: Expression, rhs: Expression) -> Result<&mut Assignment, DesignError> {
-		self.assignments.push(Assignment::new(lhs, rhs));
-		// TODO assert signal accessible from this scope
-		// TODO expression valid in this scope
-		// TODO assert no indexing if LHS is generic
-		// TODO assert LHS drivable
-		// TODO assert that scope is unconditional relative to the declaration if LSH is generic
-		Ok(self.assignments.last_mut().unwrap())
-	}
-
-	/// Assigns to a signal in this scope
-	fn assign_signal(&mut self, lhs: Expression, rhs: Expression) -> Result<(), DesignError> {
-		self.assign_signal_impl(lhs, rhs)?;
-		Ok(())
-	}
-
-	/// Assigns to a signal and adds a comment
-	fn assign_signal_with_comment(
-		&mut self,
-		lhs: Expression,
-		rhs: Expression,
-		comment: &str,
-	) -> Result<(), DesignError> {
-		let a = self.assign_signal_impl(lhs, rhs)?;
-		a.comment(comment);
-		Ok(())
-	}
-
 	/// Adds a block instance in this scope
 	fn add_block(&mut self, block: BlockInstance) -> Result<(), DesignError> {
 		self.blocks.push(block);
@@ -314,19 +285,38 @@ impl ScopeHandle {
 		this_scope!(self).add_block(block)
 	}
 
+	fn assign_impl(&mut self, lhs: Expression, rhs: Expression, comment: Option<&str>) -> Result<(), DesignError> {
+		lhs.validate_no_assumptions(&self)?;
+		rhs.validate_no_assumptions(&self)?;
+		// TODO assert no indexing if LHS is generic
+		// TODO assert LHS drivable
+		// TODO assert that scope is unconditional relative to the declaration if LSH is generic
+
+
+		// Save the assignment
+		this_scope!(self).assignments.push(Assignment::new(lhs, rhs));
+
+		// Optionally: comment the assignment
+		if let Some(comment) = comment {
+			this_scope!(self).assignments.last_mut().unwrap().comment(comment);
+		}
+
+		Ok(())	
+	}
+
 	/// Assigns an expression to a drivable expression
-	pub fn assign(&mut self, signal: Expression, expr: Expression) -> Result<(), DesignError> {
-		this_scope!(self).assign_signal(signal, expr)
+	pub fn assign(&mut self, lhs: Expression, rhs: Expression) -> Result<(), DesignError> {
+		self.assign_impl(lhs, rhs, None)
 	}
 
 	/// Assigns an expression to a drivable expression and adds a comment
 	pub fn assign_with_comment(
 		&mut self,
-		signal: Expression,
-		expr: Expression,
+		lhs: Expression,
+		rhs: Expression,
 		comment: &str,
 	) -> Result<(), DesignError> {
-		this_scope!(self).assign_signal_with_comment(signal, expr, comment)
+		self.assign_impl(lhs, rhs, Some(comment))
 	}
 
 	/// Creates a new signal in this scope (returns a builder)
