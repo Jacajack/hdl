@@ -368,6 +368,12 @@ pub enum DesignError {
 
 	#[error("Signal width must be an unsigned expression")]
 	SignedSignalWidth,
+
+	#[error("Signal width must be a constant expression")]
+	VariableSignalWidth,
+
+	#[error("Array dimensions must be constant expressions")]
+	VariableArrayDimension,
 }
 
 #[cfg(test)]
@@ -392,7 +398,7 @@ mod test {
 		let sig2 = m
 			.scope()
 			.new_signal("test_signal_2")?
-			.unsigned(expr.clone())
+			.unsigned(Expression::from(1u32) + 11u32.into())
 			.constant()
 			.build()?;
 

@@ -523,7 +523,7 @@ impl SignalBuilder {
 			scope = design_handle.get_scope_handle(self.scope).expect("Scope must be in design");
 		}
 		
-		// Validate width expression
+		// Validate width expression (unsigned & generic)
 		let eval_ctx = EvalContext::without_assumptions(self.design.clone());
 		let class = self.class.as_ref().expect("signal class must be specified before validation");
 		class.width().validate_no_assumptions(&scope)?;
@@ -532,12 +532,20 @@ impl SignalBuilder {
 			return Err(DesignError::SignedSignalWidth);
 		}
 
-		// Validate array dimension expressions
+		if !width_type.sensitivity.is_generic() {
+			return Err(DesignError::VariableSignalWidth);
+		}
+
+		// Validate array dimension expressions (unsigned & generic)
 		for dim in &self.dimensions {
 			dim.validate_no_assumptions(&scope)?;
 			let dim_type = dim.eval_type(&eval_ctx)?;
 			if dim_type.signedness.is_signed() {
 				return Err(DesignError::SignedArrayDimension);
+			}
+
+			if !dim_type.sensitivity.is_generic() {
+				return Err(DesignError::VariableArrayDimension);
 			}
 		}
 
