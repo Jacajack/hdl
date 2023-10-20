@@ -296,6 +296,14 @@ impl Signal {
 		self.dimensions.len()
 	}
 
+	pub fn sensitivity(&self) -> &SignalSensitivity {
+		&self.sensitivity
+	}
+
+	pub fn signedness(&self) -> SignalSignedness {
+		self.class.signedness()
+	}
+
 	pub fn is_array(&self) -> bool {
 		!self.is_scalar()
 	}
