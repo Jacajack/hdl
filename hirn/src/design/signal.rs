@@ -1,5 +1,7 @@
 use super::DesignError;
 use super::DesignHandle;
+use super::EvalContext;
+use super::EvaluatesType;
 use super::Expression;
 use super::HasComment;
 use super::ScopeId;
@@ -14,6 +16,16 @@ pub enum SignalSignedness {
 
 	/// Unsigned integer with given bit width
 	Unsigned,
+}
+
+impl SignalSignedness {
+	pub fn is_signed(&self) -> bool {
+		matches!(self, SignalSignedness::Signed)
+	}
+
+	pub fn is_unsigned(&self) -> bool {
+		matches!(self, SignalSignedness::Unsigned)
+	}
 }
 
 /// Determines representation of a signal
@@ -503,22 +515,55 @@ impl SignalBuilder {
 		self
 	}
 
+	fn validate(&self) -> Result<(), DesignError> {
+		let scope;
+		{
+			// Note: this cannot be borrowed while we call validation and so on.
+			let design_handle = self.design.borrow();
+			scope = design_handle.get_scope_handle(self.scope).expect("Scope must be in design");
+		}
+		
+		// Validate width expression
+		let eval_ctx = EvalContext::without_assumptions(self.design.clone());
+		let class = self.class.as_ref().expect("signal class must be specified before validation");
+		class.width().validate_no_assumptions(&scope)?;
+		let width_type = class.width().eval_type(&eval_ctx)?;
+		if width_type.signedness.is_signed() {
+			return Err(DesignError::SignedSignalWidth);
+		}
+
+		// Validate array dimension expressions
+		for dim in &self.dimensions {
+			dim.validate_no_assumptions(&scope)?;
+			let dim_type = dim.eval_type(&eval_ctx)?;
+			if dim_type.signedness.is_signed() {
+				return Err(DesignError::SignedArrayDimension);
+			}
+		}
+
+		Ok(())
+	}
+
 	/// Creates the signal and adds it to the design. Returns the signal ID.
 	pub fn build(self) -> Result<SignalId, DesignError> {
-		let sensitivity = match (self.sensitivity, self.comb_clocking, self.sync_clocking) {
-			(Some(s), None, None) => s,
-			(None, Some(c), None) => SignalSensitivity::Comb(c),
-			(None, None, Some(s)) => SignalSensitivity::Sync(s),
+		let sensitivity = match (&self.sensitivity, &self.comb_clocking, &self.sync_clocking) {
+			(Some(s), None, None) => s.clone(),
+			(None, Some(c), None) => SignalSensitivity::Comb(c.clone()),
+			(None, None, Some(s)) => SignalSensitivity::Sync(s.clone()),
 			(None, None, None) => return Err(DesignError::SignalSensitivityNotSpecified),
 			_ => return Err(DesignError::ConflictingSignalSensitivity),
 		};
 
+		// Ensure that class is specified
+		self.class.as_ref().ok_or(DesignError::SignalClassNotSpecified)?;
+
+		self.validate()?;
 		self.design.borrow_mut().add_signal(Signal::new(
 			SignalId { id: 0 },
 			self.scope,
 			&self.name,
 			self.dimensions,
-			self.class.ok_or(DesignError::SignalClassNotSpecified)?,
+			self.class.expect("Class must be specified"),
 			sensitivity,
 			self.comment,
 		)?)

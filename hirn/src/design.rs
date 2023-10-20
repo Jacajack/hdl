@@ -362,6 +362,12 @@ pub enum DesignError {
 		binding_type: EvalType,
 		interface_type: EvalType,
 	},
+
+	#[error("Array dimensions must be unsigned expressions")]
+	SignedArrayDimension,
+
+	#[error("Signal width must be an unsigned expression")]
+	SignedSignalWidth,
 }
 
 #[cfg(test)]
@@ -586,9 +592,9 @@ mod test {
 		let mut d = Design::new();
 		let m = d.new_module("test")?;
 
-		let a = m.scope().new_signal("a")?.unsigned(8.into()).constant().build()?;
+		let a = m.scope().new_signal("a")?.unsigned(8u32.into()).constant().build()?;
 
-		let b = m.scope().new_signal("b")?.unsigned(12.into()).constant().build()?;
+		let b = m.scope().new_signal("b")?.unsigned(12u32.into()).constant().build()?;
 
 		let expr = Expression::from(a) + b.into();
 
@@ -610,9 +616,9 @@ mod test {
 		let a = m
 			.scope()
 			.new_signal("a")?
-			.signed(8.into())
+			.signed(8u32.into())
 			.constant()
-			.array(4.into())?
+			.array(4u32.into())?
 			.build()?;
 
 		let mut ctx = EvalContext::without_assumptions(d.handle());
