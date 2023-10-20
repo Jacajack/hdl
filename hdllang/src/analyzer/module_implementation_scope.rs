@@ -319,6 +319,14 @@ impl ModuleImplementationScope {
 									.build(),
 							));
 						}
+						if !sig.is_width_specified(){
+							return Err(miette::Report::new(
+								SemanticError::WidthNotKnown
+									.to_diagnostic_builder()
+									.label(var.var.location, "Bus signals must have specified width")
+									.build(),
+							));
+						}
 					},
 					VariableKind::Generic(_) => (),
 					VariableKind::ModuleInstance(_) => (),
