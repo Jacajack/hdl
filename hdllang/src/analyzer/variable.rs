@@ -208,7 +208,7 @@ impl AlreadyCreated {
 			(Async(prev), Async(incoming))
 			| (Comb(_, prev), Comb(_, incoming))
 			| (Sync(_, prev), Sync(_, incoming))
-			| (Clock(prev), Clock(incoming))
+			| (Clock(prev,_), Clock(incoming,_))
 			| (Const(prev), Const(incoming)) => report_duplicated_qualifier(incoming, prev, sensitivity.name())?,
 			(NoSensitivity, _) => self.sensitivity = sensitivity,
 			(_, NoSensitivity) => (),
@@ -247,6 +247,13 @@ pub struct Signal {
 	pub direction: Direction,
 }
 impl Signal {
+	pub fn get_clock_name(&self)->IdTableKey{
+		use SignalSensitivity::*;
+		match &self.sensitivity {
+			Clock(_,Some(name))=>*name,
+			_=>panic!("This signal is not a clock")
+		}
+	}
 	pub fn evaluate_as_lhs(
 		&mut self,
 		is_lhs: bool,
@@ -559,7 +566,7 @@ impl Variable {
 	pub fn is_clock(&self) -> bool {
 		match &self.kind {
 			VariableKind::Signal(signal) => match &signal.sensitivity {
-				SignalSensitivity::Clock(_) => true,
+				SignalSensitivity::Clock(_,_) => true,
 				_ => false,
 			},
 			VariableKind::Generic(_) => false,
@@ -598,7 +605,7 @@ impl Variable {
 							builder = builder.sync(id, edge.on_rising);
 						}
 					},
-					Clock(_) => builder = builder.clock(),
+					Clock(_,_) => builder = builder.clock(),
 					Const(_) => builder = builder.constant(),
 					NoSensitivity => unreachable!("No sensitivity should not be possible"),
 				}
@@ -785,6 +792,17 @@ pub enum VariableKind {
 }
 
 impl VariableKind {
+	/// only if needed
+	pub fn add_name_to_clock(&mut self, id:IdTableKey){
+		use VariableKind::*;
+		match self{
+			Signal(sig) => match &mut sig.sensitivity{
+				SignalSensitivity::Clock(_,_) => sig.sensitivity = SignalSensitivity::Clock(sig.sensitivity.location().unwrap().clone(), Some(id)),
+				_ =>(),
+			},
+			_ => (),
+		}
+	}
 	pub fn evaluate_bus_width(
 		&mut self,
 		scope: &ModuleImplementationScope,

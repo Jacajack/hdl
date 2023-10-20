@@ -940,6 +940,7 @@ impl VariableDefinition {
 						.build(),
 				));
 			}
+			spec_kind.add_name_to_clock(direct_initializer.declarator.name);
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_initializer.declarator.array_declarators {
 				let size = array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
@@ -1193,7 +1194,7 @@ fn create_register(inst_stmt: &InstantiationStatement,scope_id: usize, ctx: &mut
 	let clk_signal = Signal{
     	signal_type: crate::analyzer::SignalType::Wire(clk_stmt.unwrap().location()),
     	dimensions: vec![],
-    	sensitivity: crate::analyzer::SignalSensitivity::Clock(clk_stmt.unwrap().location()),
+    	sensitivity: crate::analyzer::SignalSensitivity::Clock(clk_stmt.unwrap().location(),None),
     	direction: crate::analyzer::Direction::Input(clk_stmt.unwrap().location()),
 	};
 	let clk_type = match clk_stmt.unwrap(){
@@ -1207,7 +1208,7 @@ fn create_register(inst_stmt: &InstantiationStatement,scope_id: usize, ctx: &mut
 		.label(clk_stmt.unwrap().location(), "Clock cannot be array")
 		.build()))
 	}
-	if let SignalSensitivity::Clock(_) = &clk_type.sensitivity{}
+	if let SignalSensitivity::Clock(_,_) = &clk_type.sensitivity{}
 	else {
 		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
 		.label(clk_stmt.unwrap().location(), "Clk signal must be marked as clock")
@@ -1232,7 +1233,15 @@ fn create_register(inst_stmt: &InstantiationStatement,scope_id: usize, ctx: &mut
 		.label(data_stmt.unwrap().location(), "Clock cannot be array")
 		.build()))
 	}
-	if !data_type.sensitivity.is_not_worse_than(&clk_type.sensitivity) {
+	if let SignalSensitivity::Sync(list, loc, ) = &data_type.sensitivity{
+		if !list.contains_clock(clk_type.get_clock_name()) || list.list.len() > 1 {
+			return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+			.label(data_stmt.unwrap().location(), "Data signal must be synchronized with clock")
+			.build()))
+		} 
+	}
+	else {
+		debug!("Data type is {:?}", data_type);
 		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
 		.label(data_stmt.unwrap().location(), "Data signal must be synchronized with clock")
 		.build()))
@@ -1252,6 +1261,11 @@ fn create_register(inst_stmt: &InstantiationStatement,scope_id: usize, ctx: &mut
 	if next_type.is_array(){
 		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
 		.label(clk_stmt.unwrap().location(), "Clock cannot be array")
+		.build()))
+	}
+	if !next_type.sensitivity.is_not_worse_than(&clk_type.sensitivity) {
+		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
+		.label(next_stmt.unwrap().location(), "Next signal must be synchronized with clock")
 		.build()))
 	}
 	//data_type.sensitivity.can_drive(&clk_signal.sensitivity, data_stmt.unwrap().location(), ctx)?;

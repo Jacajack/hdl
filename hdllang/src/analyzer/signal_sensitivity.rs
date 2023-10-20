@@ -52,7 +52,7 @@ pub enum SignalSensitivity {
 	Async(SourceSpan),
 	Comb(ClockSensitivityList, SourceSpan),
 	Sync(ClockSensitivityList, SourceSpan),
-	Clock(SourceSpan),
+	Clock(SourceSpan, Option<IdTableKey>),
 	Const(SourceSpan),
 	/// if at the end of the analysis this is still None, it is an error
 	NoSensitivity,
@@ -64,7 +64,7 @@ impl SignalSensitivity {
 			Async(_) => "async",
 			Comb(..) => "comb",
 			Sync(..) => "sync",
-			Clock(_) => "clock",
+			Clock(_,_) => "clock",
 			Const(_) => "const",
 			NoSensitivity => "none",
 		}
@@ -77,14 +77,14 @@ impl SignalSensitivity {
 				(_, Async(_)) => *self = sens.clone(),
 				(Comb(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
 				(Comb(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
-				(Comb(..), Clock(_)) => *self = sens.clone(),
+				(Comb(..), Clock(_,_)) => *self = sens.clone(),
 				(Comb(..), Const(_)) => (),
 				(_, NoSensitivity) => (),
 				(Sync(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
 				(Sync(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
-				(Sync(..), Clock(_)) => *self = sens.clone(),
+				(Sync(..), Clock(_,_)) => *self = sens.clone(),
 				(Sync(..), Const(_)) => (),
-				(Clock(_), _) => (),
+				(Clock(_,_), _) => (),
 				(Const(_), Const(_)) => (),
 				(Const(_), _) => *self = sens.clone(),
 				(NoSensitivity, _) => *self = sens.clone(),
@@ -97,7 +97,7 @@ impl SignalSensitivity {
 			Async(x) => Some(x),
 			Comb(_, x) => Some(x),
 			Sync(_, x) => Some(x),
-			Clock(x) => Some(x),
+			Clock(x,_) => Some(x),
 			Const(x) => Some(x),
 			NoSensitivity => None,
 		}
@@ -123,6 +123,12 @@ impl SignalSensitivity {
 				}
 				true
 			},
+			(Comb(l1,_), Clock(_,Some(name))) => {
+				if l1.contains_clock(name.clone()){
+					return true;
+				}
+				false
+			},
 			(Comb(..), _) => false,
 			_ => true,
 		}
@@ -141,7 +147,7 @@ impl SignalSensitivity {
 			| (Async(_), Async(_))
 			| (Sync(..), Sync(..))
 			| (Const(_), Const(_))
-			| (Clock(_), Clock(_)) => (),
+			| (Clock(_,_), Clock(_,_)) => (),
 			(NoSensitivity, _) => *self = rhs.clone(),
 			(Comb(curent, lhs_location), Comb(incoming, _)) => {
 				for value in &incoming.list {
@@ -242,7 +248,7 @@ mod tests {
 		SignalSensitivity::Async(span())
 	}
 	fn clock_sensitivity() -> SignalSensitivity {
-		SignalSensitivity::Clock(span())
+		SignalSensitivity::Clock(span(),None)
 	}
 	fn const_sensitivity() -> SignalSensitivity {
 		SignalSensitivity::Const(span())

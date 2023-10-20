@@ -260,7 +260,7 @@ pub fn analyze_qualifiers(
 			Unsigned { location } => already_created.add_signedness(SignalSignedness::Unsigned(*location))?,
 			Tristate { location } => already_created.add_direction(Direction::Tristate(*location))?,
 			Const { location } => already_created.add_sensitivity(SignalSensitivity::Const(*location))?,
-			Clock { location } => already_created.add_sensitivity(SignalSensitivity::Clock(*location))?,
+			Clock { location } => already_created.add_sensitivity(SignalSensitivity::Clock(*location, None))?,
 			Comb(comb) => {
 				let mut sensitivity_list = ClockSensitivityList { list: Vec::new() };
 				for signal in &comb.expressions {
