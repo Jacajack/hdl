@@ -407,12 +407,11 @@ impl ModuleImplementationStatement {
 					));
 				}
 				info!("Rhs type at the end: {:?}", rhs_type);
-				info!(
-					"Lhs type at the and: {:?}",
+				let new_lhs =
 					assignment
 						.lhs
-						.evaluate_type(ctx, scope_id, local_ctx, rhs_type, true, assignment.location)?
-				);
+						.evaluate_type(ctx, scope_id, local_ctx, rhs_type, true, assignment.location)?;
+				info!("Lhs type at the and: {:?}", new_lhs);
 			},
 			IfElseStatement(conditional) => {
 				let condition_type = conditional
