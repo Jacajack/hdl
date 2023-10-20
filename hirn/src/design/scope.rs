@@ -1,3 +1,5 @@
+use std::collections::HashSet;
+
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::SignalBuilder;
 use super::{DesignError, DesignHandle, HasComment, ModuleId, RegisterBuilder, ScopeId, SignalId};
@@ -372,6 +374,25 @@ impl ScopeHandle {
 
 	pub fn blocks(&self) -> Vec<BlockInstance> {
 		this_scope!(self).blocks.clone()
+	}
+
+	pub fn parent(&self) -> Option<ScopeId> {
+		this_scope!(self).parent
+	}
+
+	pub fn parent_handle(&self) -> Option<ScopeHandle> {
+		self.parent().map(|p| self.design.borrow().get_scope_handle(p).unwrap())
+	}
+
+	pub fn visible_signals(&self) -> HashSet<SignalId> {
+		let mut signals: HashSet<SignalId> = self.signals().into_iter().collect();
+
+		// FIXME we need to account for shadowing here!
+
+		if let Some(parent) = self.parent_handle() {
+			signals.extend(parent.visible_signals());
+		}
+		signals
 	}
 }
 

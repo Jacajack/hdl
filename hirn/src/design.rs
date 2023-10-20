@@ -222,7 +222,7 @@ impl DesignCore {
 	}
 
 	/// Creates a new module in the design
-	pub fn new_module(&mut self, name: &str) -> Result<ModuleHandle, DesignError> {
+	fn new_module(&mut self, name: &str) -> Result<ModuleHandle, DesignError> {
 		let module = Module::new(name, vec![])?;
 		let handle = self.add_module(module)?;
 		let main_scope = self.new_scope(handle.id(), None)?;
@@ -251,6 +251,13 @@ impl Design {
 
 		d.handle.borrow_mut().weak = Rc::downgrade(&d.handle);
 		d
+	}
+
+	/// Creates a HIRN design from DesignHandle
+	/// TODO I wonder whether the distinction between Design and DesignHandle
+	/// makes sense at this point
+	pub fn from_handle(handle: DesignHandle) -> Self {
+		Self { handle }
 	}
 
 	fn borrow_mut(&mut self) -> std::cell::RefMut<DesignCore> {
