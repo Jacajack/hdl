@@ -2114,7 +2114,7 @@ impl Expression {
 					w,
 					type_first.get_signedness(),
 					type_first.sensitivity.clone(),
-					location,
+					self.get_location(),
 				))
 			},
 		}
