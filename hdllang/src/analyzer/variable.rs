@@ -12,7 +12,7 @@ use crate::{
 	ProvidesCompilerDiagnostic, SourceSpan,
 };
 
-use super::*;
+use super::{*, module_implementation_scope::InternalVariableId};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SignalSignedness {
 	Signed(SourceSpan),
@@ -737,11 +737,11 @@ impl GenericVariable {
 pub struct RegisterInstance {
 	pub name: IdTableKey,
 	pub location: SourceSpan,
-	pub next: Box<Variable>,
-	pub clk: Box<Variable>,
-	pub nreset: Box<Variable>,
-	pub data: Box<Variable>,
-	pub enable: Box<Variable>,
+	pub next: InternalVariableId,
+	pub clk: InternalVariableId,
+	pub nreset: InternalVariableId,
+	pub data: InternalVariableId,
+	pub enable: InternalVariableId,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct NonRegister{

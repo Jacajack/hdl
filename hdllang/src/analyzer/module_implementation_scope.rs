@@ -42,6 +42,7 @@ pub struct ModuleImplementationScope {
 	internal_ids: HashMap<InternalVariableId, (usize, IdTableKey)>,
 	coupling_vars: HashMap<InternalVariableId, Vec<InternalVariableId>>,
 	variable_counter: usize,
+	intermiediate_module_signals: HashMap<InternalVariableId, VariableDefined>,
 }
 pub trait InternalScopeTrait {
 	fn contains_key(&self, key: &IdTableKey) -> bool;
@@ -153,6 +154,7 @@ impl ModuleImplementationScope {
 			is_generic: false,
 			coupling_vars: HashMap::new(),
 			enriched_constants: HashMap::new(),
+			intermiediate_module_signals: HashMap::new(),
 		}
 	}
 	pub fn add_coupling(&mut self, from: IdTableKey, to: IdTableKey, scope_id: usize) {
@@ -227,6 +229,16 @@ impl ModuleImplementationScope {
 		self.scopes[scope_id].variables.insert(name, defined);
 		self.internal_ids.insert(id, (scope_id, name));
 		Ok(())
+	}
+	pub fn get_intermidiate_signal(&self, id: InternalVariableId) -> &VariableDefined {
+		self.intermiediate_module_signals.get(&id).unwrap()
+	}
+	pub fn define_intermidiate_signal(&mut self, var: Variable) -> miette::Result<InternalVariableId> {
+		let id = InternalVariableId::new(self.variable_counter);
+		self.variable_counter += 1;
+		let defined = VariableDefined { var, id };
+		self.intermiediate_module_signals.insert(id, defined);
+		Ok(id)
 	}
 	pub fn declare_variable(
 		&mut self,

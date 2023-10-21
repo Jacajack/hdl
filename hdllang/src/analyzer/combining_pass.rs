@@ -874,54 +874,69 @@ impl ModuleImplementationStatement {
 								api_scope.clone(),
 								&ctx.id_table.get_value(&inst.instance_name),
 							);
-							let clk_id = reg.clk.register(
+							let clk_var = &local_ctx
+								.scope
+								.get_intermidiate_signal(reg.clk).var;
+							let data_var = &local_ctx
+								.scope
+								.get_intermidiate_signal(reg.data).var;
+							let next_var = &local_ctx
+								.scope
+								.get_intermidiate_signal(reg.next).var;
+							let en_var = &local_ctx
+								.scope
+								.get_intermidiate_signal(reg.enable).var;
+							let nreset_var = &local_ctx
+								.scope
+								.get_intermidiate_signal(reg.nreset).var;
+							let clk_id = clk_var.register(
 								ctx.nc_table,
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
 								Some(&local_ctx.nc_widths),
 								api_scope
-									.new_signal(ctx.id_table.get_by_key(&reg.clk.name).unwrap().as_str())
+									.new_signal(ctx.id_table.get_by_key(&clk_var.name).unwrap().as_str())
 									.unwrap(),
 							)?;
-							let next_id = reg.next.register(
+							let next_id = next_var.register(
 								ctx.nc_table,
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
 								Some(&local_ctx.nc_widths),
 								api_scope
-									.new_signal(ctx.id_table.get_by_key(&reg.next.name).unwrap().as_str())
+									.new_signal(ctx.id_table.get_by_key(&next_var.name).unwrap().as_str())
 									.unwrap(),
 							)?;
-							let enable_id = reg.enable.register(
+							let enable_id = en_var.register(
 								ctx.nc_table,
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
 								Some(&local_ctx.nc_widths),
 								api_scope
-									.new_signal(ctx.id_table.get_by_key(&reg.enable.name).unwrap().as_str())
+									.new_signal(ctx.id_table.get_by_key(&en_var.name).unwrap().as_str())
 									.unwrap(),
 							)?;
-							let reset_id = reg.nreset.register(
+							let reset_id = nreset_var.register(
 								ctx.nc_table,
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
 								Some(&local_ctx.nc_widths),
 								api_scope
-									.new_signal(ctx.id_table.get_by_key(&reg.nreset.name).unwrap().as_str())
+									.new_signal(ctx.id_table.get_by_key(&nreset_var.name).unwrap().as_str())
 									.unwrap(),
 							)?;
-							let data_id = reg.data.register(
+							let data_id = data_var.register(
 								ctx.nc_table,
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
 								Some(&local_ctx.nc_widths),
 								api_scope
-									.new_signal(ctx.id_table.get_by_key(&reg.data.name).unwrap().as_str())
+									.new_signal(ctx.id_table.get_by_key(&data_var.name).unwrap().as_str())
 									.unwrap(),
 							)?;
 							for stmt in &inst.port_bind {
@@ -1642,31 +1657,31 @@ fn create_register(
 	let r = RegisterInstance {
 		name: inst_stmt.instance_name,
 		location: inst_stmt.location,
-		next: Box::new(Variable::new(
+		next: local_ctx.scope.define_intermidiate_signal(Variable::new(
 			next_name,
 			next_stmt.unwrap().location(),
 			VariableKind::Signal(next_type),
-		)),
-		clk: Box::new(Variable::new(
+		))?,
+		clk: local_ctx.scope.define_intermidiate_signal(Variable::new(
 			clk_name,
 			next_stmt.unwrap().location(),
 			VariableKind::Signal(clk_type),
-		)),
-		nreset: Box::new(Variable::new(
+		))?,
+		nreset: local_ctx.scope.define_intermidiate_signal(Variable::new(
 			nreset_name,
 			next_stmt.unwrap().location(),
 			VariableKind::Signal(nreset_type),
-		)),
-		data: Box::new(Variable::new(
+		))?,
+		data: local_ctx.scope.define_intermidiate_signal(Variable::new(
 			data_name,
 			next_stmt.unwrap().location(),
 			VariableKind::Signal(data_type),
-		)),
-		enable: Box::new(Variable::new(
+		))?,
+		enable: local_ctx.scope.define_intermidiate_signal(Variable::new(
 			en_name,
 			next_stmt.unwrap().location(),
 			VariableKind::Signal(en_type),
-		)),
+		))?,
 	};
 	Ok(r)
 }
