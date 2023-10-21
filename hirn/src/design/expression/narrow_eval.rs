@@ -12,8 +12,8 @@ pub trait NarrowEval {
 impl NarrowEval for BinaryExpression {
 	fn narrow_eval(&self, ctx: &EvalContext) -> Result<i64, EvalError> {
 		use BinaryOp::*;
-		let lhs = self.lhs.const_narrow_eval()?;
-		let rhs = self.rhs.const_narrow_eval()?;
+		let lhs = self.lhs.narrow_eval(ctx)?;
+		let rhs = self.rhs.narrow_eval(ctx)?;
 
 		match self.op {
 			Add => Ok(lhs + rhs),
