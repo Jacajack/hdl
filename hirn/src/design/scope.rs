@@ -1,8 +1,9 @@
 use std::collections::{HashSet, HashMap};
 
+use super::expression::NarrowEval;
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::SignalBuilder;
-use super::{DesignError, DesignHandle, HasComment, ModuleId, RegisterBuilder, ScopeId, SignalId, EvalContext};
+use super::{DesignError, DesignHandle, HasComment, ModuleId, RegisterBuilder, ScopeId, SignalId, EvalContext, EvaluatesType, WidthExpression};
 use super::{Expression, ModuleHandle};
 
 /// Scope associated with an if statement
@@ -125,14 +126,6 @@ impl Scope {
 		}
 	}
 
-	/// Checks if this scope is in a design
-	fn check_in_design(&self) -> Result<(), DesignError> {
-		if self.id.is_null() {
-			return Err(DesignError::NotInDesign);
-		}
-		Ok(())
-	}
-
 	/// Adds a new conditional sub-scope
 	fn add_conditional_scope(
 		&mut self,
@@ -236,8 +229,27 @@ impl ScopeHandle {
 		child
 	}
 
+	/// Validates if condition to be generic boolean
+	fn validate_if_condition(&self, condition: &Expression) -> Result<(), DesignError> {
+		let eval_ctx = EvalContext::without_assumptions(self.design().clone());
+		condition.validate(&eval_ctx, self)?;
+		let cond_type = condition.eval_type(&eval_ctx)?;
+		if !cond_type.is_generic() || !cond_type.is_unsigned() {
+			return Err(DesignError::InvalidIfCondition);
+		}
+
+		match condition.width()?.narrow_eval(&eval_ctx).ok() {
+			Some(1) => {},
+			Some(_) => return Err(DesignError::InvalidIfCondition),
+			None => {},
+		}
+
+		Ok(())
+	}
+
 	/// Creates a new if statement in this scope
 	pub fn if_scope(&mut self, condition: Expression) -> Result<ScopeHandle, DesignError> {
+		self.validate_if_condition(&condition)?;
 		let child = self.new_subscope()?;
 		this_scope!(self)
 			.add_conditional_scope(condition, child.id(), None)
@@ -247,6 +259,7 @@ impl ScopeHandle {
 
 	/// Creates a new if statement with else clause in this scope
 	pub fn if_else_scope(&mut self, condition: Expression) -> Result<(ScopeHandle, ScopeHandle), DesignError> {
+		self.validate_if_condition(&condition)?;
 		let child = self.new_subscope()?;
 		let else_scope = self.new_subscope()?;
 		this_scope!(self)
@@ -263,6 +276,18 @@ impl ScopeHandle {
 		from: Expression,
 		to: Expression,
 	) -> Result<(ScopeHandle, SignalId), DesignError> {
+		let eval_ctx = EvalContext::without_assumptions(self.design().clone());
+		from.validate(&eval_ctx, self)?;
+		to.validate(&eval_ctx, self)?;
+		let from_type = from.eval_type(&eval_ctx)?;
+		let to_type = from.eval_type(&eval_ctx)?;
+		if !from_type.is_generic()
+			|| !to_type.is_generic()
+			|| !from_type.is_signed()
+			|| !to_type.is_signed() {
+			return Err(DesignError::InvalidLoopRange);
+		}
+
 		let mut child = self.new_subscope()?;
 
 		let iter_var = child.new_signal(iter_name)?

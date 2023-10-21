@@ -374,6 +374,12 @@ pub enum DesignError {
 
 	#[error("Invalid array dimension (must be positive)")]
 	InvalidArrayDimension,
+
+	#[error("Loop range bounds must be signed and generic")]
+	InvalidLoopRange,
+
+	#[error("If condition must be generic boolean (1-bit unsigned)")]
+	InvalidIfCondition,
 }
 
 #[cfg(test)]
