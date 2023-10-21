@@ -363,12 +363,6 @@ pub enum DesignError {
 		interface_type: EvalType,
 	},
 
-	#[error("Array dimensions must be unsigned expressions")]
-	SignedArrayDimension,
-
-	#[error("Signal width must be an unsigned expression")]
-	SignedSignalWidth,
-
 	#[error("Signal width must be a constant expression")]
 	VariableSignalWidth,
 

@@ -23,9 +23,6 @@ pub enum ExpressionError {
 	#[error("Cannot cast expression to generic sensitivity")]
 	GenericCast,
 
-	#[error("Slice indices must be unsigned values")]
-	SignedSliceIndex,
-
 	#[error("Non-boolean condition")]
 	NonBooleanCondition,
 
@@ -37,9 +34,6 @@ pub enum ExpressionError {
 
 	#[error("Unsigned numeric negation")]
 	UnsignedNegation,
-
-	#[error("Bitwise operators require unsigned operands")]
-	SignedBitwise,
 
 	#[error("Mixed signedness in arithmetic")]
 	MixedSignedness,
@@ -89,15 +83,8 @@ impl UnaryExpression {
 				}
 			},
 
-			// Bitwise NOT operator requires an unsigned operand
-			BitwiseNot => {
-				if expr_type.is_signed() {
-					return Err(ExpressionError::SignedBitwise.into());
-				}
-			},
-
 			// no checks for these guys
-			ReductionAnd | ReductionOr | ReductionXor => {}, 
+			BitwiseNot | ReductionAnd | ReductionOr | ReductionXor => {}, 
 		}
 
 		Ok(())
@@ -134,12 +121,8 @@ impl BinaryExpression {
 				}
 			}
 
-			// Bitwise operators require unsigned operands with matching width
+			// Bitwise operators require matching operand width
 			BitwiseAnd | BitwiseOr | BitwiseXor => {
-				if lhs_type.is_signed() || rhs_type.is_signed() {
-					return Err(ExpressionError::SignedBitwise.into());
-				}
-
 				if matches!(does_width_match(), Some(false)) {
 					return Err(ExpressionError::WidthMismatch.into());
 				}
@@ -178,16 +161,16 @@ impl BuiltinOp {
 	fn shallow_validate(&self, ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
 		use BuiltinOp::*;
 		match self {
-			// Extension width must be nonzero, generic and unsigned
+			// Extension width must be nonzero and generic
 			ZeroExtend{expr: _, width} | SignExtend{expr: _, width} => {
 				let width_type = width.eval_type(ctx)?;
 				let width_val = width.narrow_eval(ctx).ok();
-				match (width_type.is_signed(), width_type.is_generic(), width_val) {
-					(false, _, _) | (_, false, _) | (_, _, Some(0)) => {
-						return Err(ExpressionError::InvalidExtensionWidth.into());
-					}
-					(_, _, _) => {}
-				}
+				// match (width_type.is_signed(), width_type.is_generic(), width_val) {
+				// 	(false, _, _) | (_, false, _) | (_, _, Some(0)) => {
+				// 		return Err(ExpressionError::InvalidExtensionWidth.into());
+				// 	}
+				// 	(_, _, _) => {}
+				// }
 			}
 
 			BusSelect{expr: _, msb, lsb} => {
@@ -316,13 +299,9 @@ fn shallow_validate_slice(slice: &SignalSlice, ctx: &EvalContext, scope: &ScopeH
 		return Err(ExpressionError::SliceRankMismatch.into());
 	}
 
-	// Indices must be unsigned & generic
+	// Indices must be generic
 	for index in &slice.indices {
 		let index_type = index.eval_type(ctx)?;
-		if index_type.is_signed() {
-			return Err(ExpressionError::SignedSliceIndex.into());
-		}
-
 		if !index_type.is_generic() {
 			return Err(ExpressionError::VariableSliceIndex.into())
 		}
