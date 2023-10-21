@@ -52,6 +52,18 @@ pub enum ExpressionError {
 
 	#[error("Signal array has different rank than the slice reffering to it")]
 	SliceRankMismatch,
+
+	#[error("Empty join list")]
+	EmptyJoinList,
+
+	#[error("Replication count must be unsigned, generic and nonzero")]
+	InvalidReplicationCount,
+
+	#[error("Extension width must be unsigned, generic and nonzero")]
+	InvalidExtensionWidth,
+
+	#[error("Invalid bit index")]
+	InvalidBitIndex,
 }
 
 impl UnaryExpression {
@@ -163,8 +175,69 @@ impl BinaryExpression {
 }
 
 impl BuiltinOp {
-	fn shallow_validate(&self, _ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
-		Ok(()) // FIXME
+	fn shallow_validate(&self, ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
+		use BuiltinOp::*;
+		match self {
+			// Extension width must be nonzero, generic and unsigned
+			ZeroExtend{expr: _, width} | SignExtend{expr: _, width} => {
+				let width_type = width.eval_type(ctx)?;
+				let width_val = width.narrow_eval(ctx).ok();
+				match (width_type.is_signed(), width_type.is_generic(), width_val) {
+					(false, _, _) | (_, false, _) | (_, _, Some(0)) => {
+						return Err(ExpressionError::InvalidExtensionWidth.into());
+					}
+					(_, _, _) => {}
+				}
+			}
+
+			BusSelect{expr: _, msb, lsb} => {
+				let lsb_type = lsb.eval_type(ctx)?;
+				let msb_type = msb.eval_type(ctx)?;
+
+				if !lsb_type.is_generic() || lsb_type.is_signed() {
+					return Err(ExpressionError::InvalidBitIndex.into());
+				}
+
+				if !msb_type.is_generic() || msb_type.is_signed() {
+					return Err(ExpressionError::InvalidBitIndex.into());
+				}
+
+				// TODO we could do static bounds checking here
+			}
+
+			BitSelect{expr: _, index} => {
+				let index_type = index.eval_type(ctx)?;
+
+				if !index_type.is_generic() || index_type.is_signed() {
+					return Err(ExpressionError::InvalidBitIndex.into());
+				}
+		
+				// TODO we could do static bounds checking here
+			}
+
+			// Count must be unsigned and generic and nonzero
+			Replicate{expr: _, count} => {
+				let count_type = count.eval_type(ctx)?;
+				let count_val = count.narrow_eval(ctx).ok();
+				match (count_type.is_signed(), count_type.is_generic(), count_val) {
+					(false, _, _) | (_, false, _) | (_, _, Some(0)) => {
+						return Err(ExpressionError::InvalidReplicationCount.into());
+					}
+					(_, _, _) => {}
+				}
+			}
+
+			// Join list must not be empty
+			Join(exprs) => {
+				if exprs.is_empty() {
+					return Err(ExpressionError::EmptyJoinList.into());
+				}
+			}
+
+			Width(_) => {} // no action needed
+		}
+		
+		Ok(())
 	}
 }
 
@@ -254,6 +327,8 @@ fn shallow_validate_slice(slice: &SignalSlice, ctx: &EvalContext, scope: &ScopeH
 			return Err(ExpressionError::VariableSliceIndex.into())
 		}
 	}
+
+	// TODO we could potentially check for static out-of-bounds access here
 
 	Ok(())
 }
