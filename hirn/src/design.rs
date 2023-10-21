@@ -16,7 +16,9 @@ pub use functional_blocks::{
 };
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
 pub use scope::{Scope, ScopeHandle};
-pub use signal::{Signal, SignalBuilder, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice, HasSignedness, HasSensitivity};
+pub use signal::{
+	HasSensitivity, HasSignedness, Signal, SignalBuilder, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice,
+};
 
 use std::cell::RefCell;
 use std::collections::HashMap;

@@ -1,3 +1,4 @@
+use super::expression::NarrowEval;
 use super::DesignError;
 use super::DesignHandle;
 use super::EvalContext;
@@ -6,7 +7,6 @@ use super::Expression;
 use super::HasComment;
 use super::ScopeId;
 use super::SignalId;
-use super::expression::NarrowEval;
 use std::collections::HashSet;
 
 /// Potential TODO: Logic type which cannot be used in arithmetic
@@ -174,7 +174,6 @@ pub trait HasSensitivity {
 	fn is_generic(&self) -> bool {
 		matches!(self.sensitivity(), SignalSensitivity::Generic)
 	}
-
 }
 
 impl HasSensitivity for SignalSensitivity {
@@ -236,8 +235,6 @@ impl SignalSensitivity {
 			_ => false,
 		}
 	}
-
-	
 }
 
 /// Determines which part of a signal (or signal array) is accessed
@@ -522,12 +519,17 @@ impl SignalBuilder {
 		{
 			// Note: this cannot be borrowed while we call validation and so on.
 			let design_handle = self.design.borrow();
-			scope = design_handle.get_scope_handle(self.scope).expect("Scope must be in design");
+			scope = design_handle
+				.get_scope_handle(self.scope)
+				.expect("Scope must be in design");
 		}
-		
+
 		// Validate width expression (generic)
 		let eval_ctx = EvalContext::without_assumptions(self.design.clone());
-		let class = self.class.as_ref().expect("signal class must be specified before validation");
+		let class = self
+			.class
+			.as_ref()
+			.expect("signal class must be specified before validation");
 		let width_expr = class.width();
 		width_expr.validate_no_assumptions(&scope)?;
 		let width_type = width_expr.eval_type(&eval_ctx)?;

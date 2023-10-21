@@ -1,19 +1,25 @@
-use std::{collections::HashSet, rc::Rc, cell::RefCell};
+use std::{cell::RefCell, collections::HashSet, rc::Rc};
 
 use thiserror::Error;
 
-use crate::design::{SignalId, HasSignedness, ScopeHandle, SignalSensitivity, HasSensitivity, SignalSlice, SignalSignedness, UnaryOp, BinaryOp};
+use crate::design::{
+	BinaryOp, HasSensitivity, HasSignedness, ScopeHandle, SignalId, SignalSensitivity, SignalSignedness, SignalSlice,
+	UnaryOp,
+};
 
-use super::{Expression, EvalContext, UnaryExpression, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvaluatesType, EvalError, WidthExpression, NarrowEval};
+use super::{
+	BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalContext, EvalError, EvaluatesType,
+	Expression, NarrowEval, UnaryExpression, WidthExpression,
+};
 
 #[derive(Clone, Debug, Copy, Error)]
 pub enum ExpressionError {
 	#[error("Signedness mismatch in the expression")]
 	SignednessMismatch,
-	
+
 	#[error("Width mismatch in the expression")]
 	WidthMismatch,
-	
+
 	#[error("Expression references signal not accessible within the specified scope")]
 	ScopeError,
 
@@ -78,13 +84,15 @@ impl UnaryExpression {
 			LogicalNot => {
 				match (expr_type.is_unsigned(), expr_width) {
 					(true, Some(1)) => {}, // cool
-					(true, None) => {}, // you can't always get what you want
-					(true, Some(_)) | (false, _) => {return Err(ExpressionError::NonBooleanLogic.into());}, 
+					(true, None) => {},    // you can't always get what you want
+					(true, Some(_)) | (false, _) => {
+						return Err(ExpressionError::NonBooleanLogic.into());
+					},
 				}
 			},
 
 			// no checks for these guys
-			BitwiseNot | ReductionAnd | ReductionOr | ReductionXor => {}, 
+			BitwiseNot | ReductionAnd | ReductionOr | ReductionXor => {},
 		}
 
 		Ok(())
@@ -101,7 +109,7 @@ impl BinaryExpression {
 		let does_width_match = || {
 			match (lhs_width, rhs_width) {
 				(Some(lw), Some(rw)) => Some(lw == rw),
-				(_, _) => None, // damn generics :((
+				(..) => None, // damn generics :((
 			}
 		};
 
@@ -112,21 +120,21 @@ impl BinaryExpression {
 				if lhs_type.is_signed() != rhs_type.is_signed() {
 					return Err(ExpressionError::MixedSignedness.into());
 				}
-			}
+			},
 
 			// Shift operators require unsigned RHS operand
 			ShiftLeft | ShiftRight => {
 				if rhs_type.is_signed() {
 					return Err(ExpressionError::SignedShiftWidth.into());
 				}
-			}
+			},
 
 			// Bitwise operators require matching operand width
 			BitwiseAnd | BitwiseOr | BitwiseXor => {
 				if matches!(does_width_match(), Some(false)) {
 					return Err(ExpressionError::WidthMismatch.into());
 				}
-			}
+			},
 
 			// Logical operators require boolean operands
 			LogicalAnd | LogicalOr => {
@@ -137,9 +145,9 @@ impl BinaryExpression {
 				match (lhs_width, rhs_width) {
 					(Some(1), Some(1)) => {}, // okay cool
 					(Some(_), Some(_)) => return Err(ExpressionError::NonBooleanLogic.into()),
-					(_, _) => {}, // life is hard sometimes
+					(..) => {}, // life is hard sometimes
 				}
-			}
+			},
 
 			// Relational operators require matching signedness and width
 			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual | Max | Min => {
@@ -150,7 +158,7 @@ impl BinaryExpression {
 				if matches!(does_width_match(), Some(false)) {
 					return Err(ExpressionError::WidthMismatch.into());
 				}
-			}
+			},
 		}
 
 		Ok(())
@@ -162,17 +170,17 @@ impl BuiltinOp {
 		use BuiltinOp::*;
 		match self {
 			// Extension width must be nonzero and generic
-			ZeroExtend{expr: _, width} | SignExtend{expr: _, width} => {
+			ZeroExtend { expr: _, width } | SignExtend { expr: _, width } => {
 				let width_type = width.eval_type(ctx)?;
 				let width_val = width.narrow_eval(ctx).ok();
 				match (width_type.is_generic(), width_val) {
 					(false, _) => return Err(ExpressionError::InvalidExtensionWidth.into()),
 					(_, Some(w)) if w < 1 => return Err(ExpressionError::InvalidExtensionWidth.into()),
-					(_, _) => {}
+					(..) => {},
 				}
-			}
+			},
 
-			BusSelect{expr, msb, lsb} => {
+			BusSelect { expr, msb, lsb } => {
 				let lsb_type = lsb.eval_type(ctx)?;
 				let msb_type = msb.eval_type(ctx)?;
 
@@ -194,57 +202,57 @@ impl BuiltinOp {
 					(_, Some(lsb), _) if lsb < 0 => true,
 					(_, _, Some(msb)) if msb < 0 => true,
 					(_, Some(lsb), Some(msb)) if msb < lsb => true,
-					(_, _, _) => false,
+					(..) => false,
 				};
 
 				if index_err {
 					return Err(ExpressionError::InvalidBitIndex.into());
 				}
-			}
+			},
 
-			BitSelect{expr, index} => {
+			BitSelect { expr, index } => {
 				let index_type = index.eval_type(ctx)?;
 
 				if !index_type.is_generic() {
 					return Err(ExpressionError::InvalidBitIndex.into());
 				}
-		
+
 				let index_value = index.narrow_eval(ctx).ok();
 				let width = expr.width()?.narrow_eval(ctx).ok();
 
 				let index_err = match (width, index_value) {
 					(_, Some(i)) if i < 0 => true,
 					(Some(w), Some(i)) if i >= w => true,
-					(_, _) => false,
+					(..) => false,
 				};
 
 				if index_err {
 					return Err(ExpressionError::InvalidBitIndex.into());
 				}
-			}
+			},
 
 			// Count must be unsigned and generic and nonzero
-			Replicate{expr: _, count} => {
+			Replicate { expr: _, count } => {
 				let count_type = count.eval_type(ctx)?;
 				let count_val = count.narrow_eval(ctx).ok();
 				match (count_type.is_signed(), count_type.is_generic(), count_val) {
-					(false, _, _) | (_, false, _) | (_, _, Some(0)) => {
+					(false, ..) | (_, false, _) | (_, _, Some(0)) => {
 						return Err(ExpressionError::InvalidReplicationCount.into());
-					}
-					(_, _, _) => {}
+					},
+					(..) => {},
 				}
-			}
+			},
 
 			// Join list must not be empty
 			Join(exprs) => {
 				if exprs.is_empty() {
 					return Err(ExpressionError::EmptyJoinList.into());
 				}
-			}
+			},
 
-			Width(_) => {} // no action needed
+			Width(_) => {}, // no action needed
 		}
-		
+
 		Ok(())
 	}
 }
@@ -295,18 +303,15 @@ impl ConditionalExpression {
 		// All condition expressions must be boolean (i.e. 1-bit unsigned)
 		for b in self.branches() {
 			let cond_type = b.condition().eval_type(ctx)?;
-			
-			let cond_width = 
-				b.condition()
-				.width()?
-				.narrow_eval(ctx);
+
+			let cond_width = b.condition().width()?.narrow_eval(ctx);
 
 			use SignalSignedness::*;
 			match (cond_type.signedness, cond_width) {
 				(Signed, _) => return Err(ExpressionError::NonBooleanCondition.into()),
 				(Unsigned, Ok(1)) => {},
 				(Unsigned, Err(_)) => {}, // could not evaluate width but whatcha gonna do (it's probably generic)
-				(_, Ok(_)) => return Err(ExpressionError::NonBooleanCondition.into())
+				(_, Ok(_)) => return Err(ExpressionError::NonBooleanCondition.into()),
 			}
 		}
 
@@ -328,7 +333,7 @@ fn shallow_validate_slice(slice: &SignalSlice, ctx: &EvalContext, scope: &ScopeH
 	for index in &slice.indices {
 		let index_type = index.eval_type(ctx)?;
 		if !index_type.is_generic() {
-			return Err(ExpressionError::VariableSliceIndex.into())
+			return Err(ExpressionError::VariableSliceIndex.into());
 		}
 	}
 
@@ -349,7 +354,8 @@ impl Expression {
 				_ => {},
 			};
 			Ok(())
-		}).unwrap();
+		})
+		.unwrap();
 		vars.take()
 	}
 
@@ -361,7 +367,7 @@ impl Expression {
 			let expr_variables = self.get_variables();
 			let scope_variables = scope.visible_signals();
 			if !expr_variables.is_subset(&scope_variables) {
-				return Err(ExpressionError::ScopeError.into())
+				return Err(ExpressionError::ScopeError.into());
 			}
 
 			/// Peform shallow validation of each expresion sub-type (i.e. non-recursive)
@@ -380,17 +386,14 @@ impl Expression {
 
 	/// Validate the expression without making any assumptions regarding values of signals
 	pub fn validate_no_assumptions(&self, scope: &ScopeHandle) -> Result<(), EvalError> {
-		self.validate(
-			&EvalContext::without_assumptions(scope.design()), 
-			scope
-		)
+		self.validate(&EvalContext::without_assumptions(scope.design()), scope)
 	}
 }
 
 #[cfg(test)]
 mod test {
-	use crate::design::{Design, DesignError};
 	use super::*;
+	use crate::design::{Design, DesignError};
 
 	#[test]
 	fn basic_scope_rule_test() -> Result<(), DesignError> {
@@ -398,16 +401,10 @@ mod test {
 		let m1 = d.new_module("m1")?;
 		let m2 = d.new_module("m2")?;
 
-		let sig_foo = m1.scope().new_signal("foo")?
-			.generic()
-			.unsigned(16u32.into())
-			.build()?;
+		let sig_foo = m1.scope().new_signal("foo")?.generic().unsigned(16u32.into()).build()?;
 
-		let sig_bar = m2.scope().new_signal("bar")?
-			.generic()
-			.unsigned(16u32.into())
-			.build()?;
-		
+		let sig_bar = m2.scope().new_signal("bar")?.generic().unsigned(16u32.into()).build()?;
+
 		// Should fail cause bar is not accessible in m1
 		let assign_result = m1.scope().assign(sig_foo.into(), sig_bar.into());
 		assert!(assign_result.is_err());
@@ -419,40 +416,32 @@ mod test {
 		let mut d = Design::new();
 		let m1 = d.new_module("m1")?;
 
-		let sig_outer_foo = m1.scope().new_signal("foo")?
-			.generic()
-			.unsigned(16u32.into())
-			.build()?;
+		let sig_outer_foo = m1.scope().new_signal("foo")?.generic().unsigned(16u32.into()).build()?;
 
 		let mut sc_inner = m1.scope().new_subscope()?;
-		let sig_inner_foo = sc_inner.new_signal("foo")?
-			.generic()
-			.unsigned(16u32.into())
-			.build()?;
+		let sig_inner_foo = sc_inner.new_signal("foo")?.generic().unsigned(16u32.into()).build()?;
 
 		// Cannot access inner foo from the outer scope
 		assert!(matches!(
 			m1.scope().assign(sig_inner_foo.into(), 32u32.into()),
-			Err(DesignError::EvalError(EvalError::InvalidExpression(ExpressionError::ScopeError)))
+			Err(DesignError::EvalError(EvalError::InvalidExpression(
+				ExpressionError::ScopeError
+			)))
 		));
 
 		// Cannot access outer foo from the inner scope due to shadowing
 		assert!(matches!(
 			sc_inner.assign(sig_outer_foo.into(), 32u32.into()),
-			Err(DesignError::EvalError(EvalError::InvalidExpression(ExpressionError::ScopeError)))
+			Err(DesignError::EvalError(EvalError::InvalidExpression(
+				ExpressionError::ScopeError
+			)))
 		));
 
 		// Can access inner foo in inner scope
-		assert!(matches!(
-			sc_inner.assign(sig_inner_foo.into(), 32u32.into()),
-			Ok(_)
-		));
+		assert!(matches!(sc_inner.assign(sig_inner_foo.into(), 32u32.into()), Ok(_)));
 
 		// Can access outer foo in inner scope
-		assert!(matches!(
-			m1.scope().assign(sig_outer_foo.into(), 32u32.into()),
-			Ok(_)
-		));
+		assert!(matches!(m1.scope().assign(sig_outer_foo.into(), 32u32.into()), Ok(_)));
 
 		Ok(())
 	}
@@ -462,37 +451,34 @@ mod test {
 		let mut d = Design::new();
 		let m1 = d.new_module("m1")?;
 
-		let sig_foo = m1.scope().new_signal("foo")?
+		let sig_foo = m1
+			.scope()
+			.new_signal("foo")?
 			.constant()
 			.unsigned(16u32.into())
 			.build()?;
 
-		let sig_wire = m1.scope().new_signal("w")?
-			.constant()
-			.wire()
-			.build()?;
+		let sig_wire = m1.scope().new_signal("w")?.constant().wire().build()?;
 
-		m1.scope().assign(
-			sig_wire.into(),
-			Expression::from(sig_foo).bit_select(0.into())
-		)?;
+		m1.scope()
+			.assign(sig_wire.into(), Expression::from(sig_foo).bit_select(0.into()))?;
 
-		m1.scope().assign(
-			sig_wire.into(),
-			Expression::from(sig_foo).bit_select(1.into())
-		)?;
+		m1.scope()
+			.assign(sig_wire.into(), Expression::from(sig_foo).bit_select(1.into()))?;
 
-		m1.scope().assign(
-			sig_wire.into(),
-			Expression::from(sig_foo).bit_select(15.into())
-		)?;
+		m1.scope()
+			.assign(sig_wire.into(), Expression::from(sig_foo).bit_select(15.into()))?;
 
-		let err = m1.scope().assign(
-			sig_wire.into(),
-			Expression::from(sig_foo).bit_select(16.into())
-		);
+		let err = m1
+			.scope()
+			.assign(sig_wire.into(), Expression::from(sig_foo).bit_select(16.into()));
 
-		assert!(matches!(err, Err(DesignError::EvalError(EvalError::InvalidExpression(ExpressionError::InvalidBitIndex)))));
+		assert!(matches!(
+			err,
+			Err(DesignError::EvalError(EvalError::InvalidExpression(
+				ExpressionError::InvalidBitIndex
+			)))
+		));
 		Ok(())
 	}
 }

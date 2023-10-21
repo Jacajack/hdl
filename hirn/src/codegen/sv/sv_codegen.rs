@@ -1,12 +1,12 @@
 use crate::codegen::{Codegen, CodegenError};
-use crate::design::{Register, ScopeHandle, EvaluatesType, EvalContext, DesignHandle};
+use crate::design::{DesignHandle, EvalContext, EvaluatesType, Register, ScopeHandle};
 use crate::{
 	design::BlockInstance,
 	design::InterfaceSignal,
 	design::SignalSignedness,
 	design::{
-		Design, Expression, HasComment, HasInstanceName, ModuleHandle, ModuleId, ModuleInstance, ScopeId,
-		SignalDirection, SignalId, SignalSensitivity, HasSignedness, HasSensitivity
+		Design, Expression, HasComment, HasInstanceName, HasSensitivity, HasSignedness, ModuleHandle, ModuleId,
+		ModuleInstance, ScopeId, SignalDirection, SignalId, SignalSensitivity,
 	},
 };
 use log::debug;
@@ -32,7 +32,9 @@ macro_rules! emit {
 }
 
 fn expr_sub_one(design: DesignHandle, expr: &Expression) -> Expression {
-	let expr_type = expr.eval_type(&EvalContext::without_assumptions(design)).expect("All variables must be in design");
+	let expr_type = expr
+		.eval_type(&EvalContext::without_assumptions(design))
+		.expect("All variables must be in design");
 	if expr_type.is_signed() {
 		(expr.clone() - 1i64.into()).into()
 	}

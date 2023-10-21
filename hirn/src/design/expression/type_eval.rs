@@ -95,7 +95,7 @@ impl EvaluatesType for UnaryExpression {
 			sensitivity: match op_type.sensitivity {
 				Comb(s) => Comb(s),
 				Sync(s) => Comb(s),
-				other => other
+				other => other,
 			},
 		})
 	}
@@ -107,25 +107,21 @@ impl EvaluatesType for BuiltinOp {
 		Ok(match self {
 			BitSelect { expr, .. } => expr.eval_type(ctx)?,
 			BusSelect { expr, .. } => expr.eval_type(ctx)?,
-			ZeroExtend { expr, .. } => {
-				EvalType {
-					signedness: SignalSignedness::Unsigned,
-					sensitivity: expr.eval_type(ctx)?.sensitivity,
-				}
-			}
-			SignExtend { expr, .. } => {
-				EvalType {
-					signedness: SignalSignedness::Signed,
-					sensitivity: expr.eval_type(ctx)?.sensitivity,
-				}
-			}
+			ZeroExtend { expr, .. } => EvalType {
+				signedness: SignalSignedness::Unsigned,
+				sensitivity: expr.eval_type(ctx)?.sensitivity,
+			},
+			SignExtend { expr, .. } => EvalType {
+				signedness: SignalSignedness::Signed,
+				sensitivity: expr.eval_type(ctx)?.sensitivity,
+			},
 			Replicate { expr, .. } => {
 				let inner_type = expr.eval_type(ctx)?;
 				EvalType {
 					signedness: SignalSignedness::Unsigned,
 					sensitivity: inner_type.sensitivity,
 				}
-			}
+			},
 			Join(exprs) => {
 				let mut sensitivity = SignalSensitivity::Generic;
 

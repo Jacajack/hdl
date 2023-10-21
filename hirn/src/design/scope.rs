@@ -1,9 +1,12 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 
 use super::expression::NarrowEval;
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::SignalBuilder;
-use super::{DesignError, DesignHandle, HasComment, ModuleId, RegisterBuilder, ScopeId, SignalId, HasSignedness, HasSensitivity, EvalContext, EvaluatesType, WidthExpression};
+use super::{
+	DesignError, DesignHandle, EvalContext, EvaluatesType, HasComment, HasSensitivity, HasSignedness, ModuleId,
+	RegisterBuilder, ScopeId, SignalId, WidthExpression,
+};
 use super::{Expression, ModuleHandle};
 
 /// Scope associated with an if statement
@@ -281,10 +284,7 @@ impl ScopeHandle {
 		to.validate(&eval_ctx, self)?;
 		let from_type = from.eval_type(&eval_ctx)?;
 		let to_type = from.eval_type(&eval_ctx)?;
-		if !from_type.is_generic()
-			|| !to_type.is_generic()
-			|| !from_type.is_signed()
-			|| !to_type.is_signed() {
+		if !from_type.is_generic() || !to_type.is_generic() || !from_type.is_signed() || !to_type.is_signed() {
 			return Err(DesignError::InvalidLoopRange);
 		}
 
@@ -317,7 +317,6 @@ impl ScopeHandle {
 		// TODO assert LHS drivable
 		// TODO assert that scope is unconditional relative to the declaration if LSH is generic
 
-
 		// Save the assignment
 		this_scope!(self).assignments.push(Assignment::new(lhs, rhs));
 
@@ -326,7 +325,7 @@ impl ScopeHandle {
 			this_scope!(self).assignments.last_mut().unwrap().comment(comment);
 		}
 
-		Ok(())	
+		Ok(())
 	}
 
 	/// Assigns an expression to a drivable expression
@@ -335,12 +334,7 @@ impl ScopeHandle {
 	}
 
 	/// Assigns an expression to a drivable expression and adds a comment
-	pub fn assign_with_comment(
-		&mut self,
-		lhs: Expression,
-		rhs: Expression,
-		comment: &str,
-	) -> Result<(), DesignError> {
+	pub fn assign_with_comment(&mut self, lhs: Expression, rhs: Expression, comment: &str) -> Result<(), DesignError> {
 		self.assign_impl(lhs, rhs, Some(comment))
 	}
 
@@ -404,30 +398,33 @@ impl ScopeHandle {
 
 		if let Some(parent) = self.parent_handle() {
 			let ext_signals = parent.visible_signals();
-			
+
 			// Create a mapping between external signal names and their IDs
-			let ext_sig_names: HashMap<String, SignalId> = 
-				ext_signals.iter()
+			let ext_sig_names: HashMap<String, SignalId> = ext_signals
+				.iter()
 				.map(|s| {
 					let design = self.design.borrow();
 					let name = design.get_signal(*s).unwrap().name().to_string();
 					(name, *s)
 				})
 				.collect();
-		
+
 			// Internal signal names
-			let int_sig_names: HashSet<String> = signals.iter().map(|s| {
-				let design = self.design.borrow();
-				design.get_signal(*s).unwrap().name().to_string()
-			}).collect();
+			let int_sig_names: HashSet<String> = signals
+				.iter()
+				.map(|s| {
+					let design = self.design.borrow();
+					design.get_signal(*s).unwrap().name().to_string()
+				})
+				.collect();
 
 			// We select signals with names that overlap with names of signals
 			// defined directly in this scope
-			let shadowed_signals: HashSet<SignalId> = 
-				int_sig_names.iter()
+			let shadowed_signals: HashSet<SignalId> = int_sig_names
+				.iter()
 				.filter_map(|name| ext_sig_names.get(name).map(|id| *id))
 				.collect();
-			
+
 			signals.extend(ext_signals.difference(&shadowed_signals));
 		}
 		signals

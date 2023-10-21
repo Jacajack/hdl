@@ -154,14 +154,14 @@ impl NumericConstant {
 	pub fn to_hex_str(&self) -> Result<String, EvalError> {
 		match self.get_error() {
 			Some(e) => Err(e.clone()),
-			None => Ok(format!("{:x}", self.value))
+			None => Ok(format!("{:x}", self.value)),
 		}
 	}
 
 	pub fn to_dec_str(&self) -> Result<String, EvalError> {
 		match self.get_error() {
 			Some(e) => Err(e.clone()),
-			None => Ok(format!("{}", self.value))
+			None => Ok(format!("{}", self.value)),
 		}
 	}
 

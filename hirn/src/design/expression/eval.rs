@@ -1,5 +1,5 @@
-use super::{NumericConstant, SignalId, SignalSensitivity, ExpressionError};
-use crate::design::{DesignHandle, SignalSignedness, HasSignedness, signal::HasSensitivity};
+use super::{ExpressionError, NumericConstant, SignalId, SignalSensitivity};
+use crate::design::{signal::HasSensitivity, DesignHandle, HasSignedness, SignalSignedness};
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -186,7 +186,6 @@ impl EvalType {
 	pub fn can_drive(&self, other: &EvalType) -> bool {
 		self.signedness == other.signedness && self.sensitivity.can_drive(&other.sensitivity)
 	}
-	
 }
 
 impl HasSignedness for EvalType {

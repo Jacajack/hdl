@@ -37,19 +37,18 @@ impl NarrowEval for BuiltinOp {
 						if let Some(design_handle) = ctx.design() {
 							let design = design_handle.borrow();
 							let sig = design.get_signal(slice.signal).expect("signal not in design");
-							return Ok(sig.width().narrow_eval(ctx)?)
+							return Ok(sig.width().narrow_eval(ctx)?);
 						}
 
 						Err(EvalError::NoDesign)
-					}
-						
+					},
+
 					// TODO this code can be used as a fallback if the design is not available
 					// but I don't think that should ever happen?
 					// Signal(ref slice) => Ok(ctx
 					// 	.scalar_signal(slice.signal)
 					// 	.ok_or(EvalError::MissingAssumption(slice.signal.clone()))?
 					// 	.width()? as i64),
-
 					Constant(ref nc) => Ok(nc.width()? as i64), // FIXME nasty cast
 					_ => expr.width()?.narrow_eval(ctx),
 				}
