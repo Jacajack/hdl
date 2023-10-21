@@ -6,7 +6,7 @@ use crate::{
 	design::SignalSignedness,
 	design::{
 		Design, Expression, HasComment, HasInstanceName, ModuleHandle, ModuleId, ModuleInstance, ScopeId,
-		SignalDirection, SignalId, SignalSensitivity,
+		SignalDirection, SignalId, SignalSensitivity, HasSignedness, HasSensitivity
 	},
 };
 use log::debug;

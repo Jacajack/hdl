@@ -3,7 +3,7 @@ use std::collections::{HashSet, HashMap};
 use super::expression::NarrowEval;
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::SignalBuilder;
-use super::{DesignError, DesignHandle, HasComment, ModuleId, RegisterBuilder, ScopeId, SignalId, EvalContext, EvaluatesType, WidthExpression};
+use super::{DesignError, DesignHandle, HasComment, ModuleId, RegisterBuilder, ScopeId, SignalId, HasSignedness, HasSensitivity, EvalContext, EvaluatesType, WidthExpression};
 use super::{Expression, ModuleHandle};
 
 /// Scope associated with an if statement

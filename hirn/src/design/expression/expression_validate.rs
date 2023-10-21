@@ -2,7 +2,7 @@ use std::{collections::HashSet, rc::Rc, cell::RefCell};
 
 use thiserror::Error;
 
-use crate::design::{SignalId, ScopeHandle, SignalSensitivity, SignalSlice, SignalSignedness, UnaryOp, BinaryOp};
+use crate::design::{SignalId, HasSignedness, ScopeHandle, SignalSensitivity, HasSensitivity, SignalSlice, SignalSignedness, UnaryOp, BinaryOp};
 
 use super::{Expression, EvalContext, UnaryExpression, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvaluatesType, EvalError, WidthExpression, NarrowEval};
 

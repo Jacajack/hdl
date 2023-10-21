@@ -29,6 +29,18 @@ impl SignalSignedness {
 	}
 }
 
+pub trait HasSignedness {
+	fn signedness(&self) -> SignalSignedness;
+
+	fn is_signed(&self) -> bool {
+		self.signedness() == SignalSignedness::Signed
+	}
+
+	fn is_unsigned(&self) -> bool {
+		self.signedness() == SignalSignedness::Unsigned
+	}
+}
+
 /// Determines representation of a signal
 #[derive(Clone, Debug)]
 pub struct SignalClass {
@@ -73,13 +85,11 @@ impl SignalClass {
 	pub fn is_wire(&self) -> bool {
 		self.is_wire
 	}
+}
 
-	pub fn is_signed(&self) -> bool {
-		self.signedness == SignalSignedness::Signed
-	}
-
-	pub fn is_unsigned(&self) -> bool {
-		self.signedness == SignalSignedness::Unsigned
+impl HasSignedness for SignalClass {
+	fn signedness(&self) -> SignalSignedness {
+		self.signedness
 	}
 }
 
@@ -138,6 +148,41 @@ pub enum SignalSensitivity {
 	Generic,
 }
 
+pub trait HasSensitivity {
+	fn sensitivity(&self) -> &SignalSensitivity;
+
+	fn is_async(&self) -> bool {
+		matches!(self.sensitivity(), SignalSensitivity::Async)
+	}
+
+	fn is_comb(&self) -> bool {
+		matches!(self.sensitivity(), SignalSensitivity::Comb(_))
+	}
+
+	fn is_sync(&self) -> bool {
+		matches!(self.sensitivity(), SignalSensitivity::Sync(_))
+	}
+
+	fn is_clock(&self) -> bool {
+		matches!(self.sensitivity(), SignalSensitivity::Clock)
+	}
+
+	fn is_const(&self) -> bool {
+		matches!(self.sensitivity(), SignalSensitivity::Const)
+	}
+
+	fn is_generic(&self) -> bool {
+		matches!(self.sensitivity(), SignalSensitivity::Generic)
+	}
+
+}
+
+impl HasSensitivity for SignalSensitivity {
+	fn sensitivity(&self) -> &SignalSensitivity {
+		self
+	}
+}
+
 impl SignalSensitivity {
 	/// Determines sensitivity of a signal resulting form combining two signals
 	/// with combinational logic
@@ -192,29 +237,7 @@ impl SignalSensitivity {
 		}
 	}
 
-	pub fn is_async(&self) -> bool {
-		matches!(self, SignalSensitivity::Async)
-	}
-
-	pub fn is_comb(&self) -> bool {
-		matches!(self, SignalSensitivity::Comb(_))
-	}
-
-	pub fn is_sync(&self) -> bool {
-		matches!(self, SignalSensitivity::Sync(_))
-	}
-
-	pub fn is_clock(&self) -> bool {
-		matches!(self, SignalSensitivity::Clock)
-	}
-
-	pub fn is_const(&self) -> bool {
-		matches!(self, SignalSensitivity::Const)
-	}
-
-	pub fn is_generic(&self) -> bool {
-		matches!(self, SignalSensitivity::Generic)
-	}
+	
 }
 
 /// Determines which part of a signal (or signal array) is accessed
@@ -325,44 +348,24 @@ impl Signal {
 		self.class.is_wire()
 	}
 
-	pub fn is_async(&self) -> bool {
-		self.sensitivity.is_async()
-	}
-
-	pub fn is_comb(&self) -> bool {
-		self.sensitivity.is_comb()
-	}
-
-	pub fn is_sync(&self) -> bool {
-		self.sensitivity.is_sync()
-	}
-
-	pub fn is_clock(&self) -> bool {
-		self.sensitivity.is_clock()
-	}
-
-	pub fn is_const(&self) -> bool {
-		self.sensitivity.is_const()
-	}
-
-	pub fn is_generic(&self) -> bool {
-		self.sensitivity.is_generic()
-	}
-
-	pub fn is_signed(&self) -> bool {
-		self.class.is_signed()
-	}
-
-	pub fn is_unsigned(&self) -> bool {
-		self.class.is_unsigned()
-	}
-
 	pub fn width(&self) -> Expression {
 		self.class.width().clone()
 	}
 
 	pub fn comment(&mut self, comment: &str) {
 		self.comment = Some(comment.into());
+	}
+}
+
+impl HasSignedness for Signal {
+	fn signedness(&self) -> SignalSignedness {
+		self.class.signedness()
+	}
+}
+
+impl HasSensitivity for Signal {
+	fn sensitivity(&self) -> &SignalSensitivity {
+		&self.sensitivity
 	}
 }
 

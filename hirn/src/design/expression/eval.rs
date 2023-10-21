@@ -1,5 +1,5 @@
 use super::{NumericConstant, SignalId, SignalSensitivity, ExpressionError};
-use crate::design::{DesignHandle, SignalSignedness};
+use crate::design::{DesignHandle, SignalSignedness, HasSignedness, signal::HasSensitivity};
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -75,37 +75,6 @@ pub trait EvaluatesType {
 		self.eval_type(&EvalContext::default())
 	}
 }
-
-/*
-pub struct EvalDims {
-	pub width: Expression,
-	pub dimensions: Vec<Expression>,
-}
-
-impl EvalDims {
-	pub fn new_scalar(width: Expression) -> Self {
-		EvalDims {
-			width,
-			dimensions: Vec::new(),
-		}
-	}
-
-	pub fn is_scalar(&self) -> bool {
-		self.dimensions.is_empty()
-	}
-}
-
-
-pub trait EvaluatesDimensions {
-	fn eval_dims(&self, ctx: &EvalContext) -> Result<EvalDims, EvalError>;
-
-	fn const_eval_dims(&self) -> Result<EvalDims, EvalError> {
-		// self.eval_dims(&EvalContext::default())
-		unimplemented!()
-	}
-}
-
-*/
 
 pub trait Evaluates {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError>;
@@ -217,37 +186,17 @@ impl EvalType {
 	pub fn can_drive(&self, other: &EvalType) -> bool {
 		self.signedness == other.signedness && self.sensitivity.can_drive(&other.sensitivity)
 	}
-
-	pub fn is_signed(&self) -> bool {
-		self.signedness.is_signed()
-	}
-
-	pub fn is_unsigned(&self) -> bool {
-		self.signedness.is_unsigned()
-	}
-
-	pub fn is_async(&self) -> bool {
-		self.sensitivity.is_async()
-	}
-
-	pub fn is_comb(&self) -> bool {
-		self.sensitivity.is_comb()
-	}
-
-	pub fn is_sync(&self) -> bool {
-		self.sensitivity.is_sync()
-	}
-
-	pub fn is_clock(&self) -> bool {
-		self.sensitivity.is_clock()
-	}
 	
-	pub fn is_const(&self) -> bool {
-		self.sensitivity.is_const()
-	}
+}
 
-	pub fn is_generic(&self) -> bool {
-		self.sensitivity.is_generic()
+impl HasSignedness for EvalType {
+	fn signedness(&self) -> SignalSignedness {
+		self.signedness
 	}
-	
+}
+
+impl HasSensitivity for EvalType {
+	fn sensitivity(&self) -> &SignalSensitivity {
+		&self.sensitivity
+	}
 }
