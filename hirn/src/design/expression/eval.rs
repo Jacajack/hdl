@@ -217,4 +217,37 @@ impl EvalType {
 	pub fn can_drive(&self, other: &EvalType) -> bool {
 		self.signedness == other.signedness && self.sensitivity.can_drive(&other.sensitivity)
 	}
+
+	pub fn is_signed(&self) -> bool {
+		self.signedness.is_signed()
+	}
+
+	pub fn is_unsigned(&self) -> bool {
+		self.signedness.is_unsigned()
+	}
+
+	pub fn is_async(&self) -> bool {
+		self.sensitivity.is_async()
+	}
+
+	pub fn is_comb(&self) -> bool {
+		self.sensitivity.is_comb()
+	}
+
+	pub fn is_sync(&self) -> bool {
+		self.sensitivity.is_sync()
+	}
+
+	pub fn is_clock(&self) -> bool {
+		self.sensitivity.is_clock()
+	}
+	
+	pub fn is_const(&self) -> bool {
+		self.sensitivity.is_const()
+	}
+
+	pub fn is_generic(&self) -> bool {
+		self.sensitivity.is_generic()
+	}
+	
 }

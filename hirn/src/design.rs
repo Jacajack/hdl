@@ -418,7 +418,9 @@ mod test {
 
 		scope2.assign(
 			sig_fancy_reg_next.into(),
-			Expression::new_conditional(0.into()).branch(1.into(), 7.into()).build(),
+			Expression::new_conditional(false.into())
+				.branch(1u32.into(), true.into())
+				.build(),
 		)?;
 
 		let sig_fancy_reg_nreset = scope2

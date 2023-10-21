@@ -2,9 +2,9 @@ use std::{collections::HashSet, rc::Rc, cell::RefCell};
 
 use thiserror::Error;
 
-use crate::design::{SignalId, ScopeHandle, SignalSensitivity, SignalSlice};
+use crate::design::{SignalId, ScopeHandle, SignalSensitivity, SignalSlice, SignalSignedness};
 
-use super::{Expression, EvalContext, UnaryExpression, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvaluatesType, EvalError};
+use super::{Expression, EvalContext, UnaryExpression, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvaluatesType, EvalError, WidthExpression, NarrowEval};
 
 #[derive(Clone, Debug, Copy, Error)]
 pub enum ExpressionError {
@@ -25,6 +25,12 @@ pub enum ExpressionError {
 
 	#[error("Slice indices must be unsigned values")]
 	SignedSliceIndex,
+
+	#[error("Non-boolean condition")]
+	NonBooleanCondition,
+
+	#[error("Branch type mismatch")]
+	BranchTypeMismatch,
 }
 
 impl UnaryExpression {
@@ -61,12 +67,51 @@ impl CastExpression {
 impl ConditionalExpression {
 	fn shallow_validate(&self, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), EvalError> {
 		let result_type = self.default_value().eval_type(ctx)?;
-		/*
-			TODO:
-			 - branches conditions must be boolean
-			 - values must have identical signedness
-			 - values must have identical width
-		*/
+		let mut result_width = self.default_value().width()?.narrow_eval(ctx).ok();
+
+		for b in self.branches() {
+			let branch_type = b.value().eval_type(ctx)?;
+			let branch_width = b.value().width()?.narrow_eval(ctx).ok();
+
+			if branch_type.signedness != result_type.signedness {
+				return Err(ExpressionError::BranchTypeMismatch.into());
+			}
+
+			match (result_width, branch_width) {
+				// We found a mismatch
+				(Some(rw), Some(bw)) => {
+					if rw != bw {
+						return Err(ExpressionError::WidthMismatch.into());
+					}
+				},
+
+				// We've just found first width of a branch value
+				(None, Some(bw)) => {
+					result_width = Some(bw);
+				},
+
+				(None, None) | (Some(_), None) => {},
+			}
+		}
+
+		// All condition expressions must be boolean (i.e. 1-bit unsigned)
+		for b in self.branches() {
+			let cond_type = b.condition().eval_type(ctx)?;
+			
+			let cond_width = 
+				b.condition()
+				.width()?
+				.narrow_eval(ctx);
+
+			use SignalSignedness::*;
+			match (cond_type.signedness, cond_width) {
+				(Signed, _) => return Err(ExpressionError::NonBooleanCondition.into()),
+				(Unsigned, Ok(1)) => {},
+				(Unsigned, Err(_)) => {}, // could not evaluate width but whatcha gonna do (it's probably generic)
+				(_, Ok(_)) => return Err(ExpressionError::NonBooleanCondition.into())
+			}
+		}
+
 		Ok(())
 	}
 }

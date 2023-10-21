@@ -621,7 +621,7 @@ impl From<u64> for NumericConstant {
 
 impl From<i64> for NumericConstant {
 	fn from(value: i64) -> Self {
-		Self::new_signed(value.into())
+		Self::new_signed(value.into()) // TODO maybe it's better to have this as 64-bit always?
 	}
 }
 
