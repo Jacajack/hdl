@@ -1,6 +1,6 @@
 use super::{
-	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, EvalContext, EvalError, EvalType,
-	EvaluatesType, NumericConstant, UnaryExpression, UnaryOp,
+	BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalContext, EvalError, EvalType,
+	EvaluatesType, NumericConstant, UnaryExpression,
 };
 use crate::design::{Expression, SignalId, SignalSensitivity, SignalSignedness, SignalSlice};
 
@@ -17,10 +17,10 @@ impl EvaluatesType for SignalId {
 	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
 		if let Some(design) = ctx.design() {
 			let design = design.borrow();
-			let signal = design.get_signal(*self).unwrap();
+			let signal = design.get_signal(*self).expect("Evaluated signal must be in design");
 			Ok(EvalType {
-				signedness: signal.class.signedness(),
-				sensitivity: signal.sensitivity.clone(),
+				signedness: signal.signedness(),
+				sensitivity: signal.sensitivity().clone(),
 			})
 		}
 		else {
@@ -93,12 +93,9 @@ impl EvaluatesType for UnaryExpression {
 		Ok(EvalType {
 			signedness: op_type.signedness,
 			sensitivity: match op_type.sensitivity {
-				Async => Async,
 				Comb(s) => Comb(s),
-				Sync(s) => Sync(s),
-				Clock => Clock,
-				Const => Const,
-				Generic => Generic,
+				Sync(s) => Comb(s),
+				other => other
 			},
 		})
 	}
@@ -108,11 +105,27 @@ impl EvaluatesType for BuiltinOp {
 	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
 		use BuiltinOp::*;
 		Ok(match self {
-			ZeroExtend { expr, .. } => expr.eval_type(ctx)?,
-			SignExtend { expr, .. } => expr.eval_type(ctx)?,
-			BusSelect { expr, .. } => expr.eval_type(ctx)?,
 			BitSelect { expr, .. } => expr.eval_type(ctx)?,
-			Replicate { expr, .. } => expr.eval_type(ctx)?,
+			BusSelect { expr, .. } => expr.eval_type(ctx)?,
+			ZeroExtend { expr, .. } => {
+				EvalType {
+					signedness: SignalSignedness::Unsigned,
+					sensitivity: expr.eval_type(ctx)?.sensitivity,
+				}
+			}
+			SignExtend { expr, .. } => {
+				EvalType {
+					signedness: SignalSignedness::Signed,
+					sensitivity: expr.eval_type(ctx)?.sensitivity,
+				}
+			}
+			Replicate { expr, .. } => {
+				let inner_type = expr.eval_type(ctx)?;
+				EvalType {
+					signedness: SignalSignedness::Unsigned,
+					sensitivity: inner_type.sensitivity,
+				}
+			}
 			Join(exprs) => {
 				let mut sensitivity = SignalSensitivity::Generic;
 

@@ -28,7 +28,7 @@ impl WidthExpression for BinaryExpression {
 			Modulo => self.rhs.width()?,
 			ShiftLeft | ShiftRight => self.lhs.width()?,
 			LogicalAnd | LogicalOr => 1u32.into(),
-			BitwiseAnd | BitwiseOr | BitwiseXor => self.lhs.width()?, // FIXME verify width match
+			BitwiseAnd | BitwiseOr | BitwiseXor => self.lhs.width()?,
 			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual => 1u32.into(),
 			Max | Min => self.lhs.width()?,
 		})
@@ -38,7 +38,6 @@ impl WidthExpression for BinaryExpression {
 impl WidthExpression for BuiltinOp {
 	fn width(&self) -> Result<Expression, EvalError> {
 		use BuiltinOp::*;
-		// TODO require proper width/index signedness
 		Ok(match self {
 			ZeroExtend { width, .. } => (**width).clone(),
 			SignExtend { width, .. } => (**width).clone(),

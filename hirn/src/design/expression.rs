@@ -5,13 +5,15 @@ mod narrow_eval;
 mod numeric_constant;
 mod type_eval;
 mod width_expression;
+mod expression_validate;
 
 pub use eval::{EvalContext, EvalError, EvalType, Evaluates, EvaluatesType};
 pub use narrow_eval::NarrowEval;
 pub use numeric_constant::NumericConstant;
 pub use width_expression::WidthExpression;
+pub use expression_validate::ExpressionError;
 
-use super::signal::{SignalClass, SignalSensitivity, SignalSlice};
+use super::signal::{SignalSensitivity, SignalSlice};
 use super::{SignalId, SignalSignedness};
 
 /// Binary operators
@@ -127,6 +129,54 @@ impl BuiltinOp {
 		}
 		Ok(())
 	}
+
+	pub fn traverse<T>(&self, f: &dyn Fn(&Expression) -> Result<(), T>) -> Result<(), T> {
+		use BuiltinOp::*;
+		match self {
+			ZeroExtend { expr, width } | SignExtend { expr, width } => {
+				f(expr)?;
+				expr.traverse(f)?;
+				f(width)?;
+				width.traverse(f)?;
+			},
+
+			BusSelect { expr, msb, lsb } => {
+				f(expr)?;
+				expr.traverse(f)?;
+				f(lsb)?;
+				lsb.traverse(f)?;
+				f(msb)?;
+				msb.traverse(f)?;
+			},
+
+			BitSelect { expr, index } => {
+				f(expr)?;
+				expr.traverse(f)?;
+				f(index)?;
+				index.traverse(f)?;
+			},
+
+			Replicate { expr, count } => {
+				f(expr)?;
+				expr.traverse(f)?;
+				f(count)?;
+				count.traverse(f)?;
+			},
+
+			Join(exprs) => {
+				for expr in exprs {
+					f(expr)?;
+					expr.traverse(f)?;
+				}
+			},
+
+			Width(expr) => {
+				f(expr)?;
+				expr.traverse(f)?;
+			},
+		}
+		Ok(())
+	}
 }
 
 /// Represents a conditional expression branch
@@ -191,6 +241,18 @@ impl ConditionalExpression {
 		}
 		Ok(())
 	}
+
+	pub fn traverse<T>(&self, f: &dyn Fn(&Expression) -> Result<(), T>) -> Result<(), T> {
+		f(&self.default)?;
+		self.default.traverse(f)?;
+		for branch in &self.branches {
+			f(&branch.condition)?;
+			branch.condition.traverse(f)?;
+			f(&branch.value)?;
+			branch.value.traverse(f)?;
+		}
+		Ok(())
+	}
 }
 
 /// A helper class for constructing conditional/match expressions
@@ -233,6 +295,12 @@ impl CastExpression {
 		self.src.transform(f)?;
 		Ok(())
 	}
+
+	pub fn traverse<T>(&self, f: &dyn Fn(&Expression) -> Result<(), T>) -> Result<(), T> {
+		f(&self.src)?;
+		self.src.traverse(f)?;
+		Ok(())
+	}
 }
 
 /// A binary expression
@@ -256,6 +324,14 @@ impl BinaryExpression {
 		self.rhs.transform(f)?;
 		Ok(())
 	}
+
+	pub fn traverse<T>(&self, f: &dyn Fn(&Expression) -> Result<(), T>) -> Result<(), T> {
+		f(&self.lhs)?;
+		self.lhs.traverse(f)?;
+		f(&self.rhs)?;
+		self.rhs.traverse(f)?;
+		Ok(())
+	}
 }
 
 /// A unary expression
@@ -272,6 +348,12 @@ impl UnaryExpression {
 	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
 		f(&mut self.operand)?;
 		self.operand.transform(f)?;
+		Ok(())
+	}
+
+	pub fn traverse<T>(&self, f: &dyn Fn(&Expression) -> Result<(), T>) -> Result<(), T> {
+		f(&self.operand)?;
+		self.operand.traverse(f)?;
 		Ok(())
 	}
 }
@@ -445,6 +527,26 @@ impl Expression {
 				for index_expr in &mut slice.indices {
 					f(index_expr)?;
 					index_expr.transform(f)?;
+				}
+			},
+		}
+		Ok(())
+	}
+
+	pub fn traverse<T>(&self, f: &dyn Fn(&Expression) -> Result<(), T>) -> Result<(), T> {
+		f(self)?;
+		use Expression::*;
+		match self {
+			Binary(expr) => expr.traverse(f)?,
+			Unary(expr) => expr.traverse(f)?,
+			Conditional(expr) => expr.traverse(f)?,
+			Builtin(expr) => expr.traverse(f)?,
+			Cast(expr) => expr.traverse(f)?,
+			Constant(_) => (),
+			Signal(slice) => {
+				for index_expr in &slice.indices {
+					f(index_expr)?;
+					index_expr.traverse(f)?;
 				}
 			},
 		}

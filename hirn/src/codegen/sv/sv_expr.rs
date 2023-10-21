@@ -37,10 +37,10 @@ impl<'a> SVCodegen<'a> {
 
 	fn translate_constant(&self, c: &NumericConstant, width_casts: bool) -> Result<String, CodegenError> {
 		if width_casts {
-			Ok(format!("{}'h{}", c.width()?, c.to_hex_str()))
+			Ok(format!("{}'h{}", c.width()?, c.to_hex_str()?))
 		}
 		else {
-			Ok(format!("'h{}", c.to_hex_str()))
+			Ok(format!("{}", c.to_dec_str()?))
 		}
 	}
 

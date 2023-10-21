@@ -1,6 +1,9 @@
+use std::collections::{HashSet, HashMap};
+
+use super::expression::NarrowEval;
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::SignalBuilder;
-use super::{DesignError, DesignHandle, HasComment, ModuleId, RegisterBuilder, ScopeId, SignalId};
+use super::{DesignError, DesignHandle, HasComment, ModuleId, RegisterBuilder, ScopeId, SignalId, HasSignedness, HasSensitivity, EvalContext, EvaluatesType, WidthExpression};
 use super::{Expression, ModuleHandle};
 
 /// Scope associated with an if statement
@@ -123,14 +126,6 @@ impl Scope {
 		}
 	}
 
-	/// Checks if this scope is in a design
-	fn check_in_design(&self) -> Result<(), DesignError> {
-		if self.id.is_null() {
-			return Err(DesignError::NotInDesign);
-		}
-		Ok(())
-	}
-
 	/// Adds a new conditional sub-scope
 	fn add_conditional_scope(
 		&mut self,
@@ -172,35 +167,6 @@ impl Scope {
 		// TODO assert iterator_var type is int
 		// TODO assert iterator_begin is compile-time constant
 		// TODO assert iterator_end is compile-time constant
-	}
-
-	/// Signal assignment - internal implementation
-	fn assign_signal_impl(&mut self, lhs: Expression, rhs: Expression) -> Result<&mut Assignment, DesignError> {
-		self.assignments.push(Assignment::new(lhs, rhs));
-		// TODO assert signal accessible from this scope
-		// TODO expression valid in this scope
-		// TODO assert no indexing if LHS is generic
-		// TODO assert LHS drivable
-		// TODO assert that scope is unconditional relative to the declaration if LSH is generic
-		Ok(self.assignments.last_mut().unwrap())
-	}
-
-	/// Assigns to a signal in this scope
-	fn assign_signal(&mut self, lhs: Expression, rhs: Expression) -> Result<(), DesignError> {
-		self.assign_signal_impl(lhs, rhs)?;
-		Ok(())
-	}
-
-	/// Assigns to a signal and adds a comment
-	fn assign_signal_with_comment(
-		&mut self,
-		lhs: Expression,
-		rhs: Expression,
-		comment: &str,
-	) -> Result<(), DesignError> {
-		let a = self.assign_signal_impl(lhs, rhs)?;
-		a.comment(comment);
-		Ok(())
 	}
 
 	/// Adds a block instance in this scope
@@ -263,8 +229,27 @@ impl ScopeHandle {
 		child
 	}
 
+	/// Validates if condition to be generic boolean
+	fn validate_if_condition(&self, condition: &Expression) -> Result<(), DesignError> {
+		let eval_ctx = EvalContext::without_assumptions(self.design().clone());
+		condition.validate(&eval_ctx, self)?;
+		let cond_type = condition.eval_type(&eval_ctx)?;
+		if !cond_type.is_generic() || !cond_type.is_unsigned() {
+			return Err(DesignError::InvalidIfCondition);
+		}
+
+		match condition.width()?.narrow_eval(&eval_ctx).ok() {
+			Some(1) => {},
+			Some(_) => return Err(DesignError::InvalidIfCondition),
+			None => {},
+		}
+
+		Ok(())
+	}
+
 	/// Creates a new if statement in this scope
 	pub fn if_scope(&mut self, condition: Expression) -> Result<ScopeHandle, DesignError> {
+		self.validate_if_condition(&condition)?;
 		let child = self.new_subscope()?;
 		this_scope!(self)
 			.add_conditional_scope(condition, child.id(), None)
@@ -274,6 +259,7 @@ impl ScopeHandle {
 
 	/// Creates a new if statement with else clause in this scope
 	pub fn if_else_scope(&mut self, condition: Expression) -> Result<(ScopeHandle, ScopeHandle), DesignError> {
+		self.validate_if_condition(&condition)?;
 		let child = self.new_subscope()?;
 		let else_scope = self.new_subscope()?;
 		this_scope!(self)
@@ -290,6 +276,18 @@ impl ScopeHandle {
 		from: Expression,
 		to: Expression,
 	) -> Result<(ScopeHandle, SignalId), DesignError> {
+		let eval_ctx = EvalContext::without_assumptions(self.design().clone());
+		from.validate(&eval_ctx, self)?;
+		to.validate(&eval_ctx, self)?;
+		let from_type = from.eval_type(&eval_ctx)?;
+		let to_type = from.eval_type(&eval_ctx)?;
+		if !from_type.is_generic()
+			|| !to_type.is_generic()
+			|| !from_type.is_signed()
+			|| !to_type.is_signed() {
+			return Err(DesignError::InvalidLoopRange);
+		}
+
 		let mut child = self.new_subscope()?;
 
 		let iter_var = child.new_signal(iter_name)?
@@ -312,19 +310,38 @@ impl ScopeHandle {
 		this_scope!(self).add_block(block)
 	}
 
+	fn assign_impl(&mut self, lhs: Expression, rhs: Expression, comment: Option<&str>) -> Result<(), DesignError> {
+		lhs.validate_no_assumptions(&self)?;
+		rhs.validate_no_assumptions(&self)?;
+		// TODO assert no indexing if LHS is generic
+		// TODO assert LHS drivable
+		// TODO assert that scope is unconditional relative to the declaration if LSH is generic
+
+
+		// Save the assignment
+		this_scope!(self).assignments.push(Assignment::new(lhs, rhs));
+
+		// Optionally: comment the assignment
+		if let Some(comment) = comment {
+			this_scope!(self).assignments.last_mut().unwrap().comment(comment);
+		}
+
+		Ok(())	
+	}
+
 	/// Assigns an expression to a drivable expression
-	pub fn assign(&mut self, signal: Expression, expr: Expression) -> Result<(), DesignError> {
-		this_scope!(self).assign_signal(signal, expr)
+	pub fn assign(&mut self, lhs: Expression, rhs: Expression) -> Result<(), DesignError> {
+		self.assign_impl(lhs, rhs, None)
 	}
 
 	/// Assigns an expression to a drivable expression and adds a comment
 	pub fn assign_with_comment(
 		&mut self,
-		signal: Expression,
-		expr: Expression,
+		lhs: Expression,
+		rhs: Expression,
 		comment: &str,
 	) -> Result<(), DesignError> {
-		this_scope!(self).assign_signal_with_comment(signal, expr, comment)
+		self.assign_impl(lhs, rhs, Some(comment))
 	}
 
 	/// Creates a new signal in this scope (returns a builder)
@@ -372,6 +389,48 @@ impl ScopeHandle {
 
 	pub fn blocks(&self) -> Vec<BlockInstance> {
 		this_scope!(self).blocks.clone()
+	}
+
+	pub fn parent(&self) -> Option<ScopeId> {
+		this_scope!(self).parent
+	}
+
+	pub fn parent_handle(&self) -> Option<ScopeHandle> {
+		self.parent().map(|p| self.design.borrow().get_scope_handle(p).unwrap())
+	}
+
+	pub fn visible_signals(&self) -> HashSet<SignalId> {
+		let mut signals: HashSet<SignalId> = self.signals().into_iter().collect();
+
+		if let Some(parent) = self.parent_handle() {
+			let ext_signals = parent.visible_signals();
+			
+			// Create a mapping between external signal names and their IDs
+			let ext_sig_names: HashMap<String, SignalId> = 
+				ext_signals.iter()
+				.map(|s| {
+					let design = self.design.borrow();
+					let name = design.get_signal(*s).unwrap().name().to_string();
+					(name, *s)
+				})
+				.collect();
+		
+			// Internal signal names
+			let int_sig_names: HashSet<String> = signals.iter().map(|s| {
+				let design = self.design.borrow();
+				design.get_signal(*s).unwrap().name().to_string()
+			}).collect();
+
+			// We select signals with names that overlap with names of signals
+			// defined directly in this scope
+			let shadowed_signals: HashSet<SignalId> = 
+				int_sig_names.iter()
+				.filter_map(|name| ext_sig_names.get(name).map(|id| *id))
+				.collect();
+			
+			signals.extend(ext_signals.difference(&shadowed_signals));
+		}
+		signals
 	}
 }
 

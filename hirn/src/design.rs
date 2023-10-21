@@ -16,7 +16,7 @@ pub use functional_blocks::{
 };
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
 pub use scope::{Scope, ScopeHandle};
-pub use signal::{Signal, SignalBuilder, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice};
+pub use signal::{Signal, SignalBuilder, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice, HasSignedness, HasSensitivity};
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -222,7 +222,7 @@ impl DesignCore {
 	}
 
 	/// Creates a new module in the design
-	pub fn new_module(&mut self, name: &str) -> Result<ModuleHandle, DesignError> {
+	fn new_module(&mut self, name: &str) -> Result<ModuleHandle, DesignError> {
 		let module = Module::new(name, vec![])?;
 		let handle = self.add_module(module)?;
 		let main_scope = self.new_scope(handle.id(), None)?;
@@ -251,6 +251,13 @@ impl Design {
 
 		d.handle.borrow_mut().weak = Rc::downgrade(&d.handle);
 		d
+	}
+
+	/// Creates a HIRN design from DesignHandle
+	/// TODO I wonder whether the distinction between Design and DesignHandle
+	/// makes sense at this point
+	pub fn from_handle(handle: DesignHandle) -> Self {
+		Self { handle }
 	}
 
 	fn borrow_mut(&mut self) -> std::cell::RefMut<DesignCore> {
@@ -355,6 +362,24 @@ pub enum DesignError {
 		binding_type: EvalType,
 		interface_type: EvalType,
 	},
+
+	#[error("Signal width must be a constant expression")]
+	VariableSignalWidth,
+
+	#[error("Invalid signal width (must be positive)")]
+	InvalidSignalWidth,
+
+	#[error("Array dimensions must be constant expressions")]
+	VariableArrayDimension,
+
+	#[error("Invalid array dimension (must be positive)")]
+	InvalidArrayDimension,
+
+	#[error("Loop range bounds must be signed and generic")]
+	InvalidLoopRange,
+
+	#[error("If condition must be generic boolean (1-bit unsigned)")]
+	InvalidIfCondition,
 }
 
 #[cfg(test)]
@@ -370,7 +395,7 @@ mod test {
 		let sig = m
 			.scope()
 			.new_signal("test_signal")?
-			.unsigned(Expression::new_zero())
+			.unsigned(37.into())
 			.constant()
 			.build()?;
 
@@ -379,7 +404,7 @@ mod test {
 		let sig2 = m
 			.scope()
 			.new_signal("test_signal_2")?
-			.unsigned(expr.clone())
+			.unsigned(Expression::from(1u32) + 11u32.into())
 			.constant()
 			.build()?;
 
@@ -393,13 +418,15 @@ mod test {
 
 		let sig_fancy_reg_next = scope2
 			.new_signal("fancy_reg_next")?
-			.unsigned(Expression::new_zero())
+			.unsigned(11.into())
 			.comb(sig, true)
 			.build()?;
 
 		scope2.assign(
 			sig_fancy_reg_next.into(),
-			Expression::new_conditional(0.into()).branch(1.into(), 7.into()).build(),
+			Expression::new_conditional(false.into())
+				.branch(1u32.into(), true.into())
+				.build(),
 		)?;
 
 		let sig_fancy_reg_nreset = scope2
@@ -579,9 +606,9 @@ mod test {
 		let mut d = Design::new();
 		let m = d.new_module("test")?;
 
-		let a = m.scope().new_signal("a")?.unsigned(8.into()).constant().build()?;
+		let a = m.scope().new_signal("a")?.unsigned(8u32.into()).constant().build()?;
 
-		let b = m.scope().new_signal("b")?.unsigned(12.into()).constant().build()?;
+		let b = m.scope().new_signal("b")?.unsigned(12u32.into()).constant().build()?;
 
 		let expr = Expression::from(a) + b.into();
 
@@ -603,9 +630,9 @@ mod test {
 		let a = m
 			.scope()
 			.new_signal("a")?
-			.signed(8.into())
+			.signed(8u32.into())
 			.constant()
-			.array(4.into())?
+			.array(4u32.into())?
 			.build()?;
 
 		let mut ctx = EvalContext::without_assumptions(d.handle());

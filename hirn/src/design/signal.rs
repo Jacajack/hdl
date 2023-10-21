@@ -1,9 +1,12 @@
 use super::DesignError;
 use super::DesignHandle;
+use super::EvalContext;
+use super::EvaluatesType;
 use super::Expression;
 use super::HasComment;
 use super::ScopeId;
 use super::SignalId;
+use super::expression::NarrowEval;
 use std::collections::HashSet;
 
 /// Potential TODO: Logic type which cannot be used in arithmetic
@@ -14,6 +17,28 @@ pub enum SignalSignedness {
 
 	/// Unsigned integer with given bit width
 	Unsigned,
+}
+
+impl SignalSignedness {
+	pub fn is_signed(&self) -> bool {
+		matches!(self, SignalSignedness::Signed)
+	}
+
+	pub fn is_unsigned(&self) -> bool {
+		matches!(self, SignalSignedness::Unsigned)
+	}
+}
+
+pub trait HasSignedness {
+	fn signedness(&self) -> SignalSignedness;
+
+	fn is_signed(&self) -> bool {
+		self.signedness() == SignalSignedness::Signed
+	}
+
+	fn is_unsigned(&self) -> bool {
+		self.signedness() == SignalSignedness::Unsigned
+	}
 }
 
 /// Determines representation of a signal
@@ -60,13 +85,11 @@ impl SignalClass {
 	pub fn is_wire(&self) -> bool {
 		self.is_wire
 	}
+}
 
-	pub fn is_signed(&self) -> bool {
-		self.signedness == SignalSignedness::Signed
-	}
-
-	pub fn is_unsigned(&self) -> bool {
-		self.signedness == SignalSignedness::Unsigned
+impl HasSignedness for SignalClass {
+	fn signedness(&self) -> SignalSignedness {
+		self.signedness
 	}
 }
 
@@ -125,6 +148,41 @@ pub enum SignalSensitivity {
 	Generic,
 }
 
+pub trait HasSensitivity {
+	fn sensitivity(&self) -> &SignalSensitivity;
+
+	fn is_async(&self) -> bool {
+		matches!(self.sensitivity(), SignalSensitivity::Async)
+	}
+
+	fn is_comb(&self) -> bool {
+		matches!(self.sensitivity(), SignalSensitivity::Comb(_))
+	}
+
+	fn is_sync(&self) -> bool {
+		matches!(self.sensitivity(), SignalSensitivity::Sync(_))
+	}
+
+	fn is_clock(&self) -> bool {
+		matches!(self.sensitivity(), SignalSensitivity::Clock)
+	}
+
+	fn is_const(&self) -> bool {
+		matches!(self.sensitivity(), SignalSensitivity::Const)
+	}
+
+	fn is_generic(&self) -> bool {
+		matches!(self.sensitivity(), SignalSensitivity::Generic)
+	}
+
+}
+
+impl HasSensitivity for SignalSensitivity {
+	fn sensitivity(&self) -> &SignalSensitivity {
+		self
+	}
+}
+
 impl SignalSensitivity {
 	/// Determines sensitivity of a signal resulting form combining two signals
 	/// with combinational logic
@@ -179,29 +237,7 @@ impl SignalSensitivity {
 		}
 	}
 
-	pub fn is_async(&self) -> bool {
-		matches!(self, SignalSensitivity::Async)
-	}
-
-	pub fn is_comb(&self) -> bool {
-		matches!(self, SignalSensitivity::Comb(_))
-	}
-
-	pub fn is_sync(&self) -> bool {
-		matches!(self, SignalSensitivity::Sync(_))
-	}
-
-	pub fn is_clock(&self) -> bool {
-		matches!(self, SignalSensitivity::Clock)
-	}
-
-	pub fn is_const(&self) -> bool {
-		matches!(self, SignalSensitivity::Const)
-	}
-
-	pub fn is_generic(&self) -> bool {
-		matches!(self, SignalSensitivity::Generic)
-	}
+	
 }
 
 /// Determines which part of a signal (or signal array) is accessed
@@ -280,7 +316,7 @@ impl Signal {
 			dimensions,
 			class,
 			sensitivity,
-			comment: None,
+			comment,
 		})
 	}
 
@@ -296,6 +332,14 @@ impl Signal {
 		self.dimensions.len()
 	}
 
+	pub fn sensitivity(&self) -> &SignalSensitivity {
+		&self.sensitivity
+	}
+
+	pub fn signedness(&self) -> SignalSignedness {
+		self.class.signedness()
+	}
+
 	pub fn is_array(&self) -> bool {
 		!self.is_scalar()
 	}
@@ -304,44 +348,24 @@ impl Signal {
 		self.class.is_wire()
 	}
 
-	pub fn is_async(&self) -> bool {
-		self.sensitivity.is_async()
-	}
-
-	pub fn is_comb(&self) -> bool {
-		self.sensitivity.is_comb()
-	}
-
-	pub fn is_sync(&self) -> bool {
-		self.sensitivity.is_sync()
-	}
-
-	pub fn is_clock(&self) -> bool {
-		self.sensitivity.is_clock()
-	}
-
-	pub fn is_const(&self) -> bool {
-		self.sensitivity.is_const()
-	}
-
-	pub fn is_generic(&self) -> bool {
-		self.sensitivity.is_generic()
-	}
-
-	pub fn is_signed(&self) -> bool {
-		self.class.is_signed()
-	}
-
-	pub fn is_unsigned(&self) -> bool {
-		self.class.is_unsigned()
-	}
-
 	pub fn width(&self) -> Expression {
 		self.class.width().clone()
 	}
 
 	pub fn comment(&mut self, comment: &str) {
 		self.comment = Some(comment.into());
+	}
+}
+
+impl HasSignedness for Signal {
+	fn signedness(&self) -> SignalSignedness {
+		self.class.signedness()
+	}
+}
+
+impl HasSensitivity for Signal {
+	fn sensitivity(&self) -> &SignalSensitivity {
+		&self.sensitivity
 	}
 }
 
@@ -483,8 +507,6 @@ impl SignalBuilder {
 
 	/// Adds a dimension to the signal array
 	pub fn array(mut self, expr: Expression) -> Result<Self, DesignError> {
-		// TODO assert dimensions valid if can be evaluated
-
 		self.dimensions.push(expr);
 		Ok(self)
 	}
@@ -495,22 +517,72 @@ impl SignalBuilder {
 		self
 	}
 
+	fn validate(&self) -> Result<(), DesignError> {
+		let scope;
+		{
+			// Note: this cannot be borrowed while we call validation and so on.
+			let design_handle = self.design.borrow();
+			scope = design_handle.get_scope_handle(self.scope).expect("Scope must be in design");
+		}
+		
+		// Validate width expression (generic)
+		let eval_ctx = EvalContext::without_assumptions(self.design.clone());
+		let class = self.class.as_ref().expect("signal class must be specified before validation");
+		let width_expr = class.width();
+		width_expr.validate_no_assumptions(&scope)?;
+		let width_type = width_expr.eval_type(&eval_ctx)?;
+
+		if !width_type.sensitivity.is_generic() {
+			return Err(DesignError::VariableSignalWidth);
+		}
+
+		// Check if width is positive
+		let width_value = width_expr.narrow_eval(&eval_ctx).ok();
+		match width_value {
+			Some(w) if w < 1 => return Err(DesignError::InvalidSignalWidth),
+			Some(_) => {},
+			None => {},
+		}
+
+		// Validate array dimension expressions (generic)
+		for dim in &self.dimensions {
+			dim.validate_no_assumptions(&scope)?;
+			let dim_type = dim.eval_type(&eval_ctx)?;
+			if !dim_type.sensitivity.is_generic() {
+				return Err(DesignError::VariableArrayDimension);
+			}
+
+			// Check if dimension is positive
+			match dim.narrow_eval(&eval_ctx).ok() {
+				Some(w) if w < 1 => return Err(DesignError::InvalidArrayDimension),
+				Some(_) => {},
+				None => {},
+			}
+		}
+
+		Ok(())
+	}
+
 	/// Creates the signal and adds it to the design. Returns the signal ID.
 	pub fn build(self) -> Result<SignalId, DesignError> {
-		let sensitivity = match (self.sensitivity, self.comb_clocking, self.sync_clocking) {
-			(Some(s), None, None) => s,
-			(None, Some(c), None) => SignalSensitivity::Comb(c),
-			(None, None, Some(s)) => SignalSensitivity::Sync(s),
+		let sensitivity = match (&self.sensitivity, &self.comb_clocking, &self.sync_clocking) {
+			(Some(s), None, None) => s.clone(),
+			(None, Some(c), None) => SignalSensitivity::Comb(c.clone()),
+			(None, None, Some(s)) => SignalSensitivity::Sync(s.clone()),
 			(None, None, None) => return Err(DesignError::SignalSensitivityNotSpecified),
 			_ => return Err(DesignError::ConflictingSignalSensitivity),
 		};
 
+		// Ensure that class is specified
+		self.class.as_ref().ok_or(DesignError::SignalClassNotSpecified)?;
+
+		self.validate()?;
 		self.design.borrow_mut().add_signal(Signal::new(
 			SignalId { id: 0 },
 			self.scope,
 			&self.name,
 			self.dimensions,
-			self.class.ok_or(DesignError::SignalClassNotSpecified)?,
+			self.class.expect("Class must be specified"),
 			sensitivity,
 			self.comment,
 		)?)

@@ -1,5 +1,5 @@
-use super::{Expression, NumericConstant, SignalId, SignalSensitivity};
-use crate::design::{DesignHandle, SignalSignedness};
+use super::{NumericConstant, SignalId, SignalSensitivity, ExpressionError};
+use crate::design::{DesignHandle, SignalSignedness, HasSignedness, signal::HasSensitivity};
 use std::collections::HashMap;
 use thiserror::Error;
 
@@ -72,41 +72,9 @@ pub trait EvaluatesType {
 	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError>;
 
 	fn const_eval_type(&self) -> Result<EvalType, EvalError> {
-		// self.eval_type(&EvalContext::default())
-		unimplemented!()
+		self.eval_type(&EvalContext::default())
 	}
 }
-
-/*
-pub struct EvalDims {
-	pub width: Expression,
-	pub dimensions: Vec<Expression>,
-}
-
-impl EvalDims {
-	pub fn new_scalar(width: Expression) -> Self {
-		EvalDims {
-			width,
-			dimensions: Vec::new(),
-		}
-	}
-
-	pub fn is_scalar(&self) -> bool {
-		self.dimensions.is_empty()
-	}
-}
-
-
-pub trait EvaluatesDimensions {
-	fn eval_dims(&self, ctx: &EvalContext) -> Result<EvalDims, EvalError>;
-
-	fn const_eval_dims(&self) -> Result<EvalDims, EvalError> {
-		// self.eval_dims(&EvalContext::default())
-		unimplemented!()
-	}
-}
-
-*/
 
 pub trait Evaluates {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError>;
@@ -128,6 +96,7 @@ pub enum AssumptionError {
 	SignednessMismatch,
 }
 
+// TODO shrink this type
 #[derive(Debug, Clone, Error)]
 pub enum EvalError {
 	#[error("Value of signal was not assumed, cannot evaluate")]
@@ -201,6 +170,9 @@ pub enum EvalError {
 
 	#[error(transparent)]
 	InvalidAssumption(#[from] AssumptionError),
+
+	#[error(transparent)]
+	InvalidExpression(#[from] ExpressionError),
 }
 
 /// Provides type evaluation rules for both expressions and compile-time evaluation
@@ -213,5 +185,18 @@ pub struct EvalType {
 impl EvalType {
 	pub fn can_drive(&self, other: &EvalType) -> bool {
 		self.signedness == other.signedness && self.sensitivity.can_drive(&other.sensitivity)
+	}
+	
+}
+
+impl HasSignedness for EvalType {
+	fn signedness(&self) -> SignalSignedness {
+		self.signedness
+	}
+}
+
+impl HasSensitivity for EvalType {
+	fn sensitivity(&self) -> &SignalSensitivity {
+		&self.sensitivity
 	}
 }
