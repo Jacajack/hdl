@@ -1,5 +1,5 @@
 use crate::codegen::{Codegen, CodegenError};
-use crate::design::{Register, ScopeHandle};
+use crate::design::{Register, ScopeHandle, EvaluatesType, EvalContext, DesignHandle};
 use crate::{
 	design::BlockInstance,
 	design::InterfaceSignal,
@@ -28,6 +28,16 @@ macro_rules! emitln {
 macro_rules! emit {
 	($self:ident, $w:expr, $($arg:tt)*) => {
 		write!($w, "{}{}", "\t".repeat($self.indent_level as usize), format!($($arg)*))
+	}
+}
+
+fn expr_sub_one(design: DesignHandle, expr: &Expression) -> Expression {
+	let expr_type = expr.eval_type(&EvalContext::without_assumptions(design)).expect("All variables must be in design");
+	if expr_type.is_signed() {
+		(expr.clone() - 1i64.into()).into()
+	}
+	else {
+		(expr.clone() - 1u64.into()).into()
 	}
 }
 
@@ -67,7 +77,7 @@ impl<'a> SVCodegen<'a> {
 		let bus_width_str = match sig.class.is_wire() {
 			false => format!(
 				"[{}:0]",
-				self.translate_expression_try_eval(&(sig.class.width().clone() - 1u32.into()), false)?
+				self.translate_expression_try_eval(&expr_sub_one(self.design.handle(), &sig.class.width()), false)?
 			),
 			true => "".into(),
 		};
@@ -236,7 +246,7 @@ impl<'a> SVCodegen<'a> {
 				else {
 					"signed"
 				},
-				self.translate_expression_try_eval(&(input_signal.width().clone() - 1u32.into()), false)?,
+				self.translate_expression_try_eval(&expr_sub_one(self.design.handle(), &input_signal.width()), false)?,
 				reg_name
 			)?;
 		}
