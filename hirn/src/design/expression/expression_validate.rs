@@ -2,7 +2,7 @@ use std::{collections::HashSet, rc::Rc, cell::RefCell};
 
 use thiserror::Error;
 
-use crate::design::{SignalId, ScopeHandle, SignalSensitivity, SignalSlice, SignalSignedness};
+use crate::design::{SignalId, ScopeHandle, SignalSensitivity, SignalSlice, SignalSignedness, UnaryOp};
 
 use super::{Expression, EvalContext, UnaryExpression, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvaluatesType, EvalError, WidthExpression, NarrowEval};
 
@@ -31,11 +31,53 @@ pub enum ExpressionError {
 
 	#[error("Branch type mismatch")]
 	BranchTypeMismatch,
+
+	#[error("Logical operators require boolean operands")]
+	NonBooleanLogic,
+
+	#[error("Unsigned numeric negation")]
+	UnsignedNegation,
+
+	#[error("Bitwise operators require unsigned operands")]
+	SignedBitwise,
+
 }
 
 impl UnaryExpression {
-	fn shallow_validate(&self, _ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
-		Ok(()) // FIXME
+	fn shallow_validate(&self, ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
+		let expr_type = self.operand.eval_type(ctx)?;
+		let expr_width = self.operand.width()?.narrow_eval(ctx).ok();
+
+		use UnaryOp::*;
+		match self.op {
+			// Unary negation (-) operator requires signed operand
+			Negate => {
+				if expr_type.is_unsigned() {
+					return Err(ExpressionError::UnsignedNegation.into());
+				}
+			},
+
+			// Logical NOT operator requires a boolean operand
+			LogicalNot => {
+				match (expr_type.is_unsigned(), expr_width) {
+					(true, Some(1)) => {}, // cool
+					(true, None) => {}, // you can't always get what you want
+					(true, Some(_)) | (false, _) => {return Err(ExpressionError::NonBooleanLogic.into());}, 
+				}
+			},
+
+			// Bitwise NOT operator requires an unsigned operand
+			BitwiseNot => {
+				if expr_type.is_signed() {
+					return Err(ExpressionError::SignedBitwise.into());
+				}
+			},
+
+			// no checks for these guys
+			ReductionAnd | ReductionOr | ReductionXor => {}, 
+		}
+
+		Ok(())
 	}
 }
 
