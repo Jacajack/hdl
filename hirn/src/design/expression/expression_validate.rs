@@ -2,7 +2,7 @@ use std::{collections::HashSet, rc::Rc, cell::RefCell};
 
 use thiserror::Error;
 
-use crate::design::{SignalId, ScopeHandle, SignalSensitivity, SignalSlice, SignalSignedness, UnaryOp};
+use crate::design::{SignalId, ScopeHandle, SignalSensitivity, SignalSlice, SignalSignedness, UnaryOp, BinaryOp};
 
 use super::{Expression, EvalContext, UnaryExpression, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvaluatesType, EvalError, WidthExpression, NarrowEval};
 
@@ -40,6 +40,12 @@ pub enum ExpressionError {
 
 	#[error("Bitwise operators require unsigned operands")]
 	SignedBitwise,
+
+	#[error("Mixed signedness in arithmetic")]
+	MixedSignedness,
+
+	#[error("Bit shift requires unsigned RHS operand")]
+	SignedShiftWidth,
 
 }
 
@@ -82,8 +88,72 @@ impl UnaryExpression {
 }
 
 impl BinaryExpression {
-	fn shallow_validate(&self, _ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
-		Ok(()) // FIXME
+	fn shallow_validate(&self, ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
+		let lhs_type = self.lhs.eval_type(ctx)?;
+		let rhs_type = self.rhs.eval_type(ctx)?;
+		let lhs_width = self.lhs.width()?.narrow_eval(ctx).ok();
+		let rhs_width = self.rhs.width()?.narrow_eval(ctx).ok();
+
+		let does_width_match = || {
+			match (lhs_width, rhs_width) {
+				(Some(lw), Some(rw)) => Some(lw == rw),
+				(_, _) => None, // damn generics :((
+			}
+		};
+
+		use BinaryOp::*;
+		match self.op {
+			// Arithmetic operators only require matching signedness
+			Add | Subtract | Multiply | Divide | Modulo => {
+				if lhs_type.is_signed() != rhs_type.is_signed() {
+					return Err(ExpressionError::MixedSignedness.into());
+				}
+			}
+
+			// Shift operators require unsigned RHS operand
+			ShiftLeft | ShiftRight => {
+				if rhs_type.is_signed() {
+					return Err(ExpressionError::SignedShiftWidth.into());
+				}
+			}
+
+			// Bitwise operators require unsigned operands with matching width
+			BitwiseAnd | BitwiseOr | BitwiseXor => {
+				if lhs_type.is_signed() || rhs_type.is_signed() {
+					return Err(ExpressionError::SignedBitwise.into());
+				}
+
+				if matches!(does_width_match(), Some(false)) {
+					return Err(ExpressionError::WidthMismatch.into());
+				}
+			}
+
+			// Logical operators require boolean operands
+			LogicalAnd | LogicalOr => {
+				if lhs_type.is_signed() || rhs_type.is_signed() {
+					return Err(ExpressionError::NonBooleanLogic.into());
+				}
+
+				match (lhs_width, rhs_width) {
+					(Some(1), Some(1)) => {}, // okay cool
+					(Some(_), Some(_)) => return Err(ExpressionError::NonBooleanLogic.into()),
+					(_, _) => {}, // life is hard sometimes
+				}
+			}
+
+			// Relational operators require matching signedness and width
+			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual | Max | Min => {
+				if lhs_type.is_signed() != rhs_type.is_signed() {
+					return Err(ExpressionError::MixedSignedness.into());
+				}
+
+				if matches!(does_width_match(), Some(false)) {
+					return Err(ExpressionError::WidthMismatch.into());
+				}
+			}
+		}
+
+		Ok(())
 	}
 }
 
@@ -107,7 +177,7 @@ impl CastExpression {
 }
 
 impl ConditionalExpression {
-	fn shallow_validate(&self, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), EvalError> {
+	fn shallow_validate(&self, ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
 		let result_type = self.default_value().eval_type(ctx)?;
 		let mut result_width = self.default_value().width()?.narrow_eval(ctx).ok();
 
