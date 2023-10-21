@@ -1424,7 +1424,7 @@ fn create_register(
 		},
 		IdWithExpression(expr) =>{
 			if !expr.expression.is_lvalue(){
-				return report_not_allowed_lhs(expr.expression.get_location());
+				return report_not_allowed_lhs_binding(expr.expression.get_location());
 			}
 			expr.expression.evaluate_type(
 			ctx,
@@ -1705,7 +1705,17 @@ fn report_not_allowed_lhs(location: SourceSpan) -> miette::Result<RegisterInstan
 			.build(),
 	));
 }
-
+fn report_not_allowed_lhs_binding(location: SourceSpan)-> miette::Result<RegisterInstance> {
+	return Err(miette::Report::new(
+		SemanticError::ForbiddenExpressionInLhs
+			.to_diagnostic_builder()
+			.label(
+				location,
+				"This expression is not allowed as a binding to output signal",
+			)
+			.build(),
+	));
+}
 pub fn report_duplicated_qualifier(
 	location: &SourceSpan,
 	first_occurence: &SourceSpan,
