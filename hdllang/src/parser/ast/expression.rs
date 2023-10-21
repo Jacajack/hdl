@@ -703,6 +703,83 @@ impl Expression {
 			_ => unreachable!(),
 		}
 	}
+	pub fn is_signedness_specified(&self, global_ctx: &GlobalAnalyzerContext, local_ctx: &LocalAnalyzerContex, current_scope: usize) ->bool{
+		use Expression::*;
+		match self {
+			Number(nc) => {
+				let constant = global_ctx.nc_table.get_value(&nc.key);
+				match constant.signed {
+					Some(val) => val,
+					None => false,
+				}
+			},
+			BinaryExpression(binop) => {
+				binop.lhs.is_signedness_specified(global_ctx, local_ctx,current_scope) || binop.rhs.is_signedness_specified(global_ctx, local_ctx,current_scope)
+			},
+			UnaryOperatorExpression(unary) => {
+				use crate::parser::ast::UnaryOpcode::*;
+				match unary.code {
+					Minus => true,
+					Plus => true,
+					_ => unary.expression.is_signedness_specified(global_ctx, local_ctx,current_scope),
+				}
+			},
+			_=> todo!(),
+		}
+	}
+	pub fn is_lvalue(&self) -> bool {
+		use Expression::*;
+		match self {
+			Identifier(_) => true,
+			PostfixWithIndex(_) => true,
+			PostfixWithRange(_) => true,
+			ParenthesizedExpression(expr) => expr.expression.is_lvalue(),
+			PostfixWithId(_) => true,
+			_ => false,
+		}
+	}
+	pub fn is_width_specified(&self,global_ctx: &GlobalAnalyzerContext, local_ctx: &LocalAnalyzerContex, current_scope:usize)->bool{
+		use Expression::*;
+		match self {
+    		Number(nc) => {
+				let constant = global_ctx.nc_table.get_value(&nc.key);
+				match constant.width {
+					Some(_) => true,
+					None => false,
+				}
+			},
+    		Identifier(id) => {
+				let var = local_ctx.scope.get_variable(current_scope, &id.id).unwrap();
+				match &var.var.kind {
+					VariableKind::Signal(sig) => {
+						use SignalType::*;
+						match &sig.signal_type {
+							Bus(bus) => bus.width.is_some(),
+							Wire(_) => true,
+							Auto(_) => false,
+						}
+					},
+					_ => false,
+				}
+			},
+    		ParenthesizedExpression(expr) => expr.expression.is_width_specified(global_ctx, local_ctx,current_scope),
+    		MatchExpression(m) => {
+				m.get_default().unwrap().expression.is_width_specified(global_ctx, local_ctx,current_scope) //FIXME
+			},
+    		ConditionalExpression(_) => todo!(),
+    		Tuple(_) => todo!(),
+    		TernaryExpression(tern) => {
+				tern.true_branch.is_width_specified(global_ctx, local_ctx,current_scope) || tern.false_branch.is_width_specified(global_ctx, local_ctx,current_scope)
+			},
+    		PostfixWithIndex(_) => true,
+    		PostfixWithRange(_) => true,
+    		PostfixWithArgs(_) => todo!(),
+    		PostfixWithId(_) => false,
+    		UnaryOperatorExpression(_) => true,
+    		UnaryCastExpression(_) => true,
+    		BinaryExpression(_) => true,
+		}
+	}
 	pub fn codegen(
 		&self,
 		nc_table: &crate::lexer::NumericConstantTable,
@@ -1104,12 +1181,18 @@ impl Expression {
 				match m {
 					Some(var) => match &var.var.kind {
 						crate::analyzer::VariableKind::ModuleInstance(instance) => {
-							for var in &instance.interface {
-								if var.name == module_inst.id {
-									return Ok(var.kind.is_generic());
-								}
-							}
-							Ok(false)
+							match &instance.kind{
+        						crate::analyzer::ModuleInstanceKind::Module(m) => {
+									for var in &m.interface {
+										if var.name == module_inst.id {
+											return Ok(var.kind.is_generic());
+										}
+									}
+									Ok(false)
+								},
+        						crate::analyzer::ModuleInstanceKind::Register(_) => Ok(false),
+    						}
+							
 						},
 						_ => {
 							return Err(miette::Report::new(
@@ -2155,15 +2238,4 @@ fn report_not_allowed_expression(span: SourceSpan, expr_name: &str) -> miette::R
 			)
 			.build(),
 	))
-}
-fn report_not_allowed_lhs(location: SourceSpan) -> miette::Result<Signal> {
-	return Err(miette::Report::new(
-		SemanticError::ForbiddenExpressionInLhs
-			.to_diagnostic_builder()
-			.label(
-				location,
-				"This expression is not allowed in the left hand sight of assignment",
-			)
-			.build(),
-	));
 }

@@ -194,7 +194,7 @@ fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result
 		(root, ctx, source) = parse_file_recover_tables(code, ctx)?;
 		let name = Path::new(&file_name).to_str().unwrap().to_string();
 		let (paths, ..) = hdllang::analyzer::combine(
-			&ctx.id_table,
+			&mut ctx.id_table,
 			&ctx.numeric_constants,
 			&root,
 			String::from(current_directory),
@@ -221,7 +221,7 @@ fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) -> m
 	let mut map: HashMap<String, String> = HashMap::new();
 	(root, ctx, code) = parse_file_recover_tables(code, ctx)?;
 	let (_, global_ctx, modules) = hdllang::analyzer::combine(
-		&ctx.id_table,
+		&mut ctx.id_table,
 		&ctx.numeric_constants,
 		&root,
 		String::from("."),
@@ -248,7 +248,7 @@ fn analyse(mut code: String, file_name: String, mut output: Box<dyn Write>) -> m
 	let mut map: HashMap<String, String> = HashMap::new();
 	(root, ctx, code) = parse_file_recover_tables(code, ctx)?;
 	let (_, global_ctx, modules) = hdllang::analyzer::combine(
-		&ctx.id_table,
+		&mut ctx.id_table,
 		&ctx.numeric_constants,
 		&root,
 		String::from("."),

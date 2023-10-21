@@ -12,7 +12,7 @@ use crate::{
 	ProvidesCompilerDiagnostic, SourceSpan,
 };
 
-use super::*;
+use super::{*, module_implementation_scope::InternalVariableId};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SignalSignedness {
 	Signed(SourceSpan),
@@ -208,7 +208,7 @@ impl AlreadyCreated {
 			(Async(prev), Async(incoming))
 			| (Comb(_, prev), Comb(_, incoming))
 			| (Sync(_, prev), Sync(_, incoming))
-			| (Clock(prev), Clock(incoming))
+			| (Clock(prev,_), Clock(incoming,_))
 			| (Const(prev), Const(incoming)) => report_duplicated_qualifier(incoming, prev, sensitivity.name())?,
 			(NoSensitivity, _) => self.sensitivity = sensitivity,
 			(_, NoSensitivity) => (),
@@ -247,6 +247,13 @@ pub struct Signal {
 	pub direction: Direction,
 }
 impl Signal {
+	pub fn get_clock_name(&self)->IdTableKey{
+		use SignalSensitivity::*;
+		match &self.sensitivity {
+			Clock(_,Some(name))=>*name,
+			_=>panic!("This signal is not a clock")
+		}
+	}
 	pub fn evaluate_as_lhs(
 		&mut self,
 		is_lhs: bool,
@@ -544,105 +551,6 @@ impl Signal {
 			}
 		}
 	}
-	//pub fn combine_two(&mut self, other: &Signal, location: SourceSpan) -> miette::Result<()> {
-	//	if self.dimensions != other.dimensions {
-	//		return Err(miette::Report::new(
-	//			SemanticError::DifferingDimensions
-	//			.to_diagnostic_builder()
-	//			//.label(self.signal_type.location, "This signal has these dimensions") // FIXME PROPER LABELING
-	//			//.label(other.signal_type.location, "This signal has these dimensions")
-	//			.build(),
-	//		));
-	//	}
-	//	self.sensitivity = match (&self.sensitivity, &other.sensitivity) {
-	//		(SignalSensitivity::Async(_), _) => self.sensitivity.clone(),
-	//		(_, SignalSensitivity::Async(_)) => other.sensitivity.clone(),
-	//		(SignalSensitivity::Comb(_, _), _) => self.sensitivity.clone(),
-	//		(_, SignalSensitivity::Comb(_, _)) => other.sensitivity.clone(),
-	//		(SignalSensitivity::Sync(_, _), _) => self.sensitivity.clone(),
-	//		(_, SignalSensitivity::Sync(_, _)) => other.sensitivity.clone(),
-	//		(SignalSensitivity::Clock(_), _) => self.sensitivity.clone(),
-	//		(_, SignalSensitivity::Clock(_)) => other.sensitivity.clone(),
-	//		(SignalSensitivity::Const(_), _) => self.sensitivity.clone(),
-	//		(_, SignalSensitivity::Const(_)) => other.sensitivity.clone(),
-	//		(_, _) => SignalSensitivity::NoSensitivity,
-	//	};
-	//	match (&self.direction, &other.direction) {
-	//		(Direction::Input(_), Direction::Input(_)) => (),
-	//		(Direction::Input(_), Direction::Output(_)) => (), // warn
-	//		(Direction::Output(_), Direction::Input(_)) => (), // warn
-	//		(Direction::Output(_), Direction::Output(_)) => (),
-	//		(_, Direction::Tristate(_)) => (),
-	//		(Direction::Tristate(_), _) => (),
-	//		(_, Direction::None) => (),
-	//		(Direction::None, _) => (),
-	//	}
-	//	use SignalType::*;
-	//	self.signal_type = match (&self.signal_type, &other.signal_type) {
-	//		(Bus(bus1), Bus(bus2)) => {
-	//			let mut new = bus1.clone();
-	//			new.signedness = match (&bus1.signedness, &bus2.signedness) {
-	//				(SignalSignedness::Signed(_), SignalSignedness::Signed(_))
-	//				| (SignalSignedness::Unsigned(_), SignalSignedness::Unsigned(_)) => new.signedness,
-	//				(SignalSignedness::Signed(_), SignalSignedness::Unsigned(_))
-	//				| (SignalSignedness::Unsigned(_), SignalSignedness::Signed(_)) => todo!(), // report an erro
-	//				(_, SignalSignedness::NoSignedness) => new.signedness,
-	//				(SignalSignedness::NoSignedness, _) => bus2.signedness.clone(),
-	//			};
-	//			new.width = match (&bus1.width, &bus2.width) {
-	//				(None, None) => None,
-	//				(None, Some(_)) => bus2.width.clone(),
-	//				(Some(_), None) => bus1.width.clone(),
-	//				(Some(val1), Some(val2)) => {
-	//					if val1 == val2 {
-	//						bus1.width.clone()
-	//					} else {
-	//						return Err(miette::Report::new(
-	//							SemanticError::DifferingBusWidths
-	//								.to_diagnostic_builder()
-	//								.label(
-	//									location,
-	//									format!(
-	//										"Cannot assign signals - width mismatch. {} bits vs {} bits",
-	//										val1, val2
-	//									)
-	//									.as_str(),
-	//								)
-	//								.label(bus1.location, "First width specified here")
-	//								.label(bus2.location, "Second width specified here")
-	//								.build(),
-	//						));
-	//					}
-	//				},
-	//			};
-	//			SignalType::Bus(new)
-	//		},
-	//		(Bus(bus), Wire(wire)) => {
-	//			return Err(miette::Report::new(
-	//				SemanticError::BoundingWireWithBus
-	//					.to_diagnostic_builder()
-	//					.label(location, "Cannot assign bus to a wire")
-	//					.label(*wire, "Signal specified as wire here")
-	//					.label(bus.location, "Signal specified as a bus here")
-	//					.build(),
-	//			));
-	//		},
-	//		(Wire(wire), Bus(bus)) => {
-	//			return Err(miette::Report::new(
-	//				SemanticError::BoundingWireWithBus
-	//					.to_diagnostic_builder()
-	//					.label(location, "Cannot assign signals - type mismatch")
-	//					.label(*wire, "Wire type specified here")
-	//					.label(bus.location, "Bus type specified here")
-	//					.build(),
-	//			));
-	//		},
-	//		(Wire(_), Wire(_)) => self.signal_type.clone(),
-	//		(_, _) => todo!(),
-	//	};
-
-	//	Ok(())
-	//}
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct Variable {
@@ -658,7 +566,7 @@ impl Variable {
 	pub fn is_clock(&self) -> bool {
 		match &self.kind {
 			VariableKind::Signal(signal) => match &signal.sensitivity {
-				SignalSensitivity::Clock(_) => true,
+				SignalSensitivity::Clock(_,_) => true,
 				_ => false,
 			},
 			VariableKind::Generic(_) => false,
@@ -697,7 +605,7 @@ impl Variable {
 							builder = builder.sync(id, edge.on_rising);
 						}
 					},
-					Clock(_) => builder = builder.clock(),
+					Clock(_,_) => builder = builder.clock(),
 					Const(_) => builder = builder.constant(),
 					NoSensitivity => unreachable!("No sensitivity should not be possible"),
 				}
@@ -826,18 +734,23 @@ impl GenericVariable {
 	}
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct ModuleInstance {
-	pub module_name: IdTableKey,
+pub struct RegisterInstance {
+	pub name: IdTableKey,
 	pub location: SourceSpan,
+	pub next: InternalVariableId,
+	pub clk: InternalVariableId,
+	pub nreset: InternalVariableId,
+	pub data: InternalVariableId,
+	pub enable: InternalVariableId,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct NonRegister{
 	pub interface: Vec<Variable>,
 }
-impl ModuleInstance {
-	pub fn new(module_name: IdTableKey, location: SourceSpan) -> Self {
-		Self {
-			module_name,
-			location,
-			interface: Vec::new(),
-		}
+
+impl NonRegister {
+	pub fn new()->Self{
+		Self { interface: Vec::new() }
 	}
 	pub fn add_variable(&mut self, var: Variable) -> Result<(), SemanticError> {
 		for v in &self.interface {
@@ -850,6 +763,28 @@ impl ModuleInstance {
 	}
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub enum ModuleInstanceKind{
+	Module(NonRegister),
+	Register(RegisterInstance),
+}
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+pub struct ModuleInstance {
+	pub module_name: IdTableKey,
+	pub location: SourceSpan,
+	pub kind: ModuleInstanceKind,
+}
+impl ModuleInstance {
+	pub fn new(module_name: IdTableKey, location: SourceSpan)->Self{
+		Self { module_name, location, kind: ModuleInstanceKind::Module(NonRegister::new())}
+	}
+	pub fn add_variable(&mut self, var: Variable)->Result<(),SemanticError>{
+		match self.kind{
+			ModuleInstanceKind::Module(ref mut non_reg) => non_reg.add_variable(var),
+			ModuleInstanceKind::Register(_) => panic!("Register instance have others method of adding variables"),
+		}
+	}
+}
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum VariableKind {
 	Signal(Signal),
 	Generic(GenericVariable),
@@ -857,6 +792,17 @@ pub enum VariableKind {
 }
 
 impl VariableKind {
+	/// only if needed
+	pub fn add_name_to_clock(&mut self, id:IdTableKey){
+		use VariableKind::*;
+		match self{
+			Signal(sig) => match &mut sig.sensitivity{
+				SignalSensitivity::Clock(_,_) => sig.sensitivity = SignalSensitivity::Clock(sig.sensitivity.location().unwrap().clone(), Some(id)),
+				_ =>(),
+			},
+			_ => (),
+		}
+	}
 	pub fn evaluate_bus_width(
 		&mut self,
 		scope: &ModuleImplementationScope,
@@ -886,6 +832,14 @@ impl VariableKind {
 		match self {
 			Generic(_) => true,
 			_ => false,
+		}
+	}
+	pub fn is_array(&self)->bool{
+		use VariableKind::*;
+		match self{
+			Signal(sig) => sig.is_array(),
+			Generic(gen) => gen.dimensions.len() > 0,
+			_=> false,	
 		}
 	}
 	pub fn add_value(&mut self, value: BusWidth) {

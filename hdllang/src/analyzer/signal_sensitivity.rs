@@ -15,6 +15,9 @@ pub struct ClockSensitivityList {
 	pub list: Vec<EdgeSensitivity>,
 }
 impl ClockSensitivityList {
+	pub fn new() -> Self {
+		Self { list: Vec::new() }
+	}
 	pub fn contains_clock(&self, id: IdTableKey) -> bool {
 		for edge in &self.list {
 			if edge.clock_signal == id {
@@ -22,6 +25,14 @@ impl ClockSensitivityList {
 			}
 		}
 		false
+	}
+	pub fn with_clock(mut self, id: IdTableKey, on_rising: bool, location: SourceSpan) -> Self {
+		self.add_clock(EdgeSensitivity {
+			clock_signal: id,
+			on_rising,
+			location,
+		});
+		self
 	}
 	pub fn add_clock(&mut self, clk: EdgeSensitivity) {
 		if !self.contains_clock(clk.clock_signal) {
@@ -41,7 +52,7 @@ pub enum SignalSensitivity {
 	Async(SourceSpan),
 	Comb(ClockSensitivityList, SourceSpan),
 	Sync(ClockSensitivityList, SourceSpan),
-	Clock(SourceSpan),
+	Clock(SourceSpan, Option<IdTableKey>),
 	Const(SourceSpan),
 	/// if at the end of the analysis this is still None, it is an error
 	NoSensitivity,
@@ -53,7 +64,7 @@ impl SignalSensitivity {
 			Async(_) => "async",
 			Comb(..) => "comb",
 			Sync(..) => "sync",
-			Clock(_) => "clock",
+			Clock(_,_) => "clock",
 			Const(_) => "const",
 			NoSensitivity => "none",
 		}
@@ -66,14 +77,14 @@ impl SignalSensitivity {
 				(_, Async(_)) => *self = sens.clone(),
 				(Comb(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
 				(Comb(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
-				(Comb(..), Clock(_)) => *self = sens.clone(),
+				(Comb(..), Clock(_,_)) => *self = sens.clone(),
 				(Comb(..), Const(_)) => (),
 				(_, NoSensitivity) => (),
 				(Sync(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
 				(Sync(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
-				(Sync(..), Clock(_)) => *self = sens.clone(),
+				(Sync(..), Clock(_,_)) => *self = sens.clone(),
 				(Sync(..), Const(_)) => (),
-				(Clock(_), _) => (),
+				(Clock(_,_), _) => (),
 				(Const(_), Const(_)) => (),
 				(Const(_), _) => *self = sens.clone(),
 				(NoSensitivity, _) => *self = sens.clone(),
@@ -86,9 +97,40 @@ impl SignalSensitivity {
 			Async(x) => Some(x),
 			Comb(_, x) => Some(x),
 			Sync(_, x) => Some(x),
-			Clock(x) => Some(x),
+			Clock(x,_) => Some(x),
 			Const(x) => Some(x),
 			NoSensitivity => None,
+		}
+	}
+	pub fn is_not_worse_than(&self, other: &SignalSensitivity)->bool{
+		use SignalSensitivity::*;
+		match (self, other){
+			(_, Async(_)) => true,
+			(Async(_), _) => false,
+			(Comb(l1, _), Comb(l2, _)) => {
+				for edge in &l1.list {
+					if !l2.contains_clock(edge.clock_signal) {
+						return false;
+					}
+				}
+				true
+			},
+			(Comb(l1, _), Sync(l2, _)) => {
+				for edge in &l1.list {
+					if !l2.contains_clock(edge.clock_signal) {
+						return false;
+					}
+				}
+				true
+			},
+			(Comb(l1,_), Clock(_,Some(name))) => {
+				if l1.contains_clock(name.clone()){
+					return true;
+				}
+				false
+			},
+			(Comb(..), _) => false,
+			_ => true,
 		}
 	}
 	pub fn can_drive(
@@ -105,7 +147,7 @@ impl SignalSensitivity {
 			| (Async(_), Async(_))
 			| (Sync(..), Sync(..))
 			| (Const(_), Const(_))
-			| (Clock(_), Clock(_)) => (),
+			| (Clock(_,_), Clock(_,_)) => (),
 			(NoSensitivity, _) => *self = rhs.clone(),
 			(Comb(curent, lhs_location), Comb(incoming, _)) => {
 				for value in &incoming.list {
@@ -115,7 +157,7 @@ impl SignalSensitivity {
 								.to_diagnostic_builder()
 								.label(
 									location,
-									"Cannot assign signals - sensitivity mismatch. Sensitivty of the land hand side should be a super set of the right hand side",
+									"Cannot assign signals - sensitivity mismatch. Sensitivty of the left hand side should be a super set of the right hand side",
 								)
 								.label(*lhs_location, format!("This sensitivity list does not contain this clock {:?}", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
 								.label(value.location, format!("This clock {:?} is not present in left hand side sensitivity list", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
@@ -190,7 +232,7 @@ mod tests {
 	use crate::lexer::NumericConstantTable;
 	use paste::paste;
 	use std::collections::HashMap;
-	fn ctx<'a>(id_table: &'a IdTable, nc_table: &'a NumericConstantTable) -> GlobalAnalyzerContext<'a> {
+	fn ctx<'a>(id_table: &'a mut IdTable, nc_table: &'a NumericConstantTable) -> GlobalAnalyzerContext<'a> {
 		GlobalAnalyzerContext {
 			id_table,
 			nc_table,
@@ -206,7 +248,7 @@ mod tests {
 		SignalSensitivity::Async(span())
 	}
 	fn clock_sensitivity() -> SignalSensitivity {
-		SignalSensitivity::Clock(span())
+		SignalSensitivity::Clock(span(),None)
 	}
 	fn const_sensitivity() -> SignalSensitivity {
 		SignalSensitivity::Const(span())
@@ -214,10 +256,10 @@ mod tests {
 	macro_rules! sensitivity_test_ok {
 		($name1:ident, $name2:ident) => {
 			paste! {
-				let id_table = IdTable::new();
+				let mut id_table = IdTable::new();
 				let nc_table = NumericConstantTable::new();
-				assert!([<$name1 _sensitivity>]().can_drive(&[<$name2 _sensitivity>](), span(),&ctx(&id_table, &nc_table)).is_ok());
-				assert!([<$name2 _sensitivity>]().can_drive(&[<$name1 _sensitivity>](), span(),&ctx(&id_table, &nc_table)).is_err());
+				assert!([<$name1 _sensitivity>]().can_drive(&[<$name2 _sensitivity>](), span(),&ctx(&mut id_table, &nc_table)).is_ok());
+				assert!([<$name2 _sensitivity>]().can_drive(&[<$name1 _sensitivity>](), span(),&ctx(&mut id_table, &nc_table)).is_err());
 			}
 		};
 	}
