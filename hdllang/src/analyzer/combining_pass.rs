@@ -359,6 +359,9 @@ impl ModuleImplementationStatement {
 			VariableBlock(block) => block.analyze(ctx, local_ctx, AlreadyCreated::new(), scope_id)?,
 			VariableDefinition(definition) => definition.analyze(AlreadyCreated::new(), ctx, local_ctx, scope_id)?,
 			AssignmentStatement(assignment) => {
+				if ! assignment.lhs.is_lvalue() {
+					report_not_allowed_lhs(assignment.lhs.get_location())?;
+				}
 				if assignment.lhs.is_generic(ctx, scope_id, local_ctx)? {
 					if local_ctx.are_we_in_conditional > 0 {
 						return Err(miette::Report::new(
@@ -1419,14 +1422,19 @@ fn create_register(
 				.to_signal();
 			sig
 		},
-		IdWithExpression(expr) => expr.expression.evaluate_type(
+		IdWithExpression(expr) =>{
+			if !expr.expression.is_lvalue(){
+				return report_not_allowed_lhs(expr.expression.get_location());
+			}
+			expr.expression.evaluate_type(
 			ctx,
 			scope_id,
 			local_ctx,
 			Signal::new_empty(),
 			false,
 			data_stmt.unwrap().location(),
-		)?,
+		)?
+		},
 		IdWithDeclaration(_) => todo!(),
 	};
 	debug!("Data type is {:?}", data_type);
@@ -1685,6 +1693,17 @@ pub fn report_qualifier_contradicting_specifier(
 			)
 			.build(),
 	))
+}
+fn report_not_allowed_lhs(location: SourceSpan) -> miette::Result<RegisterInstance> {
+	return Err(miette::Report::new(
+		SemanticError::ForbiddenExpressionInLhs
+			.to_diagnostic_builder()
+			.label(
+				location,
+				"This expression is not allowed in the left hand sight of assignment",
+			)
+			.build(),
+	));
 }
 
 pub fn report_duplicated_qualifier(

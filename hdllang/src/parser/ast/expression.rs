@@ -727,6 +727,17 @@ impl Expression {
 			_=> todo!(),
 		}
 	}
+	pub fn is_lvalue(&self) -> bool {
+		use Expression::*;
+		match self {
+			Identifier(_) => true,
+			PostfixWithIndex(_) => true,
+			PostfixWithRange(_) => true,
+			ParenthesizedExpression(expr) => expr.expression.is_lvalue(),
+			PostfixWithId(_) => true,
+			_ => false,
+		}
+	}
 	pub fn is_width_specified(&self,global_ctx: &GlobalAnalyzerContext, local_ctx: &LocalAnalyzerContex, current_scope:usize)->bool{
 		use Expression::*;
 		match self {
@@ -2227,15 +2238,4 @@ fn report_not_allowed_expression(span: SourceSpan, expr_name: &str) -> miette::R
 			)
 			.build(),
 	))
-}
-fn report_not_allowed_lhs(location: SourceSpan) -> miette::Result<Signal> {
-	return Err(miette::Report::new(
-		SemanticError::ForbiddenExpressionInLhs
-			.to_diagnostic_builder()
-			.label(
-				location,
-				"This expression is not allowed in the left hand sight of assignment",
-			)
-			.build(),
-	));
 }
