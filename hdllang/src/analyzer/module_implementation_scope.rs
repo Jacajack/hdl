@@ -84,7 +84,7 @@ impl ModuleImplementationScope {
 	pub fn get_interface_len(&self) -> usize {
 		return self.scopes.first().unwrap().variables.len();
 	}
-	pub fn get_var(&self, scope_id: usize, name: &IdTableKey) -> Result<&VariableDefined, SemanticError> {
+	pub fn get_var(&self, scope_id: usize, name: &IdTableKey) -> Result<&VariableDefined, crate::core::CompilerDiagnosticBuilder> {
 		let scope = &self.scopes[scope_id];
 		if let Some(variable) = scope.variables.get(name) {
 			Ok(variable)
@@ -94,7 +94,7 @@ impl ModuleImplementationScope {
 				self.get_var(parent_scope, name)
 			}
 			else {
-				Err(SemanticError::VariableNotDeclared)
+				Err(SemanticError::VariableNotDeclared.to_diagnostic_builder())
 			}
 		}
 	}

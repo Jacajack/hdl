@@ -1,11 +1,14 @@
-use super::{AlreadyCreated, ModuleDeclared, SemanticError, Variable, VariableKind, RegisterInstance};
+use super::{AlreadyCreated, ModuleDeclared, RegisterInstance, SemanticError, Variable, VariableKind};
 use hirn::design::{ScopeHandle, UnaryExpression};
 use log::{debug, info};
 use std::collections::HashMap;
 use std::io::Write;
 
 use crate::{
-	analyzer::{BusWidth, ModuleImplementationScope, Signal, ModuleInstance, semantic_error::InstanceError, GenericVariable, SignalSensitivity, ClockSensitivityList},
+	analyzer::{
+		semantic_error::InstanceError, BusWidth, ClockSensitivityList, GenericVariable, ModuleImplementationScope,
+		ModuleInstance, ModuleInstanceKind, NonRegister, Signal, SignalSensitivity,
+	},
 	core::*,
 	lexer::*,
 	parser::ast::*,
@@ -214,16 +217,14 @@ pub fn codegen_pass(
 	local_ctx: &mut LocalAnalyzerContex,
 	module: &ModuleImplementation,
 ) -> miette::Result<()> {
-	// all passes are performed per module
-	debug!("Running codegen pass");
 	module.codegen_pass(ctx, local_ctx)?;
-	debug!("Codegen pass done");
 	Ok(())
 }
+use crate::core::NumericConstantTable;
 /// Global shared context for semantic analysis
 pub struct GlobalAnalyzerContext<'a> {
 	pub id_table: &'a mut IdTable,
-	pub nc_table: &'a crate::lexer::NumericConstantTable,
+	pub nc_table: &'a NumericConstantTable,
 	/// represents all declared modules
 	pub modules_declared: HashMap<IdTableKey, ModuleDeclared>,
 	/// represents all implemented generic modules
@@ -448,26 +449,39 @@ impl ModuleImplementationStatement {
 			},
 			InstantiationStatement(inst) => {
 				let name = inst.module_name.get_last_module();
-				match local_ctx.scope.is_declared(scope_id, &inst.instance_name){
-        			Some(location) => return Err(miette::Report::new(
-						SemanticError::DuplicateVariableDeclaration
-							.to_diagnostic_builder()
-							.label(
-								inst.location,
-								format!(
-									"Variable \"{}\" is already declared in this scope",
-									ctx.id_table.get_by_key(&inst.instance_name).unwrap()
+				match local_ctx.scope.is_declared(scope_id, &inst.instance_name) {
+					Some(location) => {
+						return Err(miette::Report::new(
+							SemanticError::DuplicateVariableDeclaration
+								.to_diagnostic_builder()
+								.label(
+									inst.location,
+									format!(
+										"Variable \"{}\" is already declared in this scope",
+										ctx.id_table.get_by_key(&inst.instance_name).unwrap()
+									)
+									.as_str(),
 								)
-								.as_str(),
-							)
-							.label(location, "Previous declaration")
-							.build(),
-					)),
-        			None => (),
-    			} 
-				if ctx.id_table.get_value(&name).as_str() == "register"{
-					let v = Variable::new(inst.instance_name,inst.location, VariableKind::ModuleInstance(ModuleInstance { module_name: inst.instance_name, location: inst.location, kind: crate::analyzer::ModuleInstanceKind::Register(create_register(inst, scope_id, ctx, local_ctx)?)}));
-					local_ctx.scope.define_variable(scope_id, v )?;
+								.label(location, "Previous declaration")
+								.build(),
+						))
+					},
+					None => (),
+				}
+				if ctx.id_table.get_value(&name).as_str() == "register" {
+					let v = Variable::new(
+						inst.instance_name,
+						inst.location,
+						VariableKind::ModuleInstance(ModuleInstance {
+							module_name: inst.instance_name,
+							location: inst.location,
+							kind: crate::analyzer::ModuleInstanceKind::Register(create_register(
+								inst, scope_id, ctx, local_ctx,
+							)?),
+						}),
+					);
+					local_ctx.scope.define_variable(scope_id, v)?;
+					return Ok(());
 				}
 				ctx.modules_declared
 					.get_mut(&local_ctx.module_id)
@@ -503,7 +517,7 @@ impl ModuleImplementationStatement {
 				}
 				let module = ctx.modules_declared.get(&name).unwrap();
 				let mut scope = module.scope.clone();
-				let mut module_instance = ModuleInstance::new(name, inst.location);
+				let mut module_instance = NonRegister { interface: Vec::new() };
 				if scope.get_interface_len() != inst.port_bind.len() {
 					return Err(miette::Report::new(
 						InstanceError::ArgumentsMismatch
@@ -526,18 +540,17 @@ impl ModuleImplementationStatement {
 				for stmt in &inst.port_bind {
 					let mut interface_variable = scope
 						.get_var(0, &stmt.get_id())
-						.map_err(|err| {
-							err.to_diagnostic_builder()
-								.label(
-									stmt.location(),
-									format!(
-										"Variable \"{}\" is not declared in in interface in module \"{}\"",
-										ctx.id_table.get_by_key(&stmt.get_id()).unwrap(),
-										ctx.id_table.get_by_key(&name).unwrap()
-									)
-									.as_str(),
+						.map_err(|mut err| {
+							err.label(
+								stmt.location(),
+								format!(
+									"Variable \"{}\" is not declared in in interface in module \"{}\"",
+									ctx.id_table.get_by_key(&stmt.get_id()).unwrap(),
+									ctx.id_table.get_by_key(&name).unwrap()
 								)
-								.build()
+								.as_str(),
+							)
+							.build()
 						})?
 						.clone();
 					if !interface_variable.var.kind.is_generic() {
@@ -550,17 +563,16 @@ impl ModuleImplementationStatement {
 							let mut local_sig = local_ctx
 								.scope
 								.get_var(scope_id, &id.id)
-								.map_err(|err| {
-									err.to_diagnostic_builder()
-										.label(
-											id.location,
-											format!(
-												"Variable \"{}\" is not declared",
-												ctx.id_table.get_by_key(&id.id).unwrap()
-											)
-											.as_str(),
+								.map_err(|mut err| {
+									err.label(
+										id.location,
+										format!(
+											"Variable \"{}\" is not declared",
+											ctx.id_table.get_by_key(&id.id).unwrap()
 										)
-										.build()
+										.as_str(),
+									)
+									.build()
 								})?
 								.clone();
 							debug!("Local sig is {:?}", local_sig.var.kind);
@@ -637,10 +649,8 @@ impl ModuleImplementationStatement {
 				debug!("Scope is {:?}", scope);
 				debug!("Binding non generic variables!");
 				for stmt in &inst.port_bind {
-					let mut interface_variable = scope
-						.get_var(0, &stmt.get_id())
-						.expect("This was checked in a previous loop")
-						.clone();
+					let mut interface_variable =
+						scope.get_variable(0, &stmt.get_id()).expect("This was checked").clone();
 					if interface_variable.var.kind.is_generic() {
 						continue;
 					}
@@ -653,17 +663,16 @@ impl ModuleImplementationStatement {
 							let mut local_sig = local_ctx
 								.scope
 								.get_var(scope_id, &id.id)
-								.map_err(|err| {
-									err.to_diagnostic_builder()
-										.label(
-											id.location,
-											format!(
-												"Variable \"{}\" is not declared",
-												ctx.id_table.get_by_key(&id.id).unwrap()
-											)
-											.as_str(),
+								.map_err(|mut err| {
+									err.label(
+										id.location,
+										format!(
+											"Variable \"{}\" is not declared",
+											ctx.id_table.get_by_key(&id.id).unwrap()
 										)
-										.build()
+										.as_str(),
+									)
+									.build()
 								})?
 								.clone();
 							debug!("Local sig is {:?}", local_sig.var.kind);
@@ -732,14 +741,18 @@ impl ModuleImplementationStatement {
 						},
 					}
 				}
-				local_ctx.scope.define_variable(
-					scope_id,
-					Variable::new(
-						inst.instance_name,
-						inst.location,
-						VariableKind::ModuleInstance(module_instance),
-					),
-				)?;
+				debug!("Defining module instance {:?}", module_instance);
+				let v = Variable::new(
+					inst.instance_name,
+					inst.location,
+					VariableKind::ModuleInstance(ModuleInstance {
+						module_name: inst.instance_name,
+						location: inst.location,
+						kind: crate::analyzer::ModuleInstanceKind::Module(module_instance),
+					}),
+				);
+				local_ctx.scope.define_variable(scope_id, v)?;
+				return Ok(());
 			},
 			ModuleImplementationBlockStatement(block) => {
 				let id = local_ctx.scope.new_scope(Some(scope_id));
@@ -801,16 +814,20 @@ impl ModuleImplementationStatement {
 					&local_ctx.scope,
 					Some(&local_ctx.nc_widths),
 				)?;
-				match conditional.else_statement{
+				match conditional.else_statement {
 					Some(ref else_stmt) => {
-						let (mut if_scope, mut else_scope) = api_scope.if_else_scope(condition_expr).map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
+						let (mut if_scope, mut else_scope) = api_scope
+							.if_else_scope(condition_expr)
+							.map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
 						conditional.if_statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
 						else_stmt.codegen_pass(ctx, local_ctx, &mut else_scope)?;
-					}
+					},
 					None => {
-						let mut if_scope = api_scope.if_scope(condition_expr).map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
+						let mut if_scope = api_scope
+							.if_scope(condition_expr)
+							.map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
 						conditional.if_statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
-					}
+					},
 				}
 				let mut inner_scope = api_scope
 					.if_scope(conditional.condition.codegen(
@@ -845,7 +862,113 @@ impl ModuleImplementationStatement {
 				}
 			},
 			IterationStatement(_) => todo!(),
-			InstantiationStatement(_) => (), //FIXME
+			InstantiationStatement(inst) => {
+				if ctx.id_table.get_value(&inst.module_name.get_last_module()).as_str() == "register" {
+					let r = local_ctx.scope.get_variable(scope_id, &inst.instance_name).unwrap(); //FIXME
+					if let VariableKind::ModuleInstance(m) = &r.var.kind {
+						if let ModuleInstanceKind::Register(reg) = &m.kind {
+							let mut builder = hirn::design::RegisterBuilder::new(
+								api_scope.clone(),
+								&ctx.id_table.get_value(&inst.instance_name),
+							);
+							let clk_id = reg.clk.register(
+								ctx.nc_table,
+								ctx.id_table,
+								scope_id,
+								&local_ctx.scope,
+								Some(&local_ctx.nc_widths),
+								api_scope
+									.new_signal(ctx.id_table.get_by_key(&reg.clk.name).unwrap().as_str())
+									.unwrap(),
+							)?;
+							let next_id = reg.next.register(
+								ctx.nc_table,
+								ctx.id_table,
+								scope_id,
+								&local_ctx.scope,
+								Some(&local_ctx.nc_widths),
+								api_scope
+									.new_signal(ctx.id_table.get_by_key(&reg.next.name).unwrap().as_str())
+									.unwrap(),
+							)?;
+							let enable_id = reg.enable.register(
+								ctx.nc_table,
+								ctx.id_table,
+								scope_id,
+								&local_ctx.scope,
+								Some(&local_ctx.nc_widths),
+								api_scope
+									.new_signal(ctx.id_table.get_by_key(&reg.enable.name).unwrap().as_str())
+									.unwrap(),
+							)?;
+							let reset_id = reg.nreset.register(
+								ctx.nc_table,
+								ctx.id_table,
+								scope_id,
+								&local_ctx.scope,
+								Some(&local_ctx.nc_widths),
+								api_scope
+									.new_signal(ctx.id_table.get_by_key(&reg.nreset.name).unwrap().as_str())
+									.unwrap(),
+							)?;
+							let data_id = reg.data.register(
+								ctx.nc_table,
+								ctx.id_table,
+								scope_id,
+								&local_ctx.scope,
+								Some(&local_ctx.nc_widths),
+								api_scope
+									.new_signal(ctx.id_table.get_by_key(&reg.data.name).unwrap().as_str())
+									.unwrap(),
+							)?;
+							for stmt in &inst.port_bind {
+								let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
+								debug!("Codegen pass for port bind {:?}", stmt);
+								match ctx.id_table.get_value(&stmt.get_id()).as_str() {
+									"clk" => {
+										api_scope
+											.assign(hirn::design::Expression::Signal(clk_id.into()), rhs)
+											.map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
+									},
+									"next" => {
+										api_scope
+											.assign(hirn::design::Expression::Signal(next_id.into()), rhs)
+											.map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
+									},
+									"en" => {
+										api_scope
+											.assign(hirn::design::Expression::Signal(enable_id.into()), rhs)
+											.map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
+									},
+									"nreset" => {
+										api_scope
+											.assign(hirn::design::Expression::Signal(reset_id.into()), rhs)
+											.map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
+									},
+									"data" => {
+										api_scope
+											.assign(hirn::design::Expression::Signal(data_id.into()), rhs)
+											.map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
+									},
+									_ => unreachable!(),
+								}
+							}
+							builder
+								.next(next_id)
+								.en(enable_id)
+								.nreset(reset_id)
+								.clk(clk_id)
+								.output(data_id)
+								.build()
+								.map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
+							return Ok(());
+						}
+					}
+					unreachable!();
+				}
+				let name = inst.module_name.get_last_module();
+				let module = ctx.modules_declared.get(&name).unwrap();
+			},
 			ModuleImplementationBlockStatement(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
 		};
 		Ok(())
@@ -980,15 +1103,14 @@ impl VariableDefinition {
 								.build(),
 						));
 					}
-					if spec_kind.is_generic(){
+					if spec_kind.is_generic() {
 						let rhs_val = expr.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
-						if let VariableKind::Generic(GenericVariable{value, ..}) = &mut spec_kind {
+						if let VariableKind::Generic(GenericVariable { value, .. }) = &mut spec_kind {
 							value.replace(BusWidth::Evaluated(rhs_val.unwrap()));
 						} else {
 							unreachable!()
 						}
-					}
-					else {
+					} else {
 						let mut lhs = spec_kind.to_signal();
 						debug!("Lhs is {:?}", lhs);
 						let rhs = expr.evaluate_type(
@@ -1137,139 +1259,408 @@ impl VariableBlockStatement {
 		Ok(())
 	}
 }
-fn create_register(inst_stmt: &InstantiationStatement,scope_id: usize, ctx: &mut GlobalAnalyzerContext, local_ctx: &mut LocalAnalyzerContex) ->miette::Result<RegisterInstance>{
+fn create_register(
+	inst_stmt: &InstantiationStatement,
+	scope_id: usize,
+	ctx: &mut GlobalAnalyzerContext,
+	local_ctx: &mut LocalAnalyzerContex,
+) -> miette::Result<RegisterInstance> {
 	if inst_stmt.port_bind.len() != 5 {
-		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-		.label(inst_stmt.location, "Register must have 5 arguments")
-		.build()))
+		return Err(miette::Report::new(
+			InstanceError::ArgumentsMismatch
+				.to_diagnostic_builder()
+				.label(inst_stmt.location, "Register must have 5 arguments")
+				.build(),
+		));
 	}
 	let mut en_stmt: Option<&PortBindStatement> = None;
 	let mut next_stmt: Option<&PortBindStatement> = None;
 	let mut clk_stmt: Option<&PortBindStatement> = None;
 	let mut nreset_stmt: Option<&PortBindStatement> = None;
 	let mut data_stmt: Option<&PortBindStatement> = None;
-	for stmt in &inst_stmt.port_bind{
-		match ctx.id_table.get_value(&stmt.get_id()).as_str(){
-			"en" => match en_stmt{
-				Some(stmt1) => return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-				.label(stmt.location(), "This argument is already defined")
-				.label(stmt1.location(), "En signal is already defined here")
-				.build())),
-				None =>en_stmt.replace(stmt),
+	for stmt in &inst_stmt.port_bind {
+		match ctx.id_table.get_value(&stmt.get_id()).as_str() {
+			"en" => match en_stmt {
+				Some(stmt1) => {
+					return Err(miette::Report::new(
+						InstanceError::ArgumentsMismatch
+							.to_diagnostic_builder()
+							.label(stmt.location(), "This argument is already defined")
+							.label(stmt1.location(), "En signal is already defined here")
+							.build(),
+					))
+				},
+				None => en_stmt = Some(stmt),
 			},
-			"next" => match next_stmt{
-				Some(stmt1) => return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-				.label(stmt.location(), "This argument is already defined")
-				.label(stmt1.location(), "Next signal is already defined here")
-				.build())),
-				None =>next_stmt.replace(stmt),
+			"next" => match next_stmt {
+				Some(stmt1) => {
+					return Err(miette::Report::new(
+						InstanceError::ArgumentsMismatch
+							.to_diagnostic_builder()
+							.label(stmt.location(), "This argument is already defined")
+							.label(stmt1.location(), "Next signal is already defined here")
+							.build(),
+					))
+				},
+				None => next_stmt = Some(stmt),
 			},
-			"clk" => match clk_stmt{
-				Some(stmt1) => return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-				.label(stmt.location(), "This argument is already defined")
-				.label(stmt1.location(), "Clk signal is already defined here")
-				.build())),
-				None =>clk_stmt.replace(stmt),
+			"clk" => match clk_stmt {
+				Some(stmt1) => {
+					return Err(miette::Report::new(
+						InstanceError::ArgumentsMismatch
+							.to_diagnostic_builder()
+							.label(stmt.location(), "This argument is already defined")
+							.label(stmt1.location(), "Clk signal is already defined here")
+							.build(),
+					))
+				},
+				None => clk_stmt = Some(stmt),
 			},
-			"nreset" => match nreset_stmt{
-				Some(stmt1) => return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-				.label(stmt.location(), "This argument is already defined")
-				.label(stmt1.location(), "NReset signal is already defined here")
-				.build())),
-				None =>nreset_stmt.replace(stmt),
+			"nreset" => match nreset_stmt {
+				Some(stmt1) => {
+					return Err(miette::Report::new(
+						InstanceError::ArgumentsMismatch
+							.to_diagnostic_builder()
+							.label(stmt.location(), "This argument is already defined")
+							.label(stmt1.location(), "NReset signal is already defined here")
+							.build(),
+					))
+				},
+				None => nreset_stmt = Some(stmt),
 			},
-			"data" => match data_stmt{
-				Some(stmt1) => return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-				.label(stmt.location(), "This argument is already defined")
-				.label(stmt1.location(), "Data signal is already defined here")
-				.build())),
-				None =>data_stmt.replace(stmt),
+			"data" => match data_stmt {
+				Some(stmt1) => {
+					return Err(miette::Report::new(
+						InstanceError::ArgumentsMismatch
+							.to_diagnostic_builder()
+							.label(stmt.location(), "This argument is already defined")
+							.label(stmt1.location(), "Data signal is already defined here")
+							.build(),
+					))
+				},
+				None => data_stmt = Some(stmt),
 			},
-			_ => return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-			.label(stmt.location(), "This is not a valid argument for register")
-			.build()))
+			_ => {
+				return Err(miette::Report::new(
+					InstanceError::ArgumentsMismatch
+						.to_diagnostic_builder()
+						.label(stmt.location(), "This is not a valid argument for register")
+						.build(),
+				))
+			},
 		};
 	}
 	use crate::parser::ast::PortBindStatement::*;
-	let clk_signal = Signal{
-    	signal_type: crate::analyzer::SignalType::Wire(clk_stmt.unwrap().location()),
-    	dimensions: vec![],
-    	sensitivity: crate::analyzer::SignalSensitivity::Clock(clk_stmt.unwrap().location(),None),
-    	direction: crate::analyzer::Direction::Input(clk_stmt.unwrap().location()),
-	};
-	let clk_type = match clk_stmt.unwrap(){
-    	OnlyId(id) => todo!(),
-    	IdWithExpression(expr) => expr.expression.evaluate_type(ctx, scope_id, local_ctx, clk_signal.clone(), false, clk_stmt.unwrap().location())?,
-    	IdWithDeclaration(_) => todo!(),
+	let clk_type = match clk_stmt.unwrap() {
+		OnlyId(id) => local_ctx
+			.scope
+			.get_var(scope_id, &id.id)
+			.map_err(|mut err| {
+				err.label(clk_stmt.unwrap().location(), "This variable was not declared")
+					.build()
+			})?
+			.var
+			.kind
+			.to_signal(),
+		IdWithExpression(expr) => expr.expression.evaluate_type(
+			ctx,
+			scope_id,
+			local_ctx,
+			Signal::new_empty(),
+			false,
+			clk_stmt.unwrap().location(),
+		)?,
+		IdWithDeclaration(id_decl) => VariableKind::from_type_declarator(
+			&id_decl.declaration.type_declarator,
+			scope_id,
+			AlreadyCreated::new(),
+			ctx.nc_table,
+			ctx.id_table,
+			&mut local_ctx.scope,
+		)?
+		.to_signal(),
 	};
 	debug!("Clk type is {:?}", clk_type);
-	if clk_type.is_array(){
-		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-		.label(clk_stmt.unwrap().location(), "Clock cannot be array")
-		.build()))
+	if clk_type.is_array() {
+		return Err(miette::Report::new(
+			InstanceError::ArgumentsMismatch
+				.to_diagnostic_builder()
+				.label(clk_stmt.unwrap().location(), "Clock cannot be array")
+				.build(),
+		));
 	}
-	if let SignalSensitivity::Clock(_,_) = &clk_type.sensitivity{}
-	else {
-		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-		.label(clk_stmt.unwrap().location(), "Clk signal must be marked as clock")
-		.build()))
+	if let SignalSensitivity::Clock(_, _) = &clk_type.sensitivity {
+	} else {
+		return Err(miette::Report::new(
+			InstanceError::ArgumentsMismatch
+				.to_diagnostic_builder()
+				.label(clk_stmt.unwrap().location(), "Clk signal must be marked as clock")
+				.build(),
+		));
 	}
-	let clk_name = ctx.id_table.insert_or_get("clk_in2137");
-	let clk_var = Variable::new(clk_name, clk_stmt.unwrap().location(), VariableKind::Signal(clk_type.clone()));
-	let data_signal = Signal{
-		signal_type: crate::analyzer::SignalType::Auto(data_stmt.unwrap().location()),
-		dimensions: vec![],
-		sensitivity: crate::analyzer::SignalSensitivity::Comb(ClockSensitivityList::new().with_clock(clk_name, true, clk_stmt.unwrap().location()), clk_stmt.unwrap().location()), //FIXME
-		direction: crate::analyzer::Direction::Input(data_stmt.unwrap().location()),
-	};
-	let mut data_type = match data_stmt.unwrap(){
-		OnlyId(id) => todo!(),
-		IdWithExpression(expr) => expr.expression.evaluate_type(ctx, scope_id, local_ctx, data_signal.clone(), false, data_stmt.unwrap().location())?,
+	let inst_name = ctx.id_table.get_value(&inst_stmt.instance_name).clone();
+	let clk_name = ctx.id_table.insert_or_get(format!("{}_clk", inst_name).as_str());
+	let next_name = ctx.id_table.insert_or_get(format!("{}_nxt_c", inst_name).as_str());
+	let en_name = ctx.id_table.insert_or_get(format!("{}_en_c", inst_name).as_str());
+	let nreset_name = ctx.id_table.insert_or_get(format!("{}_nreset", inst_name).as_str());
+	let data_name = ctx.id_table.insert_or_get(format!("{}_out_r", inst_name).as_str());
+	// FIXME CHECK IF SIGNAL IS LVALUE
+	let mut data_type = match data_stmt.unwrap() {
+		OnlyId(id) => {
+			let mut sig = local_ctx
+				.scope
+				.get_var(scope_id, &id.id)
+				.map_err(|mut err| {
+					err.label(next_stmt.unwrap().location(), "This variable was not declared")
+						.build()
+				})?
+				.var
+				.kind
+				.to_signal();
+			sig
+		},
+		IdWithExpression(expr) => expr.expression.evaluate_type(
+			ctx,
+			scope_id,
+			local_ctx,
+			Signal::new_empty(),
+			false,
+			data_stmt.unwrap().location(),
+		)?,
 		IdWithDeclaration(_) => todo!(),
 	};
 	debug!("Data type is {:?}", data_type);
-	if data_type.is_array(){
-		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-		.label(data_stmt.unwrap().location(), "Clock cannot be array")
-		.build()))
+	if data_type.is_array() {
+		return Err(miette::Report::new(
+			InstanceError::ArgumentsMismatch
+				.to_diagnostic_builder()
+				.label(data_stmt.unwrap().location(), "Data signal cannot be array")
+				.build(),
+		));
 	}
-	if let SignalSensitivity::Sync(list, loc, ) = &data_type.sensitivity{
+	if let SignalSensitivity::Sync(list, loc) = &data_type.sensitivity {
 		if !list.contains_clock(clk_type.get_clock_name()) || list.list.len() > 1 {
-			return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-			.label(data_stmt.unwrap().location(), "Data signal must be synchronized with clock")
-			.build()))
-		} 
+			return Err(miette::Report::new(
+				InstanceError::ArgumentsMismatch
+					.to_diagnostic_builder()
+					.label(
+						data_stmt.unwrap().location(),
+						"Data signal must be synchronized with clock",
+					)
+					.label(
+						*loc,
+						format!(
+							"This sync list does not contain this clock {}",
+							ctx.id_table.get_value(&clk_type.get_clock_name())
+						)
+						.as_str(),
+					)
+					.build(),
+			));
+		}
+	} else {
+		return Err(miette::Report::new(
+			InstanceError::ArgumentsMismatch
+				.to_diagnostic_builder()
+				.label(
+					data_stmt.unwrap().location(),
+					"Data signal must be synchronized with clock",
+				)
+				.build(),
+		));
 	}
-	else {
-		debug!("Data type is {:?}", data_type);
-		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-		.label(data_stmt.unwrap().location(), "Data signal must be synchronized with clock")
-		.build()))
-	}
-	let next_signal = Signal{
-		signal_type: crate::analyzer::SignalType::Auto(data_stmt.unwrap().location()),
-		dimensions: vec![],
-		sensitivity: crate::analyzer::SignalSensitivity::NoSensitivity,
-		direction: crate::analyzer::Direction::Input(data_stmt.unwrap().location()),
-	};
-	let mut next_type = match next_stmt.unwrap(){
-		OnlyId(id) => todo!(),
-		IdWithExpression(expr) => expr.expression.evaluate_type(ctx, scope_id, local_ctx, data_type.clone(), false, data_stmt.unwrap().location())?,
+	debug!("Data type is {:?}", data_type);
+	let mut next_type = match next_stmt.unwrap() {
+		OnlyId(id) => {
+			let mut sig = local_ctx
+				.scope
+				.get_var(scope_id, &id.id)
+				.map_err(|mut err| {
+					err.label(next_stmt.unwrap().location(), "This variable was not declared")
+						.build()
+				})?
+				.var
+				.kind
+				.to_signal();
+			sig
+		},
+		IdWithExpression(expr) => expr.expression.evaluate_type(
+			ctx,
+			scope_id,
+			local_ctx,
+			data_type.clone(),
+			false,
+			data_stmt.unwrap().location(),
+		)?,
 		IdWithDeclaration(_) => todo!(),
 	};
 	debug!("Next type is {:?}", next_type);
-	if next_type.is_array(){
-		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-		.label(clk_stmt.unwrap().location(), "Clock cannot be array")
-		.build()))
+	if next_type.is_array() {
+		return Err(miette::Report::new(
+			InstanceError::ArgumentsMismatch
+				.to_diagnostic_builder()
+				.label(next_stmt.unwrap().location(), "Next signal cannot cannot be array")
+				.build(),
+		));
 	}
 	if !next_type.sensitivity.is_not_worse_than(&clk_type.sensitivity) {
-		return Err(miette::Report::new(InstanceError::ArgumentsMismatch.to_diagnostic_builder()
-		.label(next_stmt.unwrap().location(), "Next signal must be synchronized with clock")
-		.build()))
+		return Err(miette::Report::new(
+			InstanceError::ArgumentsMismatch
+				.to_diagnostic_builder()
+				.label(
+					next_stmt.unwrap().location(),
+					"Next signal must be synchronized with clock",
+				)
+				.build(),
+		));
 	}
-	//data_type.sensitivity.can_drive(&clk_signal.sensitivity, data_stmt.unwrap().location(), ctx)?;
-	todo!()
+	match (data_type.is_width_specified(), next_type.is_width_specified()) {
+		(true, true) => {
+			data_type.evaluate_as_lhs(false, &ctx, next_type.clone(), data_stmt.unwrap().location())?;
+		},
+		(true, false) => {
+			next_type.evaluate_as_lhs(false, &ctx, data_type.clone(), next_stmt.unwrap().location())?;
+			match next_stmt.unwrap() {
+				OnlyId(id) => {
+					let mut sig = local_ctx.scope.get_variable(scope_id, &id.id).unwrap().clone();
+					sig.var.kind = VariableKind::Signal(next_type.clone());
+					local_ctx.scope.redeclare_variable(sig);
+				},
+				IdWithExpression(expr) => {
+					expr.expression.evaluate_type(
+						ctx,
+						scope_id,
+						local_ctx,
+						data_type.clone(),
+						false,
+						next_stmt.unwrap().location(),
+					)?;
+				},
+				IdWithDeclaration(_) => todo!(),
+			};
+		},
+		(false, true) => {
+			data_type.evaluate_as_lhs(false, &ctx, next_type.clone(), data_stmt.unwrap().location())?;
+			match data_stmt.unwrap() {
+				OnlyId(id) => {
+					let mut sig = local_ctx.scope.get_variable(scope_id, &id.id).unwrap().clone();
+					sig.var.kind = VariableKind::Signal(data_type.clone());
+					local_ctx.scope.redeclare_variable(sig);
+				},
+				IdWithExpression(expr) => {
+					expr.expression.evaluate_type(
+						ctx,
+						scope_id,
+						local_ctx,
+						next_type.clone(),
+						false,
+						data_stmt.unwrap().location(),
+					)?;
+				},
+				IdWithDeclaration(_) => todo!(),
+			};
+		},
+		(false, false) => {
+			return Err(miette::Report::new(
+				InstanceError::ArgumentsMismatch
+					.to_diagnostic_builder()
+					.label(next_stmt.unwrap().location(), "Next signal must have width specified")
+					.build(),
+			));
+		},
+	}
+	match (data_type.is_signedness_specified(), next_type.is_signedness_specified()) {
+		(true, true) => {
+			data_type.evaluate_as_lhs(false, &ctx, next_type.clone(), data_stmt.unwrap().location())?;
+		},
+		(true, false) => (), //FIXME
+		(false, true) => (), //FIXME
+		(false, false) => {
+			return Err(miette::Report::new(
+				InstanceError::ArgumentsMismatch
+					.to_diagnostic_builder()
+					.label(
+						next_stmt.unwrap().location(),
+						"Next signal must have signedness specified",
+					)
+					.build(),
+			))
+		},
+	};
+	let nreset_type = match nreset_stmt.unwrap() {
+		OnlyId(id) => local_ctx
+			.scope
+			.get_var(scope_id, &id.id)
+			.map_err(|mut err| {
+				err.label(nreset_stmt.unwrap().location(), "This variable was not declared")
+					.build()
+			})?
+			.var
+			.kind
+			.to_signal(),
+		IdWithExpression(expr) => expr.expression.evaluate_type(
+			ctx,
+			scope_id,
+			local_ctx,
+			Signal::new_empty(),
+			false,
+			nreset_stmt.unwrap().location(),
+		)?,
+		IdWithDeclaration(_) => todo!(),
+	};
+	let en_type = match en_stmt.unwrap() {
+		OnlyId(id) => todo!(),
+		IdWithExpression(expr) => expr.expression.evaluate_type(
+			ctx,
+			scope_id,
+			local_ctx,
+			Signal::new_empty(),
+			false,
+			en_stmt.unwrap().location(),
+		)?,
+		IdWithDeclaration(_) => todo!(),
+	};
+	if !en_type.sensitivity.is_not_worse_than(&clk_type.sensitivity) {
+		return Err(miette::Report::new(
+			InstanceError::ArgumentsMismatch
+				.to_diagnostic_builder()
+				.label(
+					en_stmt.unwrap().location(),
+					"Enable signal must be synchronized with clock",
+				)
+				.build(),
+		));
+	}
+	let r = RegisterInstance {
+		name: inst_stmt.instance_name,
+		location: inst_stmt.location,
+		next: Box::new(Variable::new(
+			next_name,
+			next_stmt.unwrap().location(),
+			VariableKind::Signal(next_type),
+		)),
+		clk: Box::new(Variable::new(
+			clk_name,
+			next_stmt.unwrap().location(),
+			VariableKind::Signal(clk_type),
+		)),
+		nreset: Box::new(Variable::new(
+			nreset_name,
+			next_stmt.unwrap().location(),
+			VariableKind::Signal(nreset_type),
+		)),
+		data: Box::new(Variable::new(
+			data_name,
+			next_stmt.unwrap().location(),
+			VariableKind::Signal(data_type),
+		)),
+		enable: Box::new(Variable::new(
+			en_name,
+			next_stmt.unwrap().location(),
+			VariableKind::Signal(en_type),
+		)),
+	};
+	Ok(r)
 }
 pub fn report_qualifier_contradicting_specifier(
 	qualifier_location: &SourceSpan,
