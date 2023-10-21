@@ -703,7 +703,12 @@ impl Expression {
 			_ => unreachable!(),
 		}
 	}
-	pub fn is_signedness_specified(&self, global_ctx: &GlobalAnalyzerContext, local_ctx: &LocalAnalyzerContex, current_scope: usize) ->bool{
+	pub fn is_signedness_specified(
+		&self,
+		global_ctx: &GlobalAnalyzerContext,
+		local_ctx: &LocalAnalyzerContex,
+		current_scope: usize,
+	) -> bool {
 		use Expression::*;
 		match self {
 			Number(nc) => {
@@ -714,17 +719,20 @@ impl Expression {
 				}
 			},
 			BinaryExpression(binop) => {
-				binop.lhs.is_signedness_specified(global_ctx, local_ctx,current_scope) || binop.rhs.is_signedness_specified(global_ctx, local_ctx,current_scope)
+				binop.lhs.is_signedness_specified(global_ctx, local_ctx, current_scope)
+					|| binop.rhs.is_signedness_specified(global_ctx, local_ctx, current_scope)
 			},
 			UnaryOperatorExpression(unary) => {
 				use crate::parser::ast::UnaryOpcode::*;
 				match unary.code {
 					Minus => true,
 					Plus => true,
-					_ => unary.expression.is_signedness_specified(global_ctx, local_ctx,current_scope),
+					_ => unary
+						.expression
+						.is_signedness_specified(global_ctx, local_ctx, current_scope),
 				}
 			},
-			_=> todo!(),
+			_ => todo!(),
 		}
 	}
 	pub fn is_lvalue(&self) -> bool {
@@ -738,17 +746,22 @@ impl Expression {
 			_ => false,
 		}
 	}
-	pub fn is_width_specified(&self,global_ctx: &GlobalAnalyzerContext, local_ctx: &LocalAnalyzerContex, current_scope:usize)->bool{
+	pub fn is_width_specified(
+		&self,
+		global_ctx: &GlobalAnalyzerContext,
+		local_ctx: &LocalAnalyzerContex,
+		current_scope: usize,
+	) -> bool {
 		use Expression::*;
 		match self {
-    		Number(nc) => {
+			Number(nc) => {
 				let constant = global_ctx.nc_table.get_value(&nc.key);
 				match constant.width {
 					Some(_) => true,
 					None => false,
 				}
 			},
-    		Identifier(id) => {
+			Identifier(id) => {
 				let var = local_ctx.scope.get_variable(current_scope, &id.id).unwrap();
 				match &var.var.kind {
 					VariableKind::Signal(sig) => {
@@ -762,22 +775,29 @@ impl Expression {
 					_ => false,
 				}
 			},
-    		ParenthesizedExpression(expr) => expr.expression.is_width_specified(global_ctx, local_ctx,current_scope),
-    		MatchExpression(m) => {
-				m.get_default().unwrap().expression.is_width_specified(global_ctx, local_ctx,current_scope) //FIXME
+			ParenthesizedExpression(expr) => expr.expression.is_width_specified(global_ctx, local_ctx, current_scope),
+			MatchExpression(m) => {
+				m.get_default()
+					.unwrap()
+					.expression
+					.is_width_specified(global_ctx, local_ctx, current_scope) //FIXME
 			},
-    		ConditionalExpression(_) => todo!(),
-    		Tuple(_) => todo!(),
-    		TernaryExpression(tern) => {
-				tern.true_branch.is_width_specified(global_ctx, local_ctx,current_scope) || tern.false_branch.is_width_specified(global_ctx, local_ctx,current_scope)
+			ConditionalExpression(_) => todo!(),
+			Tuple(_) => todo!(),
+			TernaryExpression(tern) => {
+				tern.true_branch
+					.is_width_specified(global_ctx, local_ctx, current_scope)
+					|| tern
+						.false_branch
+						.is_width_specified(global_ctx, local_ctx, current_scope)
 			},
-    		PostfixWithIndex(_) => true,
-    		PostfixWithRange(_) => true,
-    		PostfixWithArgs(_) => todo!(),
-    		PostfixWithId(_) => false,
-    		UnaryOperatorExpression(_) => true,
-    		UnaryCastExpression(_) => true,
-    		BinaryExpression(_) => true,
+			PostfixWithIndex(_) => true,
+			PostfixWithRange(_) => true,
+			PostfixWithArgs(_) => todo!(),
+			PostfixWithId(_) => false,
+			UnaryOperatorExpression(_) => true,
+			UnaryCastExpression(_) => true,
+			BinaryExpression(_) => true,
 		}
 	}
 	pub fn codegen(
@@ -1180,19 +1200,16 @@ impl Expression {
 				let m = local_ctx.scope.get_variable(scope_id, &module_inst.expression);
 				match m {
 					Some(var) => match &var.var.kind {
-						crate::analyzer::VariableKind::ModuleInstance(instance) => {
-							match &instance.kind{
-        						crate::analyzer::ModuleInstanceKind::Module(m) => {
-									for var in &m.interface {
-										if var.name == module_inst.id {
-											return Ok(var.kind.is_generic());
-										}
+						crate::analyzer::VariableKind::ModuleInstance(instance) => match &instance.kind {
+							crate::analyzer::ModuleInstanceKind::Module(m) => {
+								for var in &m.interface {
+									if var.name == module_inst.id {
+										return Ok(var.kind.is_generic());
 									}
-									Ok(false)
-								},
-        						crate::analyzer::ModuleInstanceKind::Register(_) => Ok(false),
-    						}
-							
+								}
+								Ok(false)
+							},
+							crate::analyzer::ModuleInstanceKind::Register(_) => Ok(false),
 						},
 						_ => {
 							return Err(miette::Report::new(

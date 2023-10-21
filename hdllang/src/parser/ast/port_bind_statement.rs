@@ -60,7 +60,13 @@ impl PortBindStatement {
 			IdWithDeclaration(id_with_declaration) => id_with_declaration.location,
 		}
 	}
-	pub fn codegen_pass(&self, ctx:&GlobalAnalyzerContext, local_ctx: &LocalAnalyzerContex, api_scope: &mut ScopeHandle, current_scope:usize) -> miette::Result<hirn::design::Expression>{
+	pub fn codegen_pass(
+		&self,
+		ctx: &GlobalAnalyzerContext,
+		local_ctx: &LocalAnalyzerContex,
+		api_scope: &mut ScopeHandle,
+		current_scope: usize,
+	) -> miette::Result<hirn::design::Expression> {
 		use self::PortBindStatement::*;
 		match self {
 			OnlyId(only_id) => {
@@ -69,7 +75,13 @@ impl PortBindStatement {
 				Ok(hirn::design::Expression::Signal(signal_id.into()))
 			},
 			IdWithExpression(id_with_expression) => {
-				let expression = id_with_expression.expression.codegen(ctx.nc_table, &ctx.id_table, current_scope, &local_ctx.scope, Some(&local_ctx.nc_widths))?;
+				let expression = id_with_expression.expression.codegen(
+					ctx.nc_table,
+					&ctx.id_table,
+					current_scope,
+					&local_ctx.scope,
+					Some(&local_ctx.nc_widths),
+				)?;
 				Ok(expression)
 			},
 			IdWithDeclaration(id_with_declaration) => {

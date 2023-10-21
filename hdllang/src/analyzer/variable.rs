@@ -12,7 +12,7 @@ use crate::{
 	ProvidesCompilerDiagnostic, SourceSpan,
 };
 
-use super::{*, module_implementation_scope::InternalVariableId};
+use super::{module_implementation_scope::InternalVariableId, *};
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SignalSignedness {
 	Signed(SourceSpan),
@@ -208,7 +208,7 @@ impl AlreadyCreated {
 			(Async(prev), Async(incoming))
 			| (Comb(_, prev), Comb(_, incoming))
 			| (Sync(_, prev), Sync(_, incoming))
-			| (Clock(prev,_), Clock(incoming,_))
+			| (Clock(prev, _), Clock(incoming, _))
 			| (Const(prev), Const(incoming)) => report_duplicated_qualifier(incoming, prev, sensitivity.name())?,
 			(NoSensitivity, _) => self.sensitivity = sensitivity,
 			(_, NoSensitivity) => (),
@@ -247,11 +247,11 @@ pub struct Signal {
 	pub direction: Direction,
 }
 impl Signal {
-	pub fn get_clock_name(&self)->IdTableKey{
+	pub fn get_clock_name(&self) -> IdTableKey {
 		use SignalSensitivity::*;
 		match &self.sensitivity {
-			Clock(_,Some(name))=>*name,
-			_=>panic!("This signal is not a clock")
+			Clock(_, Some(name)) => *name,
+			_ => panic!("This signal is not a clock"),
 		}
 	}
 	pub fn evaluate_as_lhs(
@@ -566,7 +566,7 @@ impl Variable {
 	pub fn is_clock(&self) -> bool {
 		match &self.kind {
 			VariableKind::Signal(signal) => match &signal.sensitivity {
-				SignalSensitivity::Clock(_,_) => true,
+				SignalSensitivity::Clock(..) => true,
 				_ => false,
 			},
 			VariableKind::Generic(_) => false,
@@ -605,7 +605,7 @@ impl Variable {
 							builder = builder.sync(id, edge.on_rising);
 						}
 					},
-					Clock(_,_) => builder = builder.clock(),
+					Clock(..) => builder = builder.clock(),
 					Const(_) => builder = builder.constant(),
 					NoSensitivity => unreachable!("No sensitivity should not be possible"),
 				}
@@ -744,12 +744,12 @@ pub struct RegisterInstance {
 	pub enable: InternalVariableId,
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub struct NonRegister{
+pub struct NonRegister {
 	pub interface: Vec<Variable>,
 }
 
 impl NonRegister {
-	pub fn new()->Self{
+	pub fn new() -> Self {
 		Self { interface: Vec::new() }
 	}
 	pub fn add_variable(&mut self, var: Variable) -> Result<(), SemanticError> {
@@ -763,7 +763,7 @@ impl NonRegister {
 	}
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
-pub enum ModuleInstanceKind{
+pub enum ModuleInstanceKind {
 	Module(NonRegister),
 	Register(RegisterInstance),
 }
@@ -774,11 +774,15 @@ pub struct ModuleInstance {
 	pub kind: ModuleInstanceKind,
 }
 impl ModuleInstance {
-	pub fn new(module_name: IdTableKey, location: SourceSpan)->Self{
-		Self { module_name, location, kind: ModuleInstanceKind::Module(NonRegister::new())}
+	pub fn new(module_name: IdTableKey, location: SourceSpan) -> Self {
+		Self {
+			module_name,
+			location,
+			kind: ModuleInstanceKind::Module(NonRegister::new()),
+		}
 	}
-	pub fn add_variable(&mut self, var: Variable)->Result<(),SemanticError>{
-		match self.kind{
+	pub fn add_variable(&mut self, var: Variable) -> Result<(), SemanticError> {
+		match self.kind {
 			ModuleInstanceKind::Module(ref mut non_reg) => non_reg.add_variable(var),
 			ModuleInstanceKind::Register(_) => panic!("Register instance have others method of adding variables"),
 		}
@@ -793,12 +797,14 @@ pub enum VariableKind {
 
 impl VariableKind {
 	/// only if needed
-	pub fn add_name_to_clock(&mut self, id:IdTableKey){
+	pub fn add_name_to_clock(&mut self, id: IdTableKey) {
 		use VariableKind::*;
-		match self{
-			Signal(sig) => match &mut sig.sensitivity{
-				SignalSensitivity::Clock(_,_) => sig.sensitivity = SignalSensitivity::Clock(sig.sensitivity.location().unwrap().clone(), Some(id)),
-				_ =>(),
+		match self {
+			Signal(sig) => match &mut sig.sensitivity {
+				SignalSensitivity::Clock(..) => {
+					sig.sensitivity = SignalSensitivity::Clock(sig.sensitivity.location().unwrap().clone(), Some(id))
+				},
+				_ => (),
 			},
 			_ => (),
 		}
@@ -834,12 +840,12 @@ impl VariableKind {
 			_ => false,
 		}
 	}
-	pub fn is_array(&self)->bool{
+	pub fn is_array(&self) -> bool {
 		use VariableKind::*;
-		match self{
+		match self {
 			Signal(sig) => sig.is_array(),
 			Generic(gen) => gen.dimensions.len() > 0,
-			_=> false,	
+			_ => false,
 		}
 	}
 	pub fn add_value(&mut self, value: BusWidth) {

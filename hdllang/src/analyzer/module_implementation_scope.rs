@@ -85,7 +85,11 @@ impl ModuleImplementationScope {
 	pub fn get_interface_len(&self) -> usize {
 		return self.scopes.first().unwrap().variables.len();
 	}
-	pub fn get_var(&self, scope_id: usize, name: &IdTableKey) -> Result<&VariableDefined, crate::core::CompilerDiagnosticBuilder> {
+	pub fn get_var(
+		&self,
+		scope_id: usize,
+		name: &IdTableKey,
+	) -> Result<&VariableDefined, crate::core::CompilerDiagnosticBuilder> {
 		let scope = &self.scopes[scope_id];
 		if let Some(variable) = scope.variables.get(name) {
 			Ok(variable)
@@ -331,7 +335,7 @@ impl ModuleImplementationScope {
 									.build(),
 							));
 						}
-						if !sig.is_width_specified(){
+						if !sig.is_width_specified() {
 							return Err(miette::Report::new(
 								SemanticError::WidthNotKnown
 									.to_diagnostic_builder()

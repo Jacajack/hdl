@@ -359,7 +359,7 @@ impl ModuleImplementationStatement {
 			VariableBlock(block) => block.analyze(ctx, local_ctx, AlreadyCreated::new(), scope_id)?,
 			VariableDefinition(definition) => definition.analyze(AlreadyCreated::new(), ctx, local_ctx, scope_id)?,
 			AssignmentStatement(assignment) => {
-				if ! assignment.lhs.is_lvalue() {
+				if !assignment.lhs.is_lvalue() {
 					report_not_allowed_lhs(assignment.lhs.get_location())?;
 				}
 				if assignment.lhs.is_generic(ctx, scope_id, local_ctx)? {
@@ -873,21 +873,11 @@ impl ModuleImplementationStatement {
 								api_scope.clone(),
 								&ctx.id_table.get_value(&inst.instance_name),
 							);
-							let clk_var = &local_ctx
-								.scope
-								.get_intermidiate_signal(reg.clk).var;
-							let data_var = &local_ctx
-								.scope
-								.get_intermidiate_signal(reg.data).var;
-							let next_var = &local_ctx
-								.scope
-								.get_intermidiate_signal(reg.next).var;
-							let en_var = &local_ctx
-								.scope
-								.get_intermidiate_signal(reg.enable).var;
-							let nreset_var = &local_ctx
-								.scope
-								.get_intermidiate_signal(reg.nreset).var;
+							let clk_var = &local_ctx.scope.get_intermidiate_signal(reg.clk).var;
+							let data_var = &local_ctx.scope.get_intermidiate_signal(reg.data).var;
+							let next_var = &local_ctx.scope.get_intermidiate_signal(reg.next).var;
+							let en_var = &local_ctx.scope.get_intermidiate_signal(reg.enable).var;
+							let nreset_var = &local_ctx.scope.get_intermidiate_signal(reg.nreset).var;
 							let clk_id = clk_var.register(
 								ctx.nc_table,
 								ctx.id_table,
@@ -1124,10 +1114,12 @@ impl VariableDefinition {
 						let rhs_val = expr.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
 						if let VariableKind::Generic(GenericVariable { value, .. }) = &mut spec_kind {
 							value.replace(BusWidth::Evaluated(rhs_val.unwrap()));
-						} else {
+						}
+						else {
 							unreachable!()
 						}
-					} else {
+					}
+					else {
 						let mut lhs = spec_kind.to_signal();
 						debug!("Lhs is {:?}", lhs);
 						let rhs = expr.evaluate_type(
@@ -1406,8 +1398,9 @@ fn create_register(
 				.build(),
 		));
 	}
-	if let SignalSensitivity::Clock(_, _) = &clk_type.sensitivity {
-	} else {
+	if let SignalSensitivity::Clock(..) = &clk_type.sensitivity {
+	}
+	else {
 		return Err(miette::Report::new(
 			InstanceError::ArgumentsMismatch
 				.to_diagnostic_builder()
@@ -1436,18 +1429,18 @@ fn create_register(
 				.to_signal();
 			sig
 		},
-		IdWithExpression(expr) =>{
-			if !expr.expression.is_lvalue(){
+		IdWithExpression(expr) => {
+			if !expr.expression.is_lvalue() {
 				return report_not_allowed_lhs_binding(expr.expression.get_location());
 			}
 			expr.expression.evaluate_type(
-			ctx,
-			scope_id,
-			local_ctx,
-			Signal::new_empty(),
-			false,
-			data_stmt.unwrap().location(),
-		)?
+				ctx,
+				scope_id,
+				local_ctx,
+				Signal::new_empty(),
+				false,
+				data_stmt.unwrap().location(),
+			)?
 		},
 		IdWithDeclaration(_) => todo!(),
 	};
@@ -1462,7 +1455,9 @@ fn create_register(
 	}
 	let list = ClockSensitivityList::new().with_clock(clk_type.get_clock_name(), true, data_stmt.unwrap().location());
 	let data_sensitivity = SignalSensitivity::Sync(list, data_stmt.unwrap().location());
-	data_type.sensitivity.can_drive(&data_sensitivity, data_stmt.unwrap().location(), ctx)?;
+	data_type
+		.sensitivity
+		.can_drive(&data_sensitivity, data_stmt.unwrap().location(), ctx)?;
 	debug!("Data type is {:?}", data_type);
 	let mut next_type = match next_stmt.unwrap() {
 		OnlyId(id) => {
@@ -1691,14 +1686,11 @@ fn report_not_allowed_lhs(location: SourceSpan) -> miette::Result<RegisterInstan
 			.build(),
 	));
 }
-fn report_not_allowed_lhs_binding(location: SourceSpan)-> miette::Result<RegisterInstance> {
+fn report_not_allowed_lhs_binding(location: SourceSpan) -> miette::Result<RegisterInstance> {
 	return Err(miette::Report::new(
 		SemanticError::ForbiddenExpressionInLhs
 			.to_diagnostic_builder()
-			.label(
-				location,
-				"This expression is not allowed as a binding to output signal",
-			)
+			.label(location, "This expression is not allowed as a binding to output signal")
 			.build(),
 	));
 }

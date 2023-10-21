@@ -264,11 +264,11 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 			BadFunctionArguments => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all function arguments are valid")
 				.build(),
-    		InstanceError(err) => err.into(),
-    		ModuleInstanceNotIndexed => CompilerDiagnosticBuilder::from_error(&self)
+			InstanceError(err) => err.into(),
+			ModuleInstanceNotIndexed => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that module interface signals are accessed properly")
 				.build(),
-    		GenericInConditional => CompilerDiagnosticBuilder::from_error(&self)
+			GenericInConditional => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that generic variables are not assigned in conditional statements")
 				.build(),
 		}

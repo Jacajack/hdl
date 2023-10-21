@@ -13,9 +13,9 @@ pub use hdl_type::HdlType;
 pub use hdl_type::Sensitivity;
 
 pub use comment_table::{CommentTable, CommentTableKey};
+pub use compiler_diagnostic::{CompilerDiagnostic, CompilerDiagnosticBuilder, ProvidesCompilerDiagnostic};
+pub use compiler_error::CompilerError;
 pub use id_table::{IdTable, IdTableKey};
 pub use numeric_constant::{NumericConstant, NumericConstantBase};
 pub use numeric_constant_table::{NumericConstantTable, NumericConstantTableKey};
-pub use compiler_diagnostic::{CompilerDiagnostic, CompilerDiagnosticBuilder, ProvidesCompilerDiagnostic};
-pub use compiler_error::CompilerError;
 pub use source_span::SourceSpan;
