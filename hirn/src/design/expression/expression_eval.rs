@@ -48,7 +48,6 @@ impl Evaluates for SignalSlice {
 
 impl Evaluates for ConditionalExpression {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
-		// FIXME require all branches to be booleans
 		for branch in &self.branches {
 			if branch.condition.eval(ctx)?.is_nonzero() {
 				return branch.value.eval(ctx);
@@ -165,6 +164,7 @@ impl Evaluates for BuiltinOp {
 			Width(arg) => match **arg {
 				Expression::Signal(ref slice) => {
 					// FIXME nasty cast
+					// FIXME we should look in the Design for that and not the assumptions??!
 					let indices: Result<Vec<_>, EvalError> = slice
 						.indices
 						.iter()
