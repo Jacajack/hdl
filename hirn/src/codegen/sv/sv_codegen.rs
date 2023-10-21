@@ -66,8 +66,8 @@ impl<'a> SVCodegen<'a> {
 
 		let bus_width_str = match sig.class.is_wire() {
 			false => format!(
-				"[({}):0]",
-				self.translate_expression_try_eval(&(sig.class.width().clone() - 1.into()), false)?
+				"[{}:0]",
+				self.translate_expression_try_eval(&(sig.class.width().clone() - 1u32.into()), false)?
 			),
 			true => "".into(),
 		};

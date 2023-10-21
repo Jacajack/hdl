@@ -151,8 +151,18 @@ impl NumericConstant {
 		self
 	}
 
-	pub fn to_hex_str(&self) -> String {
-		format!("{:x}", self.value)
+	pub fn to_hex_str(&self) -> Result<String, EvalError> {
+		match self.get_error() {
+			Some(e) => Err(e.clone()),
+			None => Ok(format!("{:x}", self.value))
+		}
+	}
+
+	pub fn to_dec_str(&self) -> Result<String, EvalError> {
+		match self.get_error() {
+			Some(e) => Err(e.clone()),
+			None => Ok(format!("{}", self.value))
+		}
 	}
 
 	pub fn try_into_u64(&self) -> Result<u64, EvalError> {
