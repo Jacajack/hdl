@@ -47,6 +47,11 @@ pub enum ExpressionError {
 	#[error("Bit shift requires unsigned RHS operand")]
 	SignedShiftWidth,
 
+	#[error("Slice indices must be generic")]
+	VariableSliceIndex,
+
+	#[error("Signal array has different rank than the slice reffering to it")]
+	SliceRankMismatch,
 }
 
 impl UnaryExpression {
@@ -233,13 +238,21 @@ fn shallow_validate_slice(slice: &SignalSlice, ctx: &EvalContext, scope: &ScopeH
 	let design = design_handle.borrow();
 	let signal = design.get_signal(slice.signal).expect("Signal not in design");
 
-	for index in &slice.indices {
-		// let index_type = index.eval_type(ctx)?;
-		// if index_type.signedness.is_signed() {
-		// 	return Err(ExpressionError::SignedSliceIndex);
-		// }
+	// Validate rank
+	if signal.rank() != slice.indices.len() {
+		return Err(ExpressionError::SliceRankMismatch.into());
+	}
 
-		// TODO indices must be generic
+	// Indices must be unsigned & generic
+	for index in &slice.indices {
+		let index_type = index.eval_type(ctx)?;
+		if index_type.is_signed() {
+			return Err(ExpressionError::SignedSliceIndex.into());
+		}
+
+		if !index_type.is_generic() {
+			return Err(ExpressionError::VariableSliceIndex.into())
+		}
 	}
 
 	Ok(())
@@ -297,7 +310,7 @@ impl Expression {
 
 #[cfg(test)]
 mod test {
-	use crate::design::{Design, DesignError, Expression};
+	use crate::design::{Design, DesignError};
 	use super::*;
 
 	#[test]
