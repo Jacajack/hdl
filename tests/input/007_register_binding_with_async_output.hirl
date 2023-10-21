@@ -2,7 +2,7 @@ module m {}
 impl m {
 	clock wire clk;
 	comb(clk) auto next ;
-	const unsigned auto out = 4u5; // ERROR
+	async unsigned auto out = 4u5;
 	async wire nreset;
 	comb(clk) wire en;
 	register reg {

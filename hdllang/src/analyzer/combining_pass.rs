@@ -1461,37 +1461,9 @@ fn create_register(
 				.build(),
 		));
 	}
-	if let SignalSensitivity::Sync(list, loc) = &data_type.sensitivity {
-		if !list.contains_clock(clk_type.get_clock_name()) || list.list.len() > 1 {
-			return Err(miette::Report::new(
-				InstanceError::ArgumentsMismatch
-					.to_diagnostic_builder()
-					.label(
-						data_stmt.unwrap().location(),
-						"Data signal must be synchronized with clock",
-					)
-					.label(
-						*loc,
-						format!(
-							"This sync list does not contain this clock {}",
-							ctx.id_table.get_value(&clk_type.get_clock_name())
-						)
-						.as_str(),
-					)
-					.build(),
-			));
-		}
-	} else {
-		return Err(miette::Report::new(
-			InstanceError::ArgumentsMismatch
-				.to_diagnostic_builder()
-				.label(
-					data_stmt.unwrap().location(),
-					"Data signal must be synchronized with clock",
-				)
-				.build(),
-		));
-	}
+	let list = ClockSensitivityList::new().with_clock(clk_type.get_clock_name(), true, data_stmt.unwrap().location());
+	let data_sensitivity = SignalSensitivity::Sync(list, data_stmt.unwrap().location());
+	data_type.sensitivity.can_drive(&data_sensitivity, data_stmt.unwrap().location(), ctx)?;
 	debug!("Data type is {:?}", data_type);
 	let mut next_type = match next_stmt.unwrap() {
 		OnlyId(id) => {

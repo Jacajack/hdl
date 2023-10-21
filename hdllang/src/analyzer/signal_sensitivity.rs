@@ -157,7 +157,7 @@ impl SignalSensitivity {
 								.to_diagnostic_builder()
 								.label(
 									location,
-									"Cannot assign signals - sensitivity mismatch. Sensitivty of the land hand side should be a super set of the right hand side",
+									"Cannot assign signals - sensitivity mismatch. Sensitivty of the left hand side should be a super set of the right hand side",
 								)
 								.label(*lhs_location, format!("This sensitivity list does not contain this clock {:?}", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
 								.label(value.location, format!("This clock {:?} is not present in left hand side sensitivity list", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
