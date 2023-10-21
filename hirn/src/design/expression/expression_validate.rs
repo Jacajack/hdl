@@ -50,10 +50,10 @@ pub enum ExpressionError {
 	#[error("Empty join list")]
 	EmptyJoinList,
 
-	#[error("Replication count must be unsigned, generic and nonzero")]
+	#[error("Replication count must be generic and nonzero")]
 	InvalidReplicationCount,
 
-	#[error("Extension width must be unsigned, generic and nonzero")]
+	#[error("Extension width must be generic and nonzero")]
 	InvalidExtensionWidth,
 
 	#[error("Invalid bit index")]
@@ -165,37 +165,62 @@ impl BuiltinOp {
 			ZeroExtend{expr: _, width} | SignExtend{expr: _, width} => {
 				let width_type = width.eval_type(ctx)?;
 				let width_val = width.narrow_eval(ctx).ok();
-				// match (width_type.is_signed(), width_type.is_generic(), width_val) {
-				// 	(false, _, _) | (_, false, _) | (_, _, Some(0)) => {
-				// 		return Err(ExpressionError::InvalidExtensionWidth.into());
-				// 	}
-				// 	(_, _, _) => {}
-				// }
+				match (width_type.is_generic(), width_val) {
+					(false, _) => return Err(ExpressionError::InvalidExtensionWidth.into()),
+					(_, Some(w)) if w < 1 => return Err(ExpressionError::InvalidExtensionWidth.into()),
+					(_, _) => {}
+				}
 			}
 
-			BusSelect{expr: _, msb, lsb} => {
+			BusSelect{expr, msb, lsb} => {
 				let lsb_type = lsb.eval_type(ctx)?;
 				let msb_type = msb.eval_type(ctx)?;
 
-				if !lsb_type.is_generic() || lsb_type.is_signed() {
+				if !lsb_type.is_generic() {
 					return Err(ExpressionError::InvalidBitIndex.into());
 				}
 
-				if !msb_type.is_generic() || msb_type.is_signed() {
+				if !msb_type.is_generic() {
 					return Err(ExpressionError::InvalidBitIndex.into());
 				}
 
-				// TODO we could do static bounds checking here
+				let lsb_value = lsb.narrow_eval(ctx).ok();
+				let msb_value = msb.narrow_eval(ctx).ok();
+				let width = expr.width()?.narrow_eval(ctx).ok();
+
+				let index_err = match (width, lsb_value, msb_value) {
+					(Some(w), Some(lsb), _) if lsb >= w => true,
+					(Some(w), _, Some(msb)) if msb >= w => true,
+					(_, Some(lsb), _) if lsb < 0 => true,
+					(_, _, Some(msb)) if msb < 0 => true,
+					(_, Some(lsb), Some(msb)) if msb < lsb => true,
+					(_, _, _) => false,
+				};
+
+				if index_err {
+					return Err(ExpressionError::InvalidBitIndex.into());
+				}
 			}
 
-			BitSelect{expr: _, index} => {
+			BitSelect{expr, index} => {
 				let index_type = index.eval_type(ctx)?;
 
-				if !index_type.is_generic() || index_type.is_signed() {
+				if !index_type.is_generic() {
 					return Err(ExpressionError::InvalidBitIndex.into());
 				}
 		
-				// TODO we could do static bounds checking here
+				let index_value = index.narrow_eval(ctx).ok();
+				let width = expr.width()?.narrow_eval(ctx).ok();
+
+				let index_err = match (width, index_value) {
+					(_, Some(i)) if i < 0 => true,
+					(Some(w), Some(i)) if i >= w => true,
+					(_, _) => false,
+				};
+
+				if index_err {
+					return Err(ExpressionError::InvalidBitIndex.into());
+				}
 			}
 
 			// Count must be unsigned and generic and nonzero
@@ -429,6 +454,45 @@ mod test {
 			Ok(_)
 		));
 
+		Ok(())
+	}
+
+	#[test]
+	fn static_bad_index_check() -> Result<(), DesignError> {
+		let mut d = Design::new();
+		let m1 = d.new_module("m1")?;
+
+		let sig_foo = m1.scope().new_signal("foo")?
+			.constant()
+			.unsigned(16u32.into())
+			.build()?;
+
+		let sig_wire = m1.scope().new_signal("w")?
+			.constant()
+			.wire()
+			.build()?;
+
+		m1.scope().assign(
+			sig_wire.into(),
+			Expression::from(sig_foo).bit_select(0.into())
+		)?;
+
+		m1.scope().assign(
+			sig_wire.into(),
+			Expression::from(sig_foo).bit_select(1.into())
+		)?;
+
+		m1.scope().assign(
+			sig_wire.into(),
+			Expression::from(sig_foo).bit_select(15.into())
+		)?;
+
+		let err = m1.scope().assign(
+			sig_wire.into(),
+			Expression::from(sig_foo).bit_select(16.into())
+		);
+
+		assert!(matches!(err, Err(DesignError::EvalError(EvalError::InvalidExpression(ExpressionError::InvalidBitIndex)))));
 		Ok(())
 	}
 }
