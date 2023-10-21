@@ -1,4 +1,4 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
 
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::SignalBuilder;
@@ -377,10 +377,33 @@ impl ScopeHandle {
 	pub fn visible_signals(&self) -> HashSet<SignalId> {
 		let mut signals: HashSet<SignalId> = self.signals().into_iter().collect();
 
-		// FIXME we need to account for shadowing here!
-
 		if let Some(parent) = self.parent_handle() {
-			signals.extend(parent.visible_signals());
+			let ext_signals = parent.visible_signals();
+			
+			// Create a mapping between external signal names and their IDs
+			let ext_sig_names: HashMap<String, SignalId> = 
+				ext_signals.iter()
+				.map(|s| {
+					let design = self.design.borrow();
+					let name = design.get_signal(*s).unwrap().name().to_string();
+					(name, *s)
+				})
+				.collect();
+		
+			// Internal signal names
+			let int_sig_names: HashSet<String> = signals.iter().map(|s| {
+				let design = self.design.borrow();
+				design.get_signal(*s).unwrap().name().to_string()
+			}).collect();
+
+			// We select signals with names that overlap with names of signals
+			// defined directly in this scope
+			let shadowed_signals: HashSet<SignalId> = 
+				int_sig_names.iter()
+				.filter_map(|name| ext_sig_names.get(name).map(|id| *id))
+				.collect();
+			
+			signals.extend(ext_signals.difference(&shadowed_signals));
 		}
 		signals
 	}

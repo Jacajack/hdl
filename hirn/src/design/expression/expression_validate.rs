@@ -297,7 +297,8 @@ impl Expression {
 
 #[cfg(test)]
 mod test {
-	use crate::design::{Design, DesignError};
+	use crate::design::{Design, DesignError, Expression};
+	use super::*;
 
 	#[test]
 	fn basic_scope_rule_test() -> Result<(), DesignError> {
@@ -318,6 +319,49 @@ mod test {
 		// Should fail cause bar is not accessible in m1
 		let assign_result = m1.scope().assign(sig_foo.into(), sig_bar.into());
 		assert!(assign_result.is_err());
+		Ok(())
+	}
+
+	#[test]
+	fn shadowing_test() -> Result<(), DesignError> {
+		let mut d = Design::new();
+		let m1 = d.new_module("m1")?;
+
+		let sig_outer_foo = m1.scope().new_signal("foo")?
+			.generic()
+			.unsigned(16u32.into())
+			.build()?;
+
+		let mut sc_inner = m1.scope().new_subscope()?;
+		let sig_inner_foo = sc_inner.new_signal("foo")?
+			.generic()
+			.unsigned(16u32.into())
+			.build()?;
+
+		// Cannot access inner foo from the outer scope
+		assert!(matches!(
+			m1.scope().assign(sig_inner_foo.into(), 32u32.into()),
+			Err(DesignError::EvalError(EvalError::InvalidExpression(ExpressionError::ScopeError)))
+		));
+
+		// Cannot access outer foo from the inner scope due to shadowing
+		assert!(matches!(
+			sc_inner.assign(sig_outer_foo.into(), 32u32.into()),
+			Err(DesignError::EvalError(EvalError::InvalidExpression(ExpressionError::ScopeError)))
+		));
+
+		// Can access inner foo in inner scope
+		assert!(matches!(
+			sc_inner.assign(sig_inner_foo.into(), 32u32.into()),
+			Ok(_)
+		));
+
+		// Can access outer foo in inner scope
+		assert!(matches!(
+			m1.scope().assign(sig_outer_foo.into(), 32u32.into()),
+			Ok(_)
+		));
+
 		Ok(())
 	}
 }
