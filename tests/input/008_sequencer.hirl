@@ -1,0 +1,16 @@
+module sequencer {
+    input clock clk;
+    input async nreset;
+    output unsigned sync(clk) bus<16> data;
+}
+
+impl sequencer {
+    const auto next;
+    register state{
+        clk,
+        en: true,
+        nreset,
+        next,
+        data
+    };
+}

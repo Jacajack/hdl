@@ -71,6 +71,8 @@ impl VariableDeclarationStatement {
 		let mut variables = Vec::new();
 
 		for direct_declarator in &self.direct_declarators {
+			let mut spec_kind = kind.clone();
+			spec_kind.add_name_to_clock(direct_declarator.name);
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_declarator.array_declarators {
 				let size = array_declarator.evaluate(nc_table, 0, scope)?;
@@ -93,7 +95,7 @@ impl VariableDeclarationStatement {
 					None => dimensions.push(BusWidth::Evaluable(array_declarator.get_location())),
 				}
 			}
-			kind = match kind {
+			spec_kind = match spec_kind {
 				VariableKind::Signal(mut sig) => {
 					sig.dimensions = dimensions;
 					VariableKind::Signal(sig)
@@ -107,7 +109,7 @@ impl VariableDeclarationStatement {
 			variables.push(Variable {
 				name: direct_declarator.name,
 				location: direct_declarator.get_location(),
-				kind: kind.clone(),
+				kind: spec_kind,
 			});
 		}
 		Ok(variables)
