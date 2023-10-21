@@ -6,6 +6,7 @@ use super::Expression;
 use super::HasComment;
 use super::ScopeId;
 use super::SignalId;
+use super::expression::NarrowEval;
 use std::collections::HashSet;
 
 /// Potential TODO: Logic type which cannot be used in arithmetic
@@ -503,8 +504,6 @@ impl SignalBuilder {
 
 	/// Adds a dimension to the signal array
 	pub fn array(mut self, expr: Expression) -> Result<Self, DesignError> {
-		// TODO assert dimensions valid if can be evaluated
-
 		self.dimensions.push(expr);
 		Ok(self)
 	}
@@ -526,11 +525,20 @@ impl SignalBuilder {
 		// Validate width expression (generic)
 		let eval_ctx = EvalContext::without_assumptions(self.design.clone());
 		let class = self.class.as_ref().expect("signal class must be specified before validation");
-		class.width().validate_no_assumptions(&scope)?;
-		let width_type = class.width().eval_type(&eval_ctx)?;
+		let width_expr = class.width();
+		width_expr.validate_no_assumptions(&scope)?;
+		let width_type = width_expr.eval_type(&eval_ctx)?;
 
 		if !width_type.sensitivity.is_generic() {
 			return Err(DesignError::VariableSignalWidth);
+		}
+
+		// Check if width is positive
+		let width_value = width_expr.narrow_eval(&eval_ctx).ok();
+		match width_value {
+			Some(w) if w < 1 => return Err(DesignError::InvalidSignalWidth),
+			Some(_) => {},
+			None => {},
 		}
 
 		// Validate array dimension expressions (generic)
@@ -539,6 +547,13 @@ impl SignalBuilder {
 			let dim_type = dim.eval_type(&eval_ctx)?;
 			if !dim_type.sensitivity.is_generic() {
 				return Err(DesignError::VariableArrayDimension);
+			}
+
+			// Check if dimension is positive
+			match dim.narrow_eval(&eval_ctx).ok() {
+				Some(w) if w < 1 => return Err(DesignError::InvalidArrayDimension),
+				Some(_) => {},
+				None => {},
 			}
 		}
 

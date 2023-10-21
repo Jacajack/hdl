@@ -366,8 +366,14 @@ pub enum DesignError {
 	#[error("Signal width must be a constant expression")]
 	VariableSignalWidth,
 
+	#[error("Invalid signal width (must be positive)")]
+	InvalidSignalWidth,
+
 	#[error("Array dimensions must be constant expressions")]
 	VariableArrayDimension,
+
+	#[error("Invalid array dimension (must be positive)")]
+	InvalidArrayDimension,
 }
 
 #[cfg(test)]
@@ -383,7 +389,7 @@ mod test {
 		let sig = m
 			.scope()
 			.new_signal("test_signal")?
-			.unsigned(Expression::new_zero())
+			.unsigned(37.into())
 			.constant()
 			.build()?;
 
@@ -406,7 +412,7 @@ mod test {
 
 		let sig_fancy_reg_next = scope2
 			.new_signal("fancy_reg_next")?
-			.unsigned(Expression::new_zero())
+			.unsigned(11.into())
 			.comb(sig, true)
 			.build()?;
 
