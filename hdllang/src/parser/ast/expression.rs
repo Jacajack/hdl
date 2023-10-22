@@ -742,7 +742,6 @@ impl Expression {
 			PostfixWithIndex(_) => true,
 			PostfixWithRange(_) => true,
 			ParenthesizedExpression(expr) => expr.expression.is_lvalue(),
-			PostfixWithId(_) => true,
 			_ => false,
 		}
 	}
@@ -1204,7 +1203,7 @@ impl Expression {
 							crate::analyzer::ModuleInstanceKind::Module(m) => {
 								for var in &m.interface {
 									if var.0 == &module_inst.id {
-										//return Ok(var.kind.is_generic());
+										return Ok(var.kind.is_generic());
 									}
 								}
 								Ok(false)
