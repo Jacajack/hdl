@@ -612,6 +612,7 @@ impl Variable {
 				match &signal.signal_type {
 					SignalType::Bus(bus) => {
 						use BusWidth::*;
+						debug!("Width is {:?}", bus.width.clone().unwrap());
 						let width = match &bus.width.clone().unwrap() {
 							Evaluated(value) => {
 								Expression::Constant(hirn::design::NumericConstant::new_signed(value.clone().value))
@@ -635,6 +636,7 @@ impl Variable {
 									.codegen(nc_table, id_table, expr_ast.scope_id, scope, nc_widths)?
 							}, //FIXME coming soon
 						};
+						debug!("Width is {:?}", width);
 						match bus.signedness {
 							SignalSignedness::Signed(_) => builder = builder.signed(width),
 							SignalSignedness::Unsigned(_) => builder = builder.unsigned(width),
