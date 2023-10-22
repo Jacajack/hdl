@@ -1,5 +1,5 @@
 use core::panic;
-use std::collections::HashMap;
+use std::{collections::HashMap, hash::Hash};
 
 use hirn::design::{Expression, NumericConstant, SignalBuilder, SignalId};
 use log::debug;
@@ -7,7 +7,7 @@ use num_bigint::BigInt;
 
 use crate::{
 	analyzer::report_duplicated_qualifier,
-	core::id_table::{self, IdTable},
+	core::{id_table::{self, IdTable}, CompilerDiagnosticBuilder},
 	lexer::IdTableKey,
 	ProvidesCompilerDiagnostic, SourceSpan,
 };
@@ -107,6 +107,15 @@ impl PartialEq for BusWidth {
 	}
 }
 impl BusWidth {
+	pub fn is_located(&self) -> bool{
+		use BusWidth::*;
+		match self {
+			EvaluatedLocated(_, _) => true,
+			Evaluated(_) => false,
+			Evaluable(_) => true,
+			WidthOf(_) => true,
+		}
+	}
 	pub fn to_generic(&mut self) {
 		use BusWidth::*;
 		match self {
@@ -134,7 +143,7 @@ impl BusWidth {
 		use BusWidth::*;
 		match self {
 			Evaluated(_) => (),
-			EvaluatedLocated(..) => (),
+			EvaluatedLocated(nc,_) => *self = BusWidth::Evaluated(nc.clone()),
 			Evaluable(location) => {
 				let expr = scope.evaluated_expressions.get(location).unwrap();
 				debug!("Expr is known!");
@@ -239,7 +248,7 @@ impl AlreadyCreated {
 		Ok(())
 	}
 }
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Signal {
 	pub signal_type: SignalType,
 	pub dimensions: Vec<BusWidth>,
@@ -247,6 +256,33 @@ pub struct Signal {
 	pub direction: Direction,
 }
 impl Signal {
+	pub fn translate_clocks(&mut self, clocks: &HashMap<IdTableKey, IdTableKey>){
+		use SignalSensitivity::*;
+		match &mut self.sensitivity {
+			Comb(list, id) => {
+				for edge in &mut list.list{
+					if let Some(new_id) = clocks.get(&edge.clock_signal){
+						edge.clock_signal = *new_id;
+					}
+				}
+			},
+			Sync(list, _) => {
+				for edge in &mut list.list{
+					if let Some(new_id) = clocks.get(&edge.clock_signal){
+						edge.clock_signal = *new_id;
+					}
+				}
+			},
+			_ => (),
+		}
+	}
+	pub fn is_clock(&self) -> bool {
+		use SignalSensitivity::*;
+		match &self.sensitivity {
+			Clock(..) => true,
+			_ => false,
+		}
+	}
 	pub fn get_clock_name(&self) -> IdTableKey {
 		use SignalSensitivity::*;
 		match &self.sensitivity {
@@ -552,7 +588,7 @@ impl Signal {
 		}
 	}
 }
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Variable {
 	pub name: IdTableKey,
 	/// location of the variable declaration
@@ -701,7 +737,7 @@ impl Variable {
 		Ok(id)
 	}
 }
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum GenericVariableKind {
 	Int(SignalSignedness, SourceSpan),
 	Bool(SourceSpan),
@@ -715,7 +751,7 @@ impl GenericVariableKind {
 		}
 	}
 }
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GenericVariable {
 	pub value: Option<BusWidth>,
 	pub direction: Direction,
@@ -733,7 +769,7 @@ impl GenericVariable {
 		}
 	}
 }
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RegisterInstance {
 	pub name: IdTableKey,
 	pub location: SourceSpan,
@@ -743,31 +779,28 @@ pub struct RegisterInstance {
 	pub data: InternalVariableId,
 	pub enable: InternalVariableId,
 }
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NonRegister {
-	pub interface: Vec<Variable>,
+	pub interface: HashMap<IdTableKey,InternalVariableId>,
 }
 
 impl NonRegister {
 	pub fn new() -> Self {
-		Self { interface: Vec::new() }
+		Self { interface: HashMap::new() }
 	}
-	pub fn add_variable(&mut self, var: Variable) -> Result<(), SemanticError> {
-		for v in &self.interface {
-			if v.name == var.name {
-				return Err(SemanticError::DuplicateVariableDeclaration);
-			}
+	pub fn add_variable(&mut self, name: IdTableKey, var: InternalVariableId) -> Result<(), CompilerDiagnosticBuilder> {
+		match self.interface.insert(name, var){
+			Some(_) => Err(SemanticError::DuplicateVariableDeclaration.to_diagnostic_builder()),
+			None => Ok(()),
 		}
-		self.interface.push(var);
-		Ok(())
 	}
 }
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ModuleInstanceKind {
 	Module(NonRegister),
 	Register(RegisterInstance),
 }
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ModuleInstance {
 	pub module_name: IdTableKey,
 	pub location: SourceSpan,
@@ -781,14 +814,14 @@ impl ModuleInstance {
 			kind: ModuleInstanceKind::Module(NonRegister::new()),
 		}
 	}
-	pub fn add_variable(&mut self, var: Variable) -> Result<(), SemanticError> {
-		match self.kind {
-			ModuleInstanceKind::Module(ref mut non_reg) => non_reg.add_variable(var),
-			ModuleInstanceKind::Register(_) => panic!("Register instance have others method of adding variables"),
-		}
-	}
+	//pub fn add_variable(&mut self, var: Variable) -> Result<(), SemanticError> {
+	//	match self.kind {
+	//		ModuleInstanceKind::Module(ref mut non_reg) => non_reg.add_variable(var),
+	//		ModuleInstanceKind::Register(_) => panic!("Register instance have others method of adding variables"),
+	//	}
+	//}
 }
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub enum VariableKind {
 	Signal(Signal),
 	Generic(GenericVariable),

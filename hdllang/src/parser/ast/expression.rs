@@ -1203,8 +1203,8 @@ impl Expression {
 						crate::analyzer::VariableKind::ModuleInstance(instance) => match &instance.kind {
 							crate::analyzer::ModuleInstanceKind::Module(m) => {
 								for var in &m.interface {
-									if var.name == module_inst.id {
-										return Ok(var.kind.is_generic());
+									if var.0 == &module_inst.id {
+										//return Ok(var.kind.is_generic());
 									}
 								}
 								Ok(false)
