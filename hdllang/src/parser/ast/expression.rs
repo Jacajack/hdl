@@ -1203,7 +1203,7 @@ impl Expression {
 							crate::analyzer::ModuleInstanceKind::Module(m) => {
 								for var in &m.interface {
 									if var.0 == &module_inst.id {
-										return Ok(var.kind.is_generic());
+										return Ok(local_ctx.scope.get_intermidiate_signal(*var.1).var.kind.is_generic());
 									}
 								}
 								Ok(false)

@@ -139,7 +139,7 @@ impl BusWidth {
 		nc_table: &crate::lexer::NumericConstantTable,
 		id_table: &IdTable,
 		scope: &ModuleImplementationScope,
-	) -> miette::Result<()> {
+	) -> miette::Result<()> { // FIXME
 		use BusWidth::*;
 		match self {
 			Evaluated(_) => (),
@@ -148,6 +148,15 @@ impl BusWidth {
 				let expr = scope.evaluated_expressions.get(location).unwrap();
 				debug!("Expr is known!");
 				let nc = expr.expression.evaluate(&nc_table, expr.scope_id, scope)?.unwrap();
+				if nc.value < 0.into() {
+					return Err(miette::Report::new(
+						SemanticError::NegativeBusWidth
+							.to_diagnostic_builder()
+							.label(*location, "Bus width must be positive")
+							.label(*location, format!("Actual width: {:?}", nc.value).as_str())
+							.build(),
+					));
+				}
 				*self = BusWidth::Evaluated(nc)
 			},
 			WidthOf(location) => {
