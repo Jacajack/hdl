@@ -50,20 +50,20 @@ pub struct SignalClass {
 }
 
 impl SignalClass {
-	pub fn new(expr: Expression, signedness: SignalSignedness) -> SignalClass {
+	pub fn new(width: Expression, signedness: SignalSignedness) -> SignalClass {
 		Self {
 			signedness,
-			width: Box::new(expr),
+			width: Box::new(width),
 			is_wire: false,
 		}
 	}
 
-	pub fn new_signed(expr: Expression) -> SignalClass {
-		Self::new(expr, SignalSignedness::Signed)
+	pub fn new_signed(width: Expression) -> SignalClass {
+		Self::new(width, SignalSignedness::Signed)
 	}
 
-	pub fn new_unsigned(expr: Expression) -> SignalClass {
-		Self::new(expr, SignalSignedness::Unsigned)
+	pub fn new_unsigned(width: Expression) -> SignalClass {
+		Self::new(width, SignalSignedness::Unsigned)
 	}
 
 	pub fn new_wire() -> SignalClass {

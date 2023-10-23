@@ -17,5 +17,5 @@ pub enum CodegenError {
 }
 
 pub trait Codegen {
-	fn emit_module(&mut self, w: &mut dyn fmt::Write, module: ModuleId) -> Result<(), CodegenError>;
+	fn emit_module(&mut self, module: ModuleId) -> Result<(), CodegenError>;
 }

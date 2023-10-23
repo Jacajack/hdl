@@ -952,13 +952,13 @@ impl Expression {
 					msb: Box::new(
 						range
 							.range
-							.lhs
+							.rhs
 							.codegen(nc_table, id_table, scope_id, scope, nc_widths)?,
 					),
 					lsb: Box::new(
 						range
 							.range
-							.rhs
+							.lhs
 							.codegen(nc_table, id_table, scope_id, scope, nc_widths)?,
 					),
 				}))
@@ -1587,14 +1587,13 @@ impl Expression {
 													));
 												}
 												expr.set_width(
-													crate::analyzer::BusWidth::EvaluatedLocated(
+													crate::analyzer::BusWidth::Evaluated(
 														NumericConstant::new(
 															end_value.clone().value - begin_value.clone().value,
 															None,
 															None,
 															None,
 														),
-														range.location,
 													),
 													bus.signedness.clone(),
 													range.location,
