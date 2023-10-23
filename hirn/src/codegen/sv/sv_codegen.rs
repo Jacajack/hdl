@@ -113,9 +113,8 @@ impl<'a> SVCodegen<'a> {
 		use SignalSensitivity::*;
 		match sig.sensitivity() {
 			Generic => Ok(format!(
-				"{} = {}",
+				"{}",
 				self.format_localparam_declaration_impl(sig.name().into(), &Some(sig.value().clone()))?,
-				self.translate_expression(&sig.value().clone(), false)?,
 			)),
 			_ => Ok(format!(
 				"{} = {}",
