@@ -75,7 +75,10 @@ impl<'a> SVExpressionCodegen<'a> {
 		&mut self,
 		expr: &ConditionalExpression,
 	) -> Result<String, CodegenError> {
-		assert!(expr.branches().len() > 0);
+		if expr.branches().len() == 0 {
+			return Ok(self.translate_expression_no_preprocess(expr.default_value())?);
+		}
+
 		let mut str: String = "".into();
 		for br in expr.branches() {
 			str = format!(
