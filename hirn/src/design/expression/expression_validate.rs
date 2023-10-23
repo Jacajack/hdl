@@ -235,7 +235,8 @@ impl BuiltinOp {
 			Replicate { expr: _, count } => {
 				let count_type = count.eval_type(ctx)?;
 				let count_val = count.narrow_eval(ctx).ok();
-				match (count_type.is_signed(), count_type.is_generic(), count_val) { // FIXME
+				match (count_type.is_signed(), count_type.is_generic(), count_val) {
+					// FIXME
 					(false, ..) | (_, false, _) | (_, _, Some(0)) => {
 						return Err(ExpressionError::InvalidReplicationCount.into());
 					},

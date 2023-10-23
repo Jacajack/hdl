@@ -1587,14 +1587,12 @@ impl Expression {
 													));
 												}
 												expr.set_width(
-													crate::analyzer::BusWidth::Evaluated(
-														NumericConstant::new(
-															end_value.clone().value - begin_value.clone().value,
-															None,
-															None,
-															None,
-														),
-													),
+													crate::analyzer::BusWidth::Evaluated(NumericConstant::new(
+														end_value.clone().value - begin_value.clone().value,
+														None,
+														None,
+														None,
+													)),
 													bus.signedness.clone(),
 													range.location,
 												);

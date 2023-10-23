@@ -77,7 +77,7 @@ impl<'a> SVCodegen<'a> {
 		name: &str,
 		class: &SignalClass,
 		dimensions: &[Expression],
-		) -> Result<String, CodegenError> {
+	) -> Result<String, CodegenError> {
 		use SignalSignedness::*;
 		let sign_str = match (class.is_wire(), class.signedness()) {
 			(true, _) => "",
@@ -85,7 +85,8 @@ impl<'a> SVCodegen<'a> {
 			(false, Unsigned) => " unsigned",
 		};
 
-		let bus_msb_str = self.translate_expression_try_eval(&expr_sub_one(self.design.handle(), class.width()), false)?;
+		let bus_msb_str =
+			self.translate_expression_try_eval(&expr_sub_one(self.design.handle(), class.width()), false)?;
 		let bus_width_str = match class.is_wire() {
 			false => format!("[{}:0]", bus_msb_str),
 			true => "".into(),
@@ -100,13 +101,7 @@ impl<'a> SVCodegen<'a> {
 			);
 		}
 
-		Ok(format!(
-			"wire{}{} {}{}",
-			sign_str,
-			bus_width_str,
-			name,
-			array_size_str
-		))
+		Ok(format!("wire{}{} {}{}", sign_str, bus_width_str, name, array_size_str))
 	}
 
 	fn format_signal_declaration(&mut self, sig_id: SignalId) -> Result<String, CodegenError> {
@@ -117,20 +112,16 @@ impl<'a> SVCodegen<'a> {
 	fn format_intermediate_signal_declaration(&mut self, sig: &IntermediateSignal) -> Result<String, CodegenError> {
 		use SignalSensitivity::*;
 		match sig.sensitivity() {
-			Generic => {
-				Ok(format!(
-					"{} = {}",
-					self.format_localparam_declaration_impl(sig.name().into(), &Some(sig.value().clone()))?,
-					self.translate_expression(&sig.value().clone(), false)?,
-				))
-			}
-			_ => {
-				Ok(format!(
-					"{} = {}",
-					self.format_signal_declaration_impl(sig.name(), &sig.class(), &vec![])?,
-					self.translate_expression(&sig.value().clone(), false)?,
-				))
-			}
+			Generic => Ok(format!(
+				"{} = {}",
+				self.format_localparam_declaration_impl(sig.name().into(), &Some(sig.value().clone()))?,
+				self.translate_expression(&sig.value().clone(), false)?,
+			)),
+			_ => Ok(format!(
+				"{} = {}",
+				self.format_signal_declaration_impl(sig.name(), &sig.class(), &vec![])?,
+				self.translate_expression(&sig.value().clone(), false)?,
+			)),
 		}
 	}
 
@@ -180,11 +171,7 @@ impl<'a> SVCodegen<'a> {
 		))
 	}
 
-	fn emit_assignment(
-		&mut self,
-		lhs: &Expression,
-		rhs: &Expression,
-	) -> Result<(), CodegenError> {
+	fn emit_assignment(&mut self, lhs: &Expression, rhs: &Expression) -> Result<(), CodegenError> {
 		let lhs_str = self.translate_expression(&lhs, true)?;
 		let rhs_str = self.translate_expression(&rhs, true)?;
 		emitln!(self, "assign {} = {};", lhs_str, rhs_str)?;
@@ -270,7 +257,8 @@ impl<'a> SVCodegen<'a> {
 		let input_signal = &self.design.get_signal(reg.input_next).unwrap();
 		let nreset_expr = Expression::from(reg.input_nreset).logical_not();
 
-		let msb_str = self.translate_expression_try_eval(&expr_sub_one(self.design.handle(), &input_signal.width()), false)?;
+		let msb_str =
+			self.translate_expression_try_eval(&expr_sub_one(self.design.handle(), &input_signal.width()), false)?;
 		let output_str = self.translate_expression(&reg.output_data.into(), true)?;
 		let clk_str = self.translate_expression(&reg.input_clk.into(), true)?;
 		let nreset_str = self.translate_expression(&nreset_expr, true)?;
@@ -294,34 +282,16 @@ impl<'a> SVCodegen<'a> {
 				reg_name
 			)?;
 		}
-		emitln!(
-			self,
-			"assign {} = {};",
-			output_str,
-			reg_name
-		)?;
-		emitln!(
-			self,
-			"always @(posedge {})",
-			clk_str
-		)?;
+		emitln!(self, "assign {} = {};", output_str, reg_name)?;
+		emitln!(self, "always @(posedge {})", clk_str)?;
 		self.begin_indent();
 		emitln!(self, "if ({})", nreset_str)?;
 		self.begin_indent();
 		emitln!(self, "{} <= '0;", reg_name)?;
 		self.end_indent();
-		emitln!(
-			self,
-			"else if ({})",
-			en_str
-		)?;
+		emitln!(self, "else if ({})", en_str)?;
 		self.begin_indent();
-		emitln!(
-			self,
-			"{} <= {};",
-			reg_name,
-			next_str,
-		)?;
+		emitln!(self, "{} <= {};", reg_name, next_str,)?;
 		self.end_indent();
 		emitln!(self, "else")?;
 		self.begin_indent();
@@ -469,12 +439,7 @@ impl<'a> SVCodegen<'a> {
 				iterator_str
 			)?;
 			self.begin_indent();
-			self.emit_scope(
-				loop_scope.scope,
-				true,
-				true,
-				HashSet::from([loop_scope.iterator_var]),
-			)?;
+			self.emit_scope(loop_scope.scope, true, true, HashSet::from([loop_scope.iterator_var]))?;
 			self.end_indent();
 			emitln!(self, "end{}", if in_generate { "" } else { " endgenerate" })?;
 			emitln!(self, "")?;
@@ -531,9 +496,19 @@ impl<'a> SVCodegen<'a> {
 	}
 
 	/// Translates an expression and emits intermediate variables
-	fn translate_expression_impl(&mut self, expr: &Expression, width_casts: bool, try_eval: bool) -> Result<String, CodegenError> {
+	fn translate_expression_impl(
+		&mut self,
+		expr: &Expression,
+		width_casts: bool,
+		try_eval: bool,
+	) -> Result<String, CodegenError> {
 		let mut cg = SVExpressionCodegen::new(self.design, width_casts, self.tmp_counter);
-		let result = if try_eval {cg.translate_expression_try_eval(expr)?} else {cg.translate_expression(expr)?};
+		let result = if try_eval {
+			cg.translate_expression_try_eval(expr)?
+		}
+		else {
+			cg.translate_expression(expr)?
+		};
 		for intermediate in cg.intermediates() {
 			let str = self.format_intermediate_signal_declaration(intermediate)?;
 			emitln!(self, "{};", str)?;
@@ -549,7 +524,6 @@ impl<'a> SVCodegen<'a> {
 	fn translate_expression_try_eval(&mut self, expr: &Expression, width_casts: bool) -> Result<String, CodegenError> {
 		self.translate_expression_impl(expr, width_casts, true)
 	}
-
 }
 
 impl<'a> Codegen for SVCodegen<'a> {
@@ -582,11 +556,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 		}
 
 		self.emit_metadata_comment(&m)?;
-		emit!(
-			self,
-			"module {}",
-			self.mangle_module_name(m.name(), m.namespace_path())
-		)?;
+		emit!(self, "module {}", self.mangle_module_name(m.name(), m.namespace_path()))?;
 		if last_param_id.is_some() {
 			emitln!(self, " #(")?;
 			self.begin_indent();

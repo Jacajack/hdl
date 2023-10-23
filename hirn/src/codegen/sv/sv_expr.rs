@@ -2,8 +2,9 @@ use super::SVCodegen;
 use crate::{
 	codegen::CodegenError,
 	design::{
-		BinaryExpression, BinaryOp, BuiltinOp, ConditionalExpression, Evaluates, Expression, NumericConstant, SignalId,
-		SignalSlice, UnaryExpression, UnaryOp, WidthExpression, SignalSignedness, SignalSensitivity, HasSensitivity, HasSignedness, EvalContext, EvaluatesType, DesignHandle, SignalClass, Design,
+		BinaryExpression, BinaryOp, BuiltinOp, ConditionalExpression, Design, DesignHandle, EvalContext, Evaluates,
+		EvaluatesType, Expression, HasSensitivity, HasSignedness, NumericConstant, SignalClass, SignalId,
+		SignalSensitivity, SignalSignedness, SignalSlice, UnaryExpression, UnaryOp, WidthExpression,
 	},
 };
 
@@ -83,10 +84,7 @@ impl<'a> SVExpressionCodegen<'a> {
 		sig.name().into()
 	}
 
-	fn translate_conditional_expression(
-		&mut self,
-		expr: &ConditionalExpression,
-	) -> Result<String, CodegenError> {
+	fn translate_conditional_expression(&mut self, expr: &ConditionalExpression) -> Result<String, CodegenError> {
 		if expr.branches().len() == 0 {
 			return Ok(self.translate_expression_no_preprocess(expr.default_value())?);
 		}
@@ -229,7 +227,7 @@ impl<'a> SVExpressionCodegen<'a> {
 			BitwiseAnd => "&",
 			BitwiseOr => "|",
 			BitwiseXor => "^",
-			ShiftLeft => "<<", // FIXME arithmetic vs logical
+			ShiftLeft => "<<",  // FIXME arithmetic vs logical
 			ShiftRight => ">>", // FIXME arithemtic vs logical
 			Equal => "==",
 			NotEqual => "!=",
@@ -269,11 +267,7 @@ impl<'a> SVExpressionCodegen<'a> {
 	fn translate_signal_slice(&mut self, slice: &SignalSlice) -> Result<String, CodegenError> {
 		let mut str: String = self.translate_signal_id(slice.signal);
 		for index_expr in &slice.indices {
-			str = format!(
-				"{}[{}]",
-				str,
-				self.translate_expression_no_preprocess(&index_expr)?
-			);
+			str = format!("{}[{}]", str, self.translate_expression_no_preprocess(&index_expr)?);
 		}
 		Ok(str)
 	}
@@ -282,7 +276,7 @@ impl<'a> SVExpressionCodegen<'a> {
 		let eval_ctx = EvalContext::without_assumptions(self.design.handle());
 		let lhs_type = expr.eval_type(&eval_ctx)?;
 		let name = format!("hirn_tmp_{}$", self.tmp_counter);
-		self.intermediates.push(IntermediateSignal{
+		self.intermediates.push(IntermediateSignal {
 			name: name.clone(),
 			width: expr.width()?,
 			signedness: lhs_type.signedness(),
@@ -365,10 +359,7 @@ impl<'a> SVExpressionCodegen<'a> {
 		self.translate_expression_no_preprocess(&self.preprocess_expression(expr.clone())?)
 	}
 
-	pub(super) fn translate_expression_try_eval(
-		&mut self,
-		expr: &Expression
-	) -> Result<String, CodegenError> {
+	pub(super) fn translate_expression_try_eval(&mut self, expr: &Expression) -> Result<String, CodegenError> {
 		let preprocessed = self.preprocess_expression(expr.clone())?;
 		match preprocessed.const_eval() {
 			Ok(value) => self.translate_constant(&value),
