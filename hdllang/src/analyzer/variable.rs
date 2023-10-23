@@ -147,7 +147,7 @@ impl BusWidth {
 			Evaluable(location) => {
 				let expr = scope.evaluated_expressions.get(location).unwrap();
 				debug!("Expr is known!");
-				let nc = expr.expression.evaluate(&nc_table, expr.scope_id, scope)?.unwrap();
+				let nc = expr.expression.evaluate(&nc_table, expr.scope_id, scope)?.unwrap(); // FIXME
 				if nc.value < 0.into() {
 					return Err(miette::Report::new(
 						SemanticError::NegativeBusWidth

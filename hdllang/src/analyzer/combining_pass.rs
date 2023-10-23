@@ -721,117 +721,13 @@ impl ModuleImplementationStatement {
     				};
 					module_instance.add_variable(stmt.get_id(), local_ctx.scope.define_intermidiate_signal(Variable::new(new_name, stmt.location(), VariableKind::Signal(interface_signal)))?).map_err(|mut err| err.label(stmt.location(), "Variable declared here").build())?;
 				}
-				//for stmt in &inst.port_bind {
-				//	let mut interface_variable =
-				//		scope.get_variable(0, &stmt.get_id()).expect("This was checked").clone();
-				//	if interface_variable.var.kind.is_generic() || interface_variable.var.is_clock(){
-				//		continue;
-				//	}
-				//	debug!("Interface variable is {:?}", interface_variable.var.kind);
-				//	use crate::parser::ast::PortBindStatement::*;
-				//	match &stmt {
-				//		OnlyId(id) => {
-				//			debug!("Only id");
-				//			let mut local_sig = local_ctx
-				//				.scope
-				//				.get_var(scope_id, &id.id)
-				//				.map_err(|mut err| {
-				//					err.label(
-				//						id.location,
-				//						format!(
-				//							"Variable \"{}\" is not declared",
-				//							ctx.id_table.get_by_key(&id.id).unwrap()
-				//						)
-				//						.as_str(),
-				//					)
-				//					.build()
-				//				})?
-				//				.clone();
-				//			debug!("Local sig is {:?}", local_sig.var.kind);
-				//			if local_sig.var.kind.is_module_instance() {
-				//				return Err(miette::Report::new(
-				//					InstanceError::ArgumentsMismatch
-				//						.to_diagnostic_builder()
-				//						.label(
-				//							stmt.location(),
-				//							"Here was an attempt to bind module instance as a interface signal",
-				//						)
-				//						.label(local_sig.var.location, "Local signal defined here")
-				//						.build(),
-				//				));
-				//			}
-				//			debug!("Remote sig is {:?}", interface_variable.var.kind);
-				//			use VariableKind::*;
-				//			match (&mut local_sig.var.kind, &mut interface_variable.var.kind) {
-				//				(Signal(sig1), Signal(sig2)) => {
-				//					sig2.evaluate_as_lhs(false, ctx, sig1.clone(), stmt.location())?;
-				//					// sig 2 change width to the ones known in local scope
-				//					sig1.evaluate_as_lhs(false, ctx, sig2.clone(), stmt.location())?;
-				//					//debug!("Sig2 width is {:?}", sig2.width().unwrap());
-				//					if sig2.width().unwrap().is_located(){
-				//						local_ctx.scope.evaluated_expressions.insert(sig2.width().unwrap().get_location().unwrap(), scope.evaluated_expressions.get(&sig2.width().unwrap().get_location().unwrap()).unwrap().clone());
-				//					}
-				//					local_ctx.scope.redeclare_variable(local_sig);
-				//				},
-				//				(Generic(gen), Signal(sig)) => {
-				//					//sig.evaluate_as_lhs(false, &ctx, gen., location) FIXME
-				//				},
-				//				(..) => unreachable!(),
-				//			}
-				//		},
-				//		IdWithExpression(id_expr) => {
-				//			debug!("Id with expression");
-
-				//			let new_sig = id_expr.expression.evaluate_type(
-				//				&ctx,
-				//				scope_id,
-				//				local_ctx,
-				//				interface_variable.var.kind.to_signal(),
-				//				false,
-				//				id_expr.location,
-				//			)?;
-				//			module_instance.add_variable(stmt.get_id(), local_ctx.scope.define_intermidiate_signal(Variable::new(name, stmt.location(), VariableKind::Signal(new_sig)))?).map_err(|mut err|
-				//			err.build())?;
-				//		},
-				//		IdWithDeclaration(id_decl) => {
-				//			debug!("Id with declaration");
-
-				//			let new_war = VariableKind::from_type_declarator(
-				//				&id_decl.declaration.type_declarator,
-				//				scope_id,
-				//				AlreadyCreated::new(),
-				//				ctx.nc_table,
-				//				ctx.id_table,
-				//				&mut local_ctx.scope,
-				//			)?;
-				//			let mut sig = new_war.to_signal();
-				//			sig.evaluate_as_lhs(false, &ctx, interface_variable.var.kind.to_signal(), id_decl.location)?
-				//		},
-				//	}
-				//}
 				debug!("Defining module instance {:?}", module_instance);
 				if scope.is_generic(){
 					let implementation = ctx.generic_modules.get(&name).unwrap().clone();
 					let mut new_local_ctx = LocalAnalyzerContex::new(implementation.id, scope);
 					first_pass(ctx, &mut new_local_ctx, &implementation)?;
 					new_local_ctx.scope.second_pass(ctx)?;
-					//implementation.codegen_pass(ctx, &mut new_local_ctx)?;
-					//	let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(&mut ctx.design);
-					//	use hirn::codegen::Codegen;
-					//	let mut output_string = String::new();
-					//	sv_codegen
-					//		.emit_module(
-					//			&mut output_string,
-					//			ctx
-					//				.modules_declared
-					//				.get_mut(&new_local_ctx.module_id)
-					//				.unwrap()
-					//				.handle
-					//				.id(),
-					//		)
-					//		.unwrap();
-					//	println!("{}", output_string);
-					}
+				}
 				let v = Variable::new(
 					inst.instance_name,
 					inst.location,
@@ -1063,6 +959,7 @@ impl ModuleImplementationStatement {
 				}
 				let name = inst.module_name.get_last_module();
 				let module = ctx.modules_declared.get(&name).unwrap();
+				let scope = &module.scope;
 				let m_handle = module.handle.clone();
 				let module_instance = &local_ctx
 					.scope
@@ -1078,7 +975,58 @@ impl ModuleImplementationStatement {
 				};			
 				let  mut builder = api_scope.new_module(m_handle, &ctx.id_table.get_value(&inst.instance_name).as_str())
 					.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
+				debug!("Codegen for generic variables");
 				for stmt in &inst.port_bind{
+					let var = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
+					if ! var.var.kind.is_generic() {
+						continue;
+					}
+					let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
+					debug!("Codegen pass for port bind {:?}", ctx.id_table.get_value(&stmt.get_id()));
+					let var = &local_ctx.scope.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap()).var;
+					let var_id: hirn::design::SignalId = var.register(
+						ctx.nc_table,
+						ctx.id_table,
+						scope_id,
+						&local_ctx.scope,
+						Some(&local_ctx.nc_widths),
+						api_scope
+							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
+							.unwrap(),
+					)?;
+					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
+					api_scope.assign(var_id.into(), rhs).map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
+					debug!("Assigned succesfuly");
+				}
+				debug!("Codegen for clocks");
+				for stmt in &inst.port_bind{
+					let var = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
+					if !var.var.is_clock() {
+						continue;
+					}
+					let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
+					debug!("Codegen pass for port bind {:?}", ctx.id_table.get_value(&stmt.get_id()));
+					let var = &local_ctx.scope.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap()).var;
+					let var_id: hirn::design::SignalId = var.register(
+						ctx.nc_table,
+						ctx.id_table,
+						scope_id,
+						&local_ctx.scope,
+						Some(&local_ctx.nc_widths),
+						api_scope
+							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
+							.unwrap(),
+					)?;
+					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
+					api_scope.assign(var_id.into(), rhs).map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
+					debug!("Assigned succesfuly");
+				}
+				debug!("Codegen for other variables");
+				for stmt in &inst.port_bind{
+					let var = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
+					if var.var.is_clock() || var.var.kind.is_generic() {
+						continue;
+					}
 					let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
 					debug!("Codegen pass for port bind {:?}", ctx.id_table.get_value(&stmt.get_id()));
 					let var = &local_ctx.scope.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap()).var;
