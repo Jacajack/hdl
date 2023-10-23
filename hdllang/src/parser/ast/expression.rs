@@ -675,6 +675,7 @@ impl Expression {
 			},
 		}
 	}
+	// deprecated
 	pub fn get_slice(
 		&self,
 		nc_table: &crate::lexer::NumericConstantTable,
@@ -692,6 +693,7 @@ impl Expression {
 					indices: vec![],
 				})
 			},
+			ParenthesizedExpression(expr) => expr.expression.get_slice(nc_table, id_table, scope_id, scope, nc_widths),
 			PostfixWithIndex(ind) => {
 				let index_expr = ind.index.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 				let mut slice = ind
@@ -700,7 +702,10 @@ impl Expression {
 				slice.indices.push(index_expr);
 				Ok(slice)
 			},
-			_ => unreachable!(),
+			_ => {
+				debug!("expr {:?}", self);
+				unreachable!()
+			},
 		}
 	}
 	pub fn is_signedness_specified(
@@ -936,11 +941,10 @@ impl Expression {
 			},
 			PostfixWithIndex(ind) => {
 				let index = ind.index.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
-				let mut expr = ind
+				let expr = ind
 					.expression
-					.get_slice(nc_table, id_table, scope_id, scope, nc_widths)?;
-				expr.indices.push(index);
-				Ok(hirn::design::Expression::Signal(expr))
+					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::BitSelect { expr: Box::new(expr), index: Box::new(index) }))
 			},
 			PostfixWithRange(range) => {
 				let expr = range
