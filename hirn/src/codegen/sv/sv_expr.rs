@@ -205,7 +205,12 @@ impl<'a> SVExpressionCodegen<'a> {
 			_ => (),
 		}
 
-		let cast_str = if self.width_casts() {
+		let is_result_bool = match expr.op {
+			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual | LogicalAnd | LogicalOr => true,
+			_ => false,
+		};
+
+		let cast_str = if !is_result_bool && self.width_casts() {
 			self.push_width_casts(false);
 			let str = self.translate_expression_try_eval(&expr.width()?)?;
 			self.pop_width_casts();
