@@ -5,7 +5,7 @@ module sequencer {
 }
 
 impl sequencer {
-    const auto next;
+    comb(clk) bus<16> next = (data + 1u1)[0:15];
     register state{
         clk,
         en: true,

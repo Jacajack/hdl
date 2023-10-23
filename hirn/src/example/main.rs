@@ -68,9 +68,9 @@ fn main() -> Result<(), HirnError> {
 	loop_scope.assign(m_bus.into(), iter.into())?;
 
 	let mut source = String::new();
-	let mut cg = SVCodegen::new(&d);
-	cg.emit_module(&mut source, m_internal.id())?;
-	cg.emit_module(&mut source, m.id())?;
+	let mut cg = SVCodegen::new(&d, &mut source);
+	cg.emit_module(m_internal.id())?;
+	cg.emit_module(m.id())?;
 
 	println!("{}", source);
 

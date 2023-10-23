@@ -168,12 +168,11 @@ impl<'a> SemanticalAnalyzer<'a> {
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
-			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(&mut self.ctx.design);
-			use hirn::codegen::Codegen;
 			let mut output_string = String::new();
+			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(&mut self.ctx.design, &mut output_string);
+			use hirn::codegen::Codegen;
 			sv_codegen
 				.emit_module(
-					&mut output_string,
 					self.ctx
 						.modules_declared
 						.get_mut(&local_ctx.module_id)
