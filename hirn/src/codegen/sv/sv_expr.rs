@@ -44,7 +44,7 @@ impl HasSignedness for IntermediateSignal {
 pub(super) struct SVExpressionCodegen<'a> {
 	design: &'a Design,
 	tmp_counter: u32,
-	width_casts: bool,
+	width_casts: Vec<bool>,
 	intermediates: Vec<IntermediateSignal>,
 }
 
@@ -53,7 +53,7 @@ impl<'a> SVExpressionCodegen<'a> {
 		Self {
 			design,
 			tmp_counter: tmp_counter_start,
-			width_casts,
+			width_casts: vec![width_casts],
 			intermediates: Vec::new(),
 		}
 	}
@@ -64,6 +64,18 @@ impl<'a> SVExpressionCodegen<'a> {
 
 	pub fn get_tmp_counter(&self) -> u32 {
 		self.tmp_counter
+	}
+
+	fn width_casts(&self) -> bool {
+		*self.width_casts.last().unwrap()
+	}
+
+	fn push_width_casts(&mut self, width_casts: bool) {
+		self.width_casts.push(width_casts);
+	}
+
+	fn pop_width_casts(&mut self) {
+		self.width_casts.pop();
 	}
 
 	fn translate_signal_id(&self, id: SignalId) -> String {
@@ -96,7 +108,7 @@ impl<'a> SVExpressionCodegen<'a> {
 	}
 
 	fn translate_constant(&self, c: &NumericConstant) -> Result<String, CodegenError> {
-		if self.width_casts {
+		if self.width_casts() {
 			Ok(format!("{}'h{}", c.width()?, c.to_hex_str()?))
 		}
 		else {
@@ -193,13 +205,10 @@ impl<'a> SVExpressionCodegen<'a> {
 			_ => (),
 		}
 
-		let cast_str = if self.width_casts {
-			let mut cg = SVExpressionCodegen::new(
-				self.design,
-				false,
-				self.get_tmp_counter());
-			let str = cg.translate_expression_try_eval(&expr.width()?)?;
-			self.tmp_counter = cg.get_tmp_counter();
+		let cast_str = if self.width_casts() {
+			self.push_width_casts(false);
+			let str = self.translate_expression_try_eval(&expr.width()?)?;
+			self.pop_width_casts();
 			Some(str)
 		}
 		else {
@@ -289,27 +298,33 @@ impl<'a> SVExpressionCodegen<'a> {
 	fn translate_builtin_op(&mut self, op: &BuiltinOp) -> Result<String, CodegenError> {
 		use BuiltinOp::*;
 		Ok(match op {
-			Width(e) => unimplemented!("$bits() shall never be emitted"),
+			Width(_) => unimplemented!("$bits() shall never be emitted"),
 			ZeroExtend { .. } | SignExtend { .. } => {
 				unimplemented!("Zero/sign extensions shall be expanded before codegen")
 			},
 
 			BitSelect { expr, index } => {
 				let expr_str = self.translate_suffix_op_lhs(&expr)?;
-				let index_str = self.translate_expression_no_preprocess(&index)?;
+				self.push_width_casts(false);
+				let index_str = self.translate_expression_try_eval(&index)?;
+				self.pop_width_casts();
 				format!("{}[{}]", expr_str, index_str)
 			},
 
 			BusSelect { expr, msb, lsb } => {
 				let expr_str = self.translate_suffix_op_lhs(&expr)?;
-				let msb_str = self.translate_expression_no_preprocess(&msb)?;
-				let lsb_str = self.translate_expression_no_preprocess(&lsb)?;
+				self.push_width_casts(false);
+				let msb_str = self.translate_expression_try_eval(&msb)?;
+				let lsb_str = self.translate_expression_try_eval(&lsb)?;
+				self.pop_width_casts();
 				format!("{}[{}:{}]", expr_str, msb_str, lsb_str)
 			},
 
 			Replicate { expr, count } => {
 				let expr_str = self.translate_expression_no_preprocess(&expr)?;
-				let count_str = self.translate_expression_no_preprocess(&count)?;
+				self.push_width_casts(false);
+				let count_str = self.translate_expression_try_eval(&count)?;
+				self.pop_width_casts();
 				format!("{{ {} {{ {} }} }}", count_str, expr_str)
 			},
 
