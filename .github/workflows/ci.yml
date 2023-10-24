@@ -59,7 +59,7 @@ jobs:
     - name: Install iVerilog
       run: sudo apt-get install -y iverilog
     - name: Tests
-      run: cargo test -p hdl -p hdllang -p hirn --verbose
+      run: cargo test --workspace --verbose
 
   parser-fuzz-test:
     name: Parser fuzz test (constant seed)
@@ -75,6 +75,3 @@ jobs:
         run: pip3 install fuzzingbook
       - name: Fuzzer tests
         run: utils/parser_test.py --seed 3721
-
-    
-# TODO add iverilog tests
