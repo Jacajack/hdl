@@ -1,21 +1,23 @@
 module fancy_counter{
 	input clock clk;
-	input async wire nreset;
-	input comb(clk) wire enable;
-	output unsigned sync(clk) bus<16> data;
-	output unsigned comb(clk) bus<16> fancy_data;
+	input {
+		async nreset;
+		comb(clk) en;
+	}
+	output unsigned {
+		sync(clk)<16> data;
+		comb(clk)<16> fancy_data;	
+	}
 }
 
 impl fancy_counter{
-	wire en = enable;
-	bus<16> counter_next = (data + 1u1)[0:15];
 	register counter{
 		clk, nreset, en,
-		next: counter_next,
+		next: (data + 1u1)[0:15],
 		data,
 	};
 
-	unsigned sync(clk) bus<16> counter_last;
+	sync(clk) auto counter_last;
 	register delayed{
 		clk, nreset, en,
 		next: data,

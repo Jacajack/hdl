@@ -67,7 +67,7 @@ module fancy_counter_tb;
 
 	fancy_counter dut_cnt(
 		.clk(clk),
-		.enable(en),
+		.en(en),
 		.nreset(nreset),
 		.data(dut_data),
 		.fancy_data(dut_fancy_data)
