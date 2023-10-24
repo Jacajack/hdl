@@ -104,6 +104,7 @@ fn compile_run_iverilog_with_sim(input_path: &Path) -> Result<(), String> {
 	let iverilog_path = std::env::var("IVERILOG_PATH").unwrap_or("iverilog".into());
 	let vvp_path = std::env::var("VVP_PATH").unwrap_or("vvp".into());
 
+	let dump_file = NamedTempFile::new().unwrap();
 	let compiled_file = run_hdlc(input_path).expect("compile failed");
 	let tb_file = input_path.with_extension("sv");
 
@@ -113,7 +114,9 @@ fn compile_run_iverilog_with_sim(input_path: &Path) -> Result<(), String> {
 	let mut p = Popen::create(
 		&[
 			vvp_path.as_str(),
+			"-n",
 			bin_file.path().to_str().unwrap(),
+			format!("+DUMP_PATH={}", dump_file.path().to_str().unwrap()).as_str(),
 		],
 		PopenConfig::default(),
 	)
