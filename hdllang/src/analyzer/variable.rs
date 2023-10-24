@@ -388,6 +388,14 @@ impl Signal {
 		};
 		Ok(())
 	}
+	pub fn new_empty_with_sensitivity(sensitivity: SignalSensitivity) -> Self {
+		Self {
+			signal_type: SignalType::Auto(SourceSpan::new_between(0, 0)),
+			dimensions: Vec::new(),
+			sensitivity,
+			direction: Direction::None,
+		}
+	}
 	pub fn new_bus(width: Option<BusWidth>, signedness: SignalSignedness, location: SourceSpan) -> Self {
 		Self {
 			signal_type: SignalType::Bus(BusType {
