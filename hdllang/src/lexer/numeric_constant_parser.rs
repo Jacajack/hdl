@@ -260,75 +260,77 @@ mod tests {
 		assert!(parse_numeric_constant_str(s).is_err());
 	}
 
-	#[test]
-	fn test_parse_plain_numbers() {
-		check_parse("64", 64, None, None);
-		check_parse("0011", 11, None, None);
-		check_parse("000___00__000", 0, None, None);
-		check_parse("0", 0, None, None);
-		check_parse("0b1101____", 13, None, Some(false));
-		check_parse("0x_f_f_", 255, Some(8), Some(false));
-	}
-
-	#[test]
-	fn test_parse_signedness() {
-		check_parse("0s", 0, None, Some(true));
-		check_parse("0u", 0, None, Some(false));
-		check_parse("123____u", 123, None, Some(false));
-		check_parse("1______s____", 1, None, Some(true));
-		check_parse("101U", 101, None, Some(false));
-		check_parse("0xffS", -1, Some(8), Some(true));
-	}
-
-	#[test]
-	fn test_parse_fully_constrained() {
-		check_parse("0s1", 0, Some(1), Some(true));
-		check_parse("1_______s2", 1, Some(2), Some(true));
-		check_parse("0x15u15", 21, Some(15), Some(false));
-		check_parse("0xFFs00011", -1, Some(11), Some(true));
-		check_parse("0b0_1_0_1_u_00__010___", 5, Some(10), Some(false));
-		check_parse("0b0_1_0_1_u_00__010___", 5, Some(10), Some(false));
-
-		// I hate this corner case :/
-		check_parse("127s8", 127, Some(8), Some(true));
-		check_parse("128s8", 128, Some(8), Some(true));
-		check_parse("1s1", 1, Some(1), Some(true));
+	#[rstest]
+	#[case("64", 64, None, None)]
+	#[case("0011", 11, None, None)]
+	#[case("000___00__000", 0, None, None)]
+	#[case("0", 0, None, None)]
+	#[case("0b1101____", 13, None, Some(false))]
+	#[case("0x_f_f_", 255, Some(8), Some(false))]
+	#[case("0s", 0, None, Some(true))]
+	#[case("0u", 0, None, Some(false))]
+	#[case("123____u", 123, None, Some(false))]
+	#[case("1______s____", 1, None, Some(true))]
+	#[case("101U", 101, None, Some(false))]
+	#[case("0xffS", -1, Some(8), Some(true))]
+	#[case("0s1", 0, Some(1), Some(true))]
+	#[case("1_______s2", 1, Some(2), Some(true))]
+	#[case("0x15u15", 21, Some(15), Some(false))]
+	#[case("0xFFs00011", -1, Some(11), Some(true))]
+	#[case("0b0_1_0_1_u_00__010___", 5, Some(10), Some(false))]
+	#[case("0b0_1_0_1_u_00__010___", 5, Some(10), Some(false))]
+	#[case("127s8", 127, Some(8), Some(true))]
+	#[case("128s8", 128, Some(8), Some(true))]
+	#[case("1s1", 1, Some(1), Some(true))]
+	fn test_valid_numbers(#[case] s: &str, #[case] value: i64, #[case] num_bits: Option<u32>, #[case] is_signed: Option<bool>) {
+		check_parse(s, value, num_bits, is_signed);
 	}
 
 	#[rstest]
 	#[case("16u4")]
 	#[case("8u3")]
 	#[case("0u0")]
+	#[case("1u0")]
+	#[case("0s0")]
+	#[case("1s0")]
+	#[case("0000s000000")]
+	#[case("100_u_0_____0")]
+	#[case("0xfu3")]
 	fn test_invalid_numbers(#[case] s: &str) {
 		expect_parse_error(s);
 	}
 
-	#[test]
-	fn test_insufficient_number_width() {
-		expect_parse_error("10u3");
-		expect_parse_error("5s3");
+	#[rstest]
+	#[case("10u3")]
+	#[case("5s3")]
+	fn test_insufficient_number_width(#[case] s: &str) {
+		expect_parse_error(s);
 	}
 
-	#[test]
-	fn test_bad_binary_digits() {
-		expect_parse_error("0b4a");
-		expect_parse_error("0b1101I");
-		expect_parse_error("0b11__2");
+	#[rstest]
+	#[case("0b2")]
+	#[case("0b4a")]
+	#[case("0b1101I")]
+	#[case("0b11__2")]
+	fn test_bad_binary_digits(#[case] s: &str) {
+		expect_parse_error(s);
 	}
 
-	#[test]
-	fn test_bad_decimal_digits() {
-		expect_parse_error("19a");
-		expect_parse_error("19F");
-		expect_parse_error("164u124u");
-		expect_parse_error("1u2u3u4u5u6u7u64");
-		expect_parse_error("144su64");
+	#[rstest]
+	#[case("19a")]
+	#[case("19F")]
+	#[case("164u124u")]
+	#[case("1u2u3u4u5u6u7u64")]
+	#[case("144su64")]
+	fn test_bad_decimal_digits(#[case] s: &str) {
+		expect_parse_error(s);
 	}
 
-	#[test]
-	fn test_bad_hex_digits() {
-		expect_parse_error("0xBROKEN");
-		expect_parse_error("0bfa1A0O");
+	#[rstest]
+	#[case("0xBROKEN")]
+	#[case("0bfa1A0O")]
+	fn test_bad_hex_digits(#[case] s: &str) {
+		expect_parse_error(s);
 	}
 
 	// TODO add tests for loooong numbers
