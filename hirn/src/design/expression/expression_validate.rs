@@ -237,7 +237,7 @@ impl BuiltinOp {
 				let count_val = count.narrow_eval(ctx).ok();
 				match (count_type.is_generic(), count_val) {
 					(false, _) => return Err(ExpressionError::InvalidReplicationCount.into()),
-                    (_, Some(n)) if n < 1 => return Err(ExpressionError::InvalidReplicationCount.into()),
+					(_, Some(n)) if n < 1 => return Err(ExpressionError::InvalidReplicationCount.into()),
 					(..) => {},
 				}
 			},
