@@ -1,2 +1,2 @@
-!input/*.hirl
-!input_invalid/*.hirl
+!**/*.hirl
+!**/*.sv
