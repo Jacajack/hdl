@@ -35,4 +35,4 @@ $(OUTPUT_DIR):
 	$(IVERILOG) $(VFLAGS) -o $@ $^
 
 %.vcd: %.vvp
-	$(VVP) $< +DUMP_PATH=$@
+	$(VVP) -n $< +DUMP_PATH=$@
