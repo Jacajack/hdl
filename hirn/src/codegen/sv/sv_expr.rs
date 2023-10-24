@@ -2,9 +2,9 @@ use super::SVCodegen;
 use crate::{
 	codegen::CodegenError,
 	design::{
-		BinaryExpression, BinaryOp, BuiltinOp, ConditionalExpression, Design, DesignHandle, EvalContext, Evaluates,
-		EvaluatesType, Expression, HasSensitivity, HasSignedness, NumericConstant, SignalClass, SignalId,
-		SignalSensitivity, SignalSignedness, SignalSlice, UnaryExpression, UnaryOp, WidthExpression, CastExpression,
+		BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, Design, DesignHandle,
+		EvalContext, Evaluates, EvaluatesType, Expression, HasSensitivity, HasSignedness, NumericConstant, SignalClass,
+		SignalId, SignalSensitivity, SignalSignedness, SignalSlice, UnaryExpression, UnaryOp, WidthExpression,
 	},
 };
 
@@ -108,10 +108,12 @@ impl<'a> SVExpressionCodegen<'a> {
 	fn translate_constant(&self, c: &NumericConstant) -> Result<String, CodegenError> {
 		if self.width_casts() {
 			let is_signed = c.signedness().unwrap_or(SignalSignedness::Unsigned).is_signed();
-			Ok(format!("{}'{}h{}",
+			Ok(format!(
+				"{}'{}h{}",
 				c.width()?,
-				if is_signed {"s"} else {""},
-				c.to_hex_str()?))
+				if is_signed { "s" } else { "" },
+				c.to_hex_str()?
+			))
 		}
 		else {
 			Ok(format!("{}", c.to_dec_str()?))
@@ -251,7 +253,7 @@ impl<'a> SVExpressionCodegen<'a> {
 					(true, ShiftRight) => ">>>",
 					_ => unreachable!("Other operations are handled by the outer match"),
 				}
-			}
+			},
 		};
 
 		let expr_str = match cast_str {
