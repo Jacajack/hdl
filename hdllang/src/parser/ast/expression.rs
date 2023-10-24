@@ -16,7 +16,7 @@ mod unary_operator_expression;
 
 use crate::analyzer::{
 	AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContex, ModuleImplementationScope,
-	SemanticError, Signal, SignalSignedness, SignalType, VariableKind,
+	SemanticError, Signal, SignalSignedness, SignalType, VariableKind, SignalSensitivity,
 };
 use crate::core::NumericConstant;
 use crate::lexer::IdTableKey;
@@ -1542,7 +1542,7 @@ impl Expression {
 					global_ctx,
 					scope_id,
 					local_ctx,
-					Signal::new_empty(),
+					Signal::new_empty_with_sensitivity(coupling_type.sensitivity.clone()),
 					is_lhs,
 					location,
 				)?;
@@ -1759,11 +1759,12 @@ impl Expression {
 									.build(),
 							));
 						}
-						let expr = Signal::new_bus(
+						let mut expr = Signal::new_bus(
 							Some(BusWidth::Evaluated(expr)),
 							SignalSignedness::Unsigned(self.get_location()),
 							self.get_location(),
 						);
+						expr.sensitivity = SignalSensitivity::Const(self.get_location());
 						Ok(expr)
 					},
 					"trunc" => {
