@@ -1,0 +1,4 @@
+module repl {}
+impl repl {
+	const bus<35> x = zeroes(35);
+}
