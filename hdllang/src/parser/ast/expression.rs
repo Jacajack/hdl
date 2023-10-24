@@ -972,7 +972,45 @@ impl Expression {
 			PostfixWithArgs(function) => {
 				let func_name = id_table.get_value(&function.id);
 				match func_name.as_str() {
-					"trunc" => todo!(),
+					"trunc" => {
+						let expr = function
+							.argument_list
+							.first()
+							.unwrap()
+							.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+						let width = scope.widths.get(&function.location).unwrap().clone(); //FIXME
+						log::debug!("Width is {:?}", width);
+						if let Some(loc) = width.get_location() {
+							let op = hirn::design::BuiltinOp::BusSelect {
+									expr: Box::new(expr),
+									msb: Box::new(
+										scope
+											.evaluated_expressions
+											.get(&loc)
+											.unwrap()
+											.expression
+											.codegen(nc_table, id_table, scope_id, scope, nc_widths)?,
+									),
+									lsb: Box::new(hirn::design::Expression::Constant(
+										hirn::design::NumericConstant::new_unsigned(BigInt::from(0)),
+									)),
+							};
+							return Ok(hirn::design::Expression::Builtin(op));
+						}
+						if let Some(val) = &width.get_value() {
+							let op = hirn::design::BuiltinOp::BusSelect {
+									expr: Box::new(expr),
+									msb: Box::new(hirn::design::Expression::Constant(
+										hirn::design::NumericConstant::new_unsigned(val.clone()),
+									)),
+									lsb: Box::new(hirn::design::Expression::Constant(
+										hirn::design::NumericConstant::new_unsigned(BigInt::from(0)),
+									)),
+								};
+							return Ok(hirn::design::Expression::Builtin(op));
+						}
+						unreachable!()
+					},
 					"zeroes" => {
 						let expr = hirn::design::NumericConstant::from_bigint(
 							0.into(),
@@ -1728,7 +1766,66 @@ impl Expression {
 						);
 						Ok(expr)
 					},
-					"trunc" | "zext" | "ext" | "sext" => {
+					"trunc" => {
+						if function.argument_list.len() > 1 {
+							return Err(miette::Report::new(
+								SemanticError::BadFunctionArguments
+									.to_diagnostic_builder()
+									.label(function.location, "This function should have only one argument")
+									.build(),
+							));
+						}
+						if !coupling_type.is_width_specified() {
+							return Err(miette::Report::new(
+								SemanticError::WidthNotKnown
+									.to_diagnostic_builder()
+									.label(
+										function.location,
+										"This function must know the width of the left hand side signal",
+									)
+									.build(),
+							));
+						}
+						let mut expr = function.argument_list[0].evaluate_type(
+							global_ctx,
+							scope_id,
+							local_ctx,
+							Signal::new_empty(),
+							is_lhs,
+							location,
+						)?;
+						if !expr.is_width_specified() {
+							return Err(miette::Report::new(
+								SemanticError::WidthNotKnown
+									.to_diagnostic_builder()
+									.label(
+										function.argument_list[0].get_location(),
+										"This function must know the width of argument",
+									)
+									.build(),
+							));
+						}
+						if expr.width().unwrap().get_value().unwrap()
+							< coupling_type.width().unwrap().get_value().unwrap()
+						{
+							return Err(miette::Report::new(
+								SemanticError::WidthMismatch
+									.to_diagnostic_builder()
+									.label(
+										function.argument_list[0].get_location(),
+										"You cannot enlarge the width of the signal",
+									)
+									.build(),
+							));
+						}
+						local_ctx
+							.scope
+							.widths
+							.insert(function.location, coupling_type.width().unwrap());
+						expr.set_width(coupling_type.width().unwrap(), expr.get_signedness(), location);
+						Ok(expr)
+					},
+					"zext" | "ext" | "sext" => {
 						if function.argument_list.len() > 1 {
 							return Err(miette::Report::new(
 								SemanticError::BadFunctionArguments
