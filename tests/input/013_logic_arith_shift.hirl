@@ -1,0 +1,11 @@
+module logic_arith_shifts {
+	input async unsigned bus<8> a;
+	output async unsigned bus<8> b;
+	input async signed bus<8> c;
+	output async signed bus<8> d;
+}
+
+impl logic_arith_shifts {
+	b = a << 1u1;
+	d = c << 1u1;
+}
