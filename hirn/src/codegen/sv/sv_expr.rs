@@ -231,8 +231,6 @@ impl<'a> SVExpressionCodegen<'a> {
 			BitwiseAnd => "&",
 			BitwiseOr => "|",
 			BitwiseXor => "^",
-			ShiftLeft => "<<",  // FIXME arithmetic vs logical
-			ShiftRight => ">>", // FIXME arithemtic vs logical
 			Equal => "==",
 			NotEqual => "!=",
 			Less => "<",
@@ -242,6 +240,18 @@ impl<'a> SVExpressionCodegen<'a> {
 			LogicalAnd => "&&",
 			LogicalOr => "||",
 			Max | Min => unreachable!("Max and Min should be handled separately"),
+			ShiftLeft | ShiftRight => {
+				let eval_ctx = EvalContext::without_assumptions(self.design.handle());
+				let lhs_type = expr.lhs.eval_type(&eval_ctx)?;
+				let arith_shift = lhs_type.is_signed();
+				match (arith_shift, expr.op) {
+					(false, ShiftLeft) => "<<",
+					(true, ShiftLeft) => "<<<",
+					(false, ShiftRight) => ">>",
+					(true, ShiftRight) => ">>>",
+					_ => unreachable!("Other operations are handled by the outer match"),
+				}
+			}
 		};
 
 		let expr_str = match cast_str {
