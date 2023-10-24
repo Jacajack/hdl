@@ -70,18 +70,20 @@ fn run_hdlc(input_path: &Path) -> miette::Result<NamedTempFile> {
 	Ok(tmpfile)
 }
 
-fn run_iverilog(iverilog_path: &Path, input_path: &Path) -> Result<NamedTempFile, String> {
+fn run_iverilog(iverilog_path: &Path, input_paths: &Vec<PathBuf>) -> Result<NamedTempFile, String> {
 	let bin_file = NamedTempFile::new().unwrap();
 
+	let mut args = vec![
+		iverilog_path.to_str().unwrap(),
+		"-g2005-sv",
+		"-Wall",
+		"-o",
+		bin_file.path().to_str().unwrap(),
+	];
+	args.extend(input_paths.iter().map(|p| p.to_str().unwrap()));
+
 	let mut p = Popen::create(
-		&[
-			iverilog_path.to_str().unwrap(),
-			"-g2005-sv",
-			"-Wall",
-			"-o",
-			bin_file.path().to_str().unwrap(),
-			input_path.to_str().unwrap(),
-		],
+		&args,
 		PopenConfig::default(),
 	)
 	.expect("failed to spawn iverilog");
@@ -98,13 +100,39 @@ fn run_iverilog(iverilog_path: &Path, input_path: &Path) -> Result<NamedTempFile
 	Ok(bin_file)
 }
 
-#[rstest]
-fn test_compile_success(#[files("tests/input/*.hirl")] path: PathBuf) {
+fn compile_run_iverilog_with_sim(input_path: &Path) -> Result<(), String> {
+	let iverilog_path = std::env::var("IVERILOG_PATH").unwrap_or("iverilog".into());
+	let vvp_path = std::env::var("VVP_PATH").unwrap_or("vvp".into());
+
+	let compiled_file = run_hdlc(input_path).expect("compile failed");
+	let tb_file = input_path.with_extension("sv");
+
+	let input_files = vec![compiled_file.path().to_path_buf(), tb_file];
+	let bin_file = run_iverilog(Path::new(&iverilog_path), &input_files).expect("iverilog failed");
+
+	let mut p = Popen::create(
+		&[
+			vvp_path.as_str(),
+			bin_file.path().to_str().unwrap(),
+		],
+		PopenConfig::default(),
+	)
+	.expect("testbench run failed");
+
+	match p.wait().unwrap() {
+		ExitStatus::Exited(0) => {},
+		other => panic!("testbench run failed: {:?}", other)
+	}
+
+	Ok(())
+}
+
+fn compile_run_iverilog(path: PathBuf) {
 	let sv_file = run_hdlc(path.as_path()).unwrap();
 
 	if !std::env::var("NO_IVERILOG").is_ok() {
 		let iverilog_path = std::env::var("IVERILOG_PATH").unwrap_or("iverilog".into());
-		match run_iverilog(Path::new(&iverilog_path), sv_file.path()) {
+		match run_iverilog(Path::new(&iverilog_path), &vec![sv_file.path().to_path_buf()]) {
 			Ok(_) => {},
 			Err(e) => {
 				eprintln!("iverilog failed: {}", e);
@@ -119,6 +147,21 @@ fn test_compile_success(#[files("tests/input/*.hirl")] path: PathBuf) {
 }
 
 #[rstest]
+fn test_compile_success(#[files("tests/input/*.hirl")] path: PathBuf) {
+	compile_run_iverilog(path)
+}
+
+#[rstest]
+fn test_compile_success_sim_files(#[files("tests/input_sim/*.hirl")] path: PathBuf) {
+	compile_run_iverilog(path)
+}
+
+#[rstest]
 fn test_compile_failure(#[files("tests/input_invalid/*.hirl")] path: PathBuf) {
 	assert!(run_hdlc(path.as_path()).is_err());
+}
+
+#[rstest]
+fn test_compile_simulate(#[files("tests/input_sim/*.hirl")] path: PathBuf) {
+	assert!(compile_run_iverilog_with_sim(&path).is_ok());
 }
