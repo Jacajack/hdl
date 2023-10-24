@@ -3,4 +3,6 @@ impl sign_casts {
 	// FIXME AR: Wojtek to implement cast codegen
 	// const unsigned bus<8> a = (unsigned bus<8>) 32s8;
 	// bus<8> b = (signed bus<8>) 32s8; // FIXME drop bus<8> from the cast expression
+	auto signed_const = 24s8;
+	auto unsigned_const = 24u8;
 }

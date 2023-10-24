@@ -107,7 +107,11 @@ impl<'a> SVExpressionCodegen<'a> {
 
 	fn translate_constant(&self, c: &NumericConstant) -> Result<String, CodegenError> {
 		if self.width_casts() {
-			Ok(format!("{}'h{}", c.width()?, c.to_hex_str()?))
+			let is_signed = c.signedness().unwrap_or(SignalSignedness::Unsigned).is_signed();
+			Ok(format!("{}'{}h{}",
+				c.width()?,
+				if is_signed {"s"} else {""},
+				c.to_hex_str()?))
 		}
 		else {
 			Ok(format!("{}", c.to_dec_str()?))
