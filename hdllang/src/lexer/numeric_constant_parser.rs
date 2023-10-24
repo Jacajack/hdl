@@ -246,8 +246,8 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 
 #[cfg(test)]
 mod tests {
-	use rstest::rstest;
 	use super::*;
+	use rstest::rstest;
 
 	fn check_parse(s: &str, value: i64, num_bits: Option<u32>, is_signed: Option<bool>) {
 		let number = parse_numeric_constant_str(s).unwrap();
@@ -282,7 +282,12 @@ mod tests {
 	#[case("127s8", 127, Some(8), Some(true))]
 	#[case("128s8", 128, Some(8), Some(true))]
 	#[case("1s1", 1, Some(1), Some(true))]
-	fn test_valid_numbers(#[case] s: &str, #[case] value: i64, #[case] num_bits: Option<u32>, #[case] is_signed: Option<bool>) {
+	fn test_valid_numbers(
+		#[case] s: &str,
+		#[case] value: i64,
+		#[case] num_bits: Option<u32>,
+		#[case] is_signed: Option<bool>,
+	) {
 		check_parse(s, value, num_bits, is_signed);
 	}
 
