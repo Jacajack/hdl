@@ -1,0 +1,19 @@
+module inner {
+	input clock clk;
+	input comb(clk) wire x;
+	output sync(clk) wire y;
+}
+impl inner {}
+
+module outer {}
+impl outer{
+	clock my_clk;
+	sync(my_clk) wire x;
+	sync(my_clk) wire y;
+
+	inner my_inner {
+		clk: my_clk,
+		x,
+		y,
+	};
+}

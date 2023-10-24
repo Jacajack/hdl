@@ -1,4 +1,8 @@
-use std::collections::HashSet;
+use std::collections::{HashSet, HashMap};
+
+use log::debug;
+
+use crate::design::HasSensitivity;
 
 use super::{
 	module::SignalDirection, DesignError, EvalContext, EvaluatesType, HasComment, ModuleHandle, ScopeHandle, SignalId,
@@ -250,9 +254,39 @@ impl ModuleInstance {
 
 	fn verify_bindings(&self) -> Result<(), DesignError> {
 		let mut names = HashSet::new();
+		debug!("Verifying instance '{}' (MID: {:?}) bindings...", self.instance_name(), self.module.id());
 
+		// Map all binding names into internal signal IDs all at once
+		let int_sig_ids_opt: Option<Vec<_>> = self.bindings.iter().map(
+			|binding|{
+				self.module.get_interface_signal_by_name(&binding.0)
+				.map(|int_sig| int_sig.signal)
+		}).collect();
+
+		if int_sig_ids_opt.is_none() {
+			return Err(DesignError::InvalidInterfaceSignalName(self.module.id()));
+		}
+
+		// This int_sig_ids has the same ordering as interface bindings
+		let mut clock_map = HashMap::new();
+		let int_sig_ids = int_sig_ids_opt.unwrap();
+		assert_eq!(int_sig_ids.len(), self.bindings.len());
+
+		// Find all clocks and build a clock map
+		for (int_sig_id, (_int_name, ext_signal_id)) in int_sig_ids.iter().zip(self.bindings.iter()) {
+			let design_handle = self.module.design();
+			let design = design_handle.borrow();
+			let int_sig = design.get_signal(*int_sig_id).expect("interface signal not in design");
+			if int_sig.is_clock() {
+				clock_map.insert(*int_sig_id, *ext_signal_id);
+			}
+		}
+
+		debug!("Binding clock map: {clock_map:?}");
+
+		// After the clock map is built, verify all bindings with the clock map
 		for (name, signal) in &self.bindings {
-			self.verify_binding(name, *signal)?;
+			self.verify_binding(name, *signal, &clock_map)?;
 
 			// Catch duplicate bindings
 			if names.contains(name) {
@@ -265,7 +299,8 @@ impl ModuleInstance {
 		Ok(())
 	}
 
-	fn verify_binding(&self, name: &str, extern_sig: SignalId) -> Result<(), DesignError> {
+	fn verify_binding(&self, name: &str, extern_sig: SignalId, clock_map: &HashMap<SignalId, SignalId>) -> Result<(), DesignError> {
+		debug!("Checking binding '{}' <-> {:?}", name, extern_sig);
 		let intern_sig = self
 			.module
 			.get_interface_signal_by_name(name)
@@ -273,8 +308,11 @@ impl ModuleInstance {
 
 		// TODO defer this logic to assignment checker
 		let eval_ctx = EvalContext::without_assumptions(self.module.design());
-		let extern_type = extern_sig.eval_type(&eval_ctx)?;
 		let intern_type = intern_sig.signal.eval_type(&eval_ctx)?;
+		let mut extern_type = extern_sig.eval_type(&eval_ctx)?;
+		debug!("Interface type: {:?}", intern_type);
+		debug!("Binding type: {:?}", extern_type);
+		extern_type.sensitivity.substitute_clocks(clock_map);
 
 		let lhs_type;
 		let rhs_type;

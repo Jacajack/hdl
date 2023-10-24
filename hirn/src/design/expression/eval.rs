@@ -186,6 +186,10 @@ impl EvalType {
 	pub fn can_drive(&self, other: &EvalType) -> bool {
 		self.signedness == other.signedness && self.sensitivity.can_drive(&other.sensitivity)
 	}
+
+	pub fn can_drive_check_clk(&self, other: &EvalType) -> bool {
+		self.signedness == other.signedness && self.sensitivity.can_drive_check_clk(&other.sensitivity)
+	}
 }
 
 impl HasSignedness for EvalType {

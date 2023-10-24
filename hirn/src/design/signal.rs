@@ -7,6 +7,7 @@ use super::Expression;
 use super::HasComment;
 use super::ScopeId;
 use super::SignalId;
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 /// Potential TODO: Logic type which cannot be used in arithmetic
@@ -124,6 +125,15 @@ impl ClockSensitivityList {
 	pub fn is_subset_of(&self, other: &ClockSensitivityList) -> bool {
 		self.0.is_subset(&other.0)
 	}
+
+	pub fn substitute_clocks(&mut self, clock_map: &HashMap<SignalId, SignalId>) {
+		self.0 = self.0.iter().map(|e| {
+			EdgeSensitivity{
+				clock_signal: *clock_map.get(&e.clock_signal).unwrap_or(&e.clock_signal),
+				on_rising: e.on_rising,
+			}
+		}).collect();
+	}
 }
 
 /// Determines 'sensitivity' of a signal - i.e. how constant it is
@@ -218,7 +228,7 @@ impl SignalSensitivity {
 	}
 
 	/// Determines whether this signal can drive the other specified signal
-	/// The logic in this function implements both sensitivity and clocking semantics
+	/// This function does not check if clocking lists are compatible.
 	pub fn can_drive(&self, dest: &SignalSensitivity) -> bool {
 		use SignalSensitivity::*;
 		match (dest, self) {
@@ -227,12 +237,32 @@ impl SignalSensitivity {
 			(Const, Const) => true,
 			(Clock, Clock) => true,
 			(Sync(_), Const) => true,
-			(Sync(lhs), Sync(rhs)) => rhs.is_subset_of(lhs),
+			(Sync(_), Sync(_)) => true,
 			(Comb(_), Const) => true,
-			(Comb(lhs), Comb(rhs)) => rhs.is_subset_of(lhs),
-			(Comb(lhs), Sync(rhs)) => rhs.is_subset_of(lhs),
+			(Comb(_), Comb(_)) => true,
+			(Comb(_), Sync(_)) => true,
 			(Async, Async | Const | Comb(_) | Sync(_) | Clock) => true,
 			_ => false,
+		}
+	}
+
+	// Same as `can_drive()` but also verifies whether clocking lists are valid
+	pub fn can_drive_check_clk(&self, dest: &SignalSensitivity) -> bool {
+		use SignalSensitivity::*;
+		match (dest, self) {
+			(Sync(lhs), Sync(rhs)) => rhs.is_subset_of(lhs),
+			(Comb(lhs), Comb(rhs)) => rhs.is_subset_of(lhs),
+			(Comb(lhs), Sync(rhs)) => rhs.is_subset_of(lhs),
+			(dest, this) => this.can_drive(dest),
+		}
+	}
+
+	/// Substitutes clocks in the sensitivity list
+	pub fn substitute_clocks(&mut self, clock_map: &HashMap<SignalId, SignalId>) {
+		use SignalSensitivity::*;
+		match self {
+			Sync(list) | Comb(list) => list.substitute_clocks(clock_map),
+			_ => {}
 		}
 	}
 }
