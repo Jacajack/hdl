@@ -1,3 +1,15 @@
+// TODO move this into a shared TB lib
+`define ASSERT(cond) assert(cond) else $fatal(1)
+
+task start_dump();
+	string vcd_path;
+	$value$plusargs("DUMP_PATH=%s", vcd_path);
+	$display("DUMP_PATH=%s", vcd_path);
+	$dumpfile(vcd_path);
+	$dumpvars(0, simple_counter_tb);
+endtask
+
+
 module simple_counter_ref(
 	input wire clk,
 	input wire en,
@@ -41,11 +53,7 @@ module simple_counter_tb;
 	);
 
 	initial begin
-		string vcd_path;
-		$value$plusargs("DUMP_PATH=%s", vcd_path);
-		$display("DUMP_PATH=%s", vcd_path);
-		$dumpfile(vcd_path);
-		$dumpvars(0, simple_counter_tb);
+		start_dump();
 
 		clk = '0;
 		en = '0;
@@ -67,7 +75,7 @@ module simple_counter_tb;
 			clk = '0;
 			#1;
 
-			assert(dut_data == ref_data);
+			`ASSERT(dut_data == ref_data);
 		end
 		
 		$finish;
