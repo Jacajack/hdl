@@ -231,15 +231,13 @@ impl BuiltinOp {
 				}
 			},
 
-			// Count must be unsigned and generic and nonzero
+			// Count must be generic and positive
 			Replicate { expr: _, count } => {
 				let count_type = count.eval_type(ctx)?;
 				let count_val = count.narrow_eval(ctx).ok();
-				match (count_type.is_signed(), count_type.is_generic(), count_val) {
-					// FIXME
-					(false, ..) | (_, false, _) | (_, _, Some(0)) => {
-						return Err(ExpressionError::InvalidReplicationCount.into());
-					},
+				match (count_type.is_generic(), count_val) {
+					(false, _) => return Err(ExpressionError::InvalidReplicationCount.into()),
+                    (_, Some(n)) if n < 1 => return Err(ExpressionError::InvalidReplicationCount.into()),
 					(..) => {},
 				}
 			},
