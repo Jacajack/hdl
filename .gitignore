@@ -4,6 +4,8 @@
 **/*.kate-swp
 **/*.o
 **/*.tmp
+**/*.vvp
+**/*.vcd
 **/__pycache__
 **/Cargo.lock
 *.json
