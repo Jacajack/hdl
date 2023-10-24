@@ -265,12 +265,12 @@ impl<'a> SVCodegen<'a> {
 		let next_str = self.translate_expression(&reg.input_next.into(), true)?;
 
 		if input_signal.is_wire() {
-			emitln!(self, "reg {};", reg_name)?;
+			emitln!(self, "reg {} = '0;", reg_name)?;
 		}
 		else {
 			emitln!(
 				self,
-				"reg {}[{}:0] {};",
+				"reg {}[{}:0] {} = '0;",
 				if input_signal.is_unsigned() {
 					"unsigned"
 				}
