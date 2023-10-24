@@ -163,16 +163,26 @@ impl NumericConstant {
 	}
 
 	/// Returns if the number can be represented with the specifed
-	/// number of bits and signedness
+	/// number of bits and signedness (accounts for the sign bit)
+	/// ```
+	/// use hdllang::core::NumericConstant;
+	/// let c = NumericConstant::from_u64(7, Some(4), Some(true), None);
+	/// assert_eq!(c.is_representable_as_positive(), Some(true));
+	/// assert_eq!(c.is_representable_as_negative(), Some(true));
+	/// 
+	/// let c = NumericConstant::from_u64(8, Some(4), Some(true), None);
+	/// assert_eq!(c.is_representable_as_positive(), Some(false));
+	/// assert_eq!(c.is_representable_as_negative(), Some(true));
+	/// ````
 	pub fn is_representable_as_positive(&self) -> Option<bool> {
 		self.get_effective_bits().map(|n| self.value.bits() as u32 <= n)
 	}
 
 	/// Returns if the number can be represented with the specifed
-	/// number of bits and signedness when negated
+	/// number of bits and signedness when negated (this is always false for unsigned numbers)
 	pub fn is_representable_as_negative(&self) -> Option<bool> {
 		self.get_effective_bits().map(|n| {
-			self.value.bits() as u32 <= n || (self.value.bits() as u32 == n + 1 && self.count_ones() as u32 == 1)
+			self.signed.unwrap() && (self.value.bits() as u32 <= n || (self.value.bits() as u32 == n + 1 && self.count_ones() as u32 == 1))
 		})
 	}
 
