@@ -137,6 +137,13 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 			//	});
 			//}
 
+			if n == 0 {
+				return Err(NumberParseError {
+					kind: NumericConstantParseErrorKind::InsufficientWidth,
+					range: (index + 1, token_len),
+				})?;
+			}
+
 			num_bits = Some(n);
 		}
 	}
@@ -239,6 +246,7 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 
 #[cfg(test)]
 mod tests {
+	use rstest::rstest;
 	use super::*;
 
 	fn check_parse(s: &str, value: i64, num_bits: Option<u32>, is_signed: Option<bool>) {
@@ -285,6 +293,14 @@ mod tests {
 		check_parse("127s8", 127, Some(8), Some(true));
 		check_parse("128s8", 128, Some(8), Some(true));
 		check_parse("1s1", 1, Some(1), Some(true));
+	}
+
+	#[rstest]
+	#[case("16u4")]
+	#[case("8u3")]
+	#[case("0u0")]
+	fn test_invalid_numbers(#[case] s: &str) {
+		expect_parse_error(s);
 	}
 
 	#[test]
