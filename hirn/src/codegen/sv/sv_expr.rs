@@ -4,7 +4,7 @@ use crate::{
 	design::{
 		BinaryExpression, BinaryOp, BuiltinOp, ConditionalExpression, Design, DesignHandle, EvalContext, Evaluates,
 		EvaluatesType, Expression, HasSensitivity, HasSignedness, NumericConstant, SignalClass, SignalId,
-		SignalSensitivity, SignalSignedness, SignalSlice, UnaryExpression, UnaryOp, WidthExpression,
+		SignalSensitivity, SignalSignedness, SignalSlice, UnaryExpression, UnaryOp, WidthExpression, CastExpression,
 	},
 };
 
@@ -342,6 +342,16 @@ impl<'a> SVExpressionCodegen<'a> {
 		})
 	}
 
+	fn translate_cast_expression(&mut self, expr: &CastExpression) -> Result<String, CodegenError> {
+		let expr_str = self.translate_expression_no_preprocess(&expr.src)?;
+		use SignalSignedness::*;
+		match expr.signedness {
+			Some(Signed) => Ok(format!("$signed({})", expr_str)),
+			Some(Unsigned) => Ok(format!("$unsigned({})", expr_str)),
+			None => Ok(expr_str),
+		}
+	}
+
 	fn translate_expression_no_preprocess(&mut self, expr: &Expression) -> Result<String, CodegenError> {
 		use Expression::*;
 		match expr {
@@ -351,7 +361,7 @@ impl<'a> SVExpressionCodegen<'a> {
 			Binary(expr) => self.translate_binary_expression(expr),
 			Unary(expr) => self.translate_unary(expr),
 			Builtin(op) => self.translate_builtin_op(op),
-			Cast(c) => self.translate_expression_no_preprocess(&c.src),
+			Cast(c) => self.translate_cast_expression(c),
 		}
 	}
 
