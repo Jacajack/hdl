@@ -1,5 +1,7 @@
 use std::collections::{HashSet, HashMap};
 
+use log::debug;
+
 use crate::design::HasSensitivity;
 
 use super::{
@@ -252,6 +254,7 @@ impl ModuleInstance {
 
 	fn verify_bindings(&self) -> Result<(), DesignError> {
 		let mut names = HashSet::new();
+		debug!("Verifying instance '{}' (MID: {:?}) bindings...", self.instance_name(), self.module.id());
 
 		// Map all binding names into internal signal IDs all at once
 		let int_sig_ids_opt: Option<Vec<_>> = self.bindings.iter().map(
@@ -279,6 +282,8 @@ impl ModuleInstance {
 			}
 		}
 
+		debug!("Binding clock map: {clock_map:?}");
+
 		// After the clock map is built, verify all bindings with the clock map
 		for (name, signal) in &self.bindings {
 			self.verify_binding(name, *signal, &clock_map)?;
@@ -295,6 +300,7 @@ impl ModuleInstance {
 	}
 
 	fn verify_binding(&self, name: &str, extern_sig: SignalId, clock_map: &HashMap<SignalId, SignalId>) -> Result<(), DesignError> {
+		debug!("Checking binding '{}' <-> {:?}", name, extern_sig);
 		let intern_sig = self
 			.module
 			.get_interface_signal_by_name(name)
@@ -304,6 +310,8 @@ impl ModuleInstance {
 		let eval_ctx = EvalContext::without_assumptions(self.module.design());
 		let intern_type = intern_sig.signal.eval_type(&eval_ctx)?;
 		let mut extern_type = extern_sig.eval_type(&eval_ctx)?;
+		debug!("Interface type: {:?}", intern_type);
+		debug!("Binding type: {:?}", extern_type);
 		extern_type.sensitivity.substitute_clocks(clock_map);
 
 		let lhs_type;

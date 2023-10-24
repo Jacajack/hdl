@@ -228,7 +228,7 @@ impl SignalSensitivity {
 	}
 
 	/// Determines whether this signal can drive the other specified signal
-	/// The logic in this function implements both sensitivity and clocking semantics
+	/// This function does not check if clocking lists are compatible.
 	pub fn can_drive(&self, dest: &SignalSensitivity) -> bool {
 		use SignalSensitivity::*;
 		match (dest, self) {
@@ -237,12 +237,23 @@ impl SignalSensitivity {
 			(Const, Const) => true,
 			(Clock, Clock) => true,
 			(Sync(_), Const) => true,
-			(Sync(lhs), Sync(rhs)) => rhs.is_subset_of(lhs),
+			(Sync(_), Sync(_)) => true,
 			(Comb(_), Const) => true,
-			(Comb(lhs), Comb(rhs)) => rhs.is_subset_of(lhs),
-			(Comb(lhs), Sync(rhs)) => rhs.is_subset_of(lhs),
+			(Comb(_), Comb(_)) => true,
+			(Comb(_), Sync(_)) => true,
 			(Async, Async | Const | Comb(_) | Sync(_) | Clock) => true,
 			_ => false,
+		}
+	}
+
+	// Same as `can_drive()` but also verifies whether clocking lists are valid
+	pub fn can_drive_check_clk(&self, dest: &SignalSensitivity) -> bool {
+		use SignalSensitivity::*;
+		match (dest, self) {
+			(Sync(lhs), Sync(rhs)) => rhs.is_subset_of(lhs),
+			(Comb(lhs), Comb(rhs)) => rhs.is_subset_of(lhs),
+			(Comb(lhs), Sync(rhs)) => rhs.is_subset_of(lhs),
+			(dest, this) => this.can_drive(dest),
 		}
 	}
 
