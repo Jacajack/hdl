@@ -1,0 +1,4 @@
+module X {}
+impl X {
+	const wire x = (15u4 + 1u1)[0];
+}

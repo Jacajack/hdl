@@ -10,7 +10,6 @@ use crate::{
 		ModuleInstance, ModuleInstanceKind, NonRegister, Signal, SignalSensitivity,
 	},
 	core::*,
-	lexer::*,
 	parser::ast::*,
 	CompilerError, ProvidesCompilerDiagnostic, SourceSpan,
 };
@@ -516,9 +515,11 @@ impl ModuleImplementationStatement {
 							.build(),
 					));
 				}
+				let instance_str = ctx.id_table.get_by_key(&inst.instance_name).unwrap().clone();
 				let module = ctx.modules_declared.get(&name).unwrap();
 				let mut scope = module.scope.clone();
-				let mut module_instance = NonRegister { interface: Vec::new() };
+				let mut module_instance = NonRegister::new();
+				let mut clock_mapping: HashMap<IdTableKey, IdTableKey> = HashMap::new();
 				if scope.get_interface_len() != inst.port_bind.len() {
 					return Err(miette::Report::new(
 						InstanceError::ArgumentsMismatch
@@ -557,6 +558,8 @@ impl ModuleImplementationStatement {
 					if !interface_variable.var.kind.is_generic() {
 						continue;
 					}
+					let sig_name = ctx.id_table.get_value(&stmt.get_id()).clone();
+					let new_name = ctx.id_table.insert_or_get(format!("{instance_str}_{sig_name}_generic").as_str());
 					use crate::parser::ast::PortBindStatement::*;
 					match &stmt {
 						OnlyId(id) => {
@@ -612,7 +615,14 @@ impl ModuleImplementationStatement {
 										.build()));
 									}
 									gen2.value = gen1.value.clone();
+									let new_var = Variable::new(
+										new_name,
+										stmt.location(),
+										interface_variable.var.kind.clone());
 									scope.redeclare_variable(interface_variable);
+									let id = local_ctx.scope.define_intermidiate_signal(new_var)?;
+									module_instance.add_variable(stmt.get_id(), id).map_err(|mut err| err.label(stmt.location(), "Variable declared here").build())?;
+								
 								},
 								(..) => unreachable!(),
 							}
@@ -631,9 +641,15 @@ impl ModuleImplementationStatement {
 								},
 								_ => unreachable!(),
 							}
+							let new_var = Variable::new(
+								new_name,
+								stmt.location(),
+								interface_variable.var.kind.clone());
 							scope.redeclare_variable(interface_variable);
+							let id = local_ctx.scope.define_intermidiate_signal(new_var)?;
+							module_instance.add_variable(stmt.get_id(), id).map_err(|mut err| err.label(stmt.location(), "Variable declared here").build())?;
 						},
-						IdWithDeclaration(id_decl) => {
+						IdWithDeclaration(_) => {
 							debug!("Id with declaration");
 							return Err(miette::Report::new(
 								InstanceError::ArgumentsMismatch
@@ -648,101 +664,69 @@ impl ModuleImplementationStatement {
 					}
 				}
 				debug!("Scope is {:?}", scope);
-				debug!("Binding non generic variables!");
+				debug!("Binding clocks!");
 				for stmt in &inst.port_bind {
+					let sig_name = ctx.id_table.get_value(&stmt.get_id()).clone();
+					let new_name_str = format!("{instance_str}_{sig_name}_clk");
+					let new_name = ctx.id_table.insert_or_get(new_name_str.as_str());
 					let mut interface_variable =
 						scope.get_variable(0, &stmt.get_id()).expect("This was checked").clone();
-					if interface_variable.var.kind.is_generic() {
+					if !interface_variable.var.is_clock() || interface_variable.var.kind.is_generic(){
 						continue;
 					}
 					debug!("Interface variable is {:?}", interface_variable.var.kind);
-					//interface_variable.var.kind.evaluate_bus_width(&scope, ctx.id_table, ctx.nc_table)?;
-					use crate::parser::ast::PortBindStatement::*;
-					match &stmt {
-						OnlyId(id) => {
-							debug!("Only id");
-							let mut local_sig = local_ctx
-								.scope
-								.get_var(scope_id, &id.id)
-								.map_err(|mut err| {
-									err.label(
-										id.location,
-										format!(
-											"Variable \"{}\" is not declared",
-											ctx.id_table.get_by_key(&id.id).unwrap()
-										)
-										.as_str(),
-									)
-									.build()
-								})?
-								.clone();
-							debug!("Local sig is {:?}", local_sig.var.kind);
-							if local_sig.var.kind.is_module_instance() {
-								return Err(miette::Report::new(
-									InstanceError::ArgumentsMismatch
-										.to_diagnostic_builder()
-										.label(
-											stmt.location(),
-											"Here was an attempt to bind module instance as a interface signal",
-										)
-										.label(local_sig.var.location, "Local signal defined here")
-										.build(),
-								));
-							}
-							debug!("Remote sig is {:?}", interface_variable.var.kind);
-							use VariableKind::*;
-							match (&mut local_sig.var.kind, &mut interface_variable.var.kind) {
-								(Signal(sig1), Signal(sig2)) => {
-									sig2.evaluate_as_lhs(true, ctx, sig1.clone(), stmt.location())?;
-									// sig 2 change width to the ones known in local scope
-									sig1.evaluate_as_lhs(false, ctx, sig2.clone(), stmt.location())?;
-									//local_ctx.scope.evaluated_expressions.insert(sig2.width().unwrap().get_location().unwrap(), scope.evaluated_expressions.get(&sig2.width().unwrap().get_location().unwrap()).unwrap().clone());
-									local_ctx.scope.redeclare_variable(local_sig);
-								},
-								(Generic(_), Signal(_)) => {
-									return Err(miette::Report::new(
-										InstanceError::ArgumentsMismatch
-											.to_diagnostic_builder()
-											.label(
-												stmt.location(),
-												"Here was an attempt to bind generic and signal togther",
-											)
-											.label(local_sig.var.location, "Local signal defined here")
-											.build(),
-									))
-								},
-								(..) => unreachable!(),
-							}
-						},
-						IdWithExpression(id_expr) => {
-							debug!("Id with expression");
-
-							let new_sig = id_expr.expression.evaluate_type(
-								&ctx,
-								scope_id,
-								local_ctx,
-								interface_variable.var.kind.to_signal(),
-								false,
-								id_expr.location,
-							)?;
-						},
-						IdWithDeclaration(id_decl) => {
-							debug!("Id with declaration");
-
-							let new_war = VariableKind::from_type_declarator(
-								&id_decl.declaration.type_declarator,
-								scope_id,
-								AlreadyCreated::new(),
-								ctx.nc_table,
-								ctx.id_table,
-								&mut local_ctx.scope,
-							)?;
-							let mut sig = new_war.to_signal();
-							sig.evaluate_as_lhs(false, &ctx, interface_variable.var.kind.to_signal(), id_decl.location)?
-						},
+					interface_variable.var.kind.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table)?;
+					scope.redeclare_variable(interface_variable.clone());
+					debug!("Interface variable is {:?}", interface_variable.var.kind);
+					let clk_type = interface_variable.var.kind.to_signal();
+					let mut coming = stmt.get_type(ctx, local_ctx, scope_id, clk_type.clone())?;
+					if let SignalSensitivity::Clock(_, Some(name)) = coming.sensitivity{
+						clock_mapping.insert(clk_type.get_clock_name(), name);
+						coming.evaluate_as_lhs(false, ctx, clk_type, stmt.location())?;
+						debug!("Adding variable {:?}", new_name_str);
+						module_instance.add_variable(stmt.get_id(), local_ctx.scope.define_intermidiate_signal(Variable::new(new_name, stmt.location(), VariableKind::Signal(coming)))?).map_err(|mut err| err.label(stmt.location(), "Variable declared here").build())?;
+					}
+					else {
+						return Err(miette::Report::new(
+							InstanceError::ArgumentsMismatch
+								.to_diagnostic_builder()
+								.label(stmt.location(), "Clk signal must be marked as clock")
+								.build(),
+						));
 					}
 				}
+				debug!("Binding non generic variables!");
+				for stmt in &inst.port_bind {
+					let sig_name = ctx.id_table.get_value(&stmt.get_id()).clone();
+					let new_name_str = format!("{instance_str}_{sig_name}");
+					let new_name = ctx.id_table.insert_or_get(new_name_str.as_str());
+					let mut interface_variable =
+						scope.get_variable(0, &stmt.get_id()).expect("This was checked").clone();
+					if interface_variable.var.is_clock() || interface_variable.var.kind.is_generic(){
+						continue;
+					}
+					debug!("Interface variable is {:?}", interface_variable.var.kind);
+					interface_variable.var.kind.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table)?;
+					scope.redeclare_variable(interface_variable.clone());
+					// translate clocks
+					let mut interface_signal = interface_variable.var.kind.to_signal();
+					interface_signal.translate_clocks(&clock_mapping);
+					debug!("Interface variable is {:?}", interface_variable.var.kind);
+					let mut var_type = stmt.get_type(ctx, local_ctx, scope_id, interface_signal.clone())?;
+					match &interface_signal.direction{
+        				crate::analyzer::Direction::Input(_) => interface_signal.sensitivity.can_drive(&var_type.sensitivity, stmt.location(), &ctx)?,
+        				crate::analyzer::Direction::Output(_) => var_type.sensitivity.can_drive(&interface_signal.sensitivity, stmt.location(), &ctx)?,
+        				_=>(),
+    				};
+					module_instance.add_variable(stmt.get_id(), local_ctx.scope.define_intermidiate_signal(Variable::new(new_name, stmt.location(), VariableKind::Signal(interface_signal)))?).map_err(|mut err| err.label(stmt.location(), "Variable declared here").build())?;
+				}
 				debug!("Defining module instance {:?}", module_instance);
+				if scope.is_generic(){
+					let implementation = ctx.generic_modules.get(&name).unwrap().clone();
+					let mut new_local_ctx = LocalAnalyzerContex::new(implementation.id, scope);
+					first_pass(ctx, &mut new_local_ctx, &implementation)?;
+					new_local_ctx.scope.second_pass(ctx)?;
+				}
 				let v = Variable::new(
 					inst.instance_name,
 					inst.location,
@@ -974,6 +958,92 @@ impl ModuleImplementationStatement {
 				}
 				let name = inst.module_name.get_last_module();
 				let module = ctx.modules_declared.get(&name).unwrap();
+				let scope = &module.scope;
+				let m_handle = module.handle.clone();
+				let module_instance = &local_ctx
+					.scope
+					.get_variable(scope_id, &inst.instance_name)
+					.unwrap().var.kind;
+				let m_inst = match module_instance {
+					VariableKind::ModuleInstance(m) => &m.kind,
+					_ => unreachable!(),
+				};		
+				let m_inst = match &m_inst {
+					ModuleInstanceKind::Module(m) => m,
+					_ => unreachable!(),
+				};			
+				let  mut builder = api_scope.new_module(m_handle, &ctx.id_table.get_value(&inst.instance_name).as_str())
+					.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
+				debug!("Codegen for generic variables");
+				for stmt in &inst.port_bind{
+					let var = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
+					if ! var.var.kind.is_generic() {
+						continue;
+					}
+					let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
+					debug!("Codegen pass for port bind {:?}", ctx.id_table.get_value(&stmt.get_id()));
+					let var = &local_ctx.scope.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap()).var;
+					let var_id: hirn::design::SignalId = var.register(
+						ctx.nc_table,
+						ctx.id_table,
+						scope_id,
+						&local_ctx.scope,
+						Some(&local_ctx.nc_widths),
+						api_scope
+							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
+							.unwrap(),
+					)?;
+					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
+					api_scope.assign(var_id.into(), rhs).map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
+					debug!("Assigned succesfuly");
+				}
+				debug!("Codegen for clocks");
+				for stmt in &inst.port_bind{
+					let var = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
+					if !var.var.is_clock() {
+						continue;
+					}
+					let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
+					debug!("Codegen pass for port bind {:?}", ctx.id_table.get_value(&stmt.get_id()));
+					let var = &local_ctx.scope.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap()).var;
+					let var_id: hirn::design::SignalId = var.register(
+						ctx.nc_table,
+						ctx.id_table,
+						scope_id,
+						&local_ctx.scope,
+						Some(&local_ctx.nc_widths),
+						api_scope
+							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
+							.unwrap(),
+					)?;
+					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
+					api_scope.assign(var_id.into(), rhs).map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
+					debug!("Assigned succesfuly");
+				}
+				debug!("Codegen for other variables");
+				for stmt in &inst.port_bind{
+					let var = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
+					if var.var.is_clock() || var.var.kind.is_generic() {
+						continue;
+					}
+					let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
+					debug!("Codegen pass for port bind {:?}", ctx.id_table.get_value(&stmt.get_id()));
+					let var = &local_ctx.scope.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap()).var;
+					let var_id: hirn::design::SignalId = var.register(
+						ctx.nc_table,
+						ctx.id_table,
+						scope_id,
+						&local_ctx.scope,
+						Some(&local_ctx.nc_widths),
+						api_scope
+							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
+							.unwrap(),
+					)?;
+					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
+					api_scope.assign(var_id.into(), rhs).map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
+					debug!("Assigned succesfuly");
+				}
+				builder.build().map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
 			},
 			ModuleImplementationBlockStatement(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
 		};
@@ -1413,7 +1483,7 @@ fn create_register(
 	let en_name = ctx.id_table.insert_or_get(format!("{}_en_c", inst_name).as_str());
 	let nreset_name = ctx.id_table.insert_or_get(format!("{}_nreset", inst_name).as_str());
 	let data_name = ctx.id_table.insert_or_get(format!("{}_out_r", inst_name).as_str());
-	// FIXME CHECK IF SIGNAL IS LVALUE
+
 	let mut data_type = match data_stmt.unwrap() {
 		OnlyId(id) => {
 			let mut sig = local_ctx
@@ -1575,39 +1645,8 @@ fn create_register(
 			))
 		},
 	};
-	let nreset_type = match nreset_stmt.unwrap() {
-		OnlyId(id) => local_ctx
-			.scope
-			.get_var(scope_id, &id.id)
-			.map_err(|mut err| {
-				err.label(nreset_stmt.unwrap().location(), "This variable was not declared")
-					.build()
-			})?
-			.var
-			.kind
-			.to_signal(),
-		IdWithExpression(expr) => expr.expression.evaluate_type(
-			ctx,
-			scope_id,
-			local_ctx,
-			Signal::new_empty(),
-			false,
-			nreset_stmt.unwrap().location(),
-		)?,
-		IdWithDeclaration(_) => todo!(),
-	};
-	let en_type = match en_stmt.unwrap() {
-		OnlyId(id) => todo!(),
-		IdWithExpression(expr) => expr.expression.evaluate_type(
-			ctx,
-			scope_id,
-			local_ctx,
-			Signal::new_empty(),
-			false,
-			en_stmt.unwrap().location(),
-		)?,
-		IdWithDeclaration(_) => todo!(),
-	};
+	let nreset_type = nreset_stmt.unwrap().get_type(ctx, local_ctx, scope_id, Signal::new_empty())?;
+	let en_type = en_stmt.unwrap().get_type(ctx, local_ctx, scope_id, Signal::new_empty())?;
 	if !en_type.sensitivity.is_not_worse_than(&clk_type.sensitivity) {
 		return Err(miette::Report::new(
 			InstanceError::ArgumentsMismatch
