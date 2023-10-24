@@ -969,7 +969,7 @@ impl ModuleImplementationStatement {
 									},
 									"data" => {
 										api_scope
-											.assign(hirn::design::Expression::Signal(data_id.into()), rhs)
+											.assign(rhs, hirn::design::Expression::Signal(data_id.into()))
 											.map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
 									},
 									_ => unreachable!(),
