@@ -5,7 +5,7 @@ module simple_counter_ref(
 	output wire[15:0] data
 );
 
-reg[15:0] cnt;
+reg[15:0] cnt = '0;
 always @(posedge clk)
 	if (!nreset)
 		cnt <= '0;
@@ -50,7 +50,6 @@ module simple_counter_tb;
 		clk = '0;
 		en = '0;
 		nreset = '0;
-
 		
 		$display("hello cruel world");
 		#10;
@@ -67,6 +66,8 @@ module simple_counter_tb;
 			#1;
 			clk = '0;
 			#1;
+
+			assert(dut_data == ref_data);
 		end
 		
 		$finish;
