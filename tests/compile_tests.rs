@@ -82,11 +82,7 @@ fn run_iverilog(iverilog_path: &Path, input_paths: &Vec<PathBuf>) -> Result<Name
 	];
 	args.extend(input_paths.iter().map(|p| p.to_str().unwrap()));
 
-	let mut p = Popen::create(
-		&args,
-		PopenConfig::default(),
-	)
-	.expect("failed to spawn iverilog");
+	let mut p = Popen::create(&args, PopenConfig::default()).expect("failed to spawn iverilog");
 
 	use ExitStatus::*;
 	match p.wait().unwrap() {
@@ -124,7 +120,7 @@ fn compile_run_iverilog_with_sim(input_path: &Path) -> Result<(), String> {
 
 	match p.wait().unwrap() {
 		ExitStatus::Exited(0) => {},
-		other => panic!("testbench run failed: {:?}", other)
+		other => panic!("testbench run failed: {:?}", other),
 	}
 
 	Ok(())
