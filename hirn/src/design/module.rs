@@ -1,4 +1,4 @@
-use super::{Design, DesignCore, DesignError, DesignHandle, HasComment, ModuleId, ScopeHandle, ScopeId, SignalId};
+use super::{Design, DesignCore, DesignError, DesignHandle, HasComment, ModuleId, ScopeHandle, ScopeId, SignalId, HasSensitivity};
 
 /// Specifies direction for signals in module interface
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]
@@ -86,6 +86,17 @@ impl Module {
 
 		None
 	}
+
+	fn get_interface_clocks(&self, design: &DesignCore) -> Vec<SignalId> {
+		let mut clocks = vec![];
+		for intf_sig in &self.interface {
+			let sig = design.get_signal(intf_sig.signal).unwrap();
+			if sig.is_clock() {
+				clocks.push(intf_sig.signal);
+			}
+		}
+		clocks
+	}
 }
 
 impl HasComment for Module {
@@ -136,6 +147,11 @@ impl ModuleHandle {
 	/// Returns interface signal's direction and ID by name
 	pub fn get_interface_signal_by_name(&self, name: &str) -> Option<InterfaceSignal> {
 		this_module!(self).get_interface_signal_by_name(&self.design.borrow(), name)
+	}
+
+	/// Returns all clocks in the module's interface
+	pub fn get_interface_clocks(&self) -> Vec<SignalId> {
+		this_module!(self).get_interface_clocks(&self.design.borrow())
 	}
 
 	/// Exposes a signal to module's interface

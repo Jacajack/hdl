@@ -7,6 +7,7 @@ use super::Expression;
 use super::HasComment;
 use super::ScopeId;
 use super::SignalId;
+use std::collections::HashMap;
 use std::collections::HashSet;
 
 /// Potential TODO: Logic type which cannot be used in arithmetic
@@ -124,6 +125,15 @@ impl ClockSensitivityList {
 	pub fn is_subset_of(&self, other: &ClockSensitivityList) -> bool {
 		self.0.is_subset(&other.0)
 	}
+
+	pub fn substitute_clocks(&mut self, clock_map: &HashMap<SignalId, SignalId>) {
+		self.0 = self.0.iter().map(|e| {
+			EdgeSensitivity{
+				clock_signal: *clock_map.get(&e.clock_signal).unwrap_or(&e.clock_signal),
+				on_rising: e.on_rising,
+			}
+		}).collect();
+	}
 }
 
 /// Determines 'sensitivity' of a signal - i.e. how constant it is
@@ -233,6 +243,15 @@ impl SignalSensitivity {
 			(Comb(lhs), Sync(rhs)) => rhs.is_subset_of(lhs),
 			(Async, Async | Const | Comb(_) | Sync(_) | Clock) => true,
 			_ => false,
+		}
+	}
+
+	/// Substitutes clocks in the sensitivity list
+	pub fn substitute_clocks(&mut self, clock_map: &HashMap<SignalId, SignalId>) {
+		use SignalSensitivity::*;
+		match self {
+			Sync(list) | Comb(list) => list.substitute_clocks(clock_map),
+			_ => {}
 		}
 	}
 }
