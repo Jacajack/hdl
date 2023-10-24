@@ -1,4 +1,4 @@
-use std::collections::{HashSet, HashMap};
+use std::collections::{HashMap, HashSet};
 
 use log::debug;
 
@@ -254,14 +254,22 @@ impl ModuleInstance {
 
 	fn verify_bindings(&self) -> Result<(), DesignError> {
 		let mut names = HashSet::new();
-		debug!("Verifying instance '{}' (MID: {:?}) bindings...", self.instance_name(), self.module.id());
+		debug!(
+			"Verifying instance '{}' (MID: {:?}) bindings...",
+			self.instance_name(),
+			self.module.id()
+		);
 
 		// Map all binding names into internal signal IDs all at once
-		let int_sig_ids_opt: Option<Vec<_>> = self.bindings.iter().map(
-			|binding|{
-				self.module.get_interface_signal_by_name(&binding.0)
-				.map(|int_sig| int_sig.signal)
-		}).collect();
+		let int_sig_ids_opt: Option<Vec<_>> = self
+			.bindings
+			.iter()
+			.map(|binding| {
+				self.module
+					.get_interface_signal_by_name(&binding.0)
+					.map(|int_sig| int_sig.signal)
+			})
+			.collect();
 
 		if int_sig_ids_opt.is_none() {
 			return Err(DesignError::InvalidInterfaceSignalName(self.module.id()));
@@ -299,7 +307,12 @@ impl ModuleInstance {
 		Ok(())
 	}
 
-	fn verify_binding(&self, name: &str, extern_sig: SignalId, clock_map: &HashMap<SignalId, SignalId>) -> Result<(), DesignError> {
+	fn verify_binding(
+		&self,
+		name: &str,
+		extern_sig: SignalId,
+		clock_map: &HashMap<SignalId, SignalId>,
+	) -> Result<(), DesignError> {
 		debug!("Checking binding '{}' <-> {:?}", name, extern_sig);
 		let intern_sig = self
 			.module

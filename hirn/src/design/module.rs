@@ -1,4 +1,6 @@
-use super::{Design, DesignCore, DesignError, DesignHandle, HasComment, ModuleId, ScopeHandle, ScopeId, SignalId, HasSensitivity};
+use super::{
+	Design, DesignCore, DesignError, DesignHandle, HasComment, HasSensitivity, ModuleId, ScopeHandle, ScopeId, SignalId,
+};
 
 /// Specifies direction for signals in module interface
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash)]

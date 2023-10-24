@@ -154,7 +154,11 @@ impl DesignCore {
 			.or_insert(vec![])
 			.push(SignalId { id });
 		self.signals.push(sig);
-		debug!("Added signal '{}' ({:?}) to design", self.signals.last().unwrap().name(), self.signals.last().unwrap().id);
+		debug!(
+			"Added signal '{}' ({:?}) to design",
+			self.signals.last().unwrap().name(),
+			self.signals.last().unwrap().id
+		);
 		Ok(SignalId { id })
 	}
 

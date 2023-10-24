@@ -127,12 +127,14 @@ impl ClockSensitivityList {
 	}
 
 	pub fn substitute_clocks(&mut self, clock_map: &HashMap<SignalId, SignalId>) {
-		self.0 = self.0.iter().map(|e| {
-			EdgeSensitivity{
+		self.0 = self
+			.0
+			.iter()
+			.map(|e| EdgeSensitivity {
 				clock_signal: *clock_map.get(&e.clock_signal).unwrap_or(&e.clock_signal),
 				on_rising: e.on_rising,
-			}
-		}).collect();
+			})
+			.collect();
 	}
 }
 
@@ -262,7 +264,7 @@ impl SignalSensitivity {
 		use SignalSensitivity::*;
 		match self {
 			Sync(list) | Comb(list) => list.substitute_clocks(clock_map),
-			_ => {}
+			_ => {},
 		}
 	}
 }
