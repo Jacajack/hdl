@@ -7,7 +7,10 @@ use num_bigint::BigInt;
 
 use crate::{
 	analyzer::report_duplicated_qualifier,
-	core::{id_table::{self, IdTable}, CompilerDiagnosticBuilder},
+	core::{
+		id_table::{self, IdTable},
+		CompilerDiagnosticBuilder,
+	},
 	lexer::IdTableKey,
 	ProvidesCompilerDiagnostic, SourceSpan,
 };
@@ -107,10 +110,10 @@ impl PartialEq for BusWidth {
 	}
 }
 impl BusWidth {
-	pub fn is_located(&self) -> bool{
+	pub fn is_located(&self) -> bool {
 		use BusWidth::*;
 		match self {
-			EvaluatedLocated(_, _) => true,
+			EvaluatedLocated(..) => true,
 			Evaluated(_) => false,
 			Evaluable(_) => true,
 			WidthOf(_) => true,
@@ -139,11 +142,12 @@ impl BusWidth {
 		nc_table: &crate::lexer::NumericConstantTable,
 		id_table: &IdTable,
 		scope: &ModuleImplementationScope,
-	) -> miette::Result<()> { // FIXME
+	) -> miette::Result<()> {
+		// FIXME
 		use BusWidth::*;
 		match self {
 			Evaluated(_) => (),
-			EvaluatedLocated(nc,_) => *self = BusWidth::Evaluated(nc.clone()),
+			EvaluatedLocated(nc, _) => *self = BusWidth::Evaluated(nc.clone()),
 			Evaluable(location) => {
 				let expr = scope.evaluated_expressions.get(location).unwrap();
 				debug!("Expr is known!");
@@ -265,19 +269,19 @@ pub struct Signal {
 	pub direction: Direction,
 }
 impl Signal {
-	pub fn translate_clocks(&mut self, clocks: &HashMap<IdTableKey, IdTableKey>){
+	pub fn translate_clocks(&mut self, clocks: &HashMap<IdTableKey, IdTableKey>) {
 		use SignalSensitivity::*;
 		match &mut self.sensitivity {
 			Comb(list, id) => {
-				for edge in &mut list.list{
-					if let Some(new_id) = clocks.get(&edge.clock_signal){
+				for edge in &mut list.list {
+					if let Some(new_id) = clocks.get(&edge.clock_signal) {
 						edge.clock_signal = *new_id;
 					}
 				}
 			},
 			Sync(list, _) => {
-				for edge in &mut list.list{
-					if let Some(new_id) = clocks.get(&edge.clock_signal){
+				for edge in &mut list.list {
+					if let Some(new_id) = clocks.get(&edge.clock_signal) {
 						edge.clock_signal = *new_id;
 					}
 				}
@@ -792,15 +796,17 @@ pub struct RegisterInstance {
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NonRegister {
-	pub interface: HashMap<IdTableKey,InternalVariableId>,
+	pub interface: HashMap<IdTableKey, InternalVariableId>,
 }
 
 impl NonRegister {
 	pub fn new() -> Self {
-		Self { interface: HashMap::new() }
+		Self {
+			interface: HashMap::new(),
+		}
 	}
 	pub fn add_variable(&mut self, name: IdTableKey, var: InternalVariableId) -> Result<(), CompilerDiagnosticBuilder> {
-		match self.interface.insert(name, var){
+		match self.interface.insert(name, var) {
 			Some(_) => Err(SemanticError::DuplicateVariableDeclaration.to_diagnostic_builder()),
 			None => Ok(()),
 		}

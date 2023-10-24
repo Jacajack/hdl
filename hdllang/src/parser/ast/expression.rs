@@ -693,7 +693,9 @@ impl Expression {
 					indices: vec![],
 				})
 			},
-			ParenthesizedExpression(expr) => expr.expression.get_slice(nc_table, id_table, scope_id, scope, nc_widths),
+			ParenthesizedExpression(expr) => expr
+				.expression
+				.get_slice(nc_table, id_table, scope_id, scope, nc_widths),
 			PostfixWithIndex(ind) => {
 				let index_expr = ind.index.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 				let mut slice = ind
@@ -941,10 +943,11 @@ impl Expression {
 			},
 			PostfixWithIndex(ind) => {
 				let index = ind.index.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
-				let expr = ind
-					.expression
-					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
-				Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::BitSelect { expr: Box::new(expr), index: Box::new(index) }))
+				let expr = ind.expression.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::BitSelect {
+					expr: Box::new(expr),
+					index: Box::new(index),
+				}))
 			},
 			PostfixWithRange(range) => {
 				let expr = range
@@ -971,23 +974,41 @@ impl Expression {
 				match func_name.as_str() {
 					"trunc" => todo!(),
 					"zeroes" => {
-						let expr = hirn::design::NumericConstant::from_bigint(0.into(), hirn::design::SignalSignedness::Unsigned, 64).unwrap(); // FIXME
-						let count = function.argument_list.first().unwrap().codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+						let expr = hirn::design::NumericConstant::from_bigint(
+							0.into(),
+							hirn::design::SignalSignedness::Unsigned,
+							64,
+						)
+						.unwrap(); // FIXME
+						let count = function
+							.argument_list
+							.first()
+							.unwrap()
+							.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 						debug!("Count is {:?}", count);
 						debug!("Expr is {:?}", expr);
 						Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Replicate {
 							expr: Box::new(expr.into()),
 							count: Box::new(count),
 						}))
-					}
+					},
 					"ones" => {
-						let expr = hirn::design::NumericConstant::from_bigint(1.into(), hirn::design::SignalSignedness::Unsigned, 64).unwrap(); // FIXME
-						let count = function.argument_list.first().unwrap().codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+						let expr = hirn::design::NumericConstant::from_bigint(
+							1.into(),
+							hirn::design::SignalSignedness::Unsigned,
+							64,
+						)
+						.unwrap(); // FIXME
+						let count = function
+							.argument_list
+							.first()
+							.unwrap()
+							.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 						Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Replicate {
 							expr: Box::new(expr.into()),
 							count: Box::new(count),
 						}))
-					}
+					},
 					"zext" | "ext" | "sext" => {
 						let expr = function
 							.argument_list
@@ -1225,7 +1246,12 @@ impl Expression {
 							crate::analyzer::ModuleInstanceKind::Module(m) => {
 								for var in &m.interface {
 									if var.0 == &module_inst.id {
-										return Ok(local_ctx.scope.get_intermidiate_signal(*var.1).var.kind.is_generic());
+										return Ok(local_ctx
+											.scope
+											.get_intermidiate_signal(*var.1)
+											.var
+											.kind
+											.is_generic());
 									}
 								}
 								Ok(false)
@@ -1681,16 +1707,25 @@ impl Expression {
 									.build(),
 							));
 						}
-						let expr = function.argument_list[0].evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?.expect("This panics in generic modules implementatation"); // FIXME
-						if expr.value < 0.into(){
+						let expr = function.argument_list[0]
+							.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?
+							.expect("This panics in generic modules implementatation"); // FIXME
+						if expr.value < 0.into() {
 							return Err(miette::Report::new(
 								SemanticError::NegativeBusWidth // FIXME this error name
 									.to_diagnostic_builder()
-									.label(function.argument_list[0].get_location(), "This argument cannot be negative")
+									.label(
+										function.argument_list[0].get_location(),
+										"This argument cannot be negative",
+									)
 									.build(),
 							));
 						}
-						let expr = Signal::new_bus(Some(BusWidth::Evaluated(expr)), SignalSignedness::Unsigned(self.get_location()), self.get_location());
+						let expr = Signal::new_bus(
+							Some(BusWidth::Evaluated(expr)),
+							SignalSignedness::Unsigned(self.get_location()),
+							self.get_location(),
+						);
 						Ok(expr)
 					},
 					"trunc" | "zext" | "ext" | "sext" => {
