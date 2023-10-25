@@ -4,6 +4,7 @@ use crate::design::{ModuleId, ModuleHandle};
 
 use super::{ElabError, ElabMessage, GenericVar, ElabAssumptionsBase, ElabReport};
 
+/// Trait which must be implemented by all elaborators
 pub trait Elaborator {
 	fn elaborate(&mut self, id: ModuleId, assumptions: Box<dyn ElabAssumptionsBase>) -> Result<ElabReport, ElabError>;
 

@@ -3,27 +3,38 @@ mod test_pass;
 mod full_elab;
 
 pub use full_elab::FullElaborator;
+use log::info;
 
 use std::collections::VecDeque;
 
-use crate::design::ModuleId;
+use crate::design::{ModuleId, DesignHandle};
 
 use super::{ElabError, Elaborator, ElabAssumptionsBase, ElabReport};
 
-
+/// Elaboration pass context (for MultiPassElaborator)
 pub trait ElabPassContext<T> {
-	fn cache(&self) -> T;
-	fn from_cache(cache: T) -> Self;
+	fn new_context(design: DesignHandle, module_id: ModuleId, assumptions: Box<dyn ElabAssumptionsBase>) -> Self;
+	fn cache(&self) -> T; // TODO remove
+	fn from_cache(cache: T) -> Self; // TODO remove
 	fn queued(&self) -> Vec<ElabQueueItem>;
+	fn report(&self) -> ElabReport;
+	// fn cache_mut(&mut self) -> &mut T;
 }
 
+/// Elaboration pass trait (for MultiPassElaborator)
 pub trait ElabPass<Ctx, Cache> 
 where
 	Ctx: Default + ElabPassContext<Cache>
 {
+	/// Returns name of the elaboration pass
+	fn name(&self) -> &'static str;
+
+	/// Runs the elaboration pass on the specified context
 	fn run(&mut self, c: Ctx) -> Result<Ctx, ElabError>;
 }
 
+/// Item in the elaboration queue (module + assumptions)
+/// for (MultiPassElaborator)
 pub struct ElabQueueItem {
 	module: ModuleId,
 	assumptions: Box<dyn ElabAssumptionsBase>,
@@ -38,6 +49,8 @@ impl ElabQueueItem {
 	}
 }
 
+/// Multi-pass design elaborator 
+/// Ultimately we'll want a multi-threaded version of that.
 pub struct MultiPassElaborator<Ctx, Cache> 
 where 
 	Ctx: Default + ElabPassContext<Cache>,
@@ -57,10 +70,13 @@ where
 		}
 	}
 
+	/// Adds a new pass to the elaborator
 	pub fn add_pass(&mut self, pass: Box<dyn ElabPass<Ctx, Cache>>) {
+		info!("Registering elaboration pass: {}", pass.name());
 		self.passes.push(pass);
 	}
 
+	/// Runs elaboration on all modules in the queue
 	fn run_queue(&mut self) -> Result<ElabReport, ElabError> {
 		let mut report = ElabReport::default();
 		while let Some(item) = self.queue.pop_front() {
@@ -69,8 +85,16 @@ where
 		Ok(report)
 	}
 
-	fn elab_module(&mut self, _id: ModuleId, _assumptions: Box<dyn ElabAssumptionsBase>) -> Result<ElabReport, ElabError> {
-		todo!();
+	/// Runs all elaboration passes on the specified module
+	fn elab_module(&mut self, id: ModuleId, assumptions: Box<dyn ElabAssumptionsBase>) -> Result<ElabReport, ElabError> {
+		let mut ctx = Ctx::new_context(todo!(), id, assumptions);
+
+		for pass in &self.passes {
+			ctx = pass.run(ctx)?;
+		}
+
+		self.queue.extend(ctx.queued().into_iter());
+		Ok(ctx.report())
 	}
 }
 

@@ -7,6 +7,10 @@ pub(super) struct TestPass {
 }
 
 impl ElabPass<FullElabCtx, FullElabCache> for TestPass {
+	fn name(&self) -> &'static str {
+		"TestPass"
+	}
+
 	fn run(&mut self, _c: FullElabCtx) -> Result<FullElabCtx, ElabError> {
 		todo!();
 	}
