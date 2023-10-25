@@ -10,8 +10,8 @@ pub struct ElabReport {
 }
 
 impl ElabReport {
-	pub fn extend(&mut self, other: ElabReport) {
-		self.messages.extend(other.messages);
+	pub fn extend(&mut self, other: &ElabReport) {
+		self.messages.extend(other.messages.clone());
 	}
 
 	pub fn messages(&self) -> &[ElabMessage] {

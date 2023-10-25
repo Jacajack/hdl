@@ -1,49 +1,57 @@
+use std::sync::{Arc, Mutex};
+
 use crate::{elab::{ElabError, Elaborator, ElabReport, ElabAssumptionsBase}, design::{ModuleId, DesignHandle}};
 
 use super::{ElabPassContext, MultiPassElaborator, ElabQueueItem, test_pass::TestPass};
 
 pub(super) struct FullElabCtx {
-
+	design: DesignHandle,
+	module_id: ModuleId,
+	report: ElabReport,
+	queued: Vec<ElabQueueItem>,
+	assumptions: Box<dyn ElabAssumptionsBase>,
 }
 
-impl ElabPassContext<FullElabCache> for FullElabCtx {
-	fn new_context(design: DesignHandle, module_id: ModuleId, assumptions: Box<dyn ElabAssumptionsBase>) -> Self {todo!();}
-
-	fn cache(&self) -> FullElabCache {
-		todo!();
-	}
-
-	fn from_cache(_cache: FullElabCache) -> Self {
-		todo!();
-	}
-
-	fn queued(&self) -> Vec<ElabQueueItem> {
-		vec![]
-	}
-
-	fn report(&self) -> ElabReport {
-		todo!();
-	}
-}
-
-impl Default for FullElabCtx {
-	fn default() -> Self {
-		todo!();
-	}
-}
-
+#[derive(Default)]
 pub(super) struct FullElabCache {
 
 }
 
+pub(super) type FullElabCacheHandle = Arc<Mutex<FullElabCache>>;
 
+impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
+	fn new_context(
+		design: DesignHandle,
+		module_id: ModuleId,
+		assumptions: Box<dyn ElabAssumptionsBase>,
+		cache: FullElabCacheHandle) -> Self {
+			Self {
+				design,
+				module_id,
+				assumptions,
+				queued: Vec::new(),
+				report: ElabReport::default(),
+			}
+		}
+
+	fn queued(&self) -> Vec<ElabQueueItem> {
+		self.queued.clone()
+	}
+
+	fn report(&self) -> &ElabReport {
+		&self.report
+	}
+}
+
+/// Multi-pass elaborator with all passes
 pub struct FullElaborator {
-	elaborator: MultiPassElaborator<FullElabCtx, FullElabCache>,
+	elaborator: MultiPassElaborator<FullElabCtx, Arc<Mutex<FullElabCache>>>,
 }
 
 impl FullElaborator {
-	pub fn new() -> Self {
-		let mut elaborator = MultiPassElaborator::new();
+	/// Create a new FullElaborator and add all passes
+	pub fn new(design: DesignHandle) -> Self {
+		let mut elaborator = MultiPassElaborator::new(design);
 		elaborator.add_pass(Box::new(TestPass{}));
 		Self {
 			elaborator,
