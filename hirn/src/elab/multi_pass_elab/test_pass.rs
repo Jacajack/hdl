@@ -4,7 +4,10 @@ use log::info;
 
 use crate::elab::ElabError;
 
-use super::{ElabPass, full_elab::{FullElabCtx, FullElabCacheHandle}};
+use super::{
+	full_elab::{FullElabCacheHandle, FullElabCtx},
+	ElabPass,
+};
 
 pub(super) struct TestPass;
 

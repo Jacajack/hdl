@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use crate::design::{SignalId, ModuleId};
+use crate::design::{ModuleId, SignalId};
 
 use super::ElabAssumptionsBase;
 
@@ -47,7 +47,9 @@ impl ElabMessage {
 
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]
 pub enum ElabMessageSeverity {
-	Info, Warning, Error
+	Info,
+	Warning,
+	Error,
 }
 
 #[derive(Clone, Debug, Error)]
@@ -70,4 +72,3 @@ pub enum ElabMessageKind {
 	#[error("Assignment/binding of signals with different widths")]
 	WidthMismatch,
 }
-

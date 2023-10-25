@@ -16,5 +16,5 @@ pub enum HirnError {
 	CodegenError(#[from] CodegenError),
 
 	#[error(transparent)]
-	ElabError(#[from] ElabError)
+	ElabError(#[from] ElabError),
 }

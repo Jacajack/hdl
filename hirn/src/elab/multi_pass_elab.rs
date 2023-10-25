@@ -1,15 +1,15 @@
+mod full_elab;
 mod generic_resolve;
 mod test_pass;
-mod full_elab;
 
 pub use full_elab::FullElaborator;
 use log::info;
 
 use std::collections::VecDeque;
 
-use crate::design::{ModuleId, DesignHandle};
+use crate::design::{DesignHandle, ModuleId};
 
-use super::{ElabError, Elaborator, ElabAssumptionsBase, ElabReport};
+use super::{ElabAssumptionsBase, ElabError, ElabReport, Elaborator};
 
 /// Elaboration pass context (for MultiPassElaborator)
 pub trait ElabPassContext<T> {
@@ -24,9 +24,9 @@ pub trait ElabPassContext<T> {
 }
 
 /// Elaboration pass trait (for MultiPassElaborator)
-pub trait ElabPass<Ctx, Cache> 
+pub trait ElabPass<Ctx, Cache>
 where
-	Ctx: ElabPassContext<Cache>
+	Ctx: ElabPassContext<Cache>,
 {
 	/// Returns name of the elaboration pass
 	fn name(&self) -> &'static str;
@@ -50,18 +50,15 @@ pub struct ElabQueueItem {
 
 impl ElabQueueItem {
 	pub fn new(module: ModuleId, assumptions: Box<dyn ElabAssumptionsBase>) -> Self {
-		Self {
-			module,
-			assumptions,
-		}
+		Self { module, assumptions }
 	}
 }
 
-/// Multi-pass design elaborator 
+/// Multi-pass design elaborator
 /// Ultimately we'll want a multi-threaded version of that.
 /// This isn't possible with DesignHandle though.
-pub struct MultiPassElaborator<Ctx, Cache> 
-where 
+pub struct MultiPassElaborator<Ctx, Cache>
+where
 	Ctx: ElabPassContext<Cache>,
 {
 	design: DesignHandle,
@@ -71,7 +68,7 @@ where
 }
 
 impl<Ctx, Cache> MultiPassElaborator<Ctx, Cache>
-where 
+where
 	Ctx: ElabPassContext<Cache>,
 	Cache: Default + Clone,
 {
@@ -100,7 +97,11 @@ where
 	}
 
 	/// Runs all elaboration passes on the specified module
-	fn elab_module(&mut self, id: ModuleId, assumptions: Box<dyn ElabAssumptionsBase>) -> Result<ElabReport, ElabError> {
+	fn elab_module(
+		&mut self,
+		id: ModuleId,
+		assumptions: Box<dyn ElabAssumptionsBase>,
+	) -> Result<ElabReport, ElabError> {
 		let mut ctx = Ctx::new_context(self.design.clone(), id, assumptions, self.cache.clone());
 
 		for pass in &mut self.passes {
@@ -115,13 +116,13 @@ where
 
 /// Elaborator trait implementation for MultiPassElaborator
 /// adds a module to the queue and elaborates the entire queue
-impl<Ctx, Cache> Elaborator for MultiPassElaborator<Ctx, Cache> 
-where 
+impl<Ctx, Cache> Elaborator for MultiPassElaborator<Ctx, Cache>
+where
 	Ctx: ElabPassContext<Cache>,
 	Cache: Default + Clone,
 {
 	fn elaborate(&mut self, id: ModuleId, assumptions: Box<dyn ElabAssumptionsBase>) -> Result<ElabReport, ElabError> {
-		self.queue.push_back(ElabQueueItem{
+		self.queue.push_back(ElabQueueItem {
 			module: id,
 			assumptions,
 		});
@@ -129,4 +130,3 @@ where
 		self.run_queue()
 	}
 }
-

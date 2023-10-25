@@ -2,7 +2,8 @@ extern crate hirn;
 use hirn::{
 	codegen::{sv::SVCodegen, Codegen},
 	design::{DesignHandle, Expression, SignalDirection},
-	HirnError, elab::{Elaborator, ElabAssumptions, ElabToplevelAssumptions},
+	elab::{ElabAssumptions, ElabToplevelAssumptions, Elaborator},
+	HirnError,
 };
 
 fn main() -> Result<(), HirnError> {
