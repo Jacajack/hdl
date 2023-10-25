@@ -953,20 +953,24 @@ impl Expression {
 				let expr = range
 					.expression
 					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				let mut msb = range
+					.range
+					.rhs
+					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				let lsb = range
+					.range
+					.lhs
+					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				use RangeOpcode::*;
+				match range.range.code {
+        			Colon => (),
+        			PlusColon => msb = msb + lsb.clone(),
+        			ColonLessThan => msb = msb - hirn::design::Expression::Constant(hirn::design::NumericConstant::one()),
+    			}
 				Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::BusSelect {
 					expr: Box::new(expr),
-					msb: Box::new(
-						range
-							.range
-							.rhs
-							.codegen(nc_table, id_table, scope_id, scope, nc_widths)?,
-					),
-					lsb: Box::new(
-						range
-							.range
-							.lhs
-							.codegen(nc_table, id_table, scope_id, scope, nc_widths)?,
-					),
+					msb: Box::new(msb),
+					lsb: Box::new(lsb),
 				}))
 			},
 			PostfixWithArgs(function) => {
@@ -1004,8 +1008,7 @@ impl Expression {
 							let op = hirn::design::BuiltinOp::BusSelect {
 									expr: Box::new(expr),
 									msb: Box::new(hirn::design::Expression::Constant(
-										hirn::design::NumericConstant::new_unsigned(val.clone()),
-									)),
+										hirn::design::NumericConstant::new_unsigned(val.clone()-1))),
 									lsb: Box::new(hirn::design::Expression::Constant(
 										hirn::design::NumericConstant::new_unsigned(BigInt::from(0)),
 									)),
@@ -1610,7 +1613,7 @@ impl Expression {
 					global_ctx,
 					scope_id,
 					local_ctx,
-					coupling_type.clone(),
+					Signal::new_empty_with_sensitivity(coupling_type.sensitivity.clone()),
 					is_lhs,
 					location,
 				)?;
