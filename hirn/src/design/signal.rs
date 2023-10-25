@@ -550,7 +550,7 @@ impl SignalBuilder {
 		self
 	}
 
-	/// Marks signal as 'generated' so a special suffix can be 
+	/// Marks signal as 'generated' so a special suffix can be
 	/// added at codegen stage
 	pub fn generated(mut self) -> Self {
 		self.is_generated = true;
