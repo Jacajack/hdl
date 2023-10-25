@@ -17,7 +17,6 @@ use super::signal::{SignalSensitivity, SignalSlice};
 use super::{SignalId, SignalSignedness};
 
 /// Binary operators
-/// TODO check if we have all
 #[derive(Clone, Copy, Debug)]
 pub enum BinaryOp {
 	Add,
@@ -43,7 +42,6 @@ pub enum BinaryOp {
 }
 
 /// Unary operators
-/// TODO check if we have all
 #[derive(Clone, Copy, Debug)]
 pub enum UnaryOp {
 	Negate,
@@ -420,7 +418,6 @@ impl Expression {
 
 	/// Performs zero extension
 	pub fn zero_extend(self, width: Expression) -> Self {
-		// TODO assert width is unsigned
 		Self::Builtin(BuiltinOp::ZeroExtend {
 			expr: Box::new(self),
 			width: Box::new(width),
@@ -429,7 +426,6 @@ impl Expression {
 
 	/// Performs sign extension
 	pub fn sign_extend(self, width: Expression) -> Self {
-		// TODO assert width unsigned
 		Self::Builtin(BuiltinOp::SignExtend {
 			expr: Box::new(self),
 			width: Box::new(width),
@@ -476,7 +472,6 @@ impl Expression {
 
 	/// Selects one bit from the expression
 	pub fn bit_select(self, n: Expression) -> Self {
-		// TODO assert n unsigned
 		Self::Builtin(BuiltinOp::BitSelect {
 			expr: Box::new(self),
 			index: Box::new(n),
@@ -485,7 +480,6 @@ impl Expression {
 
 	/// Selects range of bits from the expression
 	pub fn bus_select(self, msb: Expression, lsb: Expression) -> Self {
-		// TODO assert lsb msb unsigned
 		Self::Builtin(BuiltinOp::BusSelect {
 			expr: Box::new(self),
 			msb: Box::new(msb),
@@ -495,20 +489,14 @@ impl Expression {
 
 	/// Attempt to drive the expression if possible.
 	/// Returns affected signal slice if drivable.
-	/// TODO is it necessary to return a slice here?
 	pub fn try_drive(&self) -> Option<SignalSlice> {
+		use Expression::*;		
 		match self {
-			Self::Signal(slice) => Some(slice.clone()),
-			// Self::Builtin(BuiltinOp::BusSelect { expr, msb, lsb }) => {
-			// 	SingalSlice{
-
-			// 	}
-			// },
-
-			// Self::Builtin(BuiltinOp::BitSelect { expr, index }) => {
-
-			// }
-			// TODO index/range expression drive
+			Signal(slice) => Some(slice.clone()),
+			Builtin(BuiltinOp::BusSelect { expr, .. })
+			| Builtin(BuiltinOp::BitSelect { expr, ..  }) => {
+				expr.try_drive()
+			}
 			_ => None,
 		}
 	}
@@ -552,11 +540,6 @@ impl Expression {
 		}
 		Ok(())
 	}
-
-	// TODO reduction AND/OR/XOR
-	// TODO bitwise not
-	// TODO from bool
-	// TODO remaining binary ops
 }
 
 /// Implements a conversion from signal ID to an expression
