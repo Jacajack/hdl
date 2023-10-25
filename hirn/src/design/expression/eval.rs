@@ -23,7 +23,6 @@ impl EvalContext {
 
 	fn check_assumption(&self, signal: SignalId, indices: &Vec<i64>, value: &NumericConstant) -> Result<(), EvalError> {
 		if let Some(design) = &self.design {
-			let design = design.borrow();
 			let sig = design.get_signal(signal).unwrap();
 
 			// We cannot fully check for errors here - e.g. in case where

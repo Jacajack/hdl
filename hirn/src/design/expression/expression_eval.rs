@@ -15,7 +15,6 @@ impl Evaluates for NumericConstant {
 impl Evaluates for SignalId {
 	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
 		if let Some(design) = ctx.design() {
-			let design = design.borrow();
 			let signal = design.get_signal(*self).unwrap();
 
 			if !signal.is_scalar() {

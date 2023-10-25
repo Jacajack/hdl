@@ -1,12 +1,12 @@
 extern crate hirn;
 use hirn::{
 	codegen::{sv::SVCodegen, Codegen},
-	design::{Design, Expression, SignalDirection},
+	design::{DesignHandle, Expression, SignalDirection},
 	HirnError,
 };
 
 fn main() -> Result<(), HirnError> {
-	let mut d = Design::new();
+	let mut d = DesignHandle::new();
 
 	let mut m_internal = d.new_module("inner_module").unwrap();
 	let internal_clk = m_internal.scope().new_signal("clk")?.clock().wire().build()?;
@@ -68,7 +68,7 @@ fn main() -> Result<(), HirnError> {
 	loop_scope.assign(m_bus.into(), iter.into())?;
 
 	let mut source = String::new();
-	let mut cg = SVCodegen::new(&d, &mut source);
+	let mut cg = SVCodegen::new(d.clone(), &mut source);
 	cg.emit_module(m_internal.id())?;
 	cg.emit_module(m.id())?;
 

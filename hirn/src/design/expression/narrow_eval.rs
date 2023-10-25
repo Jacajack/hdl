@@ -35,8 +35,7 @@ impl NarrowEval for BuiltinOp {
 				match **expr {
 					Signal(ref slice) => {
 						if let Some(design_handle) = ctx.design() {
-							let design = design_handle.borrow();
-							let sig = design.get_signal(slice.signal).expect("signal not in design");
+							let sig = design_handle.get_signal(slice.signal).expect("signal not in design");
 							return Ok(sig.width().narrow_eval(ctx)?);
 						}
 

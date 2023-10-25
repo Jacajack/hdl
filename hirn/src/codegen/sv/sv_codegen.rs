@@ -5,7 +5,7 @@ use crate::{
 	design::InterfaceSignal,
 	design::SignalSignedness,
 	design::{
-		Design, Expression, HasComment, HasInstanceName, HasSensitivity, HasSignedness, ModuleHandle, ModuleId,
+		Expression, HasComment, HasInstanceName, HasSensitivity, HasSignedness, ModuleHandle, ModuleId,
 		ModuleInstance, ScopeId, SignalDirection, SignalId, SignalSensitivity,
 	},
 };
@@ -17,7 +17,7 @@ use super::sv_expr::{IntermediateSignal, SVExpressionCodegen};
 
 #[derive()]
 pub struct SVCodegen<'a> {
-	pub(super) design: &'a Design,
+	pub(super) design: DesignHandle,
 	pub(super) indent_level: u32,
 	tmp_counter: u32, // FIXME
 	signal_subs: HashMap<SignalId, String>,
@@ -49,7 +49,7 @@ fn expr_sub_one(design: DesignHandle, expr: &Expression) -> Expression {
 }
 
 impl<'a> SVCodegen<'a> {
-	pub fn new(design: &'a Design, w: &'a mut dyn fmt::Write) -> Self {
+	pub fn new(design: DesignHandle, w: &'a mut dyn fmt::Write) -> Self {
 		Self {
 			design,
 			indent_level: 0,
@@ -88,7 +88,7 @@ impl<'a> SVCodegen<'a> {
 		};
 
 		let bus_msb_str =
-			self.translate_expression_try_eval(&expr_sub_one(self.design.handle(), class.width()), false)?;
+			self.translate_expression_try_eval(&expr_sub_one(self.design.clone(), class.width()), false)?;
 		let bus_width_str = match class.is_wire() {
 			false => format!("[{}:0]", bus_msb_str),
 			true => "".into(),
@@ -259,7 +259,7 @@ impl<'a> SVCodegen<'a> {
 		let nreset_expr = Expression::from(reg.input_nreset).logical_not();
 
 		let msb_str =
-			self.translate_expression_try_eval(&expr_sub_one(self.design.handle(), &input_signal.width()), false)?;
+			self.translate_expression_try_eval(&expr_sub_one(self.design.clone(), &input_signal.width()), false)?;
 		let output_str = self.translate_expression(&reg.output_data.into(), true)?;
 		let clk_str = self.translate_expression(&reg.input_clk.into(), true)?;
 		let nreset_str = self.translate_expression(&nreset_expr, true)?;
@@ -329,7 +329,7 @@ impl<'a> SVCodegen<'a> {
 		for sig_id in scope.signals() {
 			if !skip_signals.contains(&sig_id) {
 				if self.design.get_signal(sig_id).unwrap().is_generic() {
-					fn search_scope(design: &Design, scope: ScopeHandle, sig_id: SignalId) -> Option<Expression> {
+					fn search_scope(design: DesignHandle, scope: ScopeHandle, sig_id: SignalId) -> Option<Expression> {
 						for asmt in scope.assignments() {
 							match asmt.lhs.try_drive() {
 								Some(lhs_slice) => {
@@ -343,7 +343,7 @@ impl<'a> SVCodegen<'a> {
 
 						for subscope_id in scope.subscopes() {
 							let subscope = design.get_scope_handle(subscope_id).unwrap();
-							if let Some(expr) = search_scope(design, subscope, sig_id) {
+							if let Some(expr) = search_scope(design.clone(), subscope, sig_id) {
 								return Some(expr);
 							}
 						}
@@ -351,7 +351,7 @@ impl<'a> SVCodegen<'a> {
 						return None;
 					}
 
-					let rhs_expr = search_scope(self.design, scope.clone(), sig_id);
+					let rhs_expr = search_scope(self.design.clone(), scope.clone(), sig_id);
 					self.emit_metadata_comment(&self.design.get_signal(sig_id).unwrap())?;
 					let localparam_str = self.format_localparam_declaration(sig_id, &rhs_expr)?;
 					emitln!(self, "{};", localparam_str)?;
@@ -505,7 +505,7 @@ impl<'a> SVCodegen<'a> {
 	) -> Result<String, CodegenError> {
 		// FIXME subs table is cloned here
 		let mut cg = SVExpressionCodegen::new(
-			self.design,
+			self.design.clone(),
 			width_casts,
 			self.tmp_counter,
 			Some(self.signal_subs.clone()),

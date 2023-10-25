@@ -31,7 +31,7 @@ pub fn combine<'a>(
 	if path_from_root.as_str() == "" {
 		path_from_root = ".".to_string();
 	}
-	let mut design = hirn::design::Design::new();
+	let mut design = hirn::design::DesignHandle::new();
 	let mut packaged_paths: Vec<String> = Vec::new();
 	let mut modules_declared: HashMap<IdTableKey, ModuleDeclared> = HashMap::new();
 	let mut modules_implemented: HashMap<IdTableKey, &ModuleImplementation> = HashMap::new();
@@ -168,7 +168,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
 			let mut output_string = String::new();
-			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(&mut self.ctx.design, &mut output_string);
+			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
 			use hirn::codegen::Codegen;
 			sv_codegen
 				.emit_module(
@@ -227,7 +227,7 @@ pub struct GlobalAnalyzerContext<'a> {
 	pub modules_declared: HashMap<IdTableKey, ModuleDeclared>,
 	/// represents all implemented generic modules
 	pub generic_modules: HashMap<IdTableKey, &'a ModuleImplementation>,
-	pub design: hirn::design::Design,
+	pub design: hirn::design::DesignHandle,
 }
 /// Per module context for semantic analysis
 pub struct LocalAnalyzerContex {
