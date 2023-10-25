@@ -155,6 +155,36 @@ impl<'a> SemanticalAnalyzer<'a> {
 		}
 		Ok(())
 	}
+	pub fn compile_and_elaborate(&mut self, output: &mut dyn Write) -> miette::Result<()> {
+		self.passes.push(first_pass);
+		self.passes.push(second_pass);
+		self.passes.push(codegen_pass);
+		for module in self.modules_implemented.values() {
+			let mut local_ctx = LocalAnalyzerContex::new(
+				module.id,
+				self.ctx.modules_declared.get(&module.id).unwrap().scope.clone(),
+			);
+			for pass in &self.passes {
+				pass(&mut self.ctx, &mut local_ctx, *module)?;
+			}
+			todo!("Invoke elaboration");
+			let mut output_string = String::new();
+			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design, &mut output_string);
+			use hirn::codegen::Codegen;
+			sv_codegen
+				.emit_module(
+					self.ctx
+						.modules_declared
+						.get_mut(&local_ctx.module_id)
+						.unwrap()
+						.handle
+						.id(),
+				)
+				.unwrap();
+			write!(output, "{}", output_string).unwrap();
+		}
+		Ok(())
+	}
 	pub fn compile(&mut self, output: &mut dyn Write) -> miette::Result<()> {
 		self.passes.push(first_pass);
 		self.passes.push(second_pass);
@@ -352,6 +382,7 @@ impl ModuleImplementationStatement {
 		scope_id: usize,
 	) -> miette::Result<()> {
 		local_ctx.scope_map.insert(self.get_location(), scope_id);
+		info!("Inserting scope id {} for {:?}: {:?}", scope_id, self.get_location(), self);
 		use ModuleImplementationStatement::*;
 		match self {
 			VariableBlock(block) => block.analyze(ctx, local_ctx, AlreadyCreated::new(), scope_id)?,
@@ -444,7 +475,40 @@ impl ModuleImplementationStatement {
 			},
 			IterationStatement(iteration) => {
 				local_ctx.are_we_in_conditional += 1;
-				todo!();
+				debug!("Iteration statement is not yet implemented");
+				let id = local_ctx.scope.new_scope(Some(scope_id));
+				let mut initial_val = iteration
+					.range
+					.lhs
+					.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?.unwrap().value;
+				let mut end_val = iteration
+					.range
+					.rhs
+					.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?
+					.unwrap().value;
+				use crate::parser::ast::RangeOpcode::*;
+				match &iteration.range.code {
+        			Colon => (),
+        			PlusColon => end_val += initial_val.clone(),
+        			ColonLessThan => end_val -= 1,
+    			}
+				local_ctx.scope_map.insert(iteration.statement.get_location(), id);
+				while initial_val <= end_val {
+					local_ctx.scope.define_variable(id, Variable::new(iteration.id, iteration.location, VariableKind::Generic(GenericVariable { value: Some(BusWidth::Evaluated(NumericConstant::new_from_value(initial_val.clone()))), direction: crate::analyzer::Direction::None, dimensions: Vec::new(), kind: crate::analyzer::GenericVariableKind::Int(crate::analyzer::SignalSignedness::NoSignedness, iteration.location) })))?;
+					match iteration.statement.as_ref() {
+						ModuleImplementationStatement::ModuleImplementationBlockStatement(block) => {
+							for statement in &block.statements {
+								statement.first_pass(ctx, local_ctx, id)?;
+							}
+						},
+						_ => unreachable!(),
+					};
+					if initial_val != end_val {
+						local_ctx.scope.clear_scope(id);
+					}
+					initial_val += 1;
+				}
+				
 				local_ctx.are_we_in_conditional -= 1;
 			},
 			InstantiationStatement(inst) => {
@@ -784,6 +848,7 @@ impl ModuleImplementationStatement {
 		local_ctx: &mut LocalAnalyzerContex,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
+		info!("Reading scope id for {:?}: {:?}", self.get_location(), self);
 		let scope_id = local_ctx.scope_map.get(&self.get_location()).unwrap().to_owned();
 		use ModuleImplementationStatement::*;
 		match self {
@@ -804,6 +869,9 @@ impl ModuleImplementationStatement {
 					&local_ctx.scope,
 					Some(&local_ctx.nc_widths),
 				)?;
+				debug!("Codegen for assignment");
+				debug!("Lhs is {:?}", lhs);
+				debug!("Rhs is {:?}", rhs);
 				use crate::parser::ast::AssignmentOpcode::*;
 				match assignment.assignment_opcode {
 					Equal => api_scope
@@ -878,7 +946,41 @@ impl ModuleImplementationStatement {
 					None => (),
 				}
 			},
-			IterationStatement(_) => todo!(),
+			IterationStatement(for_stmt) => {
+				let lhs = for_stmt.range.lhs.codegen(
+					ctx.nc_table,
+					ctx.id_table,
+					scope_id,
+					&local_ctx.scope,
+					Some(&local_ctx.nc_widths),
+				)?;
+				let mut rhs = for_stmt.range.rhs.codegen(
+					ctx.nc_table,
+					ctx.id_table,
+					scope_id,
+					&local_ctx.scope,
+					Some(&local_ctx.nc_widths),
+				)?;
+				use RangeOpcode::*;
+				match &for_stmt.range.code{
+        			Colon => (),
+        			PlusColon => rhs = hirn::design::Expression::Binary(hirn::design::BinaryExpression{
+            			op: hirn::design::BinaryOp::Add,
+            			lhs: Box::new(lhs.clone()),
+            			rhs: Box::new(rhs),
+        			}),
+        			ColonLessThan => rhs = hirn::design::Expression::Binary(hirn::design::BinaryExpression{
+            			op: hirn::design::BinaryOp::Subtract,
+            			lhs: Box::new(rhs),
+            			rhs: Box::new(hirn::design::Expression::Constant(hirn::design::NumericConstant::one())),
+					}),
+    			}
+				let (mut for_scope, iterator_id) = api_scope.loop_scope(&ctx.id_table.get_value(&for_stmt.id), lhs, rhs)
+					.map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
+				let id = local_ctx.scope_map.get(&for_stmt.statement.get_location()).unwrap();
+				local_ctx.scope.insert_api_id(local_ctx.scope.get_variable(*id, &for_stmt.id).unwrap().id, iterator_id);
+				for_stmt.statement.codegen_pass(ctx, local_ctx, &mut for_scope)?;
+			},
 			InstantiationStatement(inst) => {
 				if ctx.id_table.get_value(&inst.module_name.get_last_module()).as_str() == "register" {
 					let r = local_ctx.scope.get_variable(scope_id, &inst.instance_name).unwrap(); //FIXME

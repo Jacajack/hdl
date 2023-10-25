@@ -178,6 +178,15 @@ impl BusWidth {
 			WidthOf(_) => None,
 		}
 	}
+	pub fn get_nc(&self) -> crate::core::NumericConstant{
+		use BusWidth::*;
+		match self {
+			Evaluated(value) => value.clone(),
+			EvaluatedLocated(value, _) => value.clone(),
+			Evaluable(_) => panic!("Cannot get numeric constant from an unevaluated expression"),
+			WidthOf(_) => panic!("Cannot get numeric constant from an unevaluated expression"),
+		}
+	}
 }
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BusType {
@@ -387,6 +396,14 @@ impl Signal {
 			(Wire(_), _) => self.signal_type.clone(),
 		};
 		Ok(())
+	}
+	pub fn new_empty_with_sensitivity(sensitivity: SignalSensitivity) -> Self {
+		Self {
+			signal_type: SignalType::Auto(SourceSpan::new_between(0, 0)),
+			dimensions: Vec::new(),
+			sensitivity,
+			direction: Direction::None,
+		}
 	}
 	pub fn new_bus(width: Option<BusWidth>, signedness: SignalSignedness, location: SourceSpan) -> Self {
 		Self {
@@ -919,7 +936,7 @@ impl VariableKind {
 				match &gen.value {
 					None => (),
 					Some(val) => {
-						todo!();
+						return Signal::new_from_constant(&val.get_nc(), SourceSpan::new_between(0,0))
 						//return Signal::new_from_constant(val, gen.kind.location());
 					},
 				}

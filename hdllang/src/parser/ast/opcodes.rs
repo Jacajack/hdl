@@ -35,6 +35,30 @@ pub enum BinaryOpcode {
 	LogicalOr,
 }
 
+impl BinaryOpcode{
+	pub fn is_relational(&self) -> bool {
+		use self::BinaryOpcode::*;
+		match *self {
+			Less | Greater | LessEqual | GreaterEqual | Equal | NotEqual => true,
+			_ => false,
+		}
+	}
+	pub fn is_logical(&self) -> bool {
+		use self::BinaryOpcode::*;
+		match *self {
+			LogicalAnd | LogicalOr => true,
+			_ => false,
+		}
+	}
+	pub fn is_bitwise(&self) -> bool {
+		use self::BinaryOpcode::*;
+		match *self {
+			BitwiseAnd | BitwiseOr | BitwiseXor => true,
+			_ => false,
+		}
+	}
+}
+
 impl Debug for BinaryOpcode {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
 		use self::BinaryOpcode::*;

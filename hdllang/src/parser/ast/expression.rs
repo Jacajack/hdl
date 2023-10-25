@@ -16,7 +16,7 @@ mod unary_operator_expression;
 
 use crate::analyzer::{
 	AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContex, ModuleImplementationScope,
-	SemanticError, Signal, SignalSignedness, SignalType, VariableKind,
+	SemanticError, Signal, SignalSignedness, SignalType, VariableKind, SignalSensitivity,
 };
 use crate::core::NumericConstant;
 use crate::lexer::IdTableKey;
@@ -953,26 +953,70 @@ impl Expression {
 				let expr = range
 					.expression
 					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				let mut msb = range
+					.range
+					.rhs
+					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				let lsb = range
+					.range
+					.lhs
+					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				use RangeOpcode::*;
+				match range.range.code {
+        			Colon => (),
+        			PlusColon => msb = msb + lsb.clone(),
+        			ColonLessThan => msb = msb - hirn::design::Expression::Constant(hirn::design::NumericConstant::one()),
+    			}
 				Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::BusSelect {
 					expr: Box::new(expr),
-					msb: Box::new(
-						range
-							.range
-							.rhs
-							.codegen(nc_table, id_table, scope_id, scope, nc_widths)?,
-					),
-					lsb: Box::new(
-						range
-							.range
-							.lhs
-							.codegen(nc_table, id_table, scope_id, scope, nc_widths)?,
-					),
+					msb: Box::new(msb),
+					lsb: Box::new(lsb),
 				}))
 			},
 			PostfixWithArgs(function) => {
 				let func_name = id_table.get_value(&function.id);
 				match func_name.as_str() {
-					"trunc" => todo!(),
+					"trunc" => {
+						let expr = function
+							.argument_list
+							.first()
+							.unwrap()
+							.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+						let width = scope.widths.get(&function.location).unwrap().clone(); //FIXME
+						log::debug!("Width is {:?}", width);
+						if let Some(loc) = width.get_location() {
+							let op = hirn::design::BuiltinOp::BusSelect {
+									expr: Box::new(expr),
+									msb: Box::new(
+										scope
+											.evaluated_expressions
+											.get(&loc)
+											.unwrap()
+											.expression
+											.codegen(nc_table, id_table, scope_id, scope, nc_widths)?
+										- hirn::design::Expression::Constant(
+											hirn::design::NumericConstant::one(),
+										),
+									),
+									lsb: Box::new(hirn::design::Expression::Constant(
+										hirn::design::NumericConstant::new_unsigned(BigInt::from(0)),
+									)),
+							};
+							return Ok(hirn::design::Expression::Builtin(op));
+						}
+						if let Some(val) = &width.get_value() {
+							let op = hirn::design::BuiltinOp::BusSelect {
+									expr: Box::new(expr),
+									msb: Box::new(hirn::design::Expression::Constant(
+										hirn::design::NumericConstant::new_unsigned(val.clone()-1))),
+									lsb: Box::new(hirn::design::Expression::Constant(
+										hirn::design::NumericConstant::new_unsigned(BigInt::from(0)),
+									)),
+								};
+							return Ok(hirn::design::Expression::Builtin(op));
+						}
+						unreachable!()
+					},
 					"zeroes" => {
 						let expr = hirn::design::NumericConstant::from_bigint(
 							0.into(),
@@ -1296,7 +1340,7 @@ impl Expression {
 				let width = coupling_type.width();
 				let key = &num.key;
 				let mut constant = global_ctx.nc_table.get_by_key(key).unwrap().clone();
-				let sig = Signal::new_from_constant(&constant, num.location);
+				let mut sig = Signal::new_from_constant(&constant, num.location);
 				match (width, sig.width()) {
 					(None, None) => {
 						return Err(miette::Report::new(
@@ -1311,6 +1355,7 @@ impl Expression {
 					(Some(val), None) => {
 						debug!("Setting width of {:?} in local_ctx", constant);
 						constant.width = val.get_value().unwrap().to_u32();
+						sig.set_width(BusWidth::Evaluated(NumericConstant::from_u64(constant.width.unwrap() as u64, None, None, None)), sig.get_signedness(), location);
 						local_ctx.nc_widths.insert(self.get_location(), constant);
 					},
 					(Some(coming), Some(original)) => {
@@ -1504,7 +1549,7 @@ impl Expression {
 					global_ctx,
 					scope_id,
 					local_ctx,
-					Signal::new_empty(),
+					Signal::new_empty_with_sensitivity(coupling_type.sensitivity.clone()),
 					is_lhs,
 					location,
 				)?;
@@ -1538,14 +1583,19 @@ impl Expression {
 						// FIXME is this unwrap safe?
 						Some(val) => {
 							if let Some(nc) = &ind {
-								if nc.value < BigInt::from(0) && &nc.value >= val {
+								debug!("Index value is known: {:?}", nc);
+								if nc.value < BigInt::from(0) || nc.value > val-1 {
 									return Err(miette::Report::new(
 										SemanticError::IndexOutOfBounds
 											.to_diagnostic_builder()
 											.label(index.location, "Index is out of bounds")
+											.label(index.index.get_location(), format!("Index value should be between [0, {:?}] but is in fact {:?}", val-1, nc.value).as_str())
 											.build(),
 									));
 								}
+							}
+							else{
+								debug!("Index value is not known: {:?}", ind);
 							}
 						},
 						None => (),
@@ -1564,7 +1614,7 @@ impl Expression {
 					global_ctx,
 					scope_id,
 					local_ctx,
-					coupling_type.clone(),
+					Signal::new_empty_with_sensitivity(coupling_type.sensitivity.clone()),
 					is_lhs,
 					location,
 				)?;
@@ -1721,14 +1771,74 @@ impl Expression {
 									.build(),
 							));
 						}
-						let expr = Signal::new_bus(
+						let mut expr = Signal::new_bus(
 							Some(BusWidth::Evaluated(expr)),
 							SignalSignedness::Unsigned(self.get_location()),
 							self.get_location(),
 						);
+						expr.sensitivity = SignalSensitivity::Const(self.get_location());
 						Ok(expr)
 					},
-					"trunc" | "zext" | "ext" | "sext" => {
+					"trunc" => {
+						if function.argument_list.len() > 1 {
+							return Err(miette::Report::new(
+								SemanticError::BadFunctionArguments
+									.to_diagnostic_builder()
+									.label(function.location, "This function should have only one argument")
+									.build(),
+							));
+						}
+						if !coupling_type.is_width_specified() {
+							return Err(miette::Report::new(
+								SemanticError::WidthNotKnown
+									.to_diagnostic_builder()
+									.label(
+										function.location,
+										"This function must know the width of the left hand side signal",
+									)
+									.build(),
+							));
+						}
+						let mut expr = function.argument_list[0].evaluate_type(
+							global_ctx,
+							scope_id,
+							local_ctx,
+							Signal::new_empty(),
+							is_lhs,
+							location,
+						)?;
+						if !expr.is_width_specified() {
+							return Err(miette::Report::new(
+								SemanticError::WidthNotKnown
+									.to_diagnostic_builder()
+									.label(
+										function.argument_list[0].get_location(),
+										"This function must know the width of argument",
+									)
+									.build(),
+							));
+						}
+						if expr.width().unwrap().get_value().unwrap()
+							< coupling_type.width().unwrap().get_value().unwrap()
+						{
+							return Err(miette::Report::new(
+								SemanticError::WidthMismatch
+									.to_diagnostic_builder()
+									.label(
+										function.argument_list[0].get_location(),
+										"You cannot enlarge the width of the signal",
+									)
+									.build(),
+							));
+						}
+						local_ctx
+							.scope
+							.widths
+							.insert(function.location, coupling_type.width().unwrap());
+						expr.set_width(coupling_type.width().unwrap(), expr.get_signedness(), location);
+						Ok(expr)
+					},
+					"zext" | "ext" | "sext" => {
 						if function.argument_list.len() > 1 {
 							return Err(miette::Report::new(
 								SemanticError::BadFunctionArguments
@@ -2168,14 +2278,25 @@ impl Expression {
 							.build(),
 					));
 				}
-				let type_second = binop.rhs.evaluate_type(
-					global_ctx,
-					scope_id,
-					local_ctx,
-					Signal::new_empty(),
-					is_lhs,
-					binop.location,
-				)?;
+				debug!("type_first: {:?}", type_first);
+				let type_second = match binop.code.is_relational(){
+						true => binop.rhs.evaluate_type(
+							global_ctx,
+							scope_id,
+							local_ctx,
+							type_first.clone(),
+							is_lhs,
+							binop.location,
+						)?,
+						false =>	binop.rhs.evaluate_type(
+							global_ctx,
+							scope_id,
+							local_ctx,
+							Signal::new_empty(),
+							is_lhs,
+							binop.location,
+						)?
+					};
 				if !type_second.is_width_specified() {
 					return Err(miette::Report::new(
 						SemanticError::WidthNotKnown
