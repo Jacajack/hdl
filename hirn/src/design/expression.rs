@@ -490,13 +490,10 @@ impl Expression {
 	/// Attempt to drive the expression if possible.
 	/// Returns affected signal slice if drivable.
 	pub fn try_drive(&self) -> Option<SignalSlice> {
-		use Expression::*;		
+		use Expression::*;
 		match self {
 			Signal(slice) => Some(slice.clone()),
-			Builtin(BuiltinOp::BusSelect { expr, .. })
-			| Builtin(BuiltinOp::BitSelect { expr, ..  }) => {
-				expr.try_drive()
-			}
+			Builtin(BuiltinOp::BusSelect { expr, .. }) | Builtin(BuiltinOp::BitSelect { expr, .. }) => expr.try_drive(),
 			_ => None,
 		}
 	}
