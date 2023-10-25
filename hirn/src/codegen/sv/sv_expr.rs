@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::SVCodegen;
 use crate::{
 	codegen::CodegenError,
@@ -47,15 +49,17 @@ pub(super) struct SVExpressionCodegen<'a> {
 	tmp_counter: u32,
 	width_casts: Vec<bool>,
 	intermediates: Vec<IntermediateSignal>,
+	signal_substitutions: Option<HashMap<SignalId, String>>, // FIXME we don't want to copy that each time
 }
 
 impl<'a> SVExpressionCodegen<'a> {
-	pub fn new(design: &'a Design, width_casts: bool, tmp_counter_start: u32) -> Self {
+	pub fn new(design: &'a Design, width_casts: bool, tmp_counter_start: u32, signal_subs: Option<HashMap<SignalId, String>>) -> Self {
 		Self {
 			design,
 			tmp_counter: tmp_counter_start,
 			width_casts: vec![width_casts],
 			intermediates: Vec::new(),
+			signal_substitutions: signal_subs,
 		}
 	}
 
@@ -80,6 +84,12 @@ impl<'a> SVExpressionCodegen<'a> {
 	}
 
 	fn translate_signal_id(&self, id: SignalId) -> String {
+		if let Some(subs) = &self.signal_substitutions {
+			if let Some(sub) = subs.get(&id) {
+				return sub.clone();
+			}
+		}
+
 		let sig = self.design.get_signal(id).unwrap();
 		sig.name().into()
 	}
