@@ -169,7 +169,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 			}
 			todo!("Invoke elaboration");
 			let mut output_string = String::new();
-			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(&mut self.ctx.design, &mut output_string);
+			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design, &mut output_string);
 			use hirn::codegen::Codegen;
 			sv_codegen
 				.emit_module(
