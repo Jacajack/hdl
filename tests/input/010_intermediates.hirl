@@ -1,7 +1,7 @@
 module intermediates {}
 impl intermediates {
 	const unsigned bus<16> foo;
-	const unsigned bus<16> bar = foo[0:15]; // no intermediate needed
+	const unsigned bus<16> bar = trunc(foo); // no intermediate needed
 	auto x = match((bar + 1u1)[3:7]) {
 		0 => (bar+1u1)[0:3],
 		default => join(7u3, (bar + 7u23)[0:0]),
