@@ -495,20 +495,14 @@ impl Expression {
 
 	/// Attempt to drive the expression if possible.
 	/// Returns affected signal slice if drivable.
-	/// TODO is it necessary to return a slice here?
 	pub fn try_drive(&self) -> Option<SignalSlice> {
+		use Expression::*;		
 		match self {
-			Self::Signal(slice) => Some(slice.clone()),
-			// Self::Builtin(BuiltinOp::BusSelect { expr, msb, lsb }) => {
-			// 	SingalSlice{
-
-			// 	}
-			// },
-
-			// Self::Builtin(BuiltinOp::BitSelect { expr, index }) => {
-
-			// }
-			// TODO index/range expression drive
+			Signal(slice) => Some(slice.clone()),
+			Builtin(BuiltinOp::BusSelect { expr, .. })
+			| Builtin(BuiltinOp::BitSelect { expr, ..  }) => {
+				expr.try_drive()
+			}
 			_ => None,
 		}
 	}
