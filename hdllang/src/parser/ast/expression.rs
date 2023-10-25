@@ -989,7 +989,10 @@ impl Expression {
 											.get(&loc)
 											.unwrap()
 											.expression
-											.codegen(nc_table, id_table, scope_id, scope, nc_widths)?,
+											.codegen(nc_table, id_table, scope_id, scope, nc_widths)?
+										- hirn::design::Expression::Constant(
+											hirn::design::NumericConstant::one(),
+										),
 									),
 									lsb: Box::new(hirn::design::Expression::Constant(
 										hirn::design::NumericConstant::new_unsigned(BigInt::from(0)),
