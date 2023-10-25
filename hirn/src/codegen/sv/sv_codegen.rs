@@ -504,7 +504,12 @@ impl<'a> SVCodegen<'a> {
 		try_eval: bool,
 	) -> Result<String, CodegenError> {
 		// FIXME subs table is cloned here
-		let mut cg = SVExpressionCodegen::new(self.design, width_casts, self.tmp_counter, Some(self.signal_subs.clone()));
+		let mut cg = SVExpressionCodegen::new(
+			self.design,
+			width_casts,
+			self.tmp_counter,
+			Some(self.signal_subs.clone()),
+		);
 		let result = if try_eval {
 			cg.translate_expression_try_eval(expr)?
 		}

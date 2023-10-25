@@ -53,7 +53,12 @@ pub(super) struct SVExpressionCodegen<'a> {
 }
 
 impl<'a> SVExpressionCodegen<'a> {
-	pub fn new(design: &'a Design, width_casts: bool, tmp_counter_start: u32, signal_subs: Option<HashMap<SignalId, String>>) -> Self {
+	pub fn new(
+		design: &'a Design,
+		width_casts: bool,
+		tmp_counter_start: u32,
+		signal_subs: Option<HashMap<SignalId, String>>,
+	) -> Self {
 		Self {
 			design,
 			tmp_counter: tmp_counter_start,
