@@ -4,6 +4,21 @@ use crate::design::{SignalId, ModuleId};
 
 use super::ElabAssumptionsBase;
 
+#[derive(Clone, Debug, Default)]
+pub struct ElabReport {
+	messages: Vec<ElabMessage>,
+}
+
+impl ElabReport {
+	pub fn extend(&mut self, other: ElabReport) {
+		self.messages.extend(other.messages);
+	}
+
+	pub fn messages(&self) -> &[ElabMessage] {
+		&self.messages
+	}
+}
+
 #[derive(Clone, Debug)]
 pub struct ElabMessage {
 	severity: ElabMessageSeverity,

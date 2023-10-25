@@ -4,9 +4,10 @@ mod report;
 mod multi_pass_elab;
 
 use thiserror::Error;
-pub use report::{ElabMessage, ElabMessageKind, ElabMessageSeverity};
-pub use elaborator::{Elaborator, ElabAssumptionsBase};
-pub use assumptions::ElabAssumptions;
+pub use report::{ElabMessage, ElabMessageKind, ElabMessageSeverity, ElabReport};
+pub use elaborator::Elaborator;
+pub use assumptions::{ElabAssumptions, ElabAssumptionsBase};
+pub use multi_pass_elab::FullElaborator;
 pub type GenericVar = i64;
 
 #[derive(Clone, Copy, Debug, Error)]
