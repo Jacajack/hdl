@@ -155,6 +155,36 @@ impl<'a> SemanticalAnalyzer<'a> {
 		}
 		Ok(())
 	}
+	pub fn compile_and_elaborate(&mut self, output: &mut dyn Write) -> miette::Result<()> {
+		self.passes.push(first_pass);
+		self.passes.push(second_pass);
+		self.passes.push(codegen_pass);
+		for module in self.modules_implemented.values() {
+			let mut local_ctx = LocalAnalyzerContex::new(
+				module.id,
+				self.ctx.modules_declared.get(&module.id).unwrap().scope.clone(),
+			);
+			for pass in &self.passes {
+				pass(&mut self.ctx, &mut local_ctx, *module)?;
+			}
+			todo!("Invoke elaboration");
+			let mut output_string = String::new();
+			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(&mut self.ctx.design, &mut output_string);
+			use hirn::codegen::Codegen;
+			sv_codegen
+				.emit_module(
+					self.ctx
+						.modules_declared
+						.get_mut(&local_ctx.module_id)
+						.unwrap()
+						.handle
+						.id(),
+				)
+				.unwrap();
+			write!(output, "{}", output_string).unwrap();
+		}
+		Ok(())
+	}
 	pub fn compile(&mut self, output: &mut dyn Write) -> miette::Result<()> {
 		self.passes.push(first_pass);
 		self.passes.push(second_pass);

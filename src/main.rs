@@ -236,6 +236,32 @@ fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) -> m
 	info!("File {} compiled succesfully", file_name);
 	Ok(())
 }
+fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>) -> miette::Result<()> {
+	let root: Root;
+	let mut ctx = LogosLexerContext {
+		id_table: IdTable::new(),
+		comment_table: hdllang::lexer::CommentTable::new(),
+		numeric_constants: hdllang::lexer::NumericConstantTable::new(),
+		last_err: None,
+	};
+	let mut map: HashMap<String, String> = HashMap::new();
+	(root, ctx, code) = parse_file_recover_tables(code, ctx)?;
+	let (_, global_ctx, modules) = hdllang::analyzer::combine(
+		&mut ctx.id_table,
+		&ctx.numeric_constants,
+		&root,
+		String::from("."),
+		&mut map,
+	)
+	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
+	// analyse semantically
+	hdllang::analyzer::SemanticalAnalyzer::new(global_ctx, &modules)
+		.compile_and_elaborate(&mut *output)
+		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code)))?;
+	//hdllang::analyzer::analyze_semantically(&mut global_ctx, &modules)?;
+	info!("File {} compiled succesfully", file_name);
+	Ok(())
+}
 fn analyse(mut code: String, file_name: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	// tokenize and parse
 	let root: Root;
@@ -288,6 +314,7 @@ fn main() -> miette::Result<()> {
 					"analyse",
 					"analyze",
 					"combine", // for development only
+					"elaborate", // for development only
 					"compile",
 				])
 				.required(false)
@@ -355,6 +382,9 @@ fn main() -> miette::Result<()> {
 		},
 		"compile" => {
 			compile(code, String::from(file_name), output)?;
+		},
+		"elaborate" => {
+			elaborate(code, String::from(file_name), output)?;
 		},
 		"clean" => {
 			println!("Not implemented!");
