@@ -1576,14 +1576,19 @@ impl Expression {
 						// FIXME is this unwrap safe?
 						Some(val) => {
 							if let Some(nc) = &ind {
-								if nc.value < BigInt::from(0) && &nc.value >= val {
+								debug!("Index value is known: {:?}", nc);
+								if nc.value < BigInt::from(0) || nc.value > val-1 {
 									return Err(miette::Report::new(
 										SemanticError::IndexOutOfBounds
 											.to_diagnostic_builder()
 											.label(index.location, "Index is out of bounds")
+											.label(index.index.get_location(), format!("Index value should be between [0, {:?}] but is in fact {:?}", val-1, nc.value).as_str())
 											.build(),
 									));
 								}
+							}
+							else{
+								debug!("Index value is not known: {:?}", ind);
 							}
 						},
 						None => (),

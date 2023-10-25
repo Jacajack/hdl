@@ -225,6 +225,9 @@ impl ModuleImplementationScope {
 			}
 		}
 	}
+	pub fn clear_scope(&mut self, scope_id: usize) {
+		self.scopes[scope_id].variables.clear();
+	}
 	pub fn define_variable(&mut self, scope_id: usize, var: Variable) -> miette::Result<()> {
 		let id = InternalVariableId::new(self.variable_counter);
 		self.variable_counter += 1;
