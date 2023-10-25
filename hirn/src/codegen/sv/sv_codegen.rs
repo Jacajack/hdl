@@ -20,6 +20,7 @@ pub struct SVCodegen<'a> {
 	pub(super) design: &'a Design,
 	pub(super) indent_level: u32,
 	tmp_counter: u32, // FIXME
+	signal_subs: HashMap<SignalId, String>,
 	output_stream: &'a mut dyn fmt::Write,
 }
 
@@ -53,6 +54,7 @@ impl<'a> SVCodegen<'a> {
 			design,
 			indent_level: 0,
 			tmp_counter: 0,
+			signal_subs: HashMap::new(),
 			output_stream: w,
 		}
 	}
@@ -501,7 +503,8 @@ impl<'a> SVCodegen<'a> {
 		width_casts: bool,
 		try_eval: bool,
 	) -> Result<String, CodegenError> {
-		let mut cg = SVExpressionCodegen::new(self.design, width_casts, self.tmp_counter);
+		// FIXME subs table is cloned here
+		let mut cg = SVExpressionCodegen::new(self.design, width_casts, self.tmp_counter, Some(self.signal_subs.clone()));
 		let result = if try_eval {
 			cg.translate_expression_try_eval(expr)?
 		}
@@ -529,6 +532,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 	fn emit_module(&mut self, module: ModuleId) -> Result<(), CodegenError> {
 		// i hate this
 		self.tmp_counter = 0;
+		self.signal_subs = HashMap::new();
 
 		let m = self
 			.design
@@ -540,17 +544,20 @@ impl<'a> Codegen for SVCodegen<'a> {
 			interface_signal_ids.insert(sig.signal);
 		}
 
+		let mut output_signal_ids = HashSet::new();
 		let mut last_param_id = None;
 		let mut last_interface_id = None;
-		for sig in m.interface() {
-			if matches!(
-				self.design.get_signal(sig.signal).unwrap().sensitivity,
-				SignalSensitivity::Generic
-			) {
-				last_param_id = Some(sig.signal);
+		for intf_sig in m.interface() {
+			let sig = self.design.get_signal(intf_sig.signal).unwrap();
+			if sig.is_generic() {
+				last_param_id = Some(intf_sig.signal);
 			}
 			else {
-				last_interface_id = Some(sig.signal);
+				last_interface_id = Some(intf_sig.signal);
+			}
+
+			if intf_sig.direction == SignalDirection::Output {
+				output_signal_ids.insert(intf_sig.signal);
 			}
 		}
 
@@ -606,6 +613,18 @@ impl<'a> Codegen for SVCodegen<'a> {
 		emitln!(self, ";")?;
 
 		self.begin_indent();
+
+		// Emit proxies for outputs
+		for output_sig_id in output_signal_ids {
+			let sig = self.design.get_signal(output_sig_id).unwrap();
+			assert!(!sig.is_generic());
+			let proxy_name = format!("{}_proxy$", sig.name());
+			self.signal_subs.insert(output_sig_id, proxy_name.clone());
+			let proxy_def_str = self.format_signal_declaration_impl(&proxy_name, &sig.class, &sig.dimensions)?;
+			emitln!(self, "{};", proxy_def_str)?;
+			emitln!(self, "assign {} = {};", sig.name(), proxy_name)?;
+		}
+
 		self.emit_scope(m.scope().id(), true, false, interface_signal_ids)?;
 		self.end_indent();
 
