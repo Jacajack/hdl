@@ -391,7 +391,7 @@ impl Expression {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::design::{DesignHandle, DesignError};
+	use crate::design::{DesignError, DesignHandle};
 
 	#[test]
 	fn basic_scope_rule_test() -> Result<(), DesignError> {

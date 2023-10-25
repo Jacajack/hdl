@@ -5,8 +5,8 @@ use crate::{
 	design::InterfaceSignal,
 	design::SignalSignedness,
 	design::{
-		Expression, HasComment, HasInstanceName, HasSensitivity, HasSignedness, ModuleHandle, ModuleId,
-		ModuleInstance, ScopeId, SignalDirection, SignalId, SignalSensitivity,
+		Expression, HasComment, HasInstanceName, HasSensitivity, HasSignedness, ModuleHandle, ModuleId, ModuleInstance,
+		ScopeId, SignalDirection, SignalId, SignalSensitivity,
 	},
 };
 use log::debug;
