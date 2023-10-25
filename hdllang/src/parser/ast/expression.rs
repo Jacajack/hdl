@@ -16,7 +16,7 @@ mod unary_operator_expression;
 
 use crate::analyzer::{
 	AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContex, ModuleImplementationScope,
-	SemanticError, Signal, SignalSignedness, SignalType, VariableKind, SignalSensitivity,
+	SemanticError, Signal, SignalSensitivity, SignalSignedness, SignalType, VariableKind,
 };
 use crate::core::NumericConstant;
 use crate::lexer::IdTableKey;
@@ -963,10 +963,12 @@ impl Expression {
 					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 				use RangeOpcode::*;
 				match range.range.code {
-        			Colon => (),
-        			PlusColon => msb = msb + lsb.clone(),
-        			ColonLessThan => msb = msb - hirn::design::Expression::Constant(hirn::design::NumericConstant::one()),
-    			}
+					Colon => (),
+					PlusColon => msb = msb + lsb.clone(),
+					ColonLessThan => {
+						msb = msb - hirn::design::Expression::Constant(hirn::design::NumericConstant::one())
+					},
+				}
 				Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::BusSelect {
 					expr: Box::new(expr),
 					msb: Box::new(msb),
@@ -986,33 +988,32 @@ impl Expression {
 						log::debug!("Width is {:?}", width);
 						if let Some(loc) = width.get_location() {
 							let op = hirn::design::BuiltinOp::BusSelect {
-									expr: Box::new(expr),
-									msb: Box::new(
-										scope
-											.evaluated_expressions
-											.get(&loc)
-											.unwrap()
-											.expression
-											.codegen(nc_table, id_table, scope_id, scope, nc_widths)?
-										- hirn::design::Expression::Constant(
-											hirn::design::NumericConstant::one(),
-										),
-									),
-									lsb: Box::new(hirn::design::Expression::Constant(
-										hirn::design::NumericConstant::new_unsigned(BigInt::from(0)),
-									)),
+								expr: Box::new(expr),
+								msb: Box::new(
+									scope
+										.evaluated_expressions
+										.get(&loc)
+										.unwrap()
+										.expression
+										.codegen(nc_table, id_table, scope_id, scope, nc_widths)?
+										- hirn::design::Expression::Constant(hirn::design::NumericConstant::one()),
+								),
+								lsb: Box::new(hirn::design::Expression::Constant(
+									hirn::design::NumericConstant::new_unsigned(BigInt::from(0)),
+								)),
 							};
 							return Ok(hirn::design::Expression::Builtin(op));
 						}
 						if let Some(val) = &width.get_value() {
 							let op = hirn::design::BuiltinOp::BusSelect {
-									expr: Box::new(expr),
-									msb: Box::new(hirn::design::Expression::Constant(
-										hirn::design::NumericConstant::new_unsigned(val.clone()-1))),
-									lsb: Box::new(hirn::design::Expression::Constant(
-										hirn::design::NumericConstant::new_unsigned(BigInt::from(0)),
-									)),
-								};
+								expr: Box::new(expr),
+								msb: Box::new(hirn::design::Expression::Constant(
+									hirn::design::NumericConstant::new_unsigned(val.clone() - 1),
+								)),
+								lsb: Box::new(hirn::design::Expression::Constant(
+									hirn::design::NumericConstant::new_unsigned(BigInt::from(0)),
+								)),
+							};
 							return Ok(hirn::design::Expression::Builtin(op));
 						}
 						unreachable!()
@@ -1355,7 +1356,16 @@ impl Expression {
 					(Some(val), None) => {
 						debug!("Setting width of {:?} in local_ctx", constant);
 						constant.width = val.get_value().unwrap().to_u32();
-						sig.set_width(BusWidth::Evaluated(NumericConstant::from_u64(constant.width.unwrap() as u64, None, None, None)), sig.get_signedness(), location);
+						sig.set_width(
+							BusWidth::Evaluated(NumericConstant::from_u64(
+								constant.width.unwrap() as u64,
+								None,
+								None,
+								None,
+							)),
+							sig.get_signedness(),
+							location,
+						);
 						local_ctx.nc_widths.insert(self.get_location(), constant);
 					},
 					(Some(coming), Some(original)) => {
@@ -1584,17 +1594,25 @@ impl Expression {
 						Some(val) => {
 							if let Some(nc) = &ind {
 								debug!("Index value is known: {:?}", nc);
-								if nc.value < BigInt::from(0) || nc.value > val-1 {
+								if nc.value < BigInt::from(0) || nc.value > val - 1 {
 									return Err(miette::Report::new(
 										SemanticError::IndexOutOfBounds
 											.to_diagnostic_builder()
 											.label(index.location, "Index is out of bounds")
-											.label(index.index.get_location(), format!("Index value should be between [0, {:?}] but is in fact {:?}", val-1, nc.value).as_str())
+											.label(
+												index.index.get_location(),
+												format!(
+													"Index value should be between [0, {:?}] but is in fact {:?}",
+													val - 1,
+													nc.value
+												)
+												.as_str(),
+											)
 											.build(),
 									));
 								}
 							}
-							else{
+							else {
 								debug!("Index value is not known: {:?}", ind);
 							}
 						},
@@ -2279,24 +2297,24 @@ impl Expression {
 					));
 				}
 				debug!("type_first: {:?}", type_first);
-				let type_second = match binop.code.is_relational(){
-						true => binop.rhs.evaluate_type(
-							global_ctx,
-							scope_id,
-							local_ctx,
-							type_first.clone(),
-							is_lhs,
-							binop.location,
-						)?,
-						false =>	binop.rhs.evaluate_type(
-							global_ctx,
-							scope_id,
-							local_ctx,
-							Signal::new_empty(),
-							is_lhs,
-							binop.location,
-						)?
-					};
+				let type_second = match binop.code.is_relational() {
+					true => binop.rhs.evaluate_type(
+						global_ctx,
+						scope_id,
+						local_ctx,
+						type_first.clone(),
+						is_lhs,
+						binop.location,
+					)?,
+					false => binop.rhs.evaluate_type(
+						global_ctx,
+						scope_id,
+						local_ctx,
+						Signal::new_empty(),
+						is_lhs,
+						binop.location,
+					)?,
+				};
 				if !type_second.is_width_specified() {
 					return Err(miette::Report::new(
 						SemanticError::WidthNotKnown

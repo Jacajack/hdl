@@ -35,7 +35,7 @@ pub enum BinaryOpcode {
 	LogicalOr,
 }
 
-impl BinaryOpcode{
+impl BinaryOpcode {
 	pub fn is_relational(&self) -> bool {
 		use self::BinaryOpcode::*;
 		match *self {

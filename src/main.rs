@@ -313,7 +313,7 @@ fn main() -> miette::Result<()> {
 					"deserialise",
 					"analyse",
 					"analyze",
-					"combine", // for development only
+					"combine",   // for development only
 					"elaborate", // for development only
 					"compile",
 				])

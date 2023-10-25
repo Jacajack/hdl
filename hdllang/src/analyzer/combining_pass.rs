@@ -382,7 +382,12 @@ impl ModuleImplementationStatement {
 		scope_id: usize,
 	) -> miette::Result<()> {
 		local_ctx.scope_map.insert(self.get_location(), scope_id);
-		info!("Inserting scope id {} for {:?}: {:?}", scope_id, self.get_location(), self);
+		info!(
+			"Inserting scope id {} for {:?}: {:?}",
+			scope_id,
+			self.get_location(),
+			self
+		);
 		use ModuleImplementationStatement::*;
 		match self {
 			VariableBlock(block) => block.analyze(ctx, local_ctx, AlreadyCreated::new(), scope_id)?,
@@ -480,21 +485,41 @@ impl ModuleImplementationStatement {
 				let mut initial_val = iteration
 					.range
 					.lhs
-					.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?.unwrap().value;
+					.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?
+					.unwrap()
+					.value;
 				let mut end_val = iteration
 					.range
 					.rhs
 					.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?
-					.unwrap().value;
+					.unwrap()
+					.value;
 				use crate::parser::ast::RangeOpcode::*;
 				match &iteration.range.code {
-        			Colon => (),
-        			PlusColon => end_val += initial_val.clone(),
-        			ColonLessThan => end_val -= 1,
-    			}
+					Colon => (),
+					PlusColon => end_val += initial_val.clone(),
+					ColonLessThan => end_val -= 1,
+				}
 				local_ctx.scope_map.insert(iteration.statement.get_location(), id);
 				while initial_val <= end_val {
-					local_ctx.scope.define_variable(id, Variable::new(iteration.id, iteration.location, VariableKind::Generic(GenericVariable { value: Some(BusWidth::Evaluated(NumericConstant::new_from_value(initial_val.clone()))), direction: crate::analyzer::Direction::None, dimensions: Vec::new(), kind: crate::analyzer::GenericVariableKind::Int(crate::analyzer::SignalSignedness::NoSignedness, iteration.location) })))?;
+					local_ctx.scope.define_variable(
+						id,
+						Variable::new(
+							iteration.id,
+							iteration.location,
+							VariableKind::Generic(GenericVariable {
+								value: Some(BusWidth::Evaluated(NumericConstant::new_from_value(
+									initial_val.clone(),
+								))),
+								direction: crate::analyzer::Direction::None,
+								dimensions: Vec::new(),
+								kind: crate::analyzer::GenericVariableKind::Int(
+									crate::analyzer::SignalSignedness::NoSignedness,
+									iteration.location,
+								),
+							}),
+						),
+					)?;
 					match iteration.statement.as_ref() {
 						ModuleImplementationStatement::ModuleImplementationBlockStatement(block) => {
 							for statement in &block.statements {
@@ -508,7 +533,7 @@ impl ModuleImplementationStatement {
 					}
 					initial_val += 1;
 				}
-				
+
 				local_ctx.are_we_in_conditional -= 1;
 			},
 			InstantiationStatement(inst) => {
@@ -962,23 +987,30 @@ impl ModuleImplementationStatement {
 					Some(&local_ctx.nc_widths),
 				)?;
 				use RangeOpcode::*;
-				match &for_stmt.range.code{
-        			Colon => (),
-        			PlusColon => rhs = hirn::design::Expression::Binary(hirn::design::BinaryExpression{
-            			op: hirn::design::BinaryOp::Add,
-            			lhs: Box::new(lhs.clone()),
-            			rhs: Box::new(rhs),
-        			}),
-        			ColonLessThan => rhs = hirn::design::Expression::Binary(hirn::design::BinaryExpression{
-            			op: hirn::design::BinaryOp::Subtract,
-            			lhs: Box::new(rhs),
-            			rhs: Box::new(hirn::design::Expression::Constant(hirn::design::NumericConstant::one())),
-					}),
-    			}
-				let (mut for_scope, iterator_id) = api_scope.loop_scope(&ctx.id_table.get_value(&for_stmt.id), lhs, rhs)
+				match &for_stmt.range.code {
+					Colon => (),
+					PlusColon => {
+						rhs = hirn::design::Expression::Binary(hirn::design::BinaryExpression {
+							op: hirn::design::BinaryOp::Add,
+							lhs: Box::new(lhs.clone()),
+							rhs: Box::new(rhs),
+						})
+					},
+					ColonLessThan => {
+						rhs = hirn::design::Expression::Binary(hirn::design::BinaryExpression {
+							op: hirn::design::BinaryOp::Subtract,
+							lhs: Box::new(rhs),
+							rhs: Box::new(hirn::design::Expression::Constant(hirn::design::NumericConstant::one())),
+						})
+					},
+				}
+				let (mut for_scope, iterator_id) = api_scope
+					.loop_scope(&ctx.id_table.get_value(&for_stmt.id), lhs, rhs)
 					.map_err(|e| CompilerError::HirnApiError(e).to_diagnostic())?;
 				let id = local_ctx.scope_map.get(&for_stmt.statement.get_location()).unwrap();
-				local_ctx.scope.insert_api_id(local_ctx.scope.get_variable(*id, &for_stmt.id).unwrap().id, iterator_id);
+				local_ctx
+					.scope
+					.insert_api_id(local_ctx.scope.get_variable(*id, &for_stmt.id).unwrap().id, iterator_id);
 				for_stmt.statement.codegen_pass(ctx, local_ctx, &mut for_scope)?;
 			},
 			InstantiationStatement(inst) => {

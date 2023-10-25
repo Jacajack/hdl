@@ -178,7 +178,7 @@ impl BusWidth {
 			WidthOf(_) => None,
 		}
 	}
-	pub fn get_nc(&self) -> crate::core::NumericConstant{
+	pub fn get_nc(&self) -> crate::core::NumericConstant {
 		use BusWidth::*;
 		match self {
 			Evaluated(value) => value.clone(),
@@ -936,7 +936,7 @@ impl VariableKind {
 				match &gen.value {
 					None => (),
 					Some(val) => {
-						return Signal::new_from_constant(&val.get_nc(), SourceSpan::new_between(0,0))
+						return Signal::new_from_constant(&val.get_nc(), SourceSpan::new_between(0, 0));
 						//return Signal::new_from_constant(val, gen.kind.location());
 					},
 				}
