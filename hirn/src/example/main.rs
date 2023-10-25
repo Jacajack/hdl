@@ -2,7 +2,7 @@ extern crate hirn;
 use hirn::{
 	codegen::{sv::SVCodegen, Codegen},
 	design::{DesignHandle, Expression, SignalDirection},
-	HirnError,
+	HirnError, elab::{Elaborator, ElabAssumptions, ElabToplevelAssumptions},
 };
 
 fn main() -> Result<(), HirnError> {
@@ -66,6 +66,10 @@ fn main() -> Result<(), HirnError> {
 
 	let (mut loop_scope, iter) = m.scope().loop_scope("index", 0.into(), 10.into())?;
 	loop_scope.assign(m_bus.into(), iter.into())?;
+
+	let mut elab = hirn::elab::FullElaborator::new(d.clone());
+	let elab_report = elab.elaborate(m.id(), Box::new(ElabToplevelAssumptions::default()))?;
+	println!("{:?}", elab_report);
 
 	let mut source = String::new();
 	let mut cg = SVCodegen::new(d.clone(), &mut source);
