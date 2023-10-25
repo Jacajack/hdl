@@ -16,7 +16,6 @@ impl EvaluatesType for NumericConstant {
 impl EvaluatesType for SignalId {
 	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
 		if let Some(design) = ctx.design() {
-			let design = design.borrow();
 			let signal = design.get_signal(*self).expect("Evaluated signal must be in design");
 			Ok(EvalType {
 				signedness: signal.signedness(),

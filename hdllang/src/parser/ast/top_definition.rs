@@ -1,6 +1,6 @@
 mod pretty_printable;
 
-use hirn::design::Design;
+use hirn::design::DesignHandle;
 use log::info;
 
 use crate::analyzer::{AlreadyCreated, ModuleDeclared, ModuleImplementationScope, SemanticError, Variable};
@@ -194,7 +194,7 @@ pub struct ModuleDeclaration {
 impl ModuleDeclaration {
 	pub fn analyze(
 		&self,
-		design_handle: &mut Design,
+		design_handle: &mut DesignHandle,
 		id_table: &IdTable,
 		nc_table: &crate::lexer::NumericConstantTable,
 		modules_declared: &mut HashMap<IdTableKey, ModuleDeclared>,

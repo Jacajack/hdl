@@ -4,7 +4,7 @@ use super::SVCodegen;
 use crate::{
 	codegen::CodegenError,
 	design::{
-		BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, Design, DesignHandle,
+		BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, DesignHandle,
 		EvalContext, Evaluates, EvaluatesType, Expression, HasSensitivity, HasSignedness, NumericConstant, SignalClass,
 		SignalId, SignalSensitivity, SignalSignedness, SignalSlice, UnaryExpression, UnaryOp, WidthExpression,
 	},
@@ -44,17 +44,17 @@ impl HasSignedness for IntermediateSignal {
 	}
 }
 
-pub(super) struct SVExpressionCodegen<'a> {
-	design: &'a Design,
+pub(super) struct SVExpressionCodegen {
+	design: DesignHandle,
 	tmp_counter: u32,
 	width_casts: Vec<bool>,
 	intermediates: Vec<IntermediateSignal>,
 	signal_substitutions: Option<HashMap<SignalId, String>>, // FIXME we don't want to copy that each time
 }
 
-impl<'a> SVExpressionCodegen<'a> {
+impl SVExpressionCodegen {
 	pub fn new(
-		design: &'a Design,
+		design: DesignHandle,
 		width_casts: bool,
 		tmp_counter_start: u32,
 		signal_subs: Option<HashMap<SignalId, String>>,
@@ -258,7 +258,7 @@ impl<'a> SVExpressionCodegen<'a> {
 			LogicalOr => "||",
 			Max | Min => unreachable!("Max and Min should be handled separately"),
 			ShiftLeft | ShiftRight => {
-				let eval_ctx = EvalContext::without_assumptions(self.design.handle());
+				let eval_ctx = EvalContext::without_assumptions(self.design.clone());
 				let lhs_type = expr.lhs.eval_type(&eval_ctx)?;
 				let arith_shift = lhs_type.is_signed();
 				match (arith_shift, expr.op) {
@@ -304,7 +304,7 @@ impl<'a> SVExpressionCodegen<'a> {
 	}
 
 	fn new_intermediate(&mut self, expr: &Expression) -> Result<String, CodegenError> {
-		let eval_ctx = EvalContext::without_assumptions(self.design.handle());
+		let eval_ctx = EvalContext::without_assumptions(self.design.clone());
 		let lhs_type = expr.eval_type(&eval_ctx)?;
 		let name = format!("hirn_tmp_{}$", self.tmp_counter);
 		self.intermediates.push(IntermediateSignal {

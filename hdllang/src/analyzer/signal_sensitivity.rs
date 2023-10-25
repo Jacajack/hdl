@@ -238,7 +238,7 @@ mod tests {
 			nc_table,
 			modules_declared: HashMap::new(),
 			generic_modules: HashMap::new(),
-			design: hirn::design::Design::new(),
+			design: hirn::design::DesignHandle::new(),
 		}
 	}
 	fn span() -> SourceSpan {
