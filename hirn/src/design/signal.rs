@@ -426,6 +426,9 @@ pub struct SignalBuilder {
 
 	/// Source code comment
 	comment: Option<String>,
+
+	/// Is signal generated (intermediate/temporary)
+	is_generated: bool,
 }
 
 impl SignalBuilder {
@@ -441,6 +444,7 @@ impl SignalBuilder {
 			comb_clocking: None,
 			sync_clocking: None,
 			comment: None,
+			is_generated: false,
 		}
 	}
 
@@ -546,6 +550,13 @@ impl SignalBuilder {
 		self
 	}
 
+	/// Marks signal as 'generated' so a special suffix can be
+	/// added at codegen stage
+	pub fn generated(mut self) -> Self {
+		self.is_generated = true;
+		self
+	}
+
 	fn validate(&self) -> Result<(), DesignError> {
 		let scope;
 		{
@@ -610,11 +621,17 @@ impl SignalBuilder {
 		// Ensure that class is specified
 		self.class.as_ref().ok_or(DesignError::SignalClassNotSpecified)?;
 
+		// Effective signal name
+		let name = match self.is_generated {
+			true => format!("{}_gen$", self.name),
+			false => self.name.clone(),
+		};
+
 		self.validate()?;
 		self.design.borrow_mut().add_signal(Signal::new(
 			SignalId { id: 0 },
 			self.scope,
-			&self.name,
+			&name,
 			self.dimensions,
 			self.class.expect("Class must be specified"),
 			sensitivity,

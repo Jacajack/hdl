@@ -79,7 +79,7 @@ impl ScopeId {
 /// Refferred to via multiple handles with reference
 /// counting.
 pub struct DesignCore {
-	weak: WeakDesignHandle,
+	weak: Weak<RefCell<DesignCore>>,
 	modules: Vec<Module>,
 	scopes: Vec<Scope>,
 	signals: Vec<Signal>,
@@ -95,7 +95,7 @@ impl DesignCore {
 	/// Creates a new empty design
 	pub fn new() -> Self {
 		Self {
-			weak: WeakDesignHandle::new(),
+			weak: Weak::<RefCell<DesignCore>>::new(),
 			modules: Vec::new(),
 			scopes: Vec::new(),
 			signals: Vec::new(),
@@ -106,6 +106,10 @@ impl DesignCore {
 			scope_scopes: HashMap::new(),
 			module_scopes: HashMap::new(),
 		}
+	}
+
+	fn get_handle(&self) -> DesignHandle {
+		self.weak.upgrade().unwrap().into()
 	}
 
 	/// Creates a new scope and adds it to the design
@@ -124,7 +128,7 @@ impl DesignCore {
 				.push(id);
 		}
 
-		Ok(ScopeHandle::new(self.weak.upgrade().unwrap(), id))
+		Ok(ScopeHandle::new(self.get_handle(), id))
 	}
 
 	/// Adds an existing signal to the design
@@ -183,7 +187,7 @@ impl DesignCore {
 		}
 
 		self.modules.push(m);
-		Ok(ModuleHandle::new(self.weak.upgrade().unwrap(), ModuleId { id }))
+		Ok(ModuleHandle::new(self.get_handle(), ModuleId { id }))
 	}
 
 	/// Returns a mutable reference to the signal with the given ID
@@ -198,7 +202,7 @@ impl DesignCore {
 
 	/// Returns a handle to the scope with the given ID
 	fn get_scope_handle(&self, scope: ScopeId) -> Option<ScopeHandle> {
-		Some(ScopeHandle::new(self.weak.upgrade()?, scope))
+		Some(ScopeHandle::new(self.get_handle(), scope))
 	}
 
 	/// Returns a mutable reference to the module with the given ID
@@ -213,7 +217,7 @@ impl DesignCore {
 
 	/// Returns a handle to the module with the given ID
 	fn get_module_handle(&self, module: ModuleId) -> Option<ModuleHandle> {
-		Some(ModuleHandle::new(self.weak.upgrade()?, module))
+		Some(ModuleHandle::new(self.get_handle(), module))
 	}
 
 	/// Returns a reference to the signal with the given ID
@@ -240,18 +244,13 @@ impl DesignCore {
 	}
 }
 
-/// Weak reference to a design
-pub type WeakDesignHandle = Weak<RefCell<DesignCore>>;
-
-/// Strong reference to a design
-pub type DesignHandle = Rc<RefCell<DesignCore>>;
-
 /// Represents a hardware design
-pub struct Design {
-	handle: DesignHandle,
+#[derive(Clone)]
+pub struct DesignHandle {
+	handle: Rc<RefCell<DesignCore>>,
 }
 
-impl Design {
+impl DesignHandle {
 	/// Creates a new HIRN design
 	pub fn new() -> Self {
 		let d = Self {
@@ -262,23 +261,12 @@ impl Design {
 		d
 	}
 
-	/// Creates a HIRN design from DesignHandle
-	/// TODO I wonder whether the distinction between Design and DesignHandle
-	/// makes sense at this point
-	pub fn from_handle(handle: DesignHandle) -> Self {
-		Self { handle }
-	}
-
-	fn borrow_mut(&mut self) -> std::cell::RefMut<DesignCore> {
+	fn borrow_mut(&self) -> std::cell::RefMut<DesignCore> {
 		self.handle.borrow_mut()
 	}
 
 	fn borrow(&self) -> std::cell::Ref<DesignCore> {
 		self.handle.borrow()
-	}
-
-	pub fn handle(&self) -> DesignHandle {
-		self.handle.clone()
 	}
 
 	/// Creates a new module with provided name and returns a handle to it
@@ -296,6 +284,12 @@ impl Design {
 
 	pub fn get_signal(&self, signal: SignalId) -> Option<Signal> {
 		self.handle.borrow().get_signal(signal).cloned()
+	}
+}
+
+impl From<Rc<RefCell<DesignCore>>> for DesignHandle {
+	fn from(handle: Rc<RefCell<DesignCore>>) -> Self {
+		Self { handle }
 	}
 }
 
@@ -398,7 +392,7 @@ mod test {
 	#[test]
 	pub fn design_basic_test() -> Result<(), DesignError> {
 		// init();
-		let mut d = Design::new();
+		let mut d = DesignHandle::new();
 		let m = d.new_module("test")?;
 
 		let sig = m
@@ -461,7 +455,7 @@ mod test {
 	/// Verifies if the design correctly detects signal name conflicts
 	#[test]
 	fn test_unique_signal_names() -> Result<(), DesignError> {
-		let mut d = Design::new();
+		let mut d = DesignHandle::new();
 		let m = d.new_module("test")?;
 
 		let _sig = m
@@ -485,7 +479,7 @@ mod test {
 	/// Verifies if the design enforces unique module names
 	#[test]
 	fn test_unique_module_names() -> Result<(), DesignError> {
-		let mut d = Design::new();
+		let mut d = DesignHandle::new();
 		let _m = d.new_module("name")?;
 		let m2 = d.new_module("name");
 
@@ -496,7 +490,7 @@ mod test {
 	/// Verify module naming rules
 	#[test]
 	fn test_module_naming_rules() -> Result<(), DesignError> {
-		let mut d = Design::new();
+		let mut d = DesignHandle::new();
 		assert!(matches!(d.new_module("asdf"), Ok(..)));
 		assert!(matches!(d.new_module("_asdf1131"), Ok(..)));
 		assert!(matches!(d.new_module("_asd_____f1131fafa_222"), Ok(..)));
@@ -516,7 +510,7 @@ mod test {
 	/// Test register creation
 	#[test]
 	fn test_register() -> Result<(), DesignError> {
-		let mut d = Design::new();
+		let mut d = DesignHandle::new();
 		let m = d.new_module("foo")?;
 
 		let clk = m
@@ -570,7 +564,7 @@ mod test {
 	/// Test module interface binding
 	#[test]
 	fn test_interfaces() -> Result<(), DesignError> {
-		let mut d = Design::new();
+		let mut d = DesignHandle::new();
 		let mut m = d.new_module("foo")?;
 		let m_clk = m.scope().new_signal("clk")?.clock().wire().build()?;
 
@@ -591,7 +585,7 @@ mod test {
 	/// Test invalid module interface binding async->clk
 	#[test]
 	fn test_bad_interface_binding() -> Result<(), DesignError> {
-		let mut d = Design::new();
+		let mut d = DesignHandle::new();
 		let mut m = d.new_module("foo")?;
 		let m_clk = m.scope().new_signal("clk")?.clock().wire().build()?;
 
@@ -612,7 +606,7 @@ mod test {
 
 	#[test]
 	fn signal_add_eval_test() -> Result<(), DesignError> {
-		let mut d = Design::new();
+		let mut d = DesignHandle::new();
 		let m = d.new_module("test")?;
 
 		let a = m.scope().new_signal("a")?.unsigned(8u32.into()).constant().build()?;
@@ -621,7 +615,7 @@ mod test {
 
 		let expr = Expression::from(a) + b.into();
 
-		let mut ctx = EvalContext::without_assumptions(d.handle());
+		let mut ctx = EvalContext::without_assumptions(d);
 		ctx.assume(a, 14u32.into())?;
 		ctx.assume(b, 16u32.into())?;
 
@@ -633,7 +627,7 @@ mod test {
 
 	#[test]
 	fn signal_array_eval_test() -> Result<(), DesignError> {
-		let mut d = Design::new();
+		let mut d = DesignHandle::new();
 		let m = d.new_module("test")?;
 
 		let a = m
@@ -644,7 +638,7 @@ mod test {
 			.array(4u32.into())?
 			.build()?;
 
-		let mut ctx = EvalContext::without_assumptions(d.handle());
+		let mut ctx = EvalContext::without_assumptions(d);
 		ctx.assume_array(a, vec![0], 1.into())?;
 		ctx.assume_array(a, vec![1], 2.into())?;
 		ctx.assume_array(a, vec![2], 15.into())?;

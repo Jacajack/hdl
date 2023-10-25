@@ -1,5 +1,5 @@
 use super::{
-	Design, DesignCore, DesignError, DesignHandle, HasComment, HasSensitivity, ModuleId, ScopeHandle, ScopeId, SignalId,
+	DesignCore, DesignError, DesignHandle, HasComment, HasSensitivity, ModuleId, ScopeHandle, ScopeId, SignalId,
 };
 
 /// Specifies direction for signals in module interface

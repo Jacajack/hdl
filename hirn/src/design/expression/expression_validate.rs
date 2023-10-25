@@ -320,8 +320,7 @@ impl ConditionalExpression {
 
 fn shallow_validate_slice(slice: &SignalSlice, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), EvalError> {
 	let design_handle = scope.design();
-	let design = design_handle.borrow();
-	let signal = design.get_signal(slice.signal).expect("Signal not in design");
+	let signal = design_handle.get_signal(slice.signal).expect("Signal not in design");
 
 	// Validate rank
 	if signal.rank() != slice.indices.len() {
@@ -392,11 +391,11 @@ impl Expression {
 #[cfg(test)]
 mod test {
 	use super::*;
-	use crate::design::{Design, DesignError};
+	use crate::design::{DesignHandle, DesignError};
 
 	#[test]
 	fn basic_scope_rule_test() -> Result<(), DesignError> {
-		let mut d = Design::new();
+		let mut d = DesignHandle::new();
 		let m1 = d.new_module("m1")?;
 		let m2 = d.new_module("m2")?;
 
@@ -412,7 +411,7 @@ mod test {
 
 	#[test]
 	fn shadowing_test() -> Result<(), DesignError> {
-		let mut d = Design::new();
+		let mut d = DesignHandle::new();
 		let m1 = d.new_module("m1")?;
 
 		let sig_outer_foo = m1.scope().new_signal("foo")?.generic().unsigned(16u32.into()).build()?;
@@ -447,7 +446,7 @@ mod test {
 
 	#[test]
 	fn static_bad_index_check() -> Result<(), DesignError> {
-		let mut d = Design::new();
+		let mut d = DesignHandle::new();
 		let m1 = d.new_module("m1")?;
 
 		let sig_foo = m1

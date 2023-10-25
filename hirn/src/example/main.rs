@@ -1,12 +1,12 @@
 extern crate hirn;
 use hirn::{
 	codegen::{sv::SVCodegen, Codegen},
-	design::{Design, Expression, SignalDirection},
+	design::{DesignHandle, Expression, SignalDirection},
 	HirnError, elab::{Elaborator, ElabAssumptions, ElabToplevelAssumptions},
 };
 
 fn main() -> Result<(), HirnError> {
-	let mut d = Design::new();
+	let mut d = DesignHandle::new();
 
 	let mut m_internal = d.new_module("inner_module").unwrap();
 	let internal_clk = m_internal.scope().new_signal("clk")?.clock().wire().build()?;
@@ -71,7 +71,7 @@ fn main() -> Result<(), HirnError> {
 	let elab_report = elab.elaborate(m.id(), Box::new(ElabToplevelAssumptions::default()));
 
 	let mut source = String::new();
-	let mut cg = SVCodegen::new(&d, &mut source);
+	let mut cg = SVCodegen::new(d.clone(), &mut source);
 	cg.emit_module(m_internal.id())?;
 	cg.emit_module(m.id())?;
 
