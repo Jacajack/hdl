@@ -1340,7 +1340,7 @@ impl Expression {
 				let width = coupling_type.width();
 				let key = &num.key;
 				let mut constant = global_ctx.nc_table.get_by_key(key).unwrap().clone();
-				let sig = Signal::new_from_constant(&constant, num.location);
+				let mut sig = Signal::new_from_constant(&constant, num.location);
 				match (width, sig.width()) {
 					(None, None) => {
 						return Err(miette::Report::new(
@@ -1355,6 +1355,7 @@ impl Expression {
 					(Some(val), None) => {
 						debug!("Setting width of {:?} in local_ctx", constant);
 						constant.width = val.get_value().unwrap().to_u32();
+						sig.set_width(BusWidth::Evaluated(NumericConstant::from_u64(constant.width.unwrap() as u64, None, None, None)), sig.get_signedness(), location);
 						local_ctx.nc_widths.insert(self.get_location(), constant);
 					},
 					(Some(coming), Some(original)) => {
@@ -2277,14 +2278,25 @@ impl Expression {
 							.build(),
 					));
 				}
-				let type_second = binop.rhs.evaluate_type(
-					global_ctx,
-					scope_id,
-					local_ctx,
-					Signal::new_empty(),
-					is_lhs,
-					binop.location,
-				)?;
+				debug!("type_first: {:?}", type_first);
+				let type_second = match binop.code.is_relational(){
+						true => binop.rhs.evaluate_type(
+							global_ctx,
+							scope_id,
+							local_ctx,
+							type_first.clone(),
+							is_lhs,
+							binop.location,
+						)?,
+						false =>	binop.rhs.evaluate_type(
+							global_ctx,
+							scope_id,
+							local_ctx,
+							Signal::new_empty(),
+							is_lhs,
+							binop.location,
+						)?
+					};
 				if !type_second.is_width_specified() {
 					return Err(miette::Report::new(
 						SemanticError::WidthNotKnown
