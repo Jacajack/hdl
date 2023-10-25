@@ -1,0 +1,92 @@
+module stupid_multiply {
+	input clock clk;
+	input async nreset;
+	input comb(clk) {
+		wire input_valid;
+		wire output_ready;
+		unsigned bus<8> a;
+		unsigned bus<8> b;
+	}
+
+	output sync(clk) {
+		wire output_valid;
+		wire input_ready;
+		unsigned bus<16> c;
+	}
+}
+
+
+impl stupid_multiply {
+	/// Indicates input transactions
+	wire input_transaction_c = input_valid && input_ready;
+
+	/// Indicates output transactions
+	wire output_transaction_c = output_valid && output_ready;
+
+	/// Internal FSM states
+	auto
+		STATE_IDLE = 0u2,
+		STATE_INIT = 1u2,
+		STATE_BUSY = 2u2,
+		STATE_DONE = 3u2;
+
+	unsigned sync(clk) bus<2> state;
+	unsigned sync(clk) bus<8> a_reg, b_reg, countdown;
+
+	/// Internal FSM
+	register fsm_reg {
+		clk, nreset,
+		en: true,
+		data: state,
+		next: match (state) {
+			STATE_IDLE => input_transaction_c ? STATE_INIT : STATE_IDLE,
+			STATE_INIT => (a_reg == 0u8 || b_reg == 0u8) ? STATE_DONE: STATE_BUSY,
+			STATE_BUSY => countdown == 0u8 ? STATE_DONE : STATE_BUSY, // TODO does it really have to be 0u8?
+			STATE_DONE => output_transaction_c ? STATE_IDLE : STATE_DONE,
+			default => STATE_IDLE, // unreachable
+		},
+	};
+
+	// Input ready/output valid are driven from FSM
+	input_ready = state == STATE_IDLE;
+	output_valid = state == STATE_DONE;
+
+	/// Stores the unchanged value of a
+	register a_latch {
+		clk, nreset,
+		en: input_transaction_c,
+		next: a,
+		data: a_reg,
+	}
+
+	/// Stores the unchanged value of b
+	register b_latch {
+		clk, nreset,
+		en: input_transaction_c,
+		next: b,
+		data: b_reg,
+	}
+
+	// Note: we preload this register width b-1 because 
+	// the accumulator is still updated when countdown == 0,
+	// because only then FSM goes from BUSY to DONE.
+	register countdown_reg {
+		clk, nreset,
+		en: state == STATE_INIT || state == STATE_BUSY,
+		data: countdown,
+		next: match (state) {
+			STATE_INIT => (b_reg - 1u1)[0:7], // TODO trunc()
+			default => (countdown - 1u1)[0:7], // TODO trunc()
+		}
+	}
+
+	register accumulator {
+		clk, nreset,
+		en: state == STATE_INIT || state == STATE_BUSY,
+		data: c,
+		next: match (state) {
+			STATE_INIT => 0u16,
+			default => (c + a_reg)[0:15], // TODO trunc()
+		}
+	}
+}
