@@ -1,8 +1,32 @@
+use std::fmt::Display;
+
 use thiserror::Error;
 
 use crate::design::{ModuleId, SignalId};
 
 use super::ElabAssumptionsBase;
+
+pub trait SeverityPolicy {
+	fn severity(&self, kind: &ElabMessageKind) -> ElabMessageSeverity;
+}
+
+pub struct DefaultSeverityPolicy;
+
+impl SeverityPolicy for DefaultSeverityPolicy {
+	fn severity(&self, kind: &ElabMessageKind) -> ElabMessageSeverity {
+		use ElabMessageKind::*;
+		use ElabMessageSeverity::*;
+		match kind {
+			SignalUnused(_) => ElabMessageSeverity::Warning,
+			SignalPartiallyUnused => ElabMessageSeverity::Warning,
+			SignalNotDriven(_) => Error,
+			SignalPartiallyDriven => Error,
+			CombLoop => Error,
+			WidthMismatch => Error,
+			Notice(_) => Info,
+		}
+	}
+}
 
 #[derive(Clone, Debug, Default)]
 pub struct ElabReport {
@@ -12,6 +36,10 @@ pub struct ElabReport {
 impl ElabReport {
 	pub fn extend(&mut self, other: &ElabReport) {
 		self.messages.extend(other.messages.clone());
+	}
+
+	pub fn add_message(&mut self, msg: ElabMessage) {
+		self.messages.push(msg);
 	}
 
 	pub fn messages(&self) -> &[ElabMessage] {
@@ -28,6 +56,24 @@ pub struct ElabMessage {
 }
 
 impl ElabMessage {
+	pub fn new(
+		kind: ElabMessageKind,
+		module: ModuleId,
+		assumptions: Box<dyn ElabAssumptionsBase>,
+		policy: Option<&dyn SeverityPolicy>,
+	) -> Self {
+		let severity = 
+			policy.unwrap_or(&DefaultSeverityPolicy)
+			.severity(&kind);
+
+		Self {
+			severity,
+			kind,
+			module,
+			assumptions,
+		}
+	}
+
 	pub fn kind(&self) -> &ElabMessageKind {
 		&self.kind
 	}
@@ -42,6 +88,12 @@ impl ElabMessage {
 
 	pub fn assumptions(&self) -> &dyn ElabAssumptionsBase {
 		&*self.assumptions
+	}
+}
+
+impl Display for ElabMessage {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "{:?}: {}", self.severity(), self.kind())
 	}
 }
 
@@ -71,4 +123,7 @@ pub enum ElabMessageKind {
 
 	#[error("Assignment/binding of signals with different widths")]
 	WidthMismatch,
+
+	#[error("Notice for the user")]
+	Notice(String),
 }

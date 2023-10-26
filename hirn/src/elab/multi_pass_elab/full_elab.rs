@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
 
 use crate::{
 	design::{DesignHandle, ModuleId},
-	elab::{ElabAssumptionsBase, ElabError, ElabReport, Elaborator},
+	elab::{ElabAssumptionsBase, ElabError, ElabReport, Elaborator, ElabMessage, ElabMessageKind, SeverityPolicy, DefaultSeverityPolicy},
 };
 
 use super::{test_pass::TestPass, ElabPassContext, ElabQueueItem, MultiPassElaborator};
@@ -13,11 +13,22 @@ pub(super) struct FullElabCtx {
 	report: ElabReport,
 	queued: Vec<ElabQueueItem>,
 	assumptions: Box<dyn ElabAssumptionsBase>,
+	severity_policy: Box<dyn SeverityPolicy>,
+}
+
+impl FullElabCtx {
+	pub(super) fn add_message(&mut self, kind: ElabMessageKind) {
+		self.report.add_message(ElabMessage::new(
+			kind,
+			self.module_id,
+			self.assumptions.clone(),
+			Some(&*self.severity_policy),
+		));
+	}
 }
 
 #[derive(Default)]
 pub(super) struct FullElabCache {}
-
 pub(super) type FullElabCacheHandle = Arc<Mutex<FullElabCache>>;
 
 impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
@@ -33,6 +44,7 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 			assumptions,
 			queued: Vec::new(),
 			report: ElabReport::default(),
+			severity_policy: Box::new(DefaultSeverityPolicy),
 		}
 	}
 

@@ -1,6 +1,6 @@
 use super::{AlreadyCreated, ModuleDeclared, RegisterInstance, SemanticError, Variable, VariableKind};
-use hirn::design::{ScopeHandle, UnaryExpression};
-use log::{debug, info};
+use hirn::{design::{ScopeHandle, UnaryExpression}, elab::{FullElaborator, Elaborator, ElabAssumptions, ElabToplevelAssumptions}};
+use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::io::Write;
 
@@ -167,24 +167,31 @@ impl<'a> SemanticalAnalyzer<'a> {
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
-			todo!("Invoke elaboration");
+			
+			let module_id = self.ctx
+				.modules_declared
+				.get_mut(&local_ctx.module_id)
+				.unwrap()
+				.handle
+				.id();
+
+			let mut elab = FullElaborator::new(self.ctx.design.clone());
+			let elab_report = elab.elaborate(module_id, Box::new(ElabToplevelAssumptions::default())).expect("HIRN elab error");
+			for msg in elab_report.messages() {
+				warn!("Elab {}", msg);
+			}
+
 			let mut output_string = String::new();
-			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design, &mut output_string);
+			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
 			use hirn::codegen::Codegen;
 			sv_codegen
-				.emit_module(
-					self.ctx
-						.modules_declared
-						.get_mut(&local_ctx.module_id)
-						.unwrap()
-						.handle
-						.id(),
-				)
+				.emit_module(module_id)
 				.unwrap();
 			write!(output, "{}", output_string).unwrap();
 		}
 		Ok(())
 	}
+
 	pub fn compile(&mut self, output: &mut dyn Write) -> miette::Result<()> {
 		self.passes.push(first_pass);
 		self.passes.push(second_pass);

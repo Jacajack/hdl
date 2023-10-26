@@ -330,7 +330,7 @@ fn main() -> miette::Result<()> {
 		.get_matches();
 
 	let mut mode = match matches.get_one::<String>("MODE") {
-		None => "compile",
+		None => "elaborate",
 		Some(x) => x,
 	};
 	match matches.get_one::<bool>("clean") {
