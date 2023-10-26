@@ -1,8 +1,8 @@
 ---
 name: Codegen feature
 about: A new feature to be added to the codegen
-title: "<TITLE>"
-labels: enhancement codegen
+title: "Codegen feature"
+labels: [enhancement, codegen]
 assignees: [jacajack]
 
 ---

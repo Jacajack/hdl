@@ -1,8 +1,8 @@
 ---
 name: Elaboration feature
 about: A new feature to be added to the HIRN elaboration logic
-title: "<TITLE>"
-labels: enhancement elaboration hirn
+title: "Elaboration feature"
+labels: [enhancement, elaboration, hirn]
 assignees: [jacajack]
 
 ---
