@@ -1,6 +1,6 @@
 module fancy_counter{
-	input clock clk;
 	input {
+		clock clk;
 		async nreset;
 		comb(clk) en;
 	}

@@ -1,12 +1,14 @@
 module stupid_multiply {
-	input clock clk;
-	input async nreset;
-	input comb(clk) {
-		wire input_valid;
-		wire output_ready;
-		unsigned bus<8> a;
-		unsigned bus<8> b;
-	}
+	input{
+		clock clk;
+		async nreset;
+		comb(clk) {
+			wire input_valid;
+			wire output_ready;
+			unsigned bus<8> a;
+			unsigned bus<8> b;
+		}
+	} 
 
 	output sync(clk) {
 		wire output_valid;
