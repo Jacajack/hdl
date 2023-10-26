@@ -22,13 +22,12 @@ module div_cell {
 }
 
 impl div_cell {
-	async wire fa_out;
 	full_adder u_fa{
 		a,
 		b: !b,
 		cin,
 		cout,
-		q: fa_out // FIXME it was 'auto fa_out'
+		q: async fa_out // FIXME it was 'auto fa_out'
 	};
 
 	r = s ? fa_out : a;
