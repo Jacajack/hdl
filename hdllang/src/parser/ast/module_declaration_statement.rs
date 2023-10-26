@@ -1,5 +1,7 @@
 mod pretty_printable;
 
+use hirn::design::ModuleHandle;
+
 use crate::analyzer::module_implementation_scope::EvaluatedEntry;
 use crate::analyzer::*;
 use crate::lexer::CommentTableKey;
@@ -24,7 +26,8 @@ impl VariableDeclarationStatement {
 		nc_table: &NumericConstantTable,
 		id_table: &IdTable,
 		scope: &mut ModuleImplementationScope,
-	) -> miette::Result<Vec<Variable>> {
+		handle: &mut ModuleHandle,
+	) -> miette::Result<()> {
 		let mut kind =
 			VariableKind::from_type_declarator(&self.type_declarator, 0, already_created, nc_table, id_table, scope)?;
 		match &mut kind {
@@ -112,7 +115,10 @@ impl VariableDeclarationStatement {
 				kind: spec_kind,
 			});
 		}
-		Ok(variables)
+		for var in &variables {
+			scope.declare_variable(var.clone(), nc_table, id_table, handle)?;
+		}
+		Ok(())
 	}
 }
 impl VariableKind {
@@ -423,7 +429,8 @@ impl ModuleDeclarationVariableBlock {
 		nc_table: &NumericConstantTable,
 		id_table: &IdTable,
 		declaration_scope: &mut ModuleImplementationScope,
-	) -> miette::Result<Vec<Variable>> {
+		handle: &mut ModuleHandle,
+	) -> miette::Result<()> {
 		already_created = analyze_qualifiers(
 			&self.types,
 			already_created,
@@ -431,16 +438,16 @@ impl ModuleDeclarationVariableBlock {
 			0, /*FIXME */
 			id_table,
 		)?;
-		let mut variables = Vec::new();
 		for statement in &self.statements {
-			variables.append(&mut statement.create_variable_declaration(
+			statement.create_variable_declaration(
 				already_created.clone(),
 				nc_table,
 				id_table,
 				declaration_scope,
-			)?);
+				handle,
+			)?;
 		}
-		Ok(variables)
+		Ok(())
 	}
 }
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
@@ -456,13 +463,14 @@ impl ModuleDeclarationStatement {
 		nc_table: &NumericConstantTable,
 		id_table: &IdTable,
 		scope: &mut ModuleImplementationScope,
-	) -> miette::Result<Vec<Variable>> {
+		handle: &mut ModuleHandle,
+	) -> miette::Result<()> {
 		use ModuleDeclarationStatement::*;
 		match self {
 			VariableDeclarationStatement(declaration) => {
-				declaration.create_variable_declaration(already_created, nc_table, id_table, scope)
+				declaration.create_variable_declaration(already_created, nc_table, id_table, scope, handle)
 			},
-			VariableBlock(block) => block.create_variable_declaration(already_created, nc_table, id_table, scope),
+			VariableBlock(block) => block.create_variable_declaration(already_created, nc_table, id_table, scope, handle),
 		}
 	}
 }
