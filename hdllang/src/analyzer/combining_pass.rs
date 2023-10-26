@@ -1035,7 +1035,7 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&clk_var.name).unwrap().as_str())
-									.unwrap(),
+									.unwrap().generated(),
 							)?;
 							let next_id = next_var.register(
 								ctx.nc_table,
@@ -1045,7 +1045,7 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&next_var.name).unwrap().as_str())
-									.unwrap(),
+									.unwrap().generated(),
 							)?;
 							let enable_id = en_var.register(
 								ctx.nc_table,
@@ -1055,7 +1055,7 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&en_var.name).unwrap().as_str())
-									.unwrap(),
+									.unwrap().generated(),
 							)?;
 							let reset_id = nreset_var.register(
 								ctx.nc_table,
@@ -1065,7 +1065,7 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&nreset_var.name).unwrap().as_str())
-									.unwrap(),
+									.unwrap().generated(),
 							)?;
 							let data_id = data_var.register(
 								ctx.nc_table,
@@ -1075,7 +1075,7 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&data_var.name).unwrap().as_str())
-									.unwrap(),
+									.unwrap().generated(),
 							)?;
 							for stmt in &inst.port_bind {
 								let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
@@ -1228,7 +1228,7 @@ impl ModuleImplementationStatement {
 						Some(&local_ctx.nc_widths),
 						api_scope
 							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
-							.unwrap(),
+							.unwrap().generated(),
 					)?;
 					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
 					api_scope
