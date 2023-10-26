@@ -328,20 +328,23 @@ impl Signal {
 		class: SignalClass,
 		sensitivity: SignalSensitivity,
 		comment: Option<String>,
+		is_generated: bool,
 	) -> Result<Self, DesignError> {
 		// Check name valid
 		if !super::utils::is_name_valid(name) {
 			return Err(DesignError::InvalidName);
 		}
 
-		// TODO assert dimensions constant
-		// TODO assert clocking lists valid
-		// TODO assert class width valid if applicable
+		// Effective name
+		let name = match is_generated {
+			true => format!("{}_gen$", name),
+			false => name.into(),
+		};
 
 		Ok(Self {
 			id,
 			parent_scope: scope,
-			name: name.into(),
+			name,
 			dimensions,
 			class,
 			sensitivity,
@@ -621,21 +624,16 @@ impl SignalBuilder {
 		// Ensure that class is specified
 		self.class.as_ref().ok_or(DesignError::SignalClassNotSpecified)?;
 
-		// Effective signal name
-		let name = match self.is_generated {
-			true => format!("{}_gen$", self.name),
-			false => self.name.clone(),
-		};
-
 		self.validate()?;
 		self.design.borrow_mut().add_signal(Signal::new(
 			SignalId { id: 0 },
 			self.scope,
-			&name,
+			&self.name,
 			self.dimensions,
 			self.class.expect("Class must be specified"),
 			sensitivity,
 			self.comment,
+			self.is_generated,
 		)?)
 	}
 }
