@@ -92,13 +92,21 @@ impl PortBindStatement {
 					return Err(miette::Report::new(
 						crate::analyzer::InstanceError::ArgumentsMismatch
 							.to_diagnostic_builder()
-							.label(expr.location, "This expression must be a lvalue, because it is an output")
+							.label(
+								expr.location,
+								"This expression must be a lvalue, because it is an output",
+							)
 							.build(),
 					));
 				}
-				Ok(expr
-					.expression
-					.evaluate_type(ctx, scope_id, local_ctx, interface_signal, is_output, self.location())?)
+				Ok(expr.expression.evaluate_type(
+					ctx,
+					scope_id,
+					local_ctx,
+					interface_signal,
+					is_output,
+					self.location(),
+				)?)
 			},
 			IdWithDeclaration(id_decl) => {
 				log::debug!("Id with declaration");

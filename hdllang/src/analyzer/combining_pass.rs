@@ -1045,7 +1045,8 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&clk_var.name).unwrap().as_str())
-									.unwrap().generated(),
+									.unwrap()
+									.generated(),
 							)?;
 							let next_id = next_var.register(
 								ctx.nc_table,
@@ -1055,7 +1056,8 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&next_var.name).unwrap().as_str())
-									.unwrap().generated(),
+									.unwrap()
+									.generated(),
 							)?;
 							let enable_id = en_var.register(
 								ctx.nc_table,
@@ -1065,7 +1067,8 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&en_var.name).unwrap().as_str())
-									.unwrap().generated(),
+									.unwrap()
+									.generated(),
 							)?;
 							let reset_id = nreset_var.register(
 								ctx.nc_table,
@@ -1075,7 +1078,8 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&nreset_var.name).unwrap().as_str())
-									.unwrap().generated(),
+									.unwrap()
+									.generated(),
 							)?;
 							let data_id = data_var.register(
 								ctx.nc_table,
@@ -1085,7 +1089,8 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&data_var.name).unwrap().as_str())
-									.unwrap().generated(),
+									.unwrap()
+									.generated(),
 							)?;
 							for stmt in &inst.port_bind {
 								let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
@@ -1141,7 +1146,8 @@ impl ModuleImplementationStatement {
 					.get_variable(scope_id, &inst.instance_name)
 					.unwrap()
 					.var
-					.kind.clone();
+					.kind
+					.clone();
 				let m_inst = match module_instance {
 					VariableKind::ModuleInstance(m) => &m.kind,
 					_ => unreachable!(),
@@ -1230,7 +1236,8 @@ impl ModuleImplementationStatement {
 					let var = &local_ctx
 						.scope
 						.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap())
-						.var.clone();
+						.var
+						.clone();
 					let var_id: hirn::design::SignalId = var.register(
 						ctx.nc_table,
 						ctx.id_table,
@@ -1239,18 +1246,19 @@ impl ModuleImplementationStatement {
 						Some(&local_ctx.nc_widths),
 						api_scope
 							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
-							.unwrap().generated(),
+							.unwrap()
+							.generated(),
 					)?;
 					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
-					match interface_variable.var.kind.to_signal().direction{
-    				    crate::analyzer::Direction::Input(_) => api_scope
+					match interface_variable.var.kind.to_signal().direction {
+						crate::analyzer::Direction::Input(_) => api_scope
 							.assign(var_id.into(), rhs)
 							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
-    				    crate::analyzer::Direction::Output(_) =>api_scope
+						crate::analyzer::Direction::Output(_) => api_scope
 							.assign(rhs, var_id.into())
 							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
-    				    _=>unreachable!()
-    				}
+						_ => unreachable!(),
+					}
 					debug!("Assigned succesfuly");
 				}
 				builder
@@ -1641,7 +1649,9 @@ fn create_register(
 		};
 	}
 	use crate::parser::ast::PortBindStatement::*;
-	let clk_type = clk_stmt.unwrap().get_type(ctx, local_ctx, scope_id, Signal::new_empty(), false)?;
+	let clk_type = clk_stmt
+		.unwrap()
+		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), false)?;
 	debug!("Clk type is {:?}", clk_type);
 	if clk_type.is_array() {
 		return Err(miette::Report::new(
@@ -1668,7 +1678,9 @@ fn create_register(
 	let nreset_name = ctx.id_table.insert_or_get(format!("{}_nreset", inst_name).as_str());
 	let data_name = ctx.id_table.insert_or_get(format!("{}_out_r", inst_name).as_str());
 
-	let mut data_type = data_stmt.unwrap().get_type(ctx, local_ctx, scope_id, Signal::new_empty(), true)?;
+	let mut data_type = data_stmt
+		.unwrap()
+		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), true)?;
 	debug!("Data type is {:?}", data_type);
 	if data_type.is_array() {
 		return Err(miette::Report::new(
