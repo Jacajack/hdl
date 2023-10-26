@@ -142,7 +142,7 @@ impl PortBindStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &GlobalAnalyzerContext,
-		local_ctx: &LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContex,
 		api_scope: &mut ScopeHandle,
 		current_scope: usize,
 	) -> miette::Result<hirn::design::Expression> {
@@ -187,6 +187,7 @@ impl PortBindStatement {
 						.new_signal(ctx.id_table.get_by_key(&variable.var.name).unwrap().as_str())
 						.unwrap(),
 				)?;
+				local_ctx.scope.insert_api_id(variable.id, api_id.clone());
 				Ok(api_id.into())
 			},
 		}

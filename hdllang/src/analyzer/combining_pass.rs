@@ -1131,7 +1131,7 @@ impl ModuleImplementationStatement {
 					.get_variable(scope_id, &inst.instance_name)
 					.unwrap()
 					.var
-					.kind;
+					.kind.clone();
 				let m_inst = match module_instance {
 					VariableKind::ModuleInstance(m) => &m.kind,
 					_ => unreachable!(),
@@ -1219,7 +1219,7 @@ impl ModuleImplementationStatement {
 					let var = &local_ctx
 						.scope
 						.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap())
-						.var;
+						.var.clone();
 					let var_id: hirn::design::SignalId = var.register(
 						ctx.nc_table,
 						ctx.id_table,
