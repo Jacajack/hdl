@@ -223,7 +223,13 @@ impl ModuleDeclaration {
 			id_table.get_by_key(&self.id).unwrap()
 		);
 		for statement in &self.statements {
-			statement.create_variable_declaration(AlreadyCreated::new(), nc_table, id_table, &mut new_scope, &mut handle)?;
+			statement.create_variable_declaration(
+				AlreadyCreated::new(),
+				nc_table,
+				id_table,
+				&mut new_scope,
+				&mut handle,
+			)?;
 			if new_scope.is_generic() {
 				new_scope.transorm_to_generic();
 			}

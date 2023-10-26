@@ -470,7 +470,9 @@ impl ModuleDeclarationStatement {
 			VariableDeclarationStatement(declaration) => {
 				declaration.create_variable_declaration(already_created, nc_table, id_table, scope, handle)
 			},
-			VariableBlock(block) => block.create_variable_declaration(already_created, nc_table, id_table, scope, handle),
+			VariableBlock(block) => {
+				block.create_variable_declaration(already_created, nc_table, id_table, scope, handle)
+			},
 		}
 	}
 }
