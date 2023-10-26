@@ -27,7 +27,7 @@ impl div_cell {
 		b: !b,
 		cin,
 		cout,
-		q: async fa_out // FIXME it was 'auto fa_out'
+		q: auto fa_out
 	};
 
 	r = s ? fa_out : a;
