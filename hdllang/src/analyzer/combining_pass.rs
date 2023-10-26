@@ -771,7 +771,12 @@ impl ModuleImplementationStatement {
 					scope.redeclare_variable(interface_variable.clone());
 					debug!("Interface variable is {:?}", interface_variable.var.kind);
 					let clk_type = interface_variable.var.kind.to_signal();
-					let mut coming = stmt.get_type(ctx, local_ctx, scope_id, clk_type.clone())?;
+					let is_output = match clk_type.direction {
+						crate::analyzer::Direction::Input(_) => false,
+						crate::analyzer::Direction::Output(_) => true,
+						_ => unreachable!(),
+					};
+					let mut coming = stmt.get_type(ctx, local_ctx, scope_id, clk_type.clone(), is_output)?;
 					if let SignalSensitivity::Clock(_, Some(name)) = coming.sensitivity {
 						clock_mapping.insert(clk_type.get_clock_name(), name);
 						coming.evaluate_as_lhs(false, ctx, clk_type, stmt.location())?;
@@ -816,7 +821,12 @@ impl ModuleImplementationStatement {
 					let mut interface_signal = interface_variable.var.kind.to_signal();
 					interface_signal.translate_clocks(&clock_mapping);
 					debug!("Interface variable is {:?}", interface_variable.var.kind);
-					let mut var_type = stmt.get_type(ctx, local_ctx, scope_id, interface_signal.clone())?;
+					let is_output = match interface_signal.direction {
+						crate::analyzer::Direction::Input(_) => false,
+						crate::analyzer::Direction::Output(_) => true,
+						_ => unreachable!(),
+					};
+					let mut var_type = stmt.get_type(ctx, local_ctx, scope_id, interface_signal.clone(), is_output)?;
 					match &interface_signal.direction {
 						crate::analyzer::Direction::Input(_) => {
 							interface_signal
@@ -1207,6 +1217,7 @@ impl ModuleImplementationStatement {
 				}
 				debug!("Codegen for other variables");
 				for stmt in &inst.port_bind {
+					let interface_variable = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
 					let var = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
 					if var.var.is_clock() || var.var.kind.is_generic() {
 						continue;
@@ -1231,9 +1242,15 @@ impl ModuleImplementationStatement {
 							.unwrap().generated(),
 					)?;
 					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
-					api_scope
-						.assign(var_id.into(), rhs)
-						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
+					match interface_variable.var.kind.to_signal().direction{
+    				    crate::analyzer::Direction::Input(_) => api_scope
+							.assign(var_id.into(), rhs)
+							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
+    				    crate::analyzer::Direction::Output(_) =>api_scope
+							.assign(rhs, var_id.into())
+							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
+    				    _=>unreachable!()
+    				}
 					debug!("Assigned succesfuly");
 				}
 				builder
@@ -1624,35 +1641,7 @@ fn create_register(
 		};
 	}
 	use crate::parser::ast::PortBindStatement::*;
-	let clk_type = match clk_stmt.unwrap() {
-		OnlyId(id) => local_ctx
-			.scope
-			.get_var(scope_id, &id.id)
-			.map_err(|mut err| {
-				err.label(clk_stmt.unwrap().location(), "This variable was not declared")
-					.build()
-			})?
-			.var
-			.kind
-			.to_signal(),
-		IdWithExpression(expr) => expr.expression.evaluate_type(
-			ctx,
-			scope_id,
-			local_ctx,
-			Signal::new_empty(),
-			false,
-			clk_stmt.unwrap().location(),
-		)?,
-		IdWithDeclaration(id_decl) => VariableKind::from_type_declarator(
-			&id_decl.declaration.type_declarator,
-			scope_id,
-			AlreadyCreated::new(),
-			ctx.nc_table,
-			ctx.id_table,
-			&mut local_ctx.scope,
-		)?
-		.to_signal(),
-	};
+	let clk_type = clk_stmt.unwrap().get_type(ctx, local_ctx, scope_id, Signal::new_empty(), false)?;
 	debug!("Clk type is {:?}", clk_type);
 	if clk_type.is_array() {
 		return Err(miette::Report::new(
@@ -1679,35 +1668,7 @@ fn create_register(
 	let nreset_name = ctx.id_table.insert_or_get(format!("{}_nreset", inst_name).as_str());
 	let data_name = ctx.id_table.insert_or_get(format!("{}_out_r", inst_name).as_str());
 
-	let mut data_type = match data_stmt.unwrap() {
-		OnlyId(id) => {
-			let mut sig = local_ctx
-				.scope
-				.get_var(scope_id, &id.id)
-				.map_err(|mut err| {
-					err.label(next_stmt.unwrap().location(), "This variable was not declared")
-						.build()
-				})?
-				.var
-				.kind
-				.to_signal();
-			sig
-		},
-		IdWithExpression(expr) => {
-			if !expr.expression.is_lvalue() {
-				return report_not_allowed_lhs_binding(expr.expression.get_location());
-			}
-			expr.expression.evaluate_type(
-				ctx,
-				scope_id,
-				local_ctx,
-				Signal::new_empty(),
-				false,
-				data_stmt.unwrap().location(),
-			)?
-		},
-		IdWithDeclaration(_) => todo!(),
-	};
+	let mut data_type = data_stmt.unwrap().get_type(ctx, local_ctx, scope_id, Signal::new_empty(), true)?;
 	debug!("Data type is {:?}", data_type);
 	if data_type.is_array() {
 		return Err(miette::Report::new(
@@ -1842,10 +1803,10 @@ fn create_register(
 	};
 	let nreset_type = nreset_stmt
 		.unwrap()
-		.get_type(ctx, local_ctx, scope_id, Signal::new_empty())?;
+		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), false)?;
 	let en_type = en_stmt
 		.unwrap()
-		.get_type(ctx, local_ctx, scope_id, Signal::new_empty())?;
+		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), false)?;
 	if !en_type.sensitivity.is_not_worse_than(&clk_type.sensitivity) {
 		return Err(miette::Report::new(
 			InstanceError::ArgumentsMismatch

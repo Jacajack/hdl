@@ -11,5 +11,6 @@ pub use compiled_info::CompiledInfo;
 pub use module_declared::ModuleDeclared;
 pub use module_implementation_scope::ModuleImplementationScope;
 pub use semantic_error::SemanticError;
+pub use semantic_error::InstanceError;
 pub use signal_sensitivity::*;
 pub use variable::*;

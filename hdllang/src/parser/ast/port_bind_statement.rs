@@ -68,6 +68,7 @@ impl PortBindStatement {
 		local_ctx: &mut LocalAnalyzerContex,
 		scope_id: usize,
 		interface_signal: Signal,
+		is_output: bool,
 	) -> miette::Result<Signal> {
 		use PortBindStatement::*;
 		match self {
@@ -78,7 +79,7 @@ impl PortBindStatement {
 					.map_err(|mut err| err.label(self.location(), "This variable was not declared").build())?
 					.clone();
 				let mut sig = var.var.kind.to_signal();
-				sig.evaluate_as_lhs(false, ctx, interface_signal, self.location())?;
+				sig.evaluate_as_lhs(is_output, ctx, interface_signal, self.location())?;
 				if var.var.kind == crate::analyzer::VariableKind::Signal(sig.clone()) {
 					return Ok(sig);
 				}
@@ -87,9 +88,17 @@ impl PortBindStatement {
 				Ok(sig)
 			},
 			IdWithExpression(expr) => {
+				if is_output && !expr.expression.is_lvalue() {
+					return Err(miette::Report::new(
+						crate::analyzer::InstanceError::ArgumentsMismatch
+							.to_diagnostic_builder()
+							.label(expr.location, "This expression must be a lvalue, because it is an output")
+							.build(),
+					));
+				}
 				Ok(expr
 					.expression
-					.evaluate_type(ctx, scope_id, local_ctx, interface_signal, false, self.location())?)
+					.evaluate_type(ctx, scope_id, local_ctx, interface_signal, is_output, self.location())?)
 			},
 			IdWithDeclaration(id_decl) => {
 				log::debug!("Id with declaration");
@@ -123,7 +132,7 @@ impl PortBindStatement {
 				new_war.add_dimenstions(dimensions);
 				new_war.add_name_to_clock(direct_declarator.name);
 				let mut sig = new_war.to_signal();
-				sig.evaluate_as_lhs(false, &ctx, interface_signal, id_decl.location)?;
+				sig.evaluate_as_lhs(is_output, &ctx, interface_signal, id_decl.location)?;
 				new_war = crate::analyzer::VariableKind::Signal(sig.clone());
 				debug!("WRITING");
 				debug!("Scope: {:?}", scope_id);
