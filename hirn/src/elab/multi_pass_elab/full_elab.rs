@@ -5,7 +5,7 @@ use crate::{
 	elab::{ElabAssumptionsBase, ElabError, ElabReport, Elaborator, ElabMessage, ElabMessageKind, SeverityPolicy, DefaultSeverityPolicy},
 };
 
-use super::{test_pass::TestPass, ElabPassContext, ElabQueueItem, MultiPassElaborator};
+use super::{test_pass::TestPass, ElabPassContext, ElabQueueItem, MultiPassElaborator, generic_resolve::{GenericResolvePass, GenericResolvePassCtx}};
 
 pub(super) struct FullElabCtx {
 	design: DesignHandle,
@@ -14,6 +14,8 @@ pub(super) struct FullElabCtx {
 	queued: Vec<ElabQueueItem>,
 	assumptions: Box<dyn ElabAssumptionsBase>,
 	severity_policy: Box<dyn SeverityPolicy>,
+
+	pub(super) generic_resolve_ctx: Option<GenericResolvePassCtx>,
 }
 
 impl FullElabCtx {
@@ -45,6 +47,7 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 			queued: Vec::new(),
 			report: ElabReport::default(),
 			severity_policy: Box::new(DefaultSeverityPolicy),
+			generic_resolve_ctx: None,
 		}
 	}
 
@@ -67,6 +70,7 @@ impl FullElaborator {
 	pub fn new(design: DesignHandle) -> Self {
 		let mut elaborator = MultiPassElaborator::new(design);
 		elaborator.add_pass(Box::new(TestPass {}));
+		elaborator.add_pass(Box::new(GenericResolvePass {}));
 		Self { elaborator }
 	}
 }
