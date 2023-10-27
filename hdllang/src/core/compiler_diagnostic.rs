@@ -52,13 +52,13 @@ impl CompilerDiagnosticBuilder {
 	}
 
 	/// Moves all attached labels by the specified offset
-	pub fn shift_labels(&mut self, offset: usize) -> &mut Self {
+	pub fn shift_labels(mut self, offset: usize) -> Self {
 		self.diag.as_mut().unwrap().shift_labels(offset);
 		self
 	}
 
 	/// Adds a source code label
-	pub fn label(&mut self, span: SourceSpan, msg: &str) -> &mut Self {
+	pub fn label(mut self, span: SourceSpan, msg: &str) -> Self {
 		self.diag.as_mut().unwrap().add_label(span, msg);
 		self
 	}
@@ -70,7 +70,7 @@ impl CompilerDiagnosticBuilder {
 	}
 
 	/// Attaches a help message
-	pub fn help(&mut self, help: &str) -> &mut Self {
+	pub fn help(mut self, help: &str) -> Self {
 		self.diag.as_mut().unwrap().set_help(help);
 		self
 	}
@@ -78,7 +78,7 @@ impl CompilerDiagnosticBuilder {
 	/// Returns the new diagnostic
 	/// Note: we could have a mutli-use builder but it would
 	/// cost us a .clone() here.
-	pub fn build(&mut self) -> CompilerDiagnostic {
+	pub fn build(mut self) -> CompilerDiagnostic {
 		self.diag.take().unwrap()
 	}
 }

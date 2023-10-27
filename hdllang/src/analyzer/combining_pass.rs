@@ -267,6 +267,7 @@ pub struct LocalAnalyzerContex {
 	pub widths_map: HashMap<SourceSpan, BusWidth>,
 	pub scope_map: HashMap<SourceSpan, usize>,
 	pub module_id: IdTableKey,
+	pub sensitivity_graph: super::SensitivityGraph,
 }
 impl LocalAnalyzerContex {
 	pub fn new(module_id: IdTableKey, scope: ModuleImplementationScope) -> Self {
@@ -277,7 +278,14 @@ impl LocalAnalyzerContex {
 			module_id,
 			nc_widths: HashMap::new(),
 			widths_map: HashMap::new(),
+			sensitivity_graph: super::SensitivityGraph::new(),
 		}
+	}
+	pub fn second_pass(&mut self, ctx:  &GlobalAnalyzerContext) -> miette::Result<()> {
+		log::error!("Second pass");
+		self.sensitivity_graph.verify(&mut self.scope, ctx)?;
+		self.scope.second_pass(ctx)?;
+		Ok(())
 	}
 }
 impl ModuleImplementation {
@@ -332,7 +340,7 @@ impl ModuleImplementation {
 		ctx: &mut GlobalAnalyzerContext,
 		local_ctx: &mut LocalAnalyzerContex,
 	) -> miette::Result<()> {
-		local_ctx.scope.second_pass(ctx)?;
+		local_ctx.second_pass(ctx)?;
 		Ok(())
 	}
 
@@ -383,10 +391,9 @@ impl ModuleImplementationStatement {
 	) -> miette::Result<()> {
 		local_ctx.scope_map.insert(self.get_location(), scope_id);
 		info!(
-			"Inserting scope id {} for {:?}: {:?}",
+			"Inserting scope id {} for {:?}",
 			scope_id,
 			self.get_location(),
-			self
 		);
 		use ModuleImplementationStatement::*;
 		match self {
@@ -460,6 +467,10 @@ impl ModuleImplementationStatement {
 					assignment
 						.lhs
 						.evaluate_type(ctx, scope_id, local_ctx, rhs_type, true, assignment.location)?;
+				let (left_id, loc) =assignment.lhs.get_internal_id(&local_ctx.scope, scope_id);
+				let entries = assignment.rhs.get_sensitivity_entry(&local_ctx.scope, scope_id);
+				log::error!("Adding edges {:?} to {:?}", entries, left_id);
+				local_ctx.sensitivity_graph.add_edges(entries, left_id,loc, self.get_location()).map_err(|_|log::error!("Cyclic sensitivity graph"));
 				info!("Lhs type at the and: {:?}", new_lhs);
 			},
 			IfElseStatement(conditional) => {
@@ -883,7 +894,7 @@ impl ModuleImplementationStatement {
 		local_ctx: &mut LocalAnalyzerContex,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
-		info!("Reading scope id for {:?}: {:?}", self.get_location(), self);
+		info!("Reading scope id for {:?}", self.get_location());
 		let scope_id = local_ctx.scope_map.get(&self.get_location()).unwrap().to_owned();
 		use ModuleImplementationStatement::*;
 		match self {

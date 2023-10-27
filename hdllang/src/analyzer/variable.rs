@@ -319,10 +319,10 @@ impl Signal {
 		coupling_type: Signal,
 		location: SourceSpan,
 	) -> miette::Result<()> {
-		if is_lhs {
-			self.sensitivity
-				.can_drive(&coupling_type.sensitivity, location, global_ctx)?;
-		}
+		//if is_lhs {
+		//	self.sensitivity
+		//		.can_drive(&coupling_type.sensitivity, location, global_ctx)?;
+		//}
 		use crate::analyzer::SignalType::*;
 		self.signal_type = match (&self.signal_type, &coupling_type.signal_type) {
 			(Auto(_), Auto(_)) => self.signal_type.clone(),

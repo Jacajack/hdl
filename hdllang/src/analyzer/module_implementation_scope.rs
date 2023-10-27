@@ -9,8 +9,8 @@ use crate::{
 	ProvidesCompilerDiagnostic, SourceSpan,
 };
 
-use super::{GlobalAnalyzerContext, SemanticError, Variable, VariableKind};
-#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash)]
+use super::{GlobalAnalyzerContext, SemanticError, Variable, VariableKind, SignalSensitivity};
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
 pub struct InternalVariableId {
 	id: usize,
 }
@@ -72,6 +72,10 @@ pub trait ScopeTrait {
 	fn is_generic(&self) -> bool;
 }
 impl ModuleImplementationScope {
+	pub fn get_variable_by_id(&self, key: InternalVariableId) -> Option<VariableDefined>{
+		let (scope_id, name) = self.internal_ids.get(&key).unwrap();
+		self.scopes[*scope_id].variables.get(name).cloned()
+	}
 	pub fn display_interface(&self, id_table: &IdTable) -> String {
 		let mut s = String::new();
 		let scope = self.scopes.first().unwrap();
@@ -198,7 +202,8 @@ impl ModuleImplementationScope {
 	}
 	pub fn redeclare_variable(&mut self, var: VariableDefined) {
 		let (scope_id, name) = self.internal_ids.get(&var.id).unwrap();
-		info!("Redeclared variable {:?} in scope {}", var, scope_id);
+		let prev = self.scopes[*scope_id].variables.get(name).unwrap();
+		info!("Redeclared variable {:?} to {:?}", prev, var);
 		self.scopes[*scope_id].variables.insert(*name, var);
 	}
 	pub fn get_variable_in_scope(&self, scope_id: usize, key: &IdTableKey) -> Option<&VariableDefined> {
@@ -369,5 +374,11 @@ pub struct VariableDefined {
 impl VariableDefined {
 	pub fn is_clock(&self) -> bool {
 		self.var.is_clock()
+	}
+	pub fn get_sensitivity(&self) -> SignalSensitivity{
+		match &self.var.kind{
+			VariableKind::Signal(sig) => sig.sensitivity.clone(),
+			_ => unreachable!(), //probably unsafe
+		}
 	}
 }

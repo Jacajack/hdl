@@ -20,7 +20,7 @@
 					"kind": "bin"
 				}
 			},
-			"args": ["-m", "compile", "${file}"], // Needs to be updated for new stages
+			"args": ["-m", "compile", "example.hirl"], // Needs to be updated for new stages
 			"cwd": "${workspaceFolder}",
 			"env": {
 				"RUST_BACKTRACE": "1",

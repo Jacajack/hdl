@@ -1,4 +1,4 @@
-use crate::{analyzer::SemanticError, lexer::IdTableKey, ProvidesCompilerDiagnostic, SourceSpan};
+use crate::{analyzer::SemanticError, lexer::IdTableKey, ProvidesCompilerDiagnostic, SourceSpan, core::CompilerDiagnosticBuilder};
 
 use super::GlobalAnalyzerContext;
 
@@ -219,6 +219,92 @@ impl SignalSensitivity {
 						.label(*rhs.location().unwrap(), "This sensitivity is worse than const")
 						.build(),
 				));
+			},
+		}
+		Ok(())
+	}
+	pub fn can_drive_report_as_builder(
+		&mut self,
+		rhs: &SignalSensitivity,
+		location: SourceSpan,
+		global_ctx: &GlobalAnalyzerContext,
+	) -> Result<(),CompilerDiagnosticBuilder> {
+		use SignalSensitivity::*;
+		log::debug!("Self {:?}", self);
+		log::debug!("Other {:?}", rhs);
+		match (&self, rhs) {
+			(_, NoSensitivity)
+			| (Async(_), Async(_))
+			| (Sync(..), Sync(..))
+			| (Const(_), Const(_))
+			| (Clock(..), Clock(..)) => (),
+			(NoSensitivity, _) => *self = rhs.clone(),
+			(Comb(curent, lhs_location), Comb(incoming, _)) => {
+				for value in &incoming.list {
+					if !curent.contains_clock(value.clock_signal) {
+						return Err(
+							SemanticError::DifferingSensitivities
+								.to_diagnostic_builder()
+								.label(
+									location,
+									"Cannot assign signals - sensitivity mismatch. Sensitivty of the left hand side should be a super set of the right hand side",
+								)
+								.label(*lhs_location, format!("This sensitivity list does not contain this clock {:?}", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
+								.label(value.location, format!("This clock {:?} is not present in left hand side sensitivity list", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
+								,
+						);
+					}
+				}
+			},
+			(_, Async(sensitivity_location)) => {
+				return Err(SemanticError::DifferingSensitivities
+						.to_diagnostic_builder()
+						.label(*self.location().unwrap(), "This sensitivity is better than asynchronous")
+						.label(
+							location,
+							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the right hand side",
+						)
+						.label(*sensitivity_location, "This sensitivity is asynchronous")
+						,
+				);
+			},
+			(Async(_), _) => (),
+			(_, Comb(_, sensitivity_location)) => {
+				return Err(SemanticError::DifferingSensitivities
+						.to_diagnostic_builder()
+						.label(
+							location,
+							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the right hand side",
+						)
+						.label(*sensitivity_location, "This sensitivity is better than comb")
+						,
+				);
+			},
+			(Comb(..), _) => (),
+			(_, Sync(_, sensitivity_location)) => {
+				return Err(SemanticError::DifferingSensitivities
+						.to_diagnostic_builder()
+						.label(
+							location,
+							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the right hand side",
+						)
+						.label(*sensitivity_location, "This sensitivity is better than sync")
+						,
+				);
+			},
+			(Sync(..), _) => (),
+			(_, Const(_)) => (),
+			(Const(sensitivity_location), _) => {
+				return Err(SemanticError::DifferingSensitivities
+						.to_diagnostic_builder()
+						.label(
+							location,
+							"Cannot bind signals - sensitivity mismatch. Sensitivity on the left assignment side must be worse or same as on the right hand side",
+						)
+						.label(*sensitivity_location, "This sensitivity is const")
+						.label(*rhs.location().unwrap(), "This sensitivity is worse than const")
+						,
+				);
 			},
 		}
 		Ok(())
