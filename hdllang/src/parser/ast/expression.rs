@@ -1922,8 +1922,8 @@ impl Expression {
 								todo!()
 							}
 						}
-						expr.set_width(coupling_type.width().unwrap(), expr.get_signedness(), location);
-						Ok(expr)
+						let r_type = Signal::new_bus(coupling_type.width(), coupling_type.get_signedness(), location);
+						Ok(r_type)
 					},
 					"join" => {
 						let mut t = Signal::new_empty();
