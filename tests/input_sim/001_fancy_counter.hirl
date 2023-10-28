@@ -13,7 +13,7 @@ module fancy_counter{
 impl fancy_counter{
 	register counter{
 		clk, nreset, en,
-		next: (data + 1u1)[0:15],
+		next: trunc(data + 1u1),
 		data,
 	};
 
@@ -28,7 +28,7 @@ impl fancy_counter{
 		0 => 17,
 		1 => 1287,
 		17 => 2137,
-		default => ((counter_last ^ data) + data)[0:15],
+		default => trunc((counter_last ^ data) + data),
 	};
 }
 
