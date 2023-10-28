@@ -2,4 +2,3 @@ module zext_test {}
 impl zext_test {
 	unsigned bus<10> x = zext(false);
 }
-Output
