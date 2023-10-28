@@ -177,7 +177,7 @@ impl SensitivityGraph {
 						already_visited.insert(node);
 						sig.sensitivity.clone()
 					}
-
+					super::VariableKind::Generic(_)=> SignalSensitivity::Const(var_sens.var.location),
 					_ => unreachable!(),
 				};
 				log::error!("Inserting {:?} into sensitivity nodes", node);

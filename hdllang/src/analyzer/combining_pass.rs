@@ -400,6 +400,7 @@ impl ModuleImplementationStatement {
 			VariableBlock(block) => block.analyze(ctx, local_ctx, AlreadyCreated::new(), scope_id)?,
 			VariableDefinition(definition) => definition.analyze(AlreadyCreated::new(), ctx, local_ctx, scope_id)?,
 			AssignmentStatement(assignment) => {
+				debug!("Assignment takes place in {:?} scope", scope_id);
 				if !assignment.lhs.is_lvalue() {
 					report_not_allowed_lhs(assignment.lhs.get_location())?;
 				}
@@ -882,8 +883,8 @@ impl ModuleImplementationStatement {
 				return Ok(());
 			},
 			ModuleImplementationBlockStatement(block) => {
-				let id = local_ctx.scope.new_scope(Some(scope_id));
-				block.analyze(ctx, local_ctx, id)?;
+				//let id = local_ctx.scope.new_scope(Some(scope_id));
+				block.analyze(ctx, local_ctx, scope_id)?;
 			},
 		}
 		Ok(())
@@ -1399,6 +1400,8 @@ impl VariableDefinition {
 			spec_kind.add_dimenstions(dimensions);
 			match &direct_initializer.expression {
 				Some(expr) => {
+					debug!("Assignment in initialization takes place in {:?} scope", scope_id);
+					debug!("Scope is {:?}", local_ctx.scope.get_scope(scope_id));
 					if spec_kind.is_array() {
 						return Err(miette::Report::new(
 							SemanticError::ArrayInExpression
@@ -1418,6 +1421,17 @@ impl VariableDefinition {
 						else {
 							unreachable!()
 						}
+						let id = local_ctx.scope.define_variable(
+							scope_id,
+							Variable {
+								name: direct_initializer.declarator.name,
+								kind: spec_kind,
+								location: direct_initializer.declarator.get_location(),
+							},
+						)?;
+						let entries = expr.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+						local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.declarator.get_location()) , expr.get_location());
+					
 					}
 					else {
 						let mut lhs = spec_kind.to_signal();
@@ -1472,6 +1486,7 @@ impl VariableDefinition {
 				ctx.id_table.get_by_key(&direct_initializer.declarator.name).unwrap(),
 				scope_id
 			);
+			debug!("Scope is {:?}", local_ctx.scope.get_scope(scope_id));
 		}
 		Ok(())
 	}
