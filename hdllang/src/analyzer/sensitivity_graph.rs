@@ -1,12 +1,11 @@
-use std::collections::{HashSet, HashMap};
+use std::{collections::{HashSet, HashMap}, hash::Hash};
 
 use super::{GlobalAnalyzerContext, ModuleImplementationScope, SignalSensitivity};
 use bimap::BiHashMap;
 use itertools::Itertools;
 use petgraph::{
-	algo::{is_cyclic_directed, is_cyclic_undirected},
-	prelude::{GraphMap, DiGraph},
-	Directed, adj::NodeIndex, stable_graph::DefaultIx,
+	algo::is_cyclic_directed,
+	prelude::DiGraph,
 };
 
 use crate::{parser::ast::SourceLocation, SourceSpan};
@@ -76,14 +75,13 @@ impl SensitivityGraph {
 	pub fn add_edges(
 		&mut self,
 		from: Vec<SensitivityGraphEntry>,
-		to: InternalVariableId,
-		location: SourceSpan,
+		to: SensitivityGraphEntry,
 		edge_loc: SourceSpan,
 	) -> Result<(), ()> {
 		for node in from {
 			self.add_edge(
 				node,
-				SensitivityGraphEntry::new_signal(to, location),
+				to,
 				SenstivityGraphEdge::new(edge_loc),
 			)?;
 		}
@@ -131,6 +129,7 @@ impl SensitivityGraph {
 		ctx: &mut ModuleImplementationScope,
 		global_ctx: &GlobalAnalyzerContext,
 		already_visited: &mut HashSet<SensitivityGraphEntry>,
+		sensitivty_nodes: &mut HashMap<SignalSensitivity, SensitivityGraphEntry>,
 	) -> miette::Result<SignalSensitivity> {
 		log::debug!(
 			"Getting sensitivity for node {:?} with already visited {:?}",
@@ -150,10 +149,30 @@ impl SensitivityGraph {
 					super::VariableKind::Signal(sig) => {
 					for neighbour in neighbours {
 						sens.evaluate_sensitivity(
-							vec![self.get_node_sensitivity(self.graph_entries.get_by_left(&SenstivityGraphIndex::new(neighbour)).unwrap().clone(), ctx, global_ctx, already_visited)?],
+							vec![self.get_node_sensitivity(self.graph_entries.get_by_left(&SenstivityGraphIndex::new(neighbour)).unwrap().clone(), ctx, global_ctx, already_visited, sensitivty_nodes)?],
 							location,
 							);
-							sig.sensitivity.can_drive(&sens, self.graph.edges_connecting(neighbour, self.get_index(node)).collect_vec().first().unwrap().weight().location, global_ctx)?;
+							sig.sensitivity.can_drive_report_as_builder(&sens, self.graph.edges_connecting(neighbour, self.get_index(node)).collect_vec().first().unwrap().weight().location, global_ctx)
+								.map_err(|mut err|{
+									log::error!("Sensitivity nodes are {:?}", sensitivty_nodes);
+									let origin_node = self.get_index(*sensitivty_nodes.get(&sens).unwrap());
+									log::error!("Origin node is {:?}", origin_node);
+									log::error!("Graph is {:?}", self.graph);
+									let nodes_between = petgraph::algo::all_simple_paths::<Vec<_>, _>(&self.graph, origin_node, self.get_index(node), 0, None).collect_vec().first().unwrap().clone();
+									log::error!("Nodes between are {:?}", nodes_between);
+
+									let mut first = origin_node.clone();
+									for i in 1..nodes_between.len()-1 {
+										let second = nodes_between[i];
+										let edge = self.graph.edges_connecting(first, second).collect_vec().first().unwrap().weight();
+										err = err.label(edge.location(),"This edge is part of the sensitivity path");
+										first = second;
+									}
+									err.build()
+								})?;
+						}
+						if sig.sensitivity == SignalSensitivity::NoSensitivity {
+							sig.sensitivity = sens.clone();
 						}
 						already_visited.insert(node);
 						sig.sensitivity.clone()
@@ -161,6 +180,10 @@ impl SensitivityGraph {
 
 					_ => unreachable!(),
 				};
+				log::error!("Inserting {:?} into sensitivity nodes", node);
+				if !sensitivty_nodes.contains_key(&return_sig){
+					sensitivty_nodes.insert(return_sig.clone(), node);
+				}
 				log::debug!("Sensitivity for all predecessor of {:?} is {:?}", node, sens);
 				ctx.redeclare_variable(var_sens.clone());
 				Ok(return_sig)
@@ -175,8 +198,9 @@ impl SensitivityGraph {
 	) -> miette::Result<()> {
 		assert!(!is_cyclic_directed(&self.graph));
 		let mut visited = HashSet::new();
+		let mut sens_nodes = HashMap::new();
 		for node in self.graph.raw_nodes() {
-			self.get_node_sensitivity(node.weight, scope, global_ctx, &mut visited)?;
+			self.get_node_sensitivity(node.weight, scope, global_ctx, &mut visited, &mut sens_nodes)?;
 		}
 		Ok(())
 	}
@@ -204,6 +228,7 @@ impl crate::parser::ast::Expression {
 	}
 	pub fn get_sensitivity_entry(
 		&self,
+		global_ctx: &GlobalAnalyzerContext,
 		ctx: &ModuleImplementationScope,
 		scope_id: usize,
 	) -> Vec<SensitivityGraphEntry> {
@@ -214,33 +239,47 @@ impl crate::parser::ast::Expression {
 				let var = ctx.get_variable(scope_id, &id.id).unwrap();
 				vec![SensitivityGraphEntry::new_signal(var.id, var.var.location)]
 			},
-			ParenthesizedExpression(expr) => expr.expression.get_sensitivity_entry(ctx, scope_id),
+			ParenthesizedExpression(expr) => expr.expression.get_sensitivity_entry(global_ctx, ctx, scope_id),
 			MatchExpression(m) => {
-				let mut vec = vec![m.value.get_sensitivity_entry(ctx, scope_id)];
+				let mut vec = vec![m.value.get_sensitivity_entry(global_ctx, ctx, scope_id)];
 				for arm in &m.statements {
-					vec.push(arm.expression.get_sensitivity_entry(ctx, scope_id));
+					vec.push(arm.expression.get_sensitivity_entry(global_ctx, ctx, scope_id));
 				}
 				vec.into_iter().flatten().collect()
 			},
-			ConditionalExpression(_) => todo!(),
+			ConditionalExpression(cond) => {
+				let mut vec = Vec::new();
+				for arm in &cond.statements {
+					vec.push(arm.expression.get_sensitivity_entry(global_ctx, ctx, scope_id));
+				}
+				vec.into_iter().flatten().collect()
+			},
 			Tuple(_) => unreachable!(),
 			TernaryExpression(tern) => vec![
-				tern.condition.get_sensitivity_entry(ctx, scope_id),
-				tern.true_branch.get_sensitivity_entry(ctx, scope_id),
-				tern.false_branch.get_sensitivity_entry(ctx, scope_id),
+				tern.condition.get_sensitivity_entry(global_ctx, ctx, scope_id),
+				tern.true_branch.get_sensitivity_entry(global_ctx, ctx, scope_id),
+				tern.false_branch.get_sensitivity_entry(global_ctx, ctx, scope_id),
 			]
 			.into_iter()
 			.flatten()
 			.collect(),
-			PostfixWithIndex(index) => index.expression.get_sensitivity_entry(ctx, scope_id),
-			PostfixWithRange(range) => range.expression.get_sensitivity_entry(ctx, scope_id),
-			PostfixWithArgs(_) => todo!(),
+			PostfixWithIndex(index) => index.expression.get_sensitivity_entry(global_ctx, ctx, scope_id),
+			PostfixWithRange(range) => range.expression.get_sensitivity_entry(global_ctx, ctx, scope_id),
+			PostfixWithArgs(function) => {
+				let func_name = global_ctx.id_table.get_value(&function.id);
+				match func_name.as_str(){
+					"zeroes" | "ones" => vec![SensitivityGraphEntry::new_const(self.get_location())],
+					"rep" | "trunc" | "zext" | "ext" | "sext" | "fold_or" | "fold_xor" | "fold_and" => function.argument_list.first().unwrap().get_sensitivity_entry(global_ctx, ctx, scope_id),
+					"join" => function.argument_list.iter().map(|arg| arg.get_sensitivity_entry(global_ctx, ctx, scope_id)).flatten().collect(),
+					_=>unreachable!(),
+				}
+			},
 			PostfixWithId(_) => todo!(),
-			UnaryOperatorExpression(unary) => unary.expression.get_sensitivity_entry(ctx, scope_id),
+			UnaryOperatorExpression(unary) => unary.expression.get_sensitivity_entry(global_ctx, ctx, scope_id),
 			UnaryCastExpression(_) => todo!(),
 			BinaryExpression(binop) => vec![
-				binop.lhs.get_sensitivity_entry(ctx, scope_id),
-				binop.rhs.get_sensitivity_entry(ctx, scope_id),
+				binop.lhs.get_sensitivity_entry(global_ctx, ctx, scope_id),
+				binop.rhs.get_sensitivity_entry(global_ctx, ctx, scope_id),
 			]
 			.into_iter()
 			.flatten()

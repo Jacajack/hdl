@@ -224,7 +224,7 @@ impl SignalSensitivity {
 		Ok(())
 	}
 	pub fn can_drive_report_as_builder(
-		&mut self,
+		&self,
 		rhs: &SignalSensitivity,
 		location: SourceSpan,
 		global_ctx: &GlobalAnalyzerContext,
@@ -238,7 +238,7 @@ impl SignalSensitivity {
 			| (Sync(..), Sync(..))
 			| (Const(_), Const(_))
 			| (Clock(..), Clock(..)) => (),
-			(NoSensitivity, _) => *self = rhs.clone(),
+			(NoSensitivity, _) => (),
 			(Comb(curent, lhs_location), Comb(incoming, _)) => {
 				for value in &incoming.list {
 					if !curent.contains_clock(value.clock_signal) {

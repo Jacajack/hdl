@@ -468,9 +468,9 @@ impl ModuleImplementationStatement {
 						.lhs
 						.evaluate_type(ctx, scope_id, local_ctx, rhs_type, true, assignment.location)?;
 				let (left_id, loc) =assignment.lhs.get_internal_id(&local_ctx.scope, scope_id);
-				let entries = assignment.rhs.get_sensitivity_entry(&local_ctx.scope, scope_id);
+				let entries = assignment.rhs.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
 				log::error!("Adding edges {:?} to {:?}", entries, left_id);
-				local_ctx.sensitivity_graph.add_edges(entries, left_id,loc, self.get_location()).map_err(|_|log::error!("Cyclic sensitivity graph"));
+				local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(left_id,loc), self.get_location()).map_err(|_|log::error!("Cyclic sensitivity graph"));
 				info!("Lhs type at the and: {:?}", new_lhs);
 			},
 			IfElseStatement(conditional) => {
@@ -1444,18 +1444,29 @@ impl VariableDefinition {
 						}
 						lhs.evaluate_as_lhs(true, ctx, rhs, direct_initializer.declarator.get_location())?;
 						spec_kind = VariableKind::Signal(lhs);
+						let id = local_ctx.scope.define_variable(
+							scope_id,
+							Variable {
+								name: direct_initializer.declarator.name,
+								kind: spec_kind,
+								location: direct_initializer.declarator.get_location(),
+							},
+						)?;
+						let entries = expr.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+						local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.declarator.get_location()) , expr.get_location());
 					}
 				},
-				None => (),
-			}
-			local_ctx.scope.define_variable(
-				scope_id,
-				Variable {
-					name: direct_initializer.declarator.name,
-					kind: spec_kind,
-					location: direct_initializer.declarator.get_location(),
+				None =>{ local_ctx.scope.define_variable(
+					scope_id,
+					Variable {
+						name: direct_initializer.declarator.name,
+						kind: spec_kind,
+						location: direct_initializer.declarator.get_location(),
+					},
+				)?;
 				},
-			)?;
+			};
+			
 			debug!(
 				"Defined variable {:?} in scope {}",
 				ctx.id_table.get_by_key(&direct_initializer.declarator.name).unwrap(),
@@ -1841,34 +1852,46 @@ fn create_register(
 				.build(),
 		));
 	}
+	let en_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+		en_name,
+		next_stmt.unwrap().location(),
+		VariableKind::Signal(en_type),
+	))?;
+	let nreset_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+		nreset_name,
+		next_stmt.unwrap().location(),
+		VariableKind::Signal(nreset_type),
+	))?;
+	let data_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+		data_name,
+		next_stmt.unwrap().location(),
+		VariableKind::Signal(data_type.clone()),
+	))?;
+	let clk_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+		clk_name,
+		next_stmt.unwrap().location(),
+		VariableKind::Signal(clk_type),
+	))?;
+	let next_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+		next_name,
+		next_stmt.unwrap().location(),
+		VariableKind::Signal(next_type),
+	))?;
+	use crate::analyzer::SensitivityGraphEntry;
+	local_ctx.sensitivity_graph.add_edges(en_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(en_var_id, en_stmt.unwrap().location()), en_stmt.unwrap().location());
+	local_ctx.sensitivity_graph.add_edges(nreset_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(nreset_var_id, nreset_stmt.unwrap().location()), nreset_stmt.unwrap().location());
+	local_ctx.sensitivity_graph.add_edges(next_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(next_var_id, next_stmt.unwrap().location()), next_stmt.unwrap().location());
+	local_ctx.sensitivity_graph.add_edges(clk_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(clk_var_id, clk_stmt.unwrap().location()), clk_stmt.unwrap().location() );
+	let (id, loc) = data_stmt.unwrap().get_internal_id(&local_ctx.scope, scope_id);
+	local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(data_var_id, data_stmt.unwrap().location())], SensitivityGraphEntry::Signal(id, loc), data_stmt.unwrap().location());
 	let r = RegisterInstance {
 		name: inst_stmt.instance_name,
 		location: inst_stmt.location,
-		next: local_ctx.scope.define_intermidiate_signal(Variable::new(
-			next_name,
-			next_stmt.unwrap().location(),
-			VariableKind::Signal(next_type),
-		))?,
-		clk: local_ctx.scope.define_intermidiate_signal(Variable::new(
-			clk_name,
-			next_stmt.unwrap().location(),
-			VariableKind::Signal(clk_type),
-		))?,
-		nreset: local_ctx.scope.define_intermidiate_signal(Variable::new(
-			nreset_name,
-			next_stmt.unwrap().location(),
-			VariableKind::Signal(nreset_type),
-		))?,
-		data: local_ctx.scope.define_intermidiate_signal(Variable::new(
-			data_name,
-			next_stmt.unwrap().location(),
-			VariableKind::Signal(data_type),
-		))?,
-		enable: local_ctx.scope.define_intermidiate_signal(Variable::new(
-			en_name,
-			next_stmt.unwrap().location(),
-			VariableKind::Signal(en_type),
-		))?,
+		next: next_var_id,
+		clk: clk_var_id,
+		nreset: nreset_var_id,
+		data: data_var_id,
+		enable: en_var_id,
 	};
 	Ok(r)
 }

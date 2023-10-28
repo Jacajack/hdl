@@ -1,9 +1,12 @@
 mod pretty_printable;
 
+use std::vec;
+
 use hirn::design::ScopeHandle;
 use log::debug;
 
-use crate::analyzer::{BusWidth, GlobalAnalyzerContext, LocalAnalyzerContex, SemanticError, Signal, Variable};
+use crate::analyzer::module_implementation_scope::InternalVariableId;
+use crate::analyzer::{BusWidth, GlobalAnalyzerContext, LocalAnalyzerContex, SemanticError, Signal, Variable, ModuleImplementationScope, SensitivityGraphEntry};
 use crate::parser::ast::{Expression, SourceLocation, VariableDeclaration};
 use crate::ProvidesCompilerDiagnostic;
 use crate::{lexer::IdTableKey, SourceSpan};
@@ -62,6 +65,42 @@ impl PortBindStatement {
 			IdWithDeclaration(id_with_declaration) => id_with_declaration.location,
 		}
 	}
+	pub fn get_sensitivity_entry(&self, global_ctx:&GlobalAnalyzerContext, scope: &ModuleImplementationScope, scope_id: usize) -> Vec<SensitivityGraphEntry>{
+		use self::PortBindStatement::*;
+		match self {
+			OnlyId(only_id) => {
+				let var = scope.get_variable(scope_id, &only_id.id).unwrap();
+				vec![SensitivityGraphEntry::Signal(var.id, var.var.location)]
+			},
+			IdWithExpression(id_with_expression) => {
+				id_with_expression.expression.get_sensitivity_entry(global_ctx, scope, scope_id)
+			},
+			IdWithDeclaration(id_with_declaration) => {
+				let mut var = scope
+					.get_variable(scope_id, &id_with_declaration.id)
+					.unwrap()
+					.clone();
+				vec![SensitivityGraphEntry::Signal(var.id, var.var.location)]
+			},
+		}
+	}
+	pub fn get_internal_id(&self,scope: &ModuleImplementationScope,
+		scope_id: usize ) -> (InternalVariableId, SourceSpan){
+		use self::PortBindStatement::*;
+		match &self{
+    		OnlyId(only_id) => {
+				let var = scope.get_variable(scope_id, &only_id.id).unwrap();
+				(var.id, var.var.location)
+			},
+    		IdWithExpression(id_with_expression) => id_with_expression.expression.get_internal_id(scope, scope_id),
+    		IdWithDeclaration(id_with_decl) => {
+				let mut var = scope
+					.get_variable(scope_id, &id_with_decl.id)
+					.unwrap();
+				(var.id, var.var.location)
+			},
+		}
+		}
 	pub fn get_type(
 		&self,
 		ctx: &GlobalAnalyzerContext,

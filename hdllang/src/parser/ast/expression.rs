@@ -1912,17 +1912,13 @@ impl Expression {
 							.scope
 							.widths
 							.insert(function.location, coupling_type.width().unwrap());
-						if func_name.as_str() == "zext" {
-							if !expr.get_signedness().is_unsigned() {
-								todo!()
-							}
-						}
-						if func_name.as_str() == "sext" {
-							if !expr.get_signedness().is_signed() {
-								todo!()
-							}
-						}
-						let r_type = Signal::new_bus(coupling_type.width(), coupling_type.get_signedness(), location);
+						let signedness = match func_name.as_str(){
+							"zext"=>SignalSignedness::Unsigned(self.get_location()),
+							"ext"=>coupling_type.get_signedness(),
+							"sext"=>SignalSignedness::Signed(self.get_location()),
+							_=> unreachable!(),
+						};
+						let r_type = Signal::new_bus(coupling_type.width(), signedness, location);
 						Ok(r_type)
 					},
 					"join" => {
