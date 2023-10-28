@@ -1,0 +1,14 @@
+module X {
+	int WIDTH;
+}
+
+impl X {
+	bus<WIDTH> foo = zext(1u5); // Panic
+}
+
+module Y {}
+impl Y {
+	X x {
+		WIDTH: 16,
+	}
+}

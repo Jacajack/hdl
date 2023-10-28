@@ -150,6 +150,9 @@ impl ModuleImplementationScope {
 			}
 		}
 	}
+	pub fn unmark_as_generic(&mut self) {
+		self.is_generic = false;
+	}
 	pub fn new() -> Self {
 		Self {
 			widths: HashMap::new(),

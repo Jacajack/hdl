@@ -880,10 +880,11 @@ impl ModuleImplementationStatement {
 				}
 				debug!("Defining module instance {:?}", module_instance);
 				if scope.is_generic() {
+					scope.unmark_as_generic();
 					let implementation = ctx.generic_modules.get(&name).unwrap().clone();
 					let mut new_local_ctx = LocalAnalyzerContex::new(implementation.id, scope);
 					first_pass(ctx, &mut new_local_ctx, &implementation)?;
-					new_local_ctx.scope.second_pass(ctx)?;
+					new_local_ctx.second_pass(ctx)?;
 				}
 				let v = Variable::new(
 					inst.instance_name,
