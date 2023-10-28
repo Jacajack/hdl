@@ -120,7 +120,8 @@ impl<'a> SVCodegen<'a> {
 					sig.name().into(),
 					&sig.class(),
 					&[],
-					&Some(sig.value().clone()))?,
+					&Some(sig.value().clone())
+				)?,
 			)),
 			_ => Ok(format!(
 				"{} = {}",
@@ -137,7 +138,6 @@ impl<'a> SVCodegen<'a> {
 		dimensions: &[Expression],
 		value: &Option<Expression>,
 	) -> Result<String, CodegenError> {
-
 		let bus_msb_str =
 			self.translate_expression_try_eval(&expr_sub_one(self.design.clone(), class.width()), false)?;
 		let bus_width_str = match class.is_wire() {
@@ -164,7 +164,7 @@ impl<'a> SVCodegen<'a> {
 				None => {
 					warn!("No value assigned for localparam definition!");
 					"'x".into() // This is evil
-				}
+				},
 			}
 		))
 	}
@@ -175,11 +175,7 @@ impl<'a> SVCodegen<'a> {
 		value: &Option<Expression>,
 	) -> Result<String, CodegenError> {
 		let sig = self.design.get_signal(sig_id).unwrap();
-		self.format_localparam_declaration_impl(
-			sig.name().into(), 
-			&sig.class,
-			&sig.dimensions,
-			value)
+		self.format_localparam_declaration_impl(sig.name().into(), &sig.class, &sig.dimensions, value)
 	}
 
 	fn module_interface_definition(&mut self, _m: ModuleHandle, s: InterfaceSignal) -> Result<String, CodegenError> {
