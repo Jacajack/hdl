@@ -7,7 +7,7 @@ use std::io::Write;
 use crate::{
 	analyzer::{
 		semantic_error::InstanceError, BusWidth, ClockSensitivityList, GenericVariable, ModuleImplementationScope,
-		ModuleInstance, ModuleInstanceKind, NonRegister, Signal, SignalSensitivity,
+		ModuleInstance, ModuleInstanceKind, NonRegister, Signal, SignalSensitivity, SensitivityGraphEntry,
 	},
 	core::*,
 	parser::ast::*,
@@ -793,16 +793,23 @@ impl ModuleImplementationStatement {
 						clock_mapping.insert(clk_type.get_clock_name(), name);
 						coming.evaluate_as_lhs(false, ctx, clk_type, stmt.location())?;
 						debug!("Adding variable {:?}", new_name_str);
+						let new_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+							new_name,
+							stmt.location(),
+							VariableKind::Signal(coming)))?;
+						if is_output{
+							let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
+							local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(new_id, stmt.location())], SensitivityGraphEntry::Signal(id, loc), stmt.location());
+						}
+						else{
+							let entries = stmt.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+							local_ctx.sensitivity_graph.add_edges(entries, SensitivityGraphEntry::Signal(new_id, stmt.location()), stmt.location());
+						}
 						module_instance
 							.add_variable(
 								stmt.get_id(),
-								local_ctx.scope.define_intermidiate_signal(Variable::new(
-									new_name,
-									stmt.location(),
-									VariableKind::Signal(coming),
-								))?,
-							)
-							.map_err(|mut err| err.label(stmt.location(), "Variable declared here").build())?;
+								new_id,
+								).map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
 					}
 					else {
 						return Err(miette::Report::new(
@@ -839,29 +846,37 @@ impl ModuleImplementationStatement {
 						_ => unreachable!(),
 					};
 					let mut var_type = stmt.get_type(ctx, local_ctx, scope_id, interface_signal.clone(), is_output)?;
-					match &interface_signal.direction {
-						crate::analyzer::Direction::Input(_) => {
-							interface_signal
-								.sensitivity
-								.can_drive(&var_type.sensitivity, stmt.location(), &ctx)?
-						},
-						crate::analyzer::Direction::Output(_) => {
-							var_type
-								.sensitivity
-								.can_drive(&interface_signal.sensitivity, stmt.location(), &ctx)?
-						},
-						_ => (),
-					};
+					//match &interface_signal.direction {
+					//	crate::analyzer::Direction::Input(_) => {
+					//		interface_signal
+					//			.sensitivity
+					//			.can_drive(&var_type.sensitivity, stmt.location(), &ctx)?
+					//	},
+					//	crate::analyzer::Direction::Output(_) => {
+					//		var_type
+					//			.sensitivity
+					//			.can_drive(&interface_signal.sensitivity, stmt.location(), &ctx)?
+					//	},
+					//	_ => (),
+					//};
+					let new_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+						new_name,
+						stmt.location(),
+						VariableKind::Signal(interface_signal)))?;
+					if is_output{
+						let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
+						local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(new_id, stmt.location())], SensitivityGraphEntry::Signal(id, loc), stmt.location());
+					}
+					else{
+						let entries = stmt.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+						local_ctx.sensitivity_graph.add_edges(entries, SensitivityGraphEntry::Signal(new_id, stmt.location()), stmt.location());
+					}
 					module_instance
 						.add_variable(
 							stmt.get_id(),
-							local_ctx.scope.define_intermidiate_signal(Variable::new(
-								new_name,
-								stmt.location(),
-								VariableKind::Signal(interface_signal),
-							))?,
+							new_id,
 						)
-						.map_err(|mut err| err.label(stmt.location(), "Variable declared here").build())?;
+						.map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
 				}
 				debug!("Defining module instance {:?}", module_instance);
 				if scope.is_generic() {

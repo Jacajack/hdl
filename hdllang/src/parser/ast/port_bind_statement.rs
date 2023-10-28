@@ -95,7 +95,7 @@ impl PortBindStatement {
     		IdWithExpression(id_with_expression) => id_with_expression.expression.get_internal_id(scope, scope_id),
     		IdWithDeclaration(id_with_decl) => {
 				let mut var = scope
-					.get_variable(scope_id, &id_with_decl.id)
+					.get_variable(scope_id, &id_with_decl.declaration.direct_declarators.first().unwrap().name)
 					.unwrap();
 				(var.id, var.var.location)
 			},
