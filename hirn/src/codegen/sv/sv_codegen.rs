@@ -9,7 +9,7 @@ use crate::{
 		ScopeId, SignalDirection, SignalId, SignalSensitivity,
 	},
 };
-use log::debug;
+use log::{debug, warn};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
@@ -116,7 +116,11 @@ impl<'a> SVCodegen<'a> {
 		match sig.sensitivity() {
 			Generic => Ok(format!(
 				"{}",
-				self.format_localparam_declaration_impl(sig.name().into(), &Some(sig.value().clone()))?,
+				self.format_localparam_declaration_impl(
+					sig.name().into(),
+					&sig.class(),
+					&[],
+					&Some(sig.value().clone()))?,
 			)),
 			_ => Ok(format!(
 				"{} = {}",
@@ -128,15 +132,39 @@ impl<'a> SVCodegen<'a> {
 
 	fn format_localparam_declaration_impl(
 		&mut self,
-		name: String,
+		name: &str,
+		class: &SignalClass,
+		dimensions: &[Expression],
 		value: &Option<Expression>,
 	) -> Result<String, CodegenError> {
+
+		let bus_msb_str =
+			self.translate_expression_try_eval(&expr_sub_one(self.design.clone(), class.width()), false)?;
+		let bus_width_str = match class.is_wire() {
+			false => format!("[{}:0]", bus_msb_str),
+			true => "".into(),
+		};
+
+		let mut array_size_str = String::new();
+		for dim in dimensions {
+			array_size_str = format!(
+				"{}[{}]",
+				array_size_str,
+				self.translate_expression_try_eval(&dim, false)?
+			);
+		}
+
 		Ok(format!(
-			"localparam {} = {}",
+			"localparam logic{} {}{} = {}",
+			bus_width_str,
 			name,
+			array_size_str,
 			match value {
-				Some(expr) => self.translate_expression(expr, false)?,
-				None => "'x".into(), // This is evil
+				Some(expr) => self.translate_expression(expr, true)?,
+				None => {
+					warn!("No value assigned for localparam definition!");
+					"'x".into() // This is evil
+				}
 			}
 		))
 	}
@@ -147,7 +175,11 @@ impl<'a> SVCodegen<'a> {
 		value: &Option<Expression>,
 	) -> Result<String, CodegenError> {
 		let sig = self.design.get_signal(sig_id).unwrap();
-		self.format_localparam_declaration_impl(sig.name().into(), value)
+		self.format_localparam_declaration_impl(
+			sig.name().into(), 
+			&sig.class,
+			&sig.dimensions,
+			value)
 	}
 
 	fn module_interface_definition(&mut self, _m: ModuleHandle, s: InterfaceSignal) -> Result<String, CodegenError> {
