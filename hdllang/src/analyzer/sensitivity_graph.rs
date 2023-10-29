@@ -242,6 +242,15 @@ impl crate::parser::ast::Expression {
 			MatchExpression(m) => {
 				let mut vec = vec![m.value.get_sensitivity_entry(global_ctx, ctx, scope_id)];
 				for arm in &m.statements {
+					use crate::parser::ast::MatchExpressionAntecendent::*;
+					match &arm.antecedent{
+        				Expression { expressions, .. } => {
+							for expr in expressions {
+								vec.push(expr.get_sensitivity_entry(global_ctx, ctx, scope_id));
+							}
+						},
+        				Default { .. } =>(),
+    				}
 					vec.push(arm.expression.get_sensitivity_entry(global_ctx, ctx, scope_id));
 				}
 				vec.into_iter().flatten().collect()
@@ -249,6 +258,15 @@ impl crate::parser::ast::Expression {
 			ConditionalExpression(cond) => {
 				let mut vec = Vec::new();
 				for arm in &cond.statements {
+					use crate::parser::ast::MatchExpressionAntecendent::*;
+					match &arm.antecedent{
+        				Expression { expressions, .. } => {
+							for expr in expressions {
+								vec.push(expr.get_sensitivity_entry(global_ctx, ctx, scope_id));
+							}
+						},
+        				Default { .. } =>(),
+    				}
 					vec.push(arm.expression.get_sensitivity_entry(global_ctx, ctx, scope_id));
 				}
 				vec.into_iter().flatten().collect()
