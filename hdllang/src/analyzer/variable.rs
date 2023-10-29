@@ -639,6 +639,13 @@ impl Variable {
 			VariableKind::ModuleInstance(_) => false,
 		}
 	}
+	pub fn get_clock_name(&self) -> IdTableKey {
+		match &self.kind {
+			VariableKind::Signal(signal) => signal.get_clock_name(),
+			VariableKind::Generic(_) => panic!("This variable is not a signal"),
+			VariableKind::ModuleInstance(_) => panic!("This variable is not a signal"),
+		}
+	}
 	pub fn register(
 		&self,
 		nc_table: &crate::lexer::NumericConstantTable,
@@ -814,12 +821,14 @@ pub struct RegisterInstance {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NonRegister {
 	pub interface: HashMap<IdTableKey, InternalVariableId>,
+	pub clocks: Vec<InternalVariableId>,
 }
 
 impl NonRegister {
 	pub fn new() -> Self {
 		Self {
 			interface: HashMap::new(),
+			clocks: Vec::new(),
 		}
 	}
 	pub fn add_variable(&mut self, name: IdTableKey, var: InternalVariableId) -> Result<(), CompilerDiagnosticBuilder> {
@@ -827,6 +836,10 @@ impl NonRegister {
 			Some(_) => Err(SemanticError::DuplicateVariableDeclaration.to_diagnostic_builder()),
 			None => Ok(()),
 		}
+	}
+	pub fn add_clock(&mut self, name: IdTableKey, var: InternalVariableId) -> Result<(), CompilerDiagnosticBuilder> {
+		self.clocks.push(var);
+		self.add_variable(name, var)		
 	}
 }
 #[derive(Clone, Debug, PartialEq, Eq)]

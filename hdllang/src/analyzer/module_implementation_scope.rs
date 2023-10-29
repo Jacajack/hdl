@@ -6,7 +6,7 @@ use log::*;
 use crate::{
 	lexer::{IdTable, IdTableKey},
 	parser::ast::Scope,
-	ProvidesCompilerDiagnostic, SourceSpan,
+	ProvidesCompilerDiagnostic, SourceSpan, analyzer::{InstanceError, ClockSensitivityList},
 };
 
 use super::{GlobalAnalyzerContext, SemanticError, Variable, VariableKind, SignalSensitivity};
@@ -314,7 +314,7 @@ impl ModuleImplementationScope {
 		self.variables.insert(defined.id, defined);
 		Ok(())
 	}
-	pub fn second_pass(&self, _: &GlobalAnalyzerContext) -> miette::Result<()> {
+	pub fn second_pass(&self, ctx: &GlobalAnalyzerContext) -> miette::Result<()> {
 		for v in self.variables.values(){
 				match &v.var.kind {
 					VariableKind::Signal(sig) => {
@@ -347,7 +347,57 @@ impl ModuleImplementationScope {
 						}
 					},
 					VariableKind::Generic(_) => (),
-					VariableKind::ModuleInstance(_) => (),
+					VariableKind::ModuleInstance(inst) => {
+						use crate::analyzer::ModuleInstanceKind::*;
+						match &inst.kind{
+        					Module(m) => {
+								let mut clock_mapping: HashMap<IdTableKey, IdTableKey> = HashMap::new();
+							},
+        					Register(r) => {
+								let clk_var = self.get_variable_by_id(r.clk).unwrap();
+								let data_var = self.get_variable_by_id(r.data).unwrap();
+								let next_var = self.get_variable_by_id(r.next).unwrap();
+								let enable_var = self.get_variable_by_id(r.enable).unwrap();
+								// we dont have to test sensitivity of reset signal, because it is not-worse than async
+								//let reset_var = self.get_variable_by_id(r.nreset).unwrap(); 
+
+								if !clk_var.is_clock() {
+									return Err(miette::Report::new(
+										InstanceError::ArgumentsMismatch
+											.to_diagnostic_builder()
+											.label(clk_var.var.location, "Clk signal must be marked as clock")
+											.build(),
+									));
+								}
+								let list = ClockSensitivityList::new().with_clock(clk_var.var.get_clock_name(), true, data_var.var.location);
+								let data_sensitivity = SignalSensitivity::Sync(list, data_var.var.location);
+								data_var.get_sensitivity()
+									.can_drive(&data_sensitivity, data_var.var.location, ctx)?;
+								if !next_var.get_sensitivity().is_not_worse_than(&clk_var.get_sensitivity()) {
+									return Err(miette::Report::new(
+										InstanceError::ArgumentsMismatch
+											.to_diagnostic_builder()
+											.label(
+												next_var.location(),
+												"Next signal must be synchronized with clock",
+											)
+											.build(),
+									));
+								}
+								if ! enable_var.get_sensitivity().is_not_worse_than(&clk_var.get_sensitivity()) {
+									return Err(miette::Report::new(
+										InstanceError::ArgumentsMismatch
+											.to_diagnostic_builder()
+											.label(
+												enable_var.location(),
+												"Enable signal must be synchronized with clock",
+											)
+											.build(),
+									));
+								}
+							},
+    					}
+					},
 				}
 			}
 		Ok(())
@@ -373,5 +423,8 @@ impl VariableDefined {
 			VariableKind::Signal(sig) => sig.sensitivity.clone(),
 			_ => unreachable!(), //probably unsafe
 		}
+	}
+	pub fn location(&self) -> SourceSpan {
+		self.var.location
 	}
 }

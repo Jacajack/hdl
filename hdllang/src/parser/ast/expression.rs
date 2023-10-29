@@ -1600,10 +1600,11 @@ impl Expression {
 					location,
 				)?;
 				debug!("condition: {:?}", type_condition);
-				type_first.sensitivity.evaluate_sensitivity(
-					vec![type_second.sensitivity, type_condition.sensitivity],
-					self.get_location(),
-				);
+				//type_first.sensitivity.evaluate_sensitivity(
+				//	vec![type_second.sensitivity, type_condition.sensitivity],
+				//	self.get_location(),
+				//);
+				type_first.sensitivity = SignalSensitivity::NoSensitivity;
 				Ok(type_first) // FIXME
 			},
 			PostfixWithIndex(index) => {

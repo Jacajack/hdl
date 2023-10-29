@@ -808,7 +808,7 @@ impl ModuleImplementationStatement {
 							local_ctx.sensitivity_graph.add_edges(entries, SensitivityGraphEntry::Signal(new_id, stmt.location()), stmt.location()).map_err(|e| e.build())?;
 						}
 						module_instance
-							.add_variable(
+							.add_clock(
 								stmt.get_id(),
 								new_id,
 								).map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
@@ -847,20 +847,7 @@ impl ModuleImplementationStatement {
 						crate::analyzer::Direction::Output(_) => true,
 						_ => unreachable!(),
 					};
-					let mut var_type = stmt.get_type(ctx, local_ctx, scope_id, interface_signal.clone(), is_output)?;
-					//match &interface_signal.direction {
-					//	crate::analyzer::Direction::Input(_) => {
-					//		interface_signal
-					//			.sensitivity
-					//			.can_drive(&var_type.sensitivity, stmt.location(), &ctx)?
-					//	},
-					//	crate::analyzer::Direction::Output(_) => {
-					//		var_type
-					//			.sensitivity
-					//			.can_drive(&interface_signal.sensitivity, stmt.location(), &ctx)?
-					//	},
-					//	_ => (),
-					//};
+					let _ = stmt.get_type(ctx, local_ctx, scope_id, interface_signal.clone(), is_output)?;
 					let new_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 						new_name,
 						stmt.location(),
@@ -1716,16 +1703,6 @@ fn create_register(
 				.build(),
 		));
 	}
-	if let SignalSensitivity::Clock(..) = &clk_type.sensitivity {
-	}
-	else {
-		return Err(miette::Report::new(
-			InstanceError::ArgumentsMismatch
-				.to_diagnostic_builder()
-				.label(clk_stmt.unwrap().location(), "Clk signal must be marked as clock")
-				.build(),
-		));
-	}
 	let inst_name = ctx.id_table.get_value(&inst_stmt.instance_name).clone();
 	let clk_name = ctx.id_table.insert_or_get(format!("{}_clk", inst_name).as_str());
 	let next_name = ctx.id_table.insert_or_get(format!("{}_nxt_c", inst_name).as_str());
@@ -1745,11 +1722,6 @@ fn create_register(
 				.build(),
 		));
 	}
-	let list = ClockSensitivityList::new().with_clock(clk_type.get_clock_name(), true, data_stmt.unwrap().location());
-	let data_sensitivity = SignalSensitivity::Sync(list, data_stmt.unwrap().location());
-	data_type
-		.sensitivity
-		.can_drive(&data_sensitivity, data_stmt.unwrap().location(), ctx)?;
 	debug!("Data type is {:?}", data_type);
 	let mut next_type = match next_stmt.unwrap() {
 		OnlyId(id) => {
@@ -1781,17 +1753,6 @@ fn create_register(
 			InstanceError::ArgumentsMismatch
 				.to_diagnostic_builder()
 				.label(next_stmt.unwrap().location(), "Next signal cannot cannot be array")
-				.build(),
-		));
-	}
-	if !next_type.sensitivity.is_not_worse_than(&clk_type.sensitivity) {
-		return Err(miette::Report::new(
-			InstanceError::ArgumentsMismatch
-				.to_diagnostic_builder()
-				.label(
-					next_stmt.unwrap().location(),
-					"Next signal must be synchronized with clock",
-				)
 				.build(),
 		));
 	}
@@ -1874,17 +1835,6 @@ fn create_register(
 	let en_type = en_stmt
 		.unwrap()
 		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), false)?;
-	if !en_type.sensitivity.is_not_worse_than(&clk_type.sensitivity) {
-		return Err(miette::Report::new(
-			InstanceError::ArgumentsMismatch
-				.to_diagnostic_builder()
-				.label(
-					en_stmt.unwrap().location(),
-					"Enable signal must be synchronized with clock",
-				)
-				.build(),
-		));
-	}
 	debug!("En type is {:?}", en_type);
 	let en_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 		en_name,
