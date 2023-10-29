@@ -1486,7 +1486,7 @@ impl Expression {
 					));
 				}
 				let mut res = Signal::new_empty();
-				//let mut sensitivity = val.sensitivity.clone();
+				let mut sensitivity = val.sensitivity.clone();
 				for stmt in &match_expr.statements {
 					match &stmt.antecedent {
 						MatchExpressionAntecendent::Expression {
@@ -1515,9 +1515,9 @@ impl Expression {
 						is_lhs,
 						match_expr.location,
 					)?;
-					//sensitivity.evaluate_sensitivity(vec![res.sensitivity.clone()], self.get_location());
+					sensitivity.evaluate_sensitivity(vec![res.sensitivity.clone()], self.get_location());
 				}
-				//res.sensitivity = sensitivity;
+				res.sensitivity = sensitivity;
 				Ok(res)
 			},
 			ConditionalExpression(cond) => {
