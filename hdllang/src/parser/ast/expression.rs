@@ -739,7 +739,23 @@ impl Expression {
 						.is_signedness_specified(global_ctx, local_ctx, current_scope),
 				}
 			},
-			_ => todo!(),
+    		Identifier(_) => todo!(),
+    		ParenthesizedExpression(expr) => expr.expression.is_signedness_specified(global_ctx, local_ctx, current_scope),
+    		MatchExpression(_) => todo!(),
+    		ConditionalExpression(_) => todo!(),
+    		Tuple(_) => unreachable!(),
+    		TernaryExpression(tern) => {
+				tern.true_branch
+					.is_signedness_specified(global_ctx, local_ctx, current_scope)
+					|| tern
+						.false_branch
+						.is_signedness_specified(global_ctx, local_ctx, current_scope)
+			},
+    		PostfixWithIndex(_) => true, // FIXME
+    		PostfixWithRange(_) => true,
+    		PostfixWithArgs(_) => todo!(),
+    		PostfixWithId(_) => todo!(),
+    		UnaryCastExpression(_) => todo!(),
 		}
 	}
 	pub fn is_lvalue(&self) -> bool {
@@ -1470,7 +1486,7 @@ impl Expression {
 					));
 				}
 				let mut res = Signal::new_empty();
-				let mut sensitivity = val.sensitivity.clone();
+				//let mut sensitivity = val.sensitivity.clone();
 				for stmt in &match_expr.statements {
 					match &stmt.antecedent {
 						MatchExpressionAntecendent::Expression {
@@ -1490,6 +1506,7 @@ impl Expression {
 						},
 						MatchExpressionAntecendent::Default { location: _ } => (),
 					};
+					stmt.expression.evaluate_type(global_ctx, scope_id, local_ctx, coupling_type.clone(), is_lhs, location)?;
 					res = stmt.expression.evaluate_type(
 						global_ctx,
 						scope_id,
@@ -1498,9 +1515,9 @@ impl Expression {
 						is_lhs,
 						match_expr.location,
 					)?;
-					sensitivity.evaluate_sensitivity(vec![res.sensitivity.clone()], self.get_location());
+					//sensitivity.evaluate_sensitivity(vec![res.sensitivity.clone()], self.get_location());
 				}
-				res.sensitivity = sensitivity;
+				//res.sensitivity = sensitivity;
 				Ok(res)
 			},
 			ConditionalExpression(cond) => {
@@ -1512,7 +1529,37 @@ impl Expression {
 							.build(),
 					));
 				}
-				todo!()
+				let mut res = Signal::new_empty();
+				for stmt in &cond.statements {
+					match &stmt.antecedent {
+						MatchExpressionAntecendent::Expression {
+							expressions,
+							location: _,
+						} => {
+							for expr in expressions {
+								let expr_type = expr.evaluate_type(
+									global_ctx,
+									scope_id,
+									local_ctx,
+									Signal::new_empty(),
+									is_lhs,
+									cond.location,
+								)?;
+							}
+						},
+						MatchExpressionAntecendent::Default { location: _ } => (),
+					};
+					stmt.expression.evaluate_type(global_ctx, scope_id, local_ctx, coupling_type.clone(), is_lhs, location)?;
+					res = stmt.expression.evaluate_type(
+						global_ctx,
+						scope_id,
+						local_ctx,
+						coupling_type.clone(),
+						is_lhs,
+						cond.location,
+					)?;
+				}
+				Ok(res)
 			},
 			Tuple(tuple) => {
 				return Err(miette::Report::new(
