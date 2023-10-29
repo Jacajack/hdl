@@ -1885,26 +1885,31 @@ fn create_register(
 				.build(),
 		));
 	}
+	debug!("En type is {:?}", en_type);
 	let en_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 		en_name,
 		next_stmt.unwrap().location(),
 		VariableKind::Signal(en_type),
 	))?;
+	debug!("Nreset type is {:?}", nreset_type);
 	let nreset_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 		nreset_name,
 		next_stmt.unwrap().location(),
 		VariableKind::Signal(nreset_type),
 	))?;
+	debug!("Data type is {:?}", data_type);
 	let data_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 		data_name,
 		next_stmt.unwrap().location(),
 		VariableKind::Signal(data_type.clone()),
 	))?;
+	debug!("Clk type is {:?}", clk_type);
 	let clk_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 		clk_name,
 		next_stmt.unwrap().location(),
 		VariableKind::Signal(clk_type),
 	))?;
+	debug!("Next type is {:?}", next_type);
 	let next_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 		next_name,
 		next_stmt.unwrap().location(),

@@ -239,6 +239,7 @@ impl ModuleImplementationScope {
 		self.variables.get(&id).unwrap()
 	}
 	pub fn define_intermidiate_signal(&mut self, var: Variable) -> miette::Result<InternalVariableId> {
+		log::debug!("Defining intermidiate signal {:?}", var);
 		let id = InternalVariableId::new(self.variable_counter);
 		self.variable_counter += 1;
 		let defined = VariableDefined { var, id };
