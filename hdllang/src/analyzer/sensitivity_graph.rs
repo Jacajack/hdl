@@ -8,7 +8,7 @@ use petgraph::{
 	prelude::DiGraph,
 };
 
-use crate::{parser::ast::SourceLocation, SourceSpan};
+use crate::{parser::ast::SourceLocation, SourceSpan, core::CompilerDiagnosticBuilder, analyzer::SemanticError, ProvidesCompilerDiagnostic};
 
 use super::module_implementation_scope::InternalVariableId;
 #[derive(Debug, Clone, Hash, Copy, Eq, PartialOrd, Ord)]
@@ -68,7 +68,6 @@ impl SenstivityGraphIndex {
 pub struct SensitivityGraph {
 	graph: DiGraph<SensitivityGraphEntry, SenstivityGraphEdge>,
 	graph_entries: BiHashMap<SenstivityGraphIndex, SensitivityGraphEntry>,
-	senstivity_nodes: HashMap<SignalSensitivity, SenstivityGraphIndex>,
 }
 
 impl SensitivityGraph {
@@ -77,7 +76,7 @@ impl SensitivityGraph {
 		from: Vec<SensitivityGraphEntry>,
 		to: SensitivityGraphEntry,
 		edge_loc: SourceSpan,
-	) -> Result<(), ()> {
+	) -> Result<(), CompilerDiagnosticBuilder> {
 		for node in from {
 			self.add_edge(
 				node,
@@ -105,7 +104,7 @@ impl SensitivityGraph {
 		from: SensitivityGraphEntry,
 		to: SensitivityGraphEntry,
 		edge: SenstivityGraphEdge,
-	) -> Result<(), ()> {
+	) -> Result<(), CompilerDiagnosticBuilder> {
 
 		assert!(!is_cyclic_directed(&self.graph));
 
@@ -116,12 +115,12 @@ impl SensitivityGraph {
 		log::error!("Graph: {:?}", self.graph);
 
 		if is_cyclic_directed(&self.graph) {
-			return Err(());
+			return Err(SemanticError::CyclicDependency.to_diagnostic_builder().label(edge.location(), "This edge creates a cyclic dependency"));
 		}
 		Ok(())
 	}
 	pub fn new() -> Self {
-		Self { graph: DiGraph::new(), graph_entries: BiHashMap::new(), senstivity_nodes: HashMap::new() }
+		Self { graph: DiGraph::new(), graph_entries: BiHashMap::new() }
 	}
 	pub fn get_node_sensitivity(
 		&self,

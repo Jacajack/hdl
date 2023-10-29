@@ -74,6 +74,8 @@ pub enum SemanticError {
 	ExpressionNotAllowedInNonGenericModuleDeclaration,
 	#[error("This signal is missing a sensitivity qualifier")]
 	MissingSensitivityQualifier,
+	#[error("This signal's value is dependent on itself")]
+	CyclicDependency,
 	#[error("This signal is missing a signedness qualifier")]
 	MissingSignednessQualifier,
 	#[error("Recursive module instantiation is not allowed")]
@@ -270,6 +272,9 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
 			GenericInConditional => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that generic variables are not assigned in conditional statements")
+				.build(),
+    		CyclicDependency => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all signals couplings are done with use of registers")
 				.build(),
 		}
 	}

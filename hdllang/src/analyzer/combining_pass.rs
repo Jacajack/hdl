@@ -168,7 +168,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
 			todo!("Invoke elaboration");
-			let mut output_string = String::new();
+			let mut output_string: String = String::new();
 			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design, &mut output_string);
 			use hirn::codegen::Codegen;
 			sv_codegen
@@ -264,6 +264,7 @@ pub struct LocalAnalyzerContex {
 	pub are_we_in_conditional: usize,
 	pub scope: ModuleImplementationScope,
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
+	pub casts: HashMap<SourceSpan, Signal>,
 	pub widths_map: HashMap<SourceSpan, BusWidth>,
 	pub scope_map: HashMap<SourceSpan, usize>,
 	pub module_id: IdTableKey,
@@ -279,6 +280,7 @@ impl LocalAnalyzerContex {
 			nc_widths: HashMap::new(),
 			widths_map: HashMap::new(),
 			sensitivity_graph: super::SensitivityGraph::new(),
+			casts: HashMap::new(),
 		}
 	}
 	pub fn second_pass(&mut self, ctx:  &GlobalAnalyzerContext) -> miette::Result<()> {
@@ -471,7 +473,7 @@ impl ModuleImplementationStatement {
 				let (left_id, loc) =assignment.lhs.get_internal_id(&local_ctx.scope, scope_id);
 				let entries = assignment.rhs.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
 				log::error!("Adding edges {:?} to {:?}", entries, left_id);
-				local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(left_id,loc), self.get_location()).map_err(|_|log::error!("Cyclic sensitivity graph"));
+				local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(left_id,loc), self.get_location()).map_err(|e| e.build())?;
 				info!("Lhs type at the and: {:?}", new_lhs);
 			},
 			IfElseStatement(conditional) => {
@@ -670,7 +672,7 @@ impl ModuleImplementationStatement {
 							let mut local_sig = local_ctx
 								.scope
 								.get_var(scope_id, &id.id)
-								.map_err(|mut err| {
+								.map_err(|err| {
 									err.label(
 										id.location,
 										format!(
@@ -748,7 +750,7 @@ impl ModuleImplementationStatement {
 							let id = local_ctx.scope.define_intermidiate_signal(new_var)?;
 							module_instance
 								.add_variable(stmt.get_id(), id)
-								.map_err(|mut err| err.label(stmt.location(), "Variable declared here").build())?;
+								.map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
 						},
 						IdWithDeclaration(_) => {
 							debug!("Id with declaration");
@@ -799,11 +801,11 @@ impl ModuleImplementationStatement {
 							VariableKind::Signal(coming)))?;
 						if is_output{
 							let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
-							local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(new_id, stmt.location())], SensitivityGraphEntry::Signal(id, loc), stmt.location());
+							local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(new_id, stmt.location())], SensitivityGraphEntry::Signal(id, loc), stmt.location()).map_err(|e| e.build())?;
 						}
 						else{
 							let entries = stmt.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
-							local_ctx.sensitivity_graph.add_edges(entries, SensitivityGraphEntry::Signal(new_id, stmt.location()), stmt.location());
+							local_ctx.sensitivity_graph.add_edges(entries, SensitivityGraphEntry::Signal(new_id, stmt.location()), stmt.location()).map_err(|e| e.build())?;
 						}
 						module_instance
 							.add_variable(
@@ -865,11 +867,11 @@ impl ModuleImplementationStatement {
 						VariableKind::Signal(interface_signal)))?;
 					if is_output{
 						let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
-						local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(new_id, stmt.location())], SensitivityGraphEntry::Signal(id, loc), stmt.location());
+						local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(new_id, stmt.location())], SensitivityGraphEntry::Signal(id, loc), stmt.location()).map_err(|e| e.build())?;
 					}
 					else{
 						let entries = stmt.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
-						local_ctx.sensitivity_graph.add_edges(entries, SensitivityGraphEntry::Signal(new_id, stmt.location()), stmt.location());
+						local_ctx.sensitivity_graph.add_edges(entries, SensitivityGraphEntry::Signal(new_id, stmt.location()), stmt.location()).map_err(|e| e.build())?;
 					}
 					module_instance
 						.add_variable(
@@ -1056,7 +1058,7 @@ impl ModuleImplementationStatement {
 					let r = local_ctx.scope.get_variable(scope_id, &inst.instance_name).unwrap(); //FIXME
 					if let VariableKind::ModuleInstance(m) = &r.var.kind {
 						if let ModuleInstanceKind::Register(reg) = &m.kind {
-							let mut builder = hirn::design::RegisterBuilder::new(
+							let builder = hirn::design::RegisterBuilder::new(
 								api_scope.clone(),
 								&ctx.id_table.get_value(&inst.instance_name),
 							);
@@ -1446,7 +1448,7 @@ impl VariableDefinition {
 							},
 						)?;
 						let entries = expr.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
-						local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.declarator.get_location()) , expr.get_location());
+						local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.declarator.get_location()) , expr.get_location()).map_err(|e| e.build())?;
 					
 					}
 					else {
@@ -1483,7 +1485,7 @@ impl VariableDefinition {
 							},
 						)?;
 						let entries = expr.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
-						local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.declarator.get_location()) , expr.get_location());
+						local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.declarator.get_location()) , expr.get_location()).map_err(|e| e.build())?;
 					}
 				},
 				None =>{ local_ctx.scope.define_variable(
@@ -1751,10 +1753,10 @@ fn create_register(
 	debug!("Data type is {:?}", data_type);
 	let mut next_type = match next_stmt.unwrap() {
 		OnlyId(id) => {
-			let mut sig = local_ctx
+			let sig = local_ctx
 				.scope
 				.get_var(scope_id, &id.id)
-				.map_err(|mut err| {
+				.map_err(|err| {
 					err.label(next_stmt.unwrap().location(), "This variable was not declared")
 						.build()
 				})?
@@ -1908,13 +1910,12 @@ fn create_register(
 		next_stmt.unwrap().location(),
 		VariableKind::Signal(next_type),
 	))?;
-	use crate::analyzer::SensitivityGraphEntry;
-	local_ctx.sensitivity_graph.add_edges(en_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(en_var_id, en_stmt.unwrap().location()), en_stmt.unwrap().location());
-	local_ctx.sensitivity_graph.add_edges(nreset_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(nreset_var_id, nreset_stmt.unwrap().location()), nreset_stmt.unwrap().location());
-	local_ctx.sensitivity_graph.add_edges(next_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(next_var_id, next_stmt.unwrap().location()), next_stmt.unwrap().location());
-	local_ctx.sensitivity_graph.add_edges(clk_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(clk_var_id, clk_stmt.unwrap().location()), clk_stmt.unwrap().location() );
+	local_ctx.sensitivity_graph.add_edges(en_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(en_var_id, en_stmt.unwrap().location()), en_stmt.unwrap().location()).map_err(|e| e.build())?;
+	local_ctx.sensitivity_graph.add_edges(nreset_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(nreset_var_id, nreset_stmt.unwrap().location()), nreset_stmt.unwrap().location()).map_err(|e| e.build())?;
+	local_ctx.sensitivity_graph.add_edges(next_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(next_var_id, next_stmt.unwrap().location()), next_stmt.unwrap().location()).map_err(|e| e.build())?;
+	local_ctx.sensitivity_graph.add_edges(clk_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(clk_var_id, clk_stmt.unwrap().location()), clk_stmt.unwrap().location() ).map_err(|e| e.build())?;
 	let (id, loc) = data_stmt.unwrap().get_internal_id(&local_ctx.scope, scope_id);
-	local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(data_var_id, data_stmt.unwrap().location())], SensitivityGraphEntry::Signal(id, loc), data_stmt.unwrap().location());
+	local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(data_var_id, data_stmt.unwrap().location())], SensitivityGraphEntry::Signal(id, loc), data_stmt.unwrap().location()).map_err(|e| e.build())?;
 	let r = RegisterInstance {
 		name: inst_stmt.instance_name,
 		location: inst_stmt.location,

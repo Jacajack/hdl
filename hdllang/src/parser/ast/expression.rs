@@ -1202,7 +1202,12 @@ impl Expression {
 					Plus => Ok(operand),
 				}
 			},
-			UnaryCastExpression(_) => todo!(),
+			UnaryCastExpression(unary_cast) => {
+				let src = unary_cast
+					.expression
+					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+				todo!()
+				},
 			BinaryExpression(binop) => {
 				use crate::parser::ast::BinaryOpcode::*;
 				let lhs = binop.lhs.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
@@ -2242,6 +2247,7 @@ impl Expression {
 							)
 						}
 						debug!("casted to: {:?}", r);
+						local_ctx.casts.insert(self.get_location(), r.clone());
 						Ok(r)
 					},
 					VariableKind::Generic(_) => {
