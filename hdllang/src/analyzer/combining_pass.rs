@@ -1723,30 +1723,8 @@ fn create_register(
 		));
 	}
 	debug!("Data type is {:?}", data_type);
-	let mut next_type = match next_stmt.unwrap() {
-		OnlyId(id) => {
-			let sig = local_ctx
-				.scope
-				.get_var(scope_id, &id.id)
-				.map_err(|err| {
-					err.label(next_stmt.unwrap().location(), "This variable was not declared")
-						.build()
-				})?
-				.var
-				.kind
-				.to_signal();
-			sig
-		},
-		IdWithExpression(expr) => expr.expression.evaluate_type(
-			ctx,
-			scope_id,
-			local_ctx,
-			data_type.clone(),
-			false,
-			data_stmt.unwrap().location(),
-		)?,
-		IdWithDeclaration(_) => todo!(),
-	};
+	let mut next_type = next_stmt.unwrap().get_type(ctx, local_ctx, scope_id, data_type.clone(), false)?;
+	next_type.sensitivity = SignalSensitivity::NoSensitivity;
 	debug!("Next type is {:?}", next_type);
 	if next_type.is_array() {
 		return Err(miette::Report::new(
