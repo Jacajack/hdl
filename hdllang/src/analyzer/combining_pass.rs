@@ -269,6 +269,8 @@ pub struct LocalAnalyzerContex {
 	pub scope_map: HashMap<SourceSpan, usize>,
 	pub module_id: IdTableKey,
 	pub sensitivity_graph: super::SensitivityGraph,
+	pub are_we_in_true_branch: Vec<bool>,
+	pub number_of_recursive_calls: usize,
 }
 impl LocalAnalyzerContex {
 	pub fn new(module_id: IdTableKey, scope: ModuleImplementationScope) -> Self {
@@ -281,6 +283,8 @@ impl LocalAnalyzerContex {
 			widths_map: HashMap::new(),
 			sensitivity_graph: super::SensitivityGraph::new(),
 			casts: HashMap::new(),
+			are_we_in_true_branch: vec![true], // initial value is true :)
+			number_of_recursive_calls: 0,
 		}
 	}
 	pub fn second_pass(&mut self, ctx:  &GlobalAnalyzerContext) -> miette::Result<()> {
@@ -482,11 +486,17 @@ impl ModuleImplementationStatement {
 					.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?;
 				let if_scope = local_ctx.scope.new_scope(Some(scope_id));
 				local_ctx.are_we_in_conditional += 1;
+				debug!("Condition is {:?}", condition_type);
+				let cond = condition_type.unwrap().value != num_bigint::BigInt::from(0);
+				local_ctx.are_we_in_true_branch.push(cond);
 				conditional.if_statement.first_pass(ctx, local_ctx, if_scope)?;
+				local_ctx.are_we_in_true_branch.pop();
 				match &conditional.else_statement {
 					Some(stmt) => {
 						let else_scope = local_ctx.scope.new_scope(Some(scope_id));
+						local_ctx.are_we_in_true_branch.push(!cond);
 						stmt.first_pass(ctx, local_ctx, else_scope)?;
+						local_ctx.are_we_in_true_branch.pop();
 					},
 					None => (),
 				}
@@ -591,21 +601,7 @@ impl ModuleImplementationStatement {
 					.unwrap()
 					.instantiates
 					.push(name.clone());
-				if name == local_ctx.module_id {
-					return Err(miette::Report::new(
-						SemanticError::RecursiveModuleInstantiation
-							.to_diagnostic_builder()
-							.label(
-								inst.module_name.location,
-								format!(
-									"Module \"{}\" is instantiated recursively",
-									ctx.id_table.get_by_key(&name).unwrap()
-								)
-								.as_str(),
-							)
-							.build(),
-					));
-				}
+				
 				if !ctx.modules_declared.contains_key(&name) {
 					return Err(miette::Report::new(
 						SemanticError::ModuleNotDeclared
@@ -867,11 +863,33 @@ impl ModuleImplementationStatement {
 						)
 						.map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
 				}
+				let mut recursive_calls = 0;
+				if name == local_ctx.module_id {
+					local_ctx.number_of_recursive_calls+=1;
+					recursive_calls = local_ctx.number_of_recursive_calls;
+					if local_ctx.number_of_recursive_calls > 2048 && local_ctx.are_we_in_true_branch.last().unwrap().clone(){
+						return Err(miette::Report::new(
+							SemanticError::RecursiveModuleInstantiation
+								.to_diagnostic_builder()
+								.label(
+									inst.module_name.location,
+									format!(
+										"Module \"{}\" is instantiated recursively",
+										ctx.id_table.get_by_key(&name).unwrap()
+									)
+									.as_str(),
+								)
+								.build(),
+						));
+					}
+				}
 				debug!("Defining module instance {:?}", module_instance);
-				if scope.is_generic() {
+
+				if scope.is_generic()  && local_ctx.are_we_in_true_branch.last().unwrap().clone(){
 					scope.unmark_as_generic();
 					let implementation = ctx.generic_modules.get(&name).unwrap().clone();
 					let mut new_local_ctx = LocalAnalyzerContex::new(implementation.id, scope);
+					new_local_ctx.number_of_recursive_calls = recursive_calls;
 					first_pass(ctx, &mut new_local_ctx, &implementation)?;
 					new_local_ctx.second_pass(ctx)?;
 				}

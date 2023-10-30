@@ -908,6 +908,9 @@ impl VariableKind {
 					},
 					_ => (),
 				}
+				for dim in &mut sig.dimensions{
+					dim.eval(nc_table, id_table, scope)?;
+				}
 			},
 			_ => unreachable!(),
 		}
