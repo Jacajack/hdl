@@ -1435,19 +1435,8 @@ impl Expression {
 					},
 				}
 				.clone();
-				if var.var.kind.is_module_instance() {
-					return Err(miette::Report::new(
-						SemanticError::ModuleInstanceNotIndexed
-							.to_diagnostic_builder()
-							.label(
-								var.var.location,
-								"This identifier represent module instance, not signal",
-							)
-							.label(location, "This identifier was used in expression here")
-							.build(),
-					));
-				}
-				let mut sig = var.var.kind.to_signal();
+				let mut sig = var.var.kind.to_signal().map_err(|err|
+					err.label(self.get_location(), "This identifier cannot represents a signal").build())?;
 				sig.evaluate_as_lhs(is_lhs, global_ctx, coupling_type, location)?;
 				if var.var.kind == crate::analyzer::VariableKind::Signal(sig.clone()) {
 					return Ok(sig);

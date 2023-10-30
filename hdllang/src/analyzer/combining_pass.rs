@@ -780,7 +780,7 @@ impl ModuleImplementationStatement {
 						.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table)?;
 					scope.redeclare_variable(interface_variable.clone());
 					debug!("Interface variable is {:?}", interface_variable.var.kind);
-					let clk_type = interface_variable.var.kind.to_signal();
+					let clk_type = interface_variable.var.kind.to_signal().expect("This was checked during analysis of a module");
 					let is_output = match clk_type.direction {
 						crate::analyzer::Direction::Input(_) => false,
 						crate::analyzer::Direction::Output(_) => true,
@@ -835,7 +835,7 @@ impl ModuleImplementationStatement {
 						.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table)?;
 					scope.redeclare_variable(interface_variable.clone());
 					// translate clocks
-					let mut interface_signal = interface_variable.var.kind.to_signal();
+					let mut interface_signal = interface_variable.var.kind.to_signal().expect("This was checked during analysis of a module");
 					interface_signal.translate_clocks(&clock_mapping);
 					debug!("Interface variable is {:?}", interface_variable.var.kind);
 					let is_output = match interface_signal.direction {
@@ -1285,7 +1285,7 @@ impl ModuleImplementationStatement {
 							.generated(),
 					)?;
 					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
-					match interface_variable.var.kind.to_signal().direction {
+					match interface_variable.var.kind.to_signal().expect("This was checked during analysis of a module").direction {
 						crate::analyzer::Direction::Input(_) => api_scope
 							.assign(var_id.into(), rhs)
 							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
@@ -1457,7 +1457,7 @@ impl VariableDefinition {
 					
 					}
 					else {
-						let mut lhs = spec_kind.to_signal();
+						let mut lhs = spec_kind.to_signal().expect("This was checked during analysis");
 						debug!("Lhs is {:?}", lhs);
 						let rhs = expr.evaluate_type(
 							ctx,

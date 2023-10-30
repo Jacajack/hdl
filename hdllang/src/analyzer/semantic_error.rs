@@ -126,6 +126,10 @@ pub enum SemanticError {
 	BadFunctionArguments,
 	#[error("It is not allowed to assign generics inside conditional statements")]
 	GenericInConditional,
+	#[error("It is not allowed to use non initialized generic variables in expressions")]
+	GenericUsedWithoutValue,
+	#[error("It is not allowed to use module instance as a signal")]
+	ModuleInstantionUsedAsSignal,
 	#[error(transparent)]
 	InstanceError(InstanceError),
 }
@@ -276,6 +280,13 @@ impl ProvidesCompilerDiagnostic for SemanticError {
     		CyclicDependency => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all signals couplings are done with use of registers")
 				.build(),
+    		GenericUsedWithoutValue => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all generic variables are initialized before use")
+				.build(),
+    		ModuleInstantionUsedAsSignal => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all module instances are acces via their interface")
+				.build(),
+			
 		}
 	}
 }

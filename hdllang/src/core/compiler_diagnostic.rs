@@ -17,6 +17,7 @@ pub struct CompilerDiagnostic {
 
 /// Used to conveniently craft compiler error messages
 /// Note: Builder is single use only. After build() is called it becomes invalid.
+#[derive(Clone, Debug)]
 pub struct CompilerDiagnosticBuilder {
 	diag: Option<CompilerDiagnostic>,
 }

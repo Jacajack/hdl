@@ -117,7 +117,8 @@ impl PortBindStatement {
 					.get_var(scope_id, &id.id)
 					.map_err(|mut err| err.label(self.location(), "This variable was not declared").build())?
 					.clone();
-				let mut sig = var.var.kind.to_signal();
+				let mut sig = var.var.kind.to_signal().map_err(|err|
+					err.label(self.location(), "This identifier cannot represent a signal"))?;
 				sig.evaluate_as_lhs(is_output, ctx, interface_signal, self.location())?;
 				if var.var.kind == crate::analyzer::VariableKind::Signal(sig.clone()) {
 					return Ok(sig);
@@ -178,7 +179,7 @@ impl PortBindStatement {
 				}
 				new_war.add_dimenstions(dimensions);
 				new_war.add_name_to_clock(direct_declarator.name);
-				let mut sig = new_war.to_signal();
+				let mut sig = new_war.to_signal().expect("This was checked during analysis of declaration");
 				sig.evaluate_as_lhs(is_output, &ctx, interface_signal, id_decl.location)?;
 				new_war = crate::analyzer::VariableKind::Signal(sig.clone());
 				debug!("WRITING");

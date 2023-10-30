@@ -945,32 +945,18 @@ impl VariableKind {
 			VariableKind::ModuleInstance(_) => panic!("Module instantion can't have dimensions"),
 		}
 	}
-	pub fn to_signal(&self) -> Signal {
+	pub fn to_signal(&self) -> Result<Signal, CompilerDiagnosticBuilder> {
 		match self {
-			VariableKind::Signal(signal) => signal.clone(),
+			VariableKind::Signal(signal) => Ok(signal.clone()),
 			VariableKind::Generic(gen) => {
 				match &gen.value {
-					None => (),
+					None => Err(SemanticError::GenericUsedWithoutValue.to_diagnostic_builder()),
 					Some(val) => {
-						return Signal::new_from_constant(&val.get_nc(), SourceSpan::new_between(0, 0));
-						//return Signal::new_from_constant(val, gen.kind.location());
+						Ok(Signal::new_from_constant(&val.get_nc(), SourceSpan::new_between(0, 0)))
 					},
 				}
-				match &gen.kind {
-					GenericVariableKind::Int(signedness, location) => Signal::new_bus(
-						Some(BusWidth::Evaluated(crate::core::NumericConstant::new(
-							BigInt::from(64),
-							None,
-							None,
-							None,
-						))),
-						signedness.clone(),
-						*location,
-					),
-					GenericVariableKind::Bool(location) => Signal::new_wire(*location),
-				}
 			},
-			VariableKind::ModuleInstance(_) => todo!(), // ERROR,
+			VariableKind::ModuleInstance(_) => Err(SemanticError::ModuleInstantionUsedAsSignal.to_diagnostic_builder()),
 		}
 	}
 	pub fn is_module_instance(&self) -> bool {
