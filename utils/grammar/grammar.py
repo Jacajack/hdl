@@ -33,8 +33,6 @@ GRAMMAR = {
 	],
 	"<module_impl_block_stmt>": ["{<module_impl_stmt>*}"],
 
-	# TODO enum declaration
-
 	# Variable declarations
 	"<variable_decl_stmt>": ["<variable_decl>;"],
 	"<variable_decl>": [
@@ -102,7 +100,7 @@ GRAMMAR = {
 	],
 	
 	# Standalone assignment
-	"<assignment_op>": ["=", "+=", "&=", "^=", "|="],
+	"<assignment_op>": ["="],
 	"<assignment_stmt>": ["<postfix_expression> <assignment_op> <expr_with_tuple>;"],
 	
 	# For statement
