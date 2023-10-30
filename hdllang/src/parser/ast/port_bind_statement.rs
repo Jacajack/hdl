@@ -118,7 +118,7 @@ impl PortBindStatement {
 					.map_err(|mut err| err.label(self.location(), "This variable was not declared").build())?
 					.clone();
 				let mut sig = var.var.kind.to_signal().map_err(|err|
-					err.label(self.location(), "This identifier cannot represent a signal"))?;
+					err.label(self.location(), "This identifier cannot represent a signal").build())?;
 				sig.evaluate_as_lhs(is_output, ctx, interface_signal, self.location())?;
 				if var.var.kind == crate::analyzer::VariableKind::Signal(sig.clone()) {
 					return Ok(sig);
