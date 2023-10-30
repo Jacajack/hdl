@@ -135,10 +135,6 @@ pub enum TokenKind {
 	Keyword(KeywordKind),
 
 	#[token("=",  |_| PunctuatorKind::Assignment)]
-	#[token("+=", |_| PunctuatorKind::AssignmentPlus)]
-	#[token("&=", |_| PunctuatorKind::AssignmentAnd)]
-	#[token("^=", |_| PunctuatorKind::AssignmentXor)]
-	#[token("|=", |_| PunctuatorKind::AssignmentOr)]
 	#[token(".",  |_| PunctuatorKind::Dot)]
 	#[token(",",  |_| PunctuatorKind::Comma)]
 	#[token("~",  |_| PunctuatorKind::BitwiseNot)]

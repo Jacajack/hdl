@@ -108,20 +108,9 @@ impl Debug for UnaryOpcode {
 #[derive(serde::Serialize, serde::Deserialize, Clone, Eq, PartialEq, Hash)]
 pub enum AssignmentOpcode {
 	Equal,
-	PlusEqual,
-	AndEqual,
-	XorEqual,
-	OrEqual,
 }
 impl Debug for AssignmentOpcode {
 	fn fmt(&self, fmt: &mut Formatter) -> Result<(), Error> {
-		use self::AssignmentOpcode::*;
-		match *self {
-			Equal => write!(fmt, "="),
-			PlusEqual => write!(fmt, "+="),
-			AndEqual => write!(fmt, "&="),
-			XorEqual => write!(fmt, "^="),
-			OrEqual => write!(fmt, "|="),
-		}
+		write!(fmt, "=")
 	}
 }

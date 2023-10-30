@@ -942,23 +942,9 @@ impl ModuleImplementationStatement {
 				debug!("Codegen for assignment");
 				debug!("Lhs is {:?}", lhs);
 				debug!("Rhs is {:?}", rhs);
-				use crate::parser::ast::AssignmentOpcode::*;
-				match assignment.assignment_opcode {
-					Equal => api_scope
+				api_scope
 						.assign(lhs, rhs)
-						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
-					PlusEqual => todo!(), // does it make sense?
-					AndEqual => api_scope
-						.assign(lhs.clone(), lhs & rhs)
-						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
-					XorEqual => api_scope
-						.assign(lhs.clone(), lhs ^ rhs)
-						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
-					OrEqual => api_scope
-						.assign(lhs.clone(), lhs | rhs)
-						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
-				};
-
+						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
 				debug!("Assignment done");
 			},
 			IfElseStatement(conditional) => {
