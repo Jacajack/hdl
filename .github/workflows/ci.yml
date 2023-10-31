@@ -75,3 +75,9 @@ jobs:
         run: pip3 install fuzzingbook
       - name: Fuzzer tests
         run: utils/parser_test.py --seed 3721
+
+  call-workflow:
+    name: Trigger coverage testing
+    if: ${{ always() && needs.cargo-build.result == 'success' }}
+    needs: [cargo-build]
+    uses: ./.github/workflows/coverage.yml

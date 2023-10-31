@@ -1,9 +1,6 @@
 name: Test coverage
 on:
-  workflow_run:
-    workflows: ["Main CI"]
-    types: 
-      - completed
+  workflow_call:
 jobs:
   test:
     name:                       coverage
