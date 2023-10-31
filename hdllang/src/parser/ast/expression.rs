@@ -18,7 +18,7 @@ use crate::analyzer::{
 	AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContex, ModuleImplementationScope,
 	SemanticError, Signal, SignalSensitivity, SignalSignedness, SignalType, VariableKind,
 };
-use crate::core::NumericConstant;
+use crate::core::{NumericConstant, CompilerDiagnosticBuilder};
 use crate::lexer::IdTableKey;
 use crate::parser::ast::{
 	opcodes::*, MatchExpressionAntecendent, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName,
@@ -254,13 +254,16 @@ impl Expression {
 			},
 		}
 	}
-	pub fn assign(&self, value: BusWidth, local_ctx: &mut LocalAnalyzerContex, scope_id: usize) {
+	pub fn assign(&self, value: BusWidth, local_ctx: &mut LocalAnalyzerContex, scope_id: usize) -> Result<(), CompilerDiagnosticBuilder> {
 		use Expression::*;
 		match self {
 			Identifier(id) => {
 				let mut var = local_ctx.scope.get_variable(scope_id, &id.id).unwrap().clone();
-				var.var.kind.add_value(value);
+				var.var.kind.add_value(value)
+					.map_err(|err| 
+						err.label(self.get_location(), "Cannot assign value to this variable"))?;
 				local_ctx.scope.redeclare_variable(var);
+				Ok(())
 			},
 			_ => unreachable!(),
 		}

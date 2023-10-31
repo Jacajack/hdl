@@ -931,10 +931,17 @@ impl VariableKind {
 			_ => false,
 		}
 	}
-	pub fn add_value(&mut self, value: BusWidth) {
+	pub fn add_value(&mut self, value: BusWidth) -> Result<(), CompilerDiagnosticBuilder>{
 		use VariableKind::*;
 		match self {
-			Generic(gen) => gen.value = Some(value),
+			Generic(gen) => {
+				match &mut gen.value{
+        			Some(_) => return Err(SemanticError::MultipleAssignment.to_diagnostic_builder()),
+        			None => gen.value = Some(value),
+    			}
+				Ok(())
+				
+			},
 			_ => panic!("Only generic variables can have values"),
 		}
 	}

@@ -429,14 +429,14 @@ impl ModuleImplementationStatement {
 								BusWidth::EvaluatedLocated(val, assignment.rhs.get_location()),
 								local_ctx,
 								scope_id,
-							);
+							)
 						},
 						None => assignment.lhs.assign(
 							BusWidth::Evaluable(assignment.rhs.get_location()),
 							local_ctx,
 							scope_id,
 						),
-					}
+					}.map_err(|e|e.label(self.get_location(), "This assignment is invalid").build())?;
 					return Ok(());
 				}
 				let lhs_type = assignment.lhs.evaluate_type(

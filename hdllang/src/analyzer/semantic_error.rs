@@ -130,6 +130,8 @@ pub enum SemanticError {
 	GenericUsedWithoutValue,
 	#[error("It is not allowed to use module instance as a signal")]
 	ModuleInstantionUsedAsSignal,
+	#[error("It is not allowed to assign value to generic variable more than once")]
+	MultipleAssignment,
 	#[error(transparent)]
 	InstanceError(InstanceError),
 }
@@ -285,6 +287,9 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
     		ModuleInstantionUsedAsSignal => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all module instances are acces via their interface")
+				.build(),
+    		MultipleAssignment => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all generic variables are assigned only once")
 				.build(),
 			
 		}
