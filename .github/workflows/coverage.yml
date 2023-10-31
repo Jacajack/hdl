@@ -11,6 +11,9 @@ jobs:
       - name:                   Checkout repository
         uses:                   actions/checkout@v2
 
+      - name: Install iVerilog
+        run: sudo apt-get install -y iverilog
+
       - name:                   Generate code coverage
         run: |
           cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
