@@ -11,6 +11,46 @@ use petgraph::{
 use crate::{parser::ast::SourceLocation, SourceSpan, core::CompilerDiagnosticBuilder, analyzer::SemanticError, ProvidesCompilerDiagnostic};
 
 use super::module_implementation_scope::InternalVariableId;
+#[derive(Debug, Clone, Hash, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub struct ClockGraphEntry{
+	id: InternalVariableId,
+}
+
+pub struct ClockGraph{
+	graph: DiGraph<ClockGraphEntry, ()>,
+	graph_entries: BiHashMap<SenstivityGraphIndex, ClockGraphEntry>,
+}
+impl ClockGraph{
+	pub fn new()->Self{
+		Self{
+			graph: DiGraph::new(),
+			graph_entries: BiHashMap::new(),
+		}
+	}
+	pub fn insert_or_get_index(&mut self, entry: ClockGraphEntry) -> petgraph::stable_graph::NodeIndex {
+		match self.graph_entries.get_by_right(&entry) {
+			Some(id) => id.index(),
+			None => {
+				let id: petgraph::stable_graph::NodeIndex = self.graph.add_node(entry);
+				self.graph_entries.insert(SenstivityGraphIndex::new(id), entry);
+				id
+			}
+		}
+	}
+	pub fn get_index(&self, entry: ClockGraphEntry) -> petgraph::stable_graph::NodeIndex {
+		self.graph_entries.get_by_right(&entry).map(|id| id.index()).unwrap().clone()
+	}
+	pub fn insert_clock(&mut self, from : ClockGraphEntry, to: ClockGraphEntry){
+		let from_id = self.insert_or_get_index(from);
+		let to_id = self.insert_or_get_index(to);
+		self.graph.add_edge(from_id, to_id, ());
+	}
+	pub fn are_clocks_connected(&self, from: ClockGraphEntry, to: ClockGraphEntry)->bool{
+		let from_id = self.get_index(from);
+		let to_id = self.get_index(to);
+		petgraph::algo::has_path_connecting(&self.graph, from_id, to_id, None)
+	}
+}
 #[derive(Debug, Clone, Hash, Copy, Eq, PartialOrd, Ord)]
 pub enum SensitivityGraphEntry {
 	Signal(InternalVariableId, SourceSpan),

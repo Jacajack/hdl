@@ -258,6 +258,12 @@ impl Expression {
 		use Expression::*;
 		match self {
 			Identifier(id) => {
+				if local_ctx.scope.is_declared(scope_id, &id.id).is_none(){
+					return Err(SemanticError::VariableNotDeclared
+							.to_diagnostic_builder()
+							.label(id.location, "This variable is not defined in this scope, so it cannot be assigned to here")
+					)
+				}
 				let mut var = local_ctx.scope.get_variable(scope_id, &id.id).unwrap().clone();
 				var.var.kind.add_value(value)
 					.map_err(|err| 
