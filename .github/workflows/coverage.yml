@@ -3,7 +3,7 @@ on:
   workflow_call:
 jobs:
   test:
-    name:                       coverage
+    name: Gather coverage
     runs-on:                    ubuntu-latest
     container:
       image:                    xd009642/tarpaulin:develop-nightly

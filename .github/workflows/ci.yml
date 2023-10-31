@@ -78,6 +78,6 @@ jobs:
 
   call-workflow:
     name: Trigger coverage testing
-    if: ${{ always() && needs.cargo-build.result == 'success' }}
-    needs: [cargo-build]
+    if: ${{ always() && needs.cargo-test.result == 'success' }}
+    needs: [cargo-test]
     uses: ./.github/workflows/coverage.yml
