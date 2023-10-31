@@ -1,0 +1,6 @@
+module m {}
+impl m {
+	int n;
+	n = 44;
+	const unsigned bus<n> b;
+}
