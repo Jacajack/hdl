@@ -1,5 +1,9 @@
 name: Test coverage
-on: [push]
+on:
+  workflow_run:
+    workflows: ["Main CI"]
+    types: 
+      - completed
 jobs:
   test:
     name:                       coverage
