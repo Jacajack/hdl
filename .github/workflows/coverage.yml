@@ -12,7 +12,9 @@ jobs:
         uses:                   actions/checkout@v2
 
       - name: Install iVerilog
-        run: apt-get install -y iverilog
+        run: |
+            apt-get update
+            apt-get install -y iverilog
 
       - name:                   Generate code coverage
         run: |
