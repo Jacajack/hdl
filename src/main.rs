@@ -112,18 +112,18 @@ fn serialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	writeln!(output, "{}", res).map_err(|e: io::Error| CompilerError::IoError(e).to_diagnostic())?;
 	Ok(())
 }
-fn deserialize(code: String, output: Box<dyn Write>) -> miette::Result<()> {
+fn deserialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let deserialized: SerializerContext = serde_json::from_str(&code).unwrap();
 	let mut printer = parser::pretty_printer::PrettyPrinterContext::new(
 		&deserialized.id_table,
 		&deserialized.comment_table,
 		&deserialized.nc_table,
-		output,
+		&mut output,
 	);
 	deserialized.ast_root.pretty_print(&mut printer)?;
 	Ok(())
 }
-fn pretty_print(code: String, output: Box<dyn Write>) -> miette::Result<()> {
+fn pretty_print(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
 	let buf = Box::new(DiagnosticBuffer::new());
 	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
@@ -140,7 +140,7 @@ fn pretty_print(code: String, output: Box<dyn Write>) -> miette::Result<()> {
 		lexer.id_table(),
 		lexer.comment_table(),
 		lexer.numeric_constant_table(),
-		output,
+		&mut output,
 	);
 	ast.pretty_print(&mut printer)?;
 	Ok(())

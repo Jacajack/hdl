@@ -1,12 +1,14 @@
 extern crate hdllang;
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
+use hdllang::core::DiagnosticBuffer;
 use hdllang::lexer::{IdTable, Lexer, LogosLexer, LogosLexerContext};
 use hdllang::parser;
 use hdllang::parser::ast::Root;
 use hdllang::parser::ParserError;
+use hdllang::parser::pretty_printer::PrettyPrintable;
 use rstest::*;
 use std::collections::HashMap;
-use std::io::Write;
+use std::io::{Write, Read};
 use std::path::{Path, PathBuf};
 use subprocess::{ExitStatus, Popen, PopenConfig};
 use tempfile::NamedTempFile;
@@ -54,6 +56,29 @@ fn compile(mut code: String, file_name: String, output: &mut dyn Write) -> miett
 	Ok(())
 }
 
+fn pretty_print(code: String, output: &mut dyn Write) -> miette::Result<()> {
+	let mut lexer = LogosLexer::new(&code);
+	let buf = Box::new(DiagnosticBuffer::new());
+	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
+	let ast = parser::IzuluParser::new()
+		.parse(&mut ctx, Some(&code), &mut lexer)
+		.map_err(|e| {
+			ParserError::new_form_lalrpop_error(e)
+				.to_miette_report()
+				.with_source_code(code.clone())
+		})?;
+	let buffer = ctx.diagnostic_buffer;
+	println!("{}", buffer);
+	let mut printer = parser::pretty_printer::PrettyPrinterContext::new(
+		lexer.id_table(),
+		lexer.comment_table(),
+		lexer.numeric_constant_table(),
+		output,
+	);
+	ast.pretty_print(&mut printer)?;
+	Ok(())
+}
+
 fn run_hdlc(input_path: &Path) -> miette::Result<NamedTempFile> {
 	let src = std::fs::read_to_string(input_path).expect("failed to read source code");
 	let mut tmpfile = NamedTempFile::new().unwrap();
@@ -65,6 +90,16 @@ fn run_hdlc(input_path: &Path) -> miette::Result<NamedTempFile> {
 			.to_str()
 			.unwrap()
 			.into(),
+		&mut tmpfile,
+	)?;
+	Ok(tmpfile)
+}
+
+fn pretty_print_file(input_path: &Path) -> miette::Result<NamedTempFile> {
+	let src = std::fs::read_to_string(input_path).expect("failed to read source code");
+	let mut tmpfile = NamedTempFile::new().unwrap();
+	pretty_print(
+		src,
 		&mut tmpfile,
 	)?;
 	Ok(tmpfile)
@@ -145,6 +180,17 @@ fn compile_run_iverilog(path: PathBuf) {
 	}
 }
 
+fn pretty_print_and_compile_run_iverilog(path: PathBuf) {
+	let sv_file_orignal = run_hdlc(path.as_path()).unwrap();
+	let pretty_printed = pretty_print_file(path.as_path()).unwrap();
+	let sv_file = run_hdlc(pretty_printed.path()).unwrap();
+	let mut org_str = String::new();
+	sv_file_orignal.as_file().read_to_string(&mut org_str).unwrap();
+	let mut pretty_printed_str = String::new();
+	sv_file.as_file().read_to_string(&mut pretty_printed_str).unwrap();
+	assert_eq!(org_str, pretty_printed_str);	
+}
+
 #[rstest]
 fn test_compile_success(#[files("tests/input/*.hirl")] path: PathBuf) {
 	compile_run_iverilog(path)
@@ -163,4 +209,14 @@ fn test_compile_failure(#[files("tests/input_invalid/*.hirl")] path: PathBuf) {
 #[rstest]
 fn test_compile_simulate(#[files("tests/input_sim/*.hirl")] path: PathBuf) {
 	assert!(compile_run_iverilog_with_sim(&path).is_ok());
+}
+
+#[rstest]
+fn test_pretty_print_sim_files(#[files("tests/input_sim/*.hirl")] path: PathBuf) {
+	pretty_print_and_compile_run_iverilog(path)
+}
+
+#[rstest]
+fn test_pretty_print(#[files("tests/input/*.hirl")] path: PathBuf) {
+	compile_run_iverilog(path)
 }
