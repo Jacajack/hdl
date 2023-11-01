@@ -1,4 +1,6 @@
-use crate::{analyzer::SemanticError, lexer::IdTableKey, ProvidesCompilerDiagnostic, SourceSpan, core::CompilerDiagnosticBuilder};
+use crate::{
+	analyzer::SemanticError, core::CompilerDiagnosticBuilder, lexer::IdTableKey, ProvidesCompilerDiagnostic, SourceSpan,
+};
 
 use super::GlobalAnalyzerContext;
 
@@ -228,7 +230,7 @@ impl SignalSensitivity {
 		rhs: &SignalSensitivity,
 		location: SourceSpan,
 		global_ctx: &GlobalAnalyzerContext,
-	) -> Result<(),CompilerDiagnosticBuilder> {
+	) -> Result<(), CompilerDiagnosticBuilder> {
 		use SignalSensitivity::*;
 		log::debug!("Self {:?}", self);
 		log::debug!("Other {:?}", rhs);

@@ -7,7 +7,7 @@ use std::io::Write;
 use crate::{
 	analyzer::{
 		semantic_error::InstanceError, BusWidth, ClockSensitivityList, GenericVariable, ModuleImplementationScope,
-		ModuleInstance, ModuleInstanceKind, NonRegister, Signal, SignalSensitivity, SensitivityGraphEntry,
+		ModuleInstance, ModuleInstanceKind, NonRegister, SensitivityGraphEntry, Signal, SignalSensitivity,
 	},
 	core::*,
 	parser::ast::*,
@@ -287,7 +287,7 @@ impl LocalAnalyzerContex {
 			number_of_recursive_calls: 0,
 		}
 	}
-	pub fn second_pass(&mut self, ctx:  &GlobalAnalyzerContext) -> miette::Result<()> {
+	pub fn second_pass(&mut self, ctx: &GlobalAnalyzerContext) -> miette::Result<()> {
 		log::error!("Second pass");
 		self.sensitivity_graph.verify(&mut self.scope, ctx)?;
 		self.scope.second_pass(ctx)?;
@@ -396,11 +396,7 @@ impl ModuleImplementationStatement {
 		scope_id: usize,
 	) -> miette::Result<()> {
 		local_ctx.scope_map.insert(self.get_location(), scope_id);
-		info!(
-			"Inserting scope id {} for {:?}",
-			scope_id,
-			self.get_location(),
-		);
+		info!("Inserting scope id {} for {:?}", scope_id, self.get_location(),);
 		use ModuleImplementationStatement::*;
 		match self {
 			VariableBlock(block) => block.analyze(ctx, local_ctx, AlreadyCreated::new(), scope_id)?,
@@ -424,19 +420,18 @@ impl ModuleImplementationStatement {
 					}
 					debug!("Lhs is generic");
 					match assignment.rhs.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)? {
-						Some(val) => {
-							assignment.lhs.assign(
-								BusWidth::EvaluatedLocated(val, assignment.rhs.get_location()),
-								local_ctx,
-								scope_id,
-							)
-						},
+						Some(val) => assignment.lhs.assign(
+							BusWidth::EvaluatedLocated(val, assignment.rhs.get_location()),
+							local_ctx,
+							scope_id,
+						),
 						None => assignment.lhs.assign(
 							BusWidth::Evaluable(assignment.rhs.get_location()),
 							local_ctx,
 							scope_id,
 						),
-					}.map_err(|e|e.label(self.get_location(), "This assignment is invalid").build())?;
+					}
+					.map_err(|e| e.label(self.get_location(), "This assignment is invalid").build())?;
 					return Ok(());
 				}
 				let lhs_type = assignment.lhs.evaluate_type(
@@ -474,10 +469,17 @@ impl ModuleImplementationStatement {
 					assignment
 						.lhs
 						.evaluate_type(ctx, scope_id, local_ctx, rhs_type, true, assignment.location)?;
-				let (left_id, loc) =assignment.lhs.get_internal_id(&local_ctx.scope, scope_id);
+				let (left_id, loc) = assignment.lhs.get_internal_id(&local_ctx.scope, scope_id);
 				let entries = assignment.rhs.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
 				log::error!("Adding edges {:?} to {:?}", entries, left_id);
-				local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(left_id,loc), self.get_location()).map_err(|e| e.build())?;
+				local_ctx
+					.sensitivity_graph
+					.add_edges(
+						entries,
+						crate::analyzer::SensitivityGraphEntry::Signal(left_id, loc),
+						self.get_location(),
+					)
+					.map_err(|e| e.build())?;
 				info!("Lhs type at the and: {:?}", new_lhs);
 			},
 			IfElseStatement(conditional) => {
@@ -601,7 +603,7 @@ impl ModuleImplementationStatement {
 					.unwrap()
 					.instantiates
 					.push(name.clone());
-				
+
 				if !ctx.modules_declared.contains_key(&name) {
 					return Err(miette::Report::new(
 						SemanticError::ModuleNotDeclared
@@ -780,7 +782,11 @@ impl ModuleImplementationStatement {
 						.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table)?;
 					scope.redeclare_variable(interface_variable.clone());
 					debug!("Interface variable is {:?}", interface_variable.var.kind);
-					let clk_type = interface_variable.var.kind.to_signal().expect("This was checked during analysis of a module");
+					let clk_type = interface_variable
+						.var
+						.kind
+						.to_signal()
+						.expect("This was checked during analysis of a module");
 					let is_output = match clk_type.direction {
 						crate::analyzer::Direction::Input(_) => false,
 						crate::analyzer::Direction::Output(_) => true,
@@ -794,20 +800,33 @@ impl ModuleImplementationStatement {
 						let new_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 							new_name,
 							stmt.location(),
-							VariableKind::Signal(coming)))?;
-						if is_output{
+							VariableKind::Signal(coming),
+						))?;
+						if is_output {
 							let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
-							local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(new_id, stmt.location())], SensitivityGraphEntry::Signal(id, loc), stmt.location()).map_err(|e| e.build())?;
+							local_ctx
+								.sensitivity_graph
+								.add_edges(
+									vec![SensitivityGraphEntry::Signal(new_id, stmt.location())],
+									SensitivityGraphEntry::Signal(id, loc),
+									stmt.location(),
+								)
+								.map_err(|e| e.build())?;
 						}
-						else{
+						else {
 							let entries = stmt.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
-							local_ctx.sensitivity_graph.add_edges(entries, SensitivityGraphEntry::Signal(new_id, stmt.location()), stmt.location()).map_err(|e| e.build())?;
+							local_ctx
+								.sensitivity_graph
+								.add_edges(
+									entries,
+									SensitivityGraphEntry::Signal(new_id, stmt.location()),
+									stmt.location(),
+								)
+								.map_err(|e| e.build())?;
 						}
 						module_instance
-							.add_clock(
-								stmt.get_id(),
-								new_id,
-								).map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
+							.add_clock(stmt.get_id(), new_id)
+							.map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
 					}
 					else {
 						return Err(miette::Report::new(
@@ -835,7 +854,11 @@ impl ModuleImplementationStatement {
 						.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table)?;
 					scope.redeclare_variable(interface_variable.clone());
 					// translate clocks
-					let mut interface_signal = interface_variable.var.kind.to_signal().expect("This was checked during analysis of a module");
+					let mut interface_signal = interface_variable
+						.var
+						.kind
+						.to_signal()
+						.expect("This was checked during analysis of a module");
 					interface_signal.translate_clocks(&clock_mapping);
 					debug!("Interface variable is {:?}", interface_variable.var.kind);
 					let is_output = match interface_signal.direction {
@@ -847,27 +870,41 @@ impl ModuleImplementationStatement {
 					let new_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 						new_name,
 						stmt.location(),
-						VariableKind::Signal(interface_signal)))?;
-					if is_output{
+						VariableKind::Signal(interface_signal),
+					))?;
+					if is_output {
 						let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
-						local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(new_id, stmt.location())], SensitivityGraphEntry::Signal(id, loc), stmt.location()).map_err(|e| e.build())?;
+						local_ctx
+							.sensitivity_graph
+							.add_edges(
+								vec![SensitivityGraphEntry::Signal(new_id, stmt.location())],
+								SensitivityGraphEntry::Signal(id, loc),
+								stmt.location(),
+							)
+							.map_err(|e| e.build())?;
 					}
-					else{
+					else {
 						let entries = stmt.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
-						local_ctx.sensitivity_graph.add_edges(entries, SensitivityGraphEntry::Signal(new_id, stmt.location()), stmt.location()).map_err(|e| e.build())?;
+						local_ctx
+							.sensitivity_graph
+							.add_edges(
+								entries,
+								SensitivityGraphEntry::Signal(new_id, stmt.location()),
+								stmt.location(),
+							)
+							.map_err(|e| e.build())?;
 					}
 					module_instance
-						.add_variable(
-							stmt.get_id(),
-							new_id,
-						)
+						.add_variable(stmt.get_id(), new_id)
 						.map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
 				}
 				let mut recursive_calls = 0;
 				if name == local_ctx.module_id {
-					local_ctx.number_of_recursive_calls+=1;
+					local_ctx.number_of_recursive_calls += 1;
 					recursive_calls = local_ctx.number_of_recursive_calls;
-					if local_ctx.number_of_recursive_calls > 2048 && local_ctx.are_we_in_true_branch.last().unwrap().clone(){
+					if local_ctx.number_of_recursive_calls > 2048
+						&& local_ctx.are_we_in_true_branch.last().unwrap().clone()
+					{
 						return Err(miette::Report::new(
 							SemanticError::RecursiveModuleInstantiation
 								.to_diagnostic_builder()
@@ -885,7 +922,7 @@ impl ModuleImplementationStatement {
 				}
 				debug!("Defining module instance {:?}", module_instance);
 
-				if scope.is_generic()  && local_ctx.are_we_in_true_branch.last().unwrap().clone(){
+				if scope.is_generic() && local_ctx.are_we_in_true_branch.last().unwrap().clone() {
 					scope.unmark_as_generic();
 					let implementation = ctx.generic_modules.get(&name).unwrap().clone();
 					let mut new_local_ctx = LocalAnalyzerContex::new(implementation.id, scope);
@@ -943,8 +980,8 @@ impl ModuleImplementationStatement {
 				debug!("Lhs is {:?}", lhs);
 				debug!("Rhs is {:?}", rhs);
 				api_scope
-						.assign(lhs, rhs)
-						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
+					.assign(lhs, rhs)
+					.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
 				debug!("Assignment done");
 			},
 			IfElseStatement(conditional) => {
@@ -1272,7 +1309,13 @@ impl ModuleImplementationStatement {
 							.generated(),
 					)?;
 					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
-					match interface_variable.var.kind.to_signal().expect("This was checked during analysis of a module").direction {
+					match interface_variable
+						.var
+						.kind
+						.to_signal()
+						.expect("This was checked during analysis of a module")
+						.direction
+					{
 						crate::analyzer::Direction::Input(_) => api_scope
 							.assign(var_id.into(), rhs)
 							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
@@ -1440,8 +1483,17 @@ impl VariableDefinition {
 							},
 						)?;
 						let entries = expr.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
-						local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.declarator.get_location()) , expr.get_location()).map_err(|e| e.build())?;
-					
+						local_ctx
+							.sensitivity_graph
+							.add_edges(
+								entries,
+								crate::analyzer::SensitivityGraphEntry::Signal(
+									id,
+									direct_initializer.declarator.get_location(),
+								),
+								expr.get_location(),
+							)
+							.map_err(|e| e.build())?;
 					}
 					else {
 						let mut lhs = spec_kind.to_signal().expect("This was checked during analysis");
@@ -1477,20 +1529,31 @@ impl VariableDefinition {
 							},
 						)?;
 						let entries = expr.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
-						local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.declarator.get_location()) , expr.get_location()).map_err(|e| e.build())?;
+						local_ctx
+							.sensitivity_graph
+							.add_edges(
+								entries,
+								crate::analyzer::SensitivityGraphEntry::Signal(
+									id,
+									direct_initializer.declarator.get_location(),
+								),
+								expr.get_location(),
+							)
+							.map_err(|e| e.build())?;
 					}
 				},
-				None =>{ local_ctx.scope.define_variable(
-					scope_id,
-					Variable {
-						name: direct_initializer.declarator.name,
-						kind: spec_kind,
-						location: direct_initializer.declarator.get_location(),
-					},
-				)?;
+				None => {
+					local_ctx.scope.define_variable(
+						scope_id,
+						Variable {
+							name: direct_initializer.declarator.name,
+							kind: spec_kind,
+							location: direct_initializer.declarator.get_location(),
+						},
+					)?;
 				},
 			};
-			
+
 			debug!(
 				"Defined variable {:?} in scope {}",
 				ctx.id_table.get_by_key(&direct_initializer.declarator.name).unwrap(),
@@ -1523,7 +1586,7 @@ impl VariableDefinition {
 					.unwrap(),
 			)?;
 			match &direct_initializer.expression {
-				Some(expr) =>{
+				Some(expr) => {
 					let rhs = expr.codegen(
 						ctx.nc_table,
 						ctx.id_table,
@@ -1533,11 +1596,7 @@ impl VariableDefinition {
 					)?;
 					debug!("Lhs is {:?}", hirn::design::Expression::Signal(api_id.into()));
 					debug!("Rhs is {:?}", rhs);
-					api_scope
-					.assign(
-						api_id.into(),
-						rhs)
-					.unwrap()
+					api_scope.assign(api_id.into(), rhs).unwrap()
 				},
 				None => (),
 			}
@@ -1732,7 +1791,9 @@ fn create_register(
 		));
 	}
 	debug!("Data type is {:?}", data_type);
-	let mut next_type = next_stmt.unwrap().get_type(ctx, local_ctx, scope_id, data_type.clone(), false)?;
+	let mut next_type = next_stmt
+		.unwrap()
+		.get_type(ctx, local_ctx, scope_id, data_type.clone(), false)?;
 	next_type.sensitivity = SignalSensitivity::NoSensitivity;
 	debug!("Next type is {:?}", next_type);
 	if next_type.is_array() {
@@ -1852,12 +1913,56 @@ fn create_register(
 		next_stmt.unwrap().location(),
 		VariableKind::Signal(next_type),
 	))?;
-	local_ctx.sensitivity_graph.add_edges(en_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(en_var_id, en_stmt.unwrap().location()), en_stmt.unwrap().location()).map_err(|e| e.build())?;
-	local_ctx.sensitivity_graph.add_edges(nreset_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(nreset_var_id, nreset_stmt.unwrap().location()), nreset_stmt.unwrap().location()).map_err(|e| e.build())?;
-	local_ctx.sensitivity_graph.add_edges(next_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(next_var_id, next_stmt.unwrap().location()), next_stmt.unwrap().location()).map_err(|e| e.build())?;
-	local_ctx.sensitivity_graph.add_edges(clk_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(clk_var_id, clk_stmt.unwrap().location()), clk_stmt.unwrap().location() ).map_err(|e| e.build())?;
+	local_ctx
+		.sensitivity_graph
+		.add_edges(
+			en_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id),
+			SensitivityGraphEntry::Signal(en_var_id, en_stmt.unwrap().location()),
+			en_stmt.unwrap().location(),
+		)
+		.map_err(|e| e.build())?;
+	local_ctx
+		.sensitivity_graph
+		.add_edges(
+			nreset_stmt
+				.unwrap()
+				.get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id),
+			SensitivityGraphEntry::Signal(nreset_var_id, nreset_stmt.unwrap().location()),
+			nreset_stmt.unwrap().location(),
+		)
+		.map_err(|e| e.build())?;
+	local_ctx
+		.sensitivity_graph
+		.add_edges(
+			next_stmt
+				.unwrap()
+				.get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id),
+			SensitivityGraphEntry::Signal(next_var_id, next_stmt.unwrap().location()),
+			next_stmt.unwrap().location(),
+		)
+		.map_err(|e| e.build())?;
+	local_ctx
+		.sensitivity_graph
+		.add_edges(
+			clk_stmt
+				.unwrap()
+				.get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id),
+			SensitivityGraphEntry::Signal(clk_var_id, clk_stmt.unwrap().location()),
+			clk_stmt.unwrap().location(),
+		)
+		.map_err(|e| e.build())?;
 	let (id, loc) = data_stmt.unwrap().get_internal_id(&local_ctx.scope, scope_id);
-	local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(data_var_id, data_stmt.unwrap().location())], SensitivityGraphEntry::Signal(id, loc), data_stmt.unwrap().location()).map_err(|e| e.build())?;
+	local_ctx
+		.sensitivity_graph
+		.add_edges(
+			vec![SensitivityGraphEntry::Signal(
+				data_var_id,
+				data_stmt.unwrap().location(),
+			)],
+			SensitivityGraphEntry::Signal(id, loc),
+			data_stmt.unwrap().location(),
+		)
+		.map_err(|e| e.build())?;
 	let r = RegisterInstance {
 		name: inst_stmt.instance_name,
 		location: inst_stmt.location,

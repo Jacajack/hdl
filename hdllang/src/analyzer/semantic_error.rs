@@ -279,19 +279,18 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 			GenericInConditional => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that generic variables are not assigned in conditional statements")
 				.build(),
-    		CyclicDependency => CompilerDiagnosticBuilder::from_error(&self)
+			CyclicDependency => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all signals couplings are done with use of registers")
 				.build(),
-    		GenericUsedWithoutValue => CompilerDiagnosticBuilder::from_error(&self)
+			GenericUsedWithoutValue => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all generic variables are initialized before use")
 				.build(),
-    		ModuleInstantionUsedAsSignal => CompilerDiagnosticBuilder::from_error(&self)
+			ModuleInstantionUsedAsSignal => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all module instances are acces via their interface")
 				.build(),
-    		MultipleAssignment => CompilerDiagnosticBuilder::from_error(&self)
+			MultipleAssignment => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all generic variables are assigned only once")
 				.build(),
-			
 		}
 	}
 }

@@ -839,7 +839,7 @@ impl NonRegister {
 	}
 	pub fn add_clock(&mut self, name: IdTableKey, var: InternalVariableId) -> Result<(), CompilerDiagnosticBuilder> {
 		self.clocks.push(var);
-		self.add_variable(name, var)		
+		self.add_variable(name, var)
 	}
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -908,7 +908,7 @@ impl VariableKind {
 					},
 					_ => (),
 				}
-				for dim in &mut sig.dimensions{
+				for dim in &mut sig.dimensions {
 					dim.eval(nc_table, id_table, scope)?;
 				}
 			},
@@ -931,16 +931,15 @@ impl VariableKind {
 			_ => false,
 		}
 	}
-	pub fn add_value(&mut self, value: BusWidth) -> Result<(), CompilerDiagnosticBuilder>{
+	pub fn add_value(&mut self, value: BusWidth) -> Result<(), CompilerDiagnosticBuilder> {
 		use VariableKind::*;
 		match self {
 			Generic(gen) => {
-				match &mut gen.value{
-        			Some(_) => return Err(SemanticError::MultipleAssignment.to_diagnostic_builder()),
-        			None => gen.value = Some(value),
-    			}
+				match &mut gen.value {
+					Some(_) => return Err(SemanticError::MultipleAssignment.to_diagnostic_builder()),
+					None => gen.value = Some(value),
+				}
 				Ok(())
-				
 			},
 			_ => panic!("Only generic variables can have values"),
 		}
@@ -955,13 +954,9 @@ impl VariableKind {
 	pub fn to_signal(&self) -> Result<Signal, CompilerDiagnosticBuilder> {
 		match self {
 			VariableKind::Signal(signal) => Ok(signal.clone()),
-			VariableKind::Generic(gen) => {
-				match &gen.value {
-					None => Err(SemanticError::GenericUsedWithoutValue.to_diagnostic_builder()),
-					Some(val) => {
-						Ok(Signal::new_from_constant(&val.get_nc(), SourceSpan::new_between(0, 0)))
-					},
-				}
+			VariableKind::Generic(gen) => match &gen.value {
+				None => Err(SemanticError::GenericUsedWithoutValue.to_diagnostic_builder()),
+				Some(val) => Ok(Signal::new_from_constant(&val.get_nc(), SourceSpan::new_between(0, 0))),
 			},
 			VariableKind::ModuleInstance(_) => Err(SemanticError::ModuleInstantionUsedAsSignal.to_diagnostic_builder()),
 		}
