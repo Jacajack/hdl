@@ -74,6 +74,8 @@ pub enum SemanticError {
 	ExpressionNotAllowedInNonGenericModuleDeclaration,
 	#[error("This signal is missing a sensitivity qualifier")]
 	MissingSensitivityQualifier,
+	#[error("This signal's value is dependent on itself")]
+	CyclicDependency,
 	#[error("This signal is missing a signedness qualifier")]
 	MissingSignednessQualifier,
 	#[error("Recursive module instantiation is not allowed")]
@@ -124,6 +126,12 @@ pub enum SemanticError {
 	BadFunctionArguments,
 	#[error("It is not allowed to assign generics inside conditional statements")]
 	GenericInConditional,
+	#[error("It is not allowed to use non initialized generic variables in expressions")]
+	GenericUsedWithoutValue,
+	#[error("It is not allowed to use module instance as a signal")]
+	ModuleInstantionUsedAsSignal,
+	#[error("It is not allowed to assign value to generic variable more than once")]
+	MultipleAssignment,
 	#[error(transparent)]
 	InstanceError(InstanceError),
 }
@@ -271,6 +279,19 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 			GenericInConditional => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that generic variables are not assigned in conditional statements")
 				.build(),
+    		CyclicDependency => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all signals couplings are done with use of registers")
+				.build(),
+    		GenericUsedWithoutValue => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all generic variables are initialized before use")
+				.build(),
+    		ModuleInstantionUsedAsSignal => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all module instances are acces via their interface")
+				.build(),
+    		MultipleAssignment => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all generic variables are assigned only once")
+				.build(),
+			
 		}
 	}
 }

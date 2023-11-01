@@ -7,7 +7,7 @@ use std::io::Write;
 use crate::{
 	analyzer::{
 		semantic_error::InstanceError, BusWidth, ClockSensitivityList, GenericVariable, ModuleImplementationScope,
-		ModuleInstance, ModuleInstanceKind, NonRegister, Signal, SignalSensitivity,
+		ModuleInstance, ModuleInstanceKind, NonRegister, Signal, SignalSensitivity, SensitivityGraphEntry,
 	},
 	core::*,
 	parser::ast::*,
@@ -168,7 +168,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
 			todo!("Invoke elaboration");
-			let mut output_string = String::new();
+			let mut output_string: String = String::new();
 			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design, &mut output_string);
 			use hirn::codegen::Codegen;
 			sv_codegen
@@ -264,9 +264,13 @@ pub struct LocalAnalyzerContex {
 	pub are_we_in_conditional: usize,
 	pub scope: ModuleImplementationScope,
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
+	pub casts: HashMap<SourceSpan, Signal>,
 	pub widths_map: HashMap<SourceSpan, BusWidth>,
 	pub scope_map: HashMap<SourceSpan, usize>,
 	pub module_id: IdTableKey,
+	pub sensitivity_graph: super::SensitivityGraph,
+	pub are_we_in_true_branch: Vec<bool>,
+	pub number_of_recursive_calls: usize,
 }
 impl LocalAnalyzerContex {
 	pub fn new(module_id: IdTableKey, scope: ModuleImplementationScope) -> Self {
@@ -277,7 +281,17 @@ impl LocalAnalyzerContex {
 			module_id,
 			nc_widths: HashMap::new(),
 			widths_map: HashMap::new(),
+			sensitivity_graph: super::SensitivityGraph::new(),
+			casts: HashMap::new(),
+			are_we_in_true_branch: vec![true], // initial value is true :)
+			number_of_recursive_calls: 0,
 		}
+	}
+	pub fn second_pass(&mut self, ctx:  &GlobalAnalyzerContext) -> miette::Result<()> {
+		log::error!("Second pass");
+		self.sensitivity_graph.verify(&mut self.scope, ctx)?;
+		self.scope.second_pass(ctx)?;
+		Ok(())
 	}
 }
 impl ModuleImplementation {
@@ -332,7 +346,7 @@ impl ModuleImplementation {
 		ctx: &mut GlobalAnalyzerContext,
 		local_ctx: &mut LocalAnalyzerContex,
 	) -> miette::Result<()> {
-		local_ctx.scope.second_pass(ctx)?;
+		local_ctx.second_pass(ctx)?;
 		Ok(())
 	}
 
@@ -383,16 +397,16 @@ impl ModuleImplementationStatement {
 	) -> miette::Result<()> {
 		local_ctx.scope_map.insert(self.get_location(), scope_id);
 		info!(
-			"Inserting scope id {} for {:?}: {:?}",
+			"Inserting scope id {} for {:?}",
 			scope_id,
 			self.get_location(),
-			self
 		);
 		use ModuleImplementationStatement::*;
 		match self {
 			VariableBlock(block) => block.analyze(ctx, local_ctx, AlreadyCreated::new(), scope_id)?,
 			VariableDefinition(definition) => definition.analyze(AlreadyCreated::new(), ctx, local_ctx, scope_id)?,
 			AssignmentStatement(assignment) => {
+				debug!("Assignment takes place in {:?} scope", scope_id);
 				if !assignment.lhs.is_lvalue() {
 					report_not_allowed_lhs(assignment.lhs.get_location())?;
 				}
@@ -415,14 +429,14 @@ impl ModuleImplementationStatement {
 								BusWidth::EvaluatedLocated(val, assignment.rhs.get_location()),
 								local_ctx,
 								scope_id,
-							);
+							)
 						},
 						None => assignment.lhs.assign(
 							BusWidth::Evaluable(assignment.rhs.get_location()),
 							local_ctx,
 							scope_id,
 						),
-					}
+					}.map_err(|e|e.label(self.get_location(), "This assignment is invalid").build())?;
 					return Ok(());
 				}
 				let lhs_type = assignment.lhs.evaluate_type(
@@ -460,6 +474,10 @@ impl ModuleImplementationStatement {
 					assignment
 						.lhs
 						.evaluate_type(ctx, scope_id, local_ctx, rhs_type, true, assignment.location)?;
+				let (left_id, loc) =assignment.lhs.get_internal_id(&local_ctx.scope, scope_id);
+				let entries = assignment.rhs.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+				log::error!("Adding edges {:?} to {:?}", entries, left_id);
+				local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(left_id,loc), self.get_location()).map_err(|e| e.build())?;
 				info!("Lhs type at the and: {:?}", new_lhs);
 			},
 			IfElseStatement(conditional) => {
@@ -468,11 +486,17 @@ impl ModuleImplementationStatement {
 					.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?;
 				let if_scope = local_ctx.scope.new_scope(Some(scope_id));
 				local_ctx.are_we_in_conditional += 1;
+				debug!("Condition is {:?}", condition_type);
+				let cond = condition_type.unwrap().value != num_bigint::BigInt::from(0);
+				local_ctx.are_we_in_true_branch.push(cond);
 				conditional.if_statement.first_pass(ctx, local_ctx, if_scope)?;
+				local_ctx.are_we_in_true_branch.pop();
 				match &conditional.else_statement {
 					Some(stmt) => {
 						let else_scope = local_ctx.scope.new_scope(Some(scope_id));
+						local_ctx.are_we_in_true_branch.push(!cond);
 						stmt.first_pass(ctx, local_ctx, else_scope)?;
+						local_ctx.are_we_in_true_branch.pop();
 					},
 					None => (),
 				}
@@ -577,21 +601,7 @@ impl ModuleImplementationStatement {
 					.unwrap()
 					.instantiates
 					.push(name.clone());
-				if name == local_ctx.module_id {
-					return Err(miette::Report::new(
-						SemanticError::RecursiveModuleInstantiation
-							.to_diagnostic_builder()
-							.label(
-								inst.module_name.location,
-								format!(
-									"Module \"{}\" is instantiated recursively",
-									ctx.id_table.get_by_key(&name).unwrap()
-								)
-								.as_str(),
-							)
-							.build(),
-					));
-				}
+				
 				if !ctx.modules_declared.contains_key(&name) {
 					return Err(miette::Report::new(
 						SemanticError::ModuleNotDeclared
@@ -658,7 +668,7 @@ impl ModuleImplementationStatement {
 							let mut local_sig = local_ctx
 								.scope
 								.get_var(scope_id, &id.id)
-								.map_err(|mut err| {
+								.map_err(|err| {
 									err.label(
 										id.location,
 										format!(
@@ -736,7 +746,7 @@ impl ModuleImplementationStatement {
 							let id = local_ctx.scope.define_intermidiate_signal(new_var)?;
 							module_instance
 								.add_variable(stmt.get_id(), id)
-								.map_err(|mut err| err.label(stmt.location(), "Variable declared here").build())?;
+								.map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
 						},
 						IdWithDeclaration(_) => {
 							debug!("Id with declaration");
@@ -770,7 +780,7 @@ impl ModuleImplementationStatement {
 						.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table)?;
 					scope.redeclare_variable(interface_variable.clone());
 					debug!("Interface variable is {:?}", interface_variable.var.kind);
-					let clk_type = interface_variable.var.kind.to_signal();
+					let clk_type = interface_variable.var.kind.to_signal().expect("This was checked during analysis of a module");
 					let is_output = match clk_type.direction {
 						crate::analyzer::Direction::Input(_) => false,
 						crate::analyzer::Direction::Output(_) => true,
@@ -781,16 +791,23 @@ impl ModuleImplementationStatement {
 						clock_mapping.insert(clk_type.get_clock_name(), name);
 						coming.evaluate_as_lhs(false, ctx, clk_type, stmt.location())?;
 						debug!("Adding variable {:?}", new_name_str);
+						let new_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+							new_name,
+							stmt.location(),
+							VariableKind::Signal(coming)))?;
+						if is_output{
+							let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
+							local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(new_id, stmt.location())], SensitivityGraphEntry::Signal(id, loc), stmt.location()).map_err(|e| e.build())?;
+						}
+						else{
+							let entries = stmt.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+							local_ctx.sensitivity_graph.add_edges(entries, SensitivityGraphEntry::Signal(new_id, stmt.location()), stmt.location()).map_err(|e| e.build())?;
+						}
 						module_instance
-							.add_variable(
+							.add_clock(
 								stmt.get_id(),
-								local_ctx.scope.define_intermidiate_signal(Variable::new(
-									new_name,
-									stmt.location(),
-									VariableKind::Signal(coming),
-								))?,
-							)
-							.map_err(|mut err| err.label(stmt.location(), "Variable declared here").build())?;
+								new_id,
+								).map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
 					}
 					else {
 						return Err(miette::Report::new(
@@ -818,7 +835,7 @@ impl ModuleImplementationStatement {
 						.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table)?;
 					scope.redeclare_variable(interface_variable.clone());
 					// translate clocks
-					let mut interface_signal = interface_variable.var.kind.to_signal();
+					let mut interface_signal = interface_variable.var.kind.to_signal().expect("This was checked during analysis of a module");
 					interface_signal.translate_clocks(&clock_mapping);
 					debug!("Interface variable is {:?}", interface_variable.var.kind);
 					let is_output = match interface_signal.direction {
@@ -826,37 +843,55 @@ impl ModuleImplementationStatement {
 						crate::analyzer::Direction::Output(_) => true,
 						_ => unreachable!(),
 					};
-					let mut var_type = stmt.get_type(ctx, local_ctx, scope_id, interface_signal.clone(), is_output)?;
-					match &interface_signal.direction {
-						crate::analyzer::Direction::Input(_) => {
-							interface_signal
-								.sensitivity
-								.can_drive(&var_type.sensitivity, stmt.location(), &ctx)?
-						},
-						crate::analyzer::Direction::Output(_) => {
-							var_type
-								.sensitivity
-								.can_drive(&interface_signal.sensitivity, stmt.location(), &ctx)?
-						},
-						_ => (),
-					};
+					let _ = stmt.get_type(ctx, local_ctx, scope_id, interface_signal.clone(), is_output)?;
+					let new_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+						new_name,
+						stmt.location(),
+						VariableKind::Signal(interface_signal)))?;
+					if is_output{
+						let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
+						local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(new_id, stmt.location())], SensitivityGraphEntry::Signal(id, loc), stmt.location()).map_err(|e| e.build())?;
+					}
+					else{
+						let entries = stmt.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+						local_ctx.sensitivity_graph.add_edges(entries, SensitivityGraphEntry::Signal(new_id, stmt.location()), stmt.location()).map_err(|e| e.build())?;
+					}
 					module_instance
 						.add_variable(
 							stmt.get_id(),
-							local_ctx.scope.define_intermidiate_signal(Variable::new(
-								new_name,
-								stmt.location(),
-								VariableKind::Signal(interface_signal),
-							))?,
+							new_id,
 						)
-						.map_err(|mut err| err.label(stmt.location(), "Variable declared here").build())?;
+						.map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
+				}
+				let mut recursive_calls = 0;
+				if name == local_ctx.module_id {
+					local_ctx.number_of_recursive_calls+=1;
+					recursive_calls = local_ctx.number_of_recursive_calls;
+					if local_ctx.number_of_recursive_calls > 2048 && local_ctx.are_we_in_true_branch.last().unwrap().clone(){
+						return Err(miette::Report::new(
+							SemanticError::RecursiveModuleInstantiation
+								.to_diagnostic_builder()
+								.label(
+									inst.module_name.location,
+									format!(
+										"Module \"{}\" is instantiated recursively",
+										ctx.id_table.get_by_key(&name).unwrap()
+									)
+									.as_str(),
+								)
+								.build(),
+						));
+					}
 				}
 				debug!("Defining module instance {:?}", module_instance);
-				if scope.is_generic() {
+
+				if scope.is_generic()  && local_ctx.are_we_in_true_branch.last().unwrap().clone(){
+					scope.unmark_as_generic();
 					let implementation = ctx.generic_modules.get(&name).unwrap().clone();
 					let mut new_local_ctx = LocalAnalyzerContex::new(implementation.id, scope);
+					new_local_ctx.number_of_recursive_calls = recursive_calls;
 					first_pass(ctx, &mut new_local_ctx, &implementation)?;
-					new_local_ctx.scope.second_pass(ctx)?;
+					new_local_ctx.second_pass(ctx)?;
 				}
 				let v = Variable::new(
 					inst.instance_name,
@@ -871,8 +906,8 @@ impl ModuleImplementationStatement {
 				return Ok(());
 			},
 			ModuleImplementationBlockStatement(block) => {
-				let id = local_ctx.scope.new_scope(Some(scope_id));
-				block.analyze(ctx, local_ctx, id)?;
+				//let id = local_ctx.scope.new_scope(Some(scope_id));
+				block.analyze(ctx, local_ctx, scope_id)?;
 			},
 		}
 		Ok(())
@@ -883,7 +918,7 @@ impl ModuleImplementationStatement {
 		local_ctx: &mut LocalAnalyzerContex,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
-		info!("Reading scope id for {:?}: {:?}", self.get_location(), self);
+		info!("Reading scope id for {:?}", self.get_location());
 		let scope_id = local_ctx.scope_map.get(&self.get_location()).unwrap().to_owned();
 		use ModuleImplementationStatement::*;
 		match self {
@@ -907,23 +942,9 @@ impl ModuleImplementationStatement {
 				debug!("Codegen for assignment");
 				debug!("Lhs is {:?}", lhs);
 				debug!("Rhs is {:?}", rhs);
-				use crate::parser::ast::AssignmentOpcode::*;
-				match assignment.assignment_opcode {
-					Equal => api_scope
+				api_scope
 						.assign(lhs, rhs)
-						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
-					PlusEqual => todo!(), // does it make sense?
-					AndEqual => api_scope
-						.assign(lhs.clone(), lhs & rhs)
-						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
-					XorEqual => api_scope
-						.assign(lhs.clone(), lhs ^ rhs)
-						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
-					OrEqual => api_scope
-						.assign(lhs.clone(), lhs | rhs)
-						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
-				};
-
+						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?;
 				debug!("Assignment done");
 			},
 			IfElseStatement(conditional) => {
@@ -934,6 +955,7 @@ impl ModuleImplementationStatement {
 					&local_ctx.scope,
 					Some(&local_ctx.nc_widths),
 				)?;
+				debug!("{:?}", condition_expr);
 				match conditional.else_statement {
 					Some(ref else_stmt) => {
 						let (mut if_scope, mut else_scope) = api_scope
@@ -1028,7 +1050,7 @@ impl ModuleImplementationStatement {
 					let r = local_ctx.scope.get_variable(scope_id, &inst.instance_name).unwrap(); //FIXME
 					if let VariableKind::ModuleInstance(m) = &r.var.kind {
 						if let ModuleInstanceKind::Register(reg) = &m.kind {
-							let mut builder = hirn::design::RegisterBuilder::new(
+							let builder = hirn::design::RegisterBuilder::new(
 								api_scope.clone(),
 								&ctx.id_table.get_value(&inst.instance_name),
 							);
@@ -1250,7 +1272,7 @@ impl ModuleImplementationStatement {
 							.generated(),
 					)?;
 					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
-					match interface_variable.var.kind.to_signal().direction {
+					match interface_variable.var.kind.to_signal().expect("This was checked during analysis of a module").direction {
 						crate::analyzer::Direction::Input(_) => api_scope
 							.assign(var_id.into(), rhs)
 							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic())?,
@@ -1388,6 +1410,8 @@ impl VariableDefinition {
 			spec_kind.add_dimenstions(dimensions);
 			match &direct_initializer.expression {
 				Some(expr) => {
+					debug!("Assignment in initialization takes place in {:?} scope", scope_id);
+					debug!("Scope is {:?}", local_ctx.scope.get_scope(scope_id));
 					if spec_kind.is_array() {
 						return Err(miette::Report::new(
 							SemanticError::ArrayInExpression
@@ -1407,9 +1431,20 @@ impl VariableDefinition {
 						else {
 							unreachable!()
 						}
+						let id = local_ctx.scope.define_variable(
+							scope_id,
+							Variable {
+								name: direct_initializer.declarator.name,
+								kind: spec_kind,
+								location: direct_initializer.declarator.get_location(),
+							},
+						)?;
+						let entries = expr.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+						local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.declarator.get_location()) , expr.get_location()).map_err(|e| e.build())?;
+					
 					}
 					else {
-						let mut lhs = spec_kind.to_signal();
+						let mut lhs = spec_kind.to_signal().expect("This was checked during analysis");
 						debug!("Lhs is {:?}", lhs);
 						let rhs = expr.evaluate_type(
 							ctx,
@@ -1433,23 +1468,35 @@ impl VariableDefinition {
 						}
 						lhs.evaluate_as_lhs(true, ctx, rhs, direct_initializer.declarator.get_location())?;
 						spec_kind = VariableKind::Signal(lhs);
+						let id = local_ctx.scope.define_variable(
+							scope_id,
+							Variable {
+								name: direct_initializer.declarator.name,
+								kind: spec_kind,
+								location: direct_initializer.declarator.get_location(),
+							},
+						)?;
+						let entries = expr.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+						local_ctx.sensitivity_graph.add_edges(entries, crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.declarator.get_location()) , expr.get_location()).map_err(|e| e.build())?;
 					}
 				},
-				None => (),
-			}
-			local_ctx.scope.define_variable(
-				scope_id,
-				Variable {
-					name: direct_initializer.declarator.name,
-					kind: spec_kind,
-					location: direct_initializer.declarator.get_location(),
+				None =>{ local_ctx.scope.define_variable(
+					scope_id,
+					Variable {
+						name: direct_initializer.declarator.name,
+						kind: spec_kind,
+						location: direct_initializer.declarator.get_location(),
+					},
+				)?;
 				},
-			)?;
+			};
+			
 			debug!(
 				"Defined variable {:?} in scope {}",
 				ctx.id_table.get_by_key(&direct_initializer.declarator.name).unwrap(),
 				scope_id
 			);
+			debug!("Scope is {:?}", local_ctx.scope.get_scope(scope_id));
 		}
 		Ok(())
 	}
@@ -1476,18 +1523,22 @@ impl VariableDefinition {
 					.unwrap(),
 			)?;
 			match &direct_initializer.expression {
-				Some(expr) => api_scope
+				Some(expr) =>{
+					let rhs = expr.codegen(
+						ctx.nc_table,
+						ctx.id_table,
+						scope_id,
+						&local_ctx.scope,
+						Some(&local_ctx.nc_widths),
+					)?;
+					debug!("Lhs is {:?}", hirn::design::Expression::Signal(api_id.into()));
+					debug!("Rhs is {:?}", rhs);
+					api_scope
 					.assign(
 						api_id.into(),
-						expr.codegen(
-							ctx.nc_table,
-							ctx.id_table,
-							scope_id,
-							&local_ctx.scope,
-							Some(&local_ctx.nc_widths),
-						)?,
-					)
-					.unwrap(),
+						rhs)
+					.unwrap()
+				},
 				None => (),
 			}
 
@@ -1661,16 +1712,6 @@ fn create_register(
 				.build(),
 		));
 	}
-	if let SignalSensitivity::Clock(..) = &clk_type.sensitivity {
-	}
-	else {
-		return Err(miette::Report::new(
-			InstanceError::ArgumentsMismatch
-				.to_diagnostic_builder()
-				.label(clk_stmt.unwrap().location(), "Clk signal must be marked as clock")
-				.build(),
-		));
-	}
 	let inst_name = ctx.id_table.get_value(&inst_stmt.instance_name).clone();
 	let clk_name = ctx.id_table.insert_or_get(format!("{}_clk", inst_name).as_str());
 	let next_name = ctx.id_table.insert_or_get(format!("{}_nxt_c", inst_name).as_str());
@@ -1690,53 +1731,15 @@ fn create_register(
 				.build(),
 		));
 	}
-	let list = ClockSensitivityList::new().with_clock(clk_type.get_clock_name(), true, data_stmt.unwrap().location());
-	let data_sensitivity = SignalSensitivity::Sync(list, data_stmt.unwrap().location());
-	data_type
-		.sensitivity
-		.can_drive(&data_sensitivity, data_stmt.unwrap().location(), ctx)?;
 	debug!("Data type is {:?}", data_type);
-	let mut next_type = match next_stmt.unwrap() {
-		OnlyId(id) => {
-			let mut sig = local_ctx
-				.scope
-				.get_var(scope_id, &id.id)
-				.map_err(|mut err| {
-					err.label(next_stmt.unwrap().location(), "This variable was not declared")
-						.build()
-				})?
-				.var
-				.kind
-				.to_signal();
-			sig
-		},
-		IdWithExpression(expr) => expr.expression.evaluate_type(
-			ctx,
-			scope_id,
-			local_ctx,
-			data_type.clone(),
-			false,
-			data_stmt.unwrap().location(),
-		)?,
-		IdWithDeclaration(_) => todo!(),
-	};
+	let mut next_type = next_stmt.unwrap().get_type(ctx, local_ctx, scope_id, data_type.clone(), false)?;
+	next_type.sensitivity = SignalSensitivity::NoSensitivity;
 	debug!("Next type is {:?}", next_type);
 	if next_type.is_array() {
 		return Err(miette::Report::new(
 			InstanceError::ArgumentsMismatch
 				.to_diagnostic_builder()
 				.label(next_stmt.unwrap().location(), "Next signal cannot cannot be array")
-				.build(),
-		));
-	}
-	if !next_type.sensitivity.is_not_worse_than(&clk_type.sensitivity) {
-		return Err(miette::Report::new(
-			InstanceError::ArgumentsMismatch
-				.to_diagnostic_builder()
-				.label(
-					next_stmt.unwrap().location(),
-					"Next signal must be synchronized with clock",
-				)
 				.build(),
 		));
 	}
@@ -1819,45 +1822,50 @@ fn create_register(
 	let en_type = en_stmt
 		.unwrap()
 		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), false)?;
-	if !en_type.sensitivity.is_not_worse_than(&clk_type.sensitivity) {
-		return Err(miette::Report::new(
-			InstanceError::ArgumentsMismatch
-				.to_diagnostic_builder()
-				.label(
-					en_stmt.unwrap().location(),
-					"Enable signal must be synchronized with clock",
-				)
-				.build(),
-		));
-	}
+	debug!("En type is {:?}", en_type);
+	let en_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+		en_name,
+		next_stmt.unwrap().location(),
+		VariableKind::Signal(en_type),
+	))?;
+	debug!("Nreset type is {:?}", nreset_type);
+	let nreset_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+		nreset_name,
+		next_stmt.unwrap().location(),
+		VariableKind::Signal(nreset_type),
+	))?;
+	debug!("Data type is {:?}", data_type);
+	let data_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+		data_name,
+		next_stmt.unwrap().location(),
+		VariableKind::Signal(data_type.clone()),
+	))?;
+	debug!("Clk type is {:?}", clk_type);
+	let clk_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+		clk_name,
+		next_stmt.unwrap().location(),
+		VariableKind::Signal(clk_type),
+	))?;
+	debug!("Next type is {:?}", next_type);
+	let next_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+		next_name,
+		next_stmt.unwrap().location(),
+		VariableKind::Signal(next_type),
+	))?;
+	local_ctx.sensitivity_graph.add_edges(en_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(en_var_id, en_stmt.unwrap().location()), en_stmt.unwrap().location()).map_err(|e| e.build())?;
+	local_ctx.sensitivity_graph.add_edges(nreset_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(nreset_var_id, nreset_stmt.unwrap().location()), nreset_stmt.unwrap().location()).map_err(|e| e.build())?;
+	local_ctx.sensitivity_graph.add_edges(next_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(next_var_id, next_stmt.unwrap().location()), next_stmt.unwrap().location()).map_err(|e| e.build())?;
+	local_ctx.sensitivity_graph.add_edges(clk_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id), SensitivityGraphEntry::Signal(clk_var_id, clk_stmt.unwrap().location()), clk_stmt.unwrap().location() ).map_err(|e| e.build())?;
+	let (id, loc) = data_stmt.unwrap().get_internal_id(&local_ctx.scope, scope_id);
+	local_ctx.sensitivity_graph.add_edges(vec![SensitivityGraphEntry::Signal(data_var_id, data_stmt.unwrap().location())], SensitivityGraphEntry::Signal(id, loc), data_stmt.unwrap().location()).map_err(|e| e.build())?;
 	let r = RegisterInstance {
 		name: inst_stmt.instance_name,
 		location: inst_stmt.location,
-		next: local_ctx.scope.define_intermidiate_signal(Variable::new(
-			next_name,
-			next_stmt.unwrap().location(),
-			VariableKind::Signal(next_type),
-		))?,
-		clk: local_ctx.scope.define_intermidiate_signal(Variable::new(
-			clk_name,
-			next_stmt.unwrap().location(),
-			VariableKind::Signal(clk_type),
-		))?,
-		nreset: local_ctx.scope.define_intermidiate_signal(Variable::new(
-			nreset_name,
-			next_stmt.unwrap().location(),
-			VariableKind::Signal(nreset_type),
-		))?,
-		data: local_ctx.scope.define_intermidiate_signal(Variable::new(
-			data_name,
-			next_stmt.unwrap().location(),
-			VariableKind::Signal(data_type),
-		))?,
-		enable: local_ctx.scope.define_intermidiate_signal(Variable::new(
-			en_name,
-			next_stmt.unwrap().location(),
-			VariableKind::Signal(en_type),
-		))?,
+		next: next_var_id,
+		clk: clk_var_id,
+		nreset: nreset_var_id,
+		data: data_var_id,
+		enable: en_var_id,
 	};
 	Ok(r)
 }

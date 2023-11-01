@@ -636,10 +636,6 @@ UnaryExprOP :UnaryOpcode={
 }
 AssignmentOP: AssignmentOpcode={
 	"="  => AssignmentOpcode::Equal,
-	"+=" => AssignmentOpcode::PlusEqual,
-	"&=" => AssignmentOpcode::AndEqual,
-	"^=" => AssignmentOpcode::XorEqual,
-	"|=" => AssignmentOpcode::OrEqual,
 }
 SynType: TypeSpecifier ={
 	<start:@L> "auto" <end:@R> => TypeSpecifier::Auto{
@@ -822,10 +818,6 @@ extern {
 		"/"               => TokenKind::Punctuator(PunctuatorKind::Slash),
 		"*"               => TokenKind::Punctuator(PunctuatorKind::Asterisk),
 		"="               => TokenKind::Punctuator(PunctuatorKind::Assignment),
-		"+="              => TokenKind::Punctuator(PunctuatorKind::AssignmentPlus),
-		"&="              => TokenKind::Punctuator(PunctuatorKind::AssignmentAnd),
-		"^="              => TokenKind::Punctuator(PunctuatorKind::AssignmentXor),
-		"|="              => TokenKind::Punctuator(PunctuatorKind::AssignmentOr),
 		"%"               => TokenKind::Punctuator(PunctuatorKind::Modulo),
 		","				  => TokenKind::Punctuator(PunctuatorKind::Comma),
 		"."				  => TokenKind::Punctuator(PunctuatorKind::Dot),

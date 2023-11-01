@@ -1,0 +1,12 @@
+module X {}
+impl X {
+	const signed bus<8> a = 124, b = 11;
+	const unsigned bus<1> x0 = (a == 0) && (b == 0);
+	const wire x1 = (a == 0) || (b == 0);
+	const wire x2 = a < b;
+	const wire x3 = a <= b;
+	const wire x4 = a > b;
+	const wire x5 = a >= b;
+	const wire x6 = a == b;
+	const wire x7 = a != b;
+}

@@ -1,14 +1,8 @@
 module m {}
 impl m {
 	int n;
+	n = 44;
 	int k = 1u1;
-	{
-		{
-			{
-				n = 44;
-			}
-		}
-	}
 	int m = k + n;
 	const unsigned bus<n> b;
 }

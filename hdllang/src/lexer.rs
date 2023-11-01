@@ -108,10 +108,6 @@ pub enum KeywordKind {
 #[derive(Debug, Clone, Copy)]
 pub enum PunctuatorKind {
 	Assignment,     // =
-	AssignmentAnd,  // &=
-	AssignmentPlus, // +=
-	AssignmentXor,  // ^=
-	AssignmentOr,   // |=
 	Asterisk,       // *
 	BitwiseAnd,     // &
 	BitwiseNot,     // ~

@@ -5,7 +5,9 @@ pub mod module_implementation_scope;
 mod semantic_error;
 pub mod signal_sensitivity;
 mod variable;
+mod sensitivity_graph;
 
+pub use sensitivity_graph::*;
 pub use combining_pass::*;
 pub use compiled_info::CompiledInfo;
 pub use module_declared::ModuleDeclared;
