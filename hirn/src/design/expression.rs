@@ -128,7 +128,7 @@ impl BuiltinOp {
 		Ok(())
 	}
 
-	pub fn traverse<T>(&self, f: &dyn Fn(&Expression) -> Result<(), T>) -> Result<(), T> {
+	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<(), T>) -> Result<(), T> {
 		use BuiltinOp::*;
 		match self {
 			ZeroExtend { expr, width } | SignExtend { expr, width } => {
@@ -240,7 +240,7 @@ impl ConditionalExpression {
 		Ok(())
 	}
 
-	pub fn traverse<T>(&self, f: &dyn Fn(&Expression) -> Result<(), T>) -> Result<(), T> {
+	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<(), T>) -> Result<(), T> {
 		f(&self.default)?;
 		self.default.traverse(f)?;
 		for branch in &self.branches {
@@ -294,7 +294,7 @@ impl CastExpression {
 		Ok(())
 	}
 
-	pub fn traverse<T>(&self, f: &dyn Fn(&Expression) -> Result<(), T>) -> Result<(), T> {
+	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<(), T>) -> Result<(), T> {
 		f(&self.src)?;
 		self.src.traverse(f)?;
 		Ok(())
@@ -323,7 +323,7 @@ impl BinaryExpression {
 		Ok(())
 	}
 
-	pub fn traverse<T>(&self, f: &dyn Fn(&Expression) -> Result<(), T>) -> Result<(), T> {
+	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<(), T>) -> Result<(), T> {
 		f(&self.lhs)?;
 		self.lhs.traverse(f)?;
 		f(&self.rhs)?;
@@ -349,7 +349,7 @@ impl UnaryExpression {
 		Ok(())
 	}
 
-	pub fn traverse<T>(&self, f: &dyn Fn(&Expression) -> Result<(), T>) -> Result<(), T> {
+	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<(), T>) -> Result<(), T> {
 		f(&self.operand)?;
 		self.operand.traverse(f)?;
 		Ok(())
@@ -518,7 +518,7 @@ impl Expression {
 		Ok(())
 	}
 
-	pub fn traverse<T>(&self, f: &dyn Fn(&Expression) -> Result<(), T>) -> Result<(), T> {
+	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<(), T>) -> Result<(), T> {
 		f(self)?;
 		use Expression::*;
 		match self {
