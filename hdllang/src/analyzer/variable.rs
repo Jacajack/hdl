@@ -652,7 +652,7 @@ impl Variable {
 		id_table: &id_table::IdTable,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
-		nc_widths: Option<&HashMap<SourceSpan, crate::core::NumericConstant>>,
+		additional_ctx: Option<&AdditionalContext>,
 		mut builder: SignalBuilder,
 	) -> miette::Result<SignalId> {
 		debug!(
@@ -694,19 +694,19 @@ impl Variable {
 								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
 								expr_ast
 									.expression
-									.codegen(nc_table, id_table, expr_ast.scope_id, scope, nc_widths)?
+									.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
 							},
 							Evaluable(location) => {
 								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
 								expr_ast
 									.expression
-									.codegen(nc_table, id_table, expr_ast.scope_id, scope, nc_widths)?
+									.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
 							},
 							WidthOf(location) => {
 								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
 								expr_ast
 									.expression
-									.codegen(nc_table, id_table, expr_ast.scope_id, scope, nc_widths)?
+									.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
 							}, //FIXME coming soon
 						};
 						debug!("Width is {:?}", width);
@@ -731,7 +731,7 @@ impl Variable {
 							let expr = scope.evaluated_expressions.get(location).unwrap();
 							let codegened =
 								expr.expression
-									.codegen(nc_table, id_table, expr.scope_id, scope, nc_widths)?;
+									.codegen(nc_table, id_table, expr.scope_id, scope, additional_ctx)?;
 							builder = builder.array(codegened).unwrap();
 						},
 						Evaluable(location) => {
@@ -740,7 +740,7 @@ impl Variable {
 								.get(location)
 								.unwrap()
 								.expression
-								.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+								.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
 							builder = builder.array(expr).unwrap();
 						},
 						WidthOf(location) => {
@@ -749,7 +749,7 @@ impl Variable {
 								.get(location)
 								.unwrap()
 								.expression
-								.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+								.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
 							builder = builder.array(expr).unwrap(); // FIXME it should be width of
 						},
 					}

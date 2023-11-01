@@ -158,7 +158,7 @@ impl SensitivityGraph {
 		let to_id = self.insert_or_get_index(to);
 		self.graph.add_edge(from_id, to_id, edge);
 
-		log::error!("Graph: {:?}", self.graph);
+		log::debug!("Graph: {:?}", self.graph);
 
 		if is_cyclic_directed(&self.graph) {
 			return Err(SemanticError::CyclicDependency
@@ -226,10 +226,10 @@ impl SensitivityGraph {
 									global_ctx,
 								)
 								.map_err(|mut err| {
-									log::error!("Sensitivity nodes are {:?}", sensitivty_nodes);
+									log::debug!("Sensitivity nodes are {:?}", sensitivty_nodes);
 									let origin_node = self.get_index(*sensitivty_nodes.get(&sens).unwrap());
-									log::error!("Origin node is {:?}", origin_node);
-									log::error!("Graph is {:?}", self.graph);
+									log::debug!("Origin node is {:?}", origin_node);
+									log::debug!("Graph is {:?}", self.graph);
 									let nodes_between = petgraph::algo::all_simple_paths::<Vec<_>, _>(
 										&self.graph,
 										origin_node,
@@ -241,7 +241,7 @@ impl SensitivityGraph {
 									.first()
 									.unwrap()
 									.clone();
-									log::error!("Nodes between are {:?}", nodes_between);
+									log::debug!("Nodes between are {:?}", nodes_between);
 
 									let mut first = origin_node.clone();
 									for i in 1..nodes_between.len() - 1 {
@@ -268,7 +268,7 @@ impl SensitivityGraph {
 					super::VariableKind::Generic(_) => SignalSensitivity::Const(var_sens.var.location),
 					_ => unreachable!(),
 				};
-				log::error!("Inserting {:?} into sensitivity nodes", node);
+				log::debug!("Inserting {:?} into sensitivity nodes", node);
 				if !sensitivty_nodes.contains_key(&return_sig) {
 					sensitivty_nodes.insert(return_sig.clone(), node);
 				}

@@ -1,0 +1,20 @@
+module Y{
+	input const wire in_arr[4];
+	output const wire out_arr[4];
+}
+impl Y {
+	// TODO if we allow array bind we should allow array assign
+	for (i in [0:3]) {
+		out_arr[i] = in_arr[i];
+	}
+}
+
+module X {}
+impl X {
+	const wire arr[4];
+	const wire brr[4];
+	Y y {
+		in_arr: arr,
+		out_arr: brr,
+	};
+}

@@ -8,7 +8,7 @@ use log::debug;
 use crate::analyzer::module_implementation_scope::InternalVariableId;
 use crate::analyzer::{
 	BusWidth, GlobalAnalyzerContext, LocalAnalyzerContex, ModuleImplementationScope, SemanticError,
-	SensitivityGraphEntry, Signal, Variable,
+	SensitivityGraphEntry, Signal, Variable, AdditionalContext,
 };
 use crate::parser::ast::{Expression, SourceLocation, VariableDeclaration};
 use crate::ProvidesCompilerDiagnostic;
@@ -218,6 +218,7 @@ impl PortBindStatement {
 		api_scope: &mut ScopeHandle,
 		current_scope: usize,
 	) -> miette::Result<hirn::design::Expression> {
+		let additional_ctx = AdditionalContext::new(local_ctx.nc_widths.clone(), local_ctx.array_or_bus.clone());
 		use self::PortBindStatement::*;
 		match self {
 			OnlyId(only_id) => {
@@ -231,7 +232,7 @@ impl PortBindStatement {
 					&ctx.id_table,
 					current_scope,
 					&local_ctx.scope,
-					Some(&local_ctx.nc_widths),
+					Some(&additional_ctx),
 				)?;
 				Ok(expression)
 			},
@@ -254,7 +255,7 @@ impl PortBindStatement {
 					ctx.id_table,
 					current_scope,
 					&local_ctx.scope,
-					Some(&local_ctx.nc_widths),
+					Some(&additional_ctx),
 					api_scope
 						.new_signal(ctx.id_table.get_by_key(&variable.var.name).unwrap().as_str())
 						.unwrap(),
