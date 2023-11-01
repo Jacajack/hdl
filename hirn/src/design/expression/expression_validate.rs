@@ -324,6 +324,9 @@ fn shallow_validate_slice(slice: &SignalSlice, ctx: &EvalContext, scope: &ScopeH
 
 	// Validate rank
 	match (allow_nonscalar, signal.rank(), slice.indices.len()) {
+		// Scalars are always okay
+		(_, 0, 0) => {},
+
 		// Full array - okay if we allow that
 		(true, _sig_rank, 0) => {},
 		
