@@ -867,7 +867,7 @@ impl Expression {
 				let constant = nc_table.get_by_key(&num.key).unwrap(); //FIXME read additional information from local_ctx
 				let signed = match constant.signed {
 					Some(s) => s,
-					None => false,
+					None => true,
 				};
 				let w = match constant.width.is_some() {
 					true => constant.width.unwrap(),
@@ -1021,10 +1021,10 @@ impl Expression {
 										.unwrap()
 										.expression
 										.codegen(nc_table, id_table, scope_id, scope, nc_widths)?
-										- hirn::design::Expression::Constant(hirn::design::NumericConstant::one()),
+										- hirn::design::Expression::Constant(hirn::design::NumericConstant::new_signed(BigInt::from(1))),
 								),
 								lsb: Box::new(hirn::design::Expression::Constant(
-									hirn::design::NumericConstant::new_unsigned(BigInt::from(0)),
+									hirn::design::NumericConstant::new_signed(BigInt::from(0)),
 								)),
 							};
 							return Ok(hirn::design::Expression::Builtin(op));
@@ -1396,7 +1396,7 @@ impl Expression {
 							sig.get_signedness(),
 							location,
 						);
-						local_ctx.nc_widths.insert(self.get_location(), constant);
+						local_ctx.nc_widths.insert(self.get_location(), constant.clone());
 					},
 					(Some(coming), Some(original)) => {
 						if coming != original {
@@ -1425,8 +1425,15 @@ impl Expression {
 									.build(),
 							))
 						},
-						(_, NoSignedness) => (), //FIXME
 						(NoSignedness, _) => (),
+						(Signed(_), NoSignedness) => {
+							constant.signed = Some(true);
+							local_ctx.nc_widths.insert(self.get_location(), constant.clone());
+						},
+						(Unsigned(_), NoSignedness) => {
+							constant.signed = Some(false);
+							local_ctx.nc_widths.insert(self.get_location(), constant.clone());
+						}
 					}
 				}
 				Ok(sig)
@@ -2346,6 +2353,7 @@ impl Expression {
 				}
 				debug!("type_first: {:?}", type_first);
 				let type_second = match binop.code.is_relational() {
+
 					true => binop.rhs.evaluate_type(
 						global_ctx,
 						scope_id,
@@ -2468,6 +2476,8 @@ impl Expression {
 						}
 					},
 					NotEqual | Equal | Less | Greater | LessEqual | GreaterEqual | LogicalAnd | LogicalOr => {
+						type_first.set_signedness(SignalSignedness::Unsigned(self.get_location()), self.get_location());
+						debug!("type_first: {:?}", type_first);
 						BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(1)))
 					},
 				};

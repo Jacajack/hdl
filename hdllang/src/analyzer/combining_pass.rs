@@ -955,6 +955,7 @@ impl ModuleImplementationStatement {
 					&local_ctx.scope,
 					Some(&local_ctx.nc_widths),
 				)?;
+				debug!("{:?}", condition_expr);
 				match conditional.else_statement {
 					Some(ref else_stmt) => {
 						let (mut if_scope, mut else_scope) = api_scope
@@ -1522,18 +1523,22 @@ impl VariableDefinition {
 					.unwrap(),
 			)?;
 			match &direct_initializer.expression {
-				Some(expr) => api_scope
+				Some(expr) =>{
+					let rhs = expr.codegen(
+						ctx.nc_table,
+						ctx.id_table,
+						scope_id,
+						&local_ctx.scope,
+						Some(&local_ctx.nc_widths),
+					)?;
+					debug!("Lhs is {:?}", hirn::design::Expression::Signal(api_id.into()));
+					debug!("Rhs is {:?}", rhs);
+					api_scope
 					.assign(
 						api_id.into(),
-						expr.codegen(
-							ctx.nc_table,
-							ctx.id_table,
-							scope_id,
-							&local_ctx.scope,
-							Some(&local_ctx.nc_widths),
-						)?,
-					)
-					.unwrap(),
+						rhs)
+					.unwrap()
+				},
 				None => (),
 			}
 

@@ -554,7 +554,7 @@ impl Signal {
 		use SignalType::*;
 		match &mut self.signal_type {
 			Bus(bus) => bus.signedness = signedness,
-			Wire(_) => panic!("You cannot set signedness on a wire"),
+			Wire(_) => (),
 			Auto(_) => {
 				self.signal_type = SignalType::Bus(BusType {
 					width: None,
