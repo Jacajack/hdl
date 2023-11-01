@@ -1,0 +1,8 @@
+module cond{}
+
+impl cond{
+	auto x = conditional{
+		1u1 => 1u3,
+		default => 0u3
+	};
+}

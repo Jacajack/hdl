@@ -2,7 +2,7 @@ use super::{
 	BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalContext, EvalError, EvalType,
 	EvaluatesType, NumericConstant, UnaryExpression,
 };
-use crate::design::{Expression, SignalId, SignalSensitivity, SignalSignedness, SignalSlice};
+use crate::design::{BinaryOp, Expression, SignalId, SignalSensitivity, SignalSignedness, SignalSlice};
 
 impl EvaluatesType for NumericConstant {
 	fn eval_type(&self, _ctx: &EvalContext) -> Result<EvalType, EvalError> {
@@ -37,12 +37,24 @@ impl EvaluatesType for BinaryExpression {
 			return Err(EvalError::MixedSignedness);
 		}
 
+		use BinaryOp::*;
+		let signedness = match self.op {
+			// Boolean results
+			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual | LogicalAnd | LogicalOr => {
+				SignalSignedness::Unsigned
+			},
+
+			// Copy signedness from operands
+			BitwiseAnd | BitwiseOr | BitwiseXor | Add | Subtract | Multiply | Divide | Modulo | Max | Min
+			| ShiftLeft | ShiftRight => lhs.signedness,
+		};
+
 		Ok(EvalType {
 			sensitivity: lhs
 				.sensitivity
 				.combine(&rhs.sensitivity)
 				.ok_or(EvalError::InvalidSensitivityCombination)?,
-			signedness: lhs.signedness,
+			signedness,
 		})
 	}
 }

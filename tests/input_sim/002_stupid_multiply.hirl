@@ -1,12 +1,14 @@
 module stupid_multiply {
-	input clock clk;
-	input async nreset;
-	input comb(clk) {
-		wire input_valid;
-		wire output_ready;
-		unsigned bus<8> a;
-		unsigned bus<8> b;
-	}
+	input{
+		clock clk;
+		async nreset;
+		comb(clk) {
+			wire input_valid;
+			wire output_ready;
+			unsigned bus<8> a;
+			unsigned bus<8> b;
+		}
+	} 
 
 	output sync(clk) {
 		wire output_valid;
@@ -40,8 +42,8 @@ impl stupid_multiply {
 		data: state,
 		next: match (state) {
 			STATE_IDLE => input_transaction_c ? STATE_INIT : STATE_IDLE,
-			STATE_INIT => (a_reg == 0u8 || b_reg == 0u8) ? STATE_DONE: STATE_BUSY,
-			STATE_BUSY => countdown == 0u8 ? STATE_DONE : STATE_BUSY, // TODO does it really have to be 0u8?
+			STATE_INIT => (a_reg == 0 || b_reg == 0) ? STATE_DONE: STATE_BUSY,
+			STATE_BUSY => countdown == 0 ? STATE_DONE : STATE_BUSY,
 			STATE_DONE => output_transaction_c ? STATE_IDLE : STATE_DONE,
 			default => STATE_IDLE, // unreachable
 		},
@@ -75,8 +77,8 @@ impl stupid_multiply {
 		en: state == STATE_INIT || state == STATE_BUSY,
 		data: countdown,
 		next: match (state) {
-			STATE_INIT => (b_reg - 1u1)[0:7], // TODO trunc()
-			default => (countdown - 1u1)[0:7], // TODO trunc()
+			STATE_INIT => trunc(b_reg - 1u1),
+			default => trunc(countdown - 1u1),
 		}
 	}
 
@@ -86,7 +88,7 @@ impl stupid_multiply {
 		data: c,
 		next: match (state) {
 			STATE_INIT => 0u16,
-			default => (c + a_reg)[0:15], // TODO trunc()
+			default => trunc(c + a_reg),
 		}
 	}
 }

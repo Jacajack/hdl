@@ -1,0 +1,17 @@
+module Y{
+	input const wire in_arr[4];
+	output const wire out_arr[4];
+}
+impl Y {
+	// TODO bind out_arr to in_arrs
+}
+
+module X {}
+impl X {
+	const wire arr[4];
+	const wire brr[4];
+	Y y {
+		in_arr: arr,
+		out_arr: brr,
+	};
+}

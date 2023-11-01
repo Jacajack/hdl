@@ -6,6 +6,7 @@
 **/*.tmp
 **/*.vvp
 **/*.vcd
+**/*.profraw
 **/__pycache__
 **/Cargo.lock
 *.json

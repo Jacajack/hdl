@@ -19,4 +19,5 @@ assignees: ''
 ```
 
 ### Expected
-Expected output or behavior description
+
+<!-- Expected output or behavior description -->

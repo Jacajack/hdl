@@ -319,10 +319,10 @@ impl Signal {
 		coupling_type: Signal,
 		location: SourceSpan,
 	) -> miette::Result<()> {
-		if is_lhs {
-			self.sensitivity
-				.can_drive(&coupling_type.sensitivity, location, global_ctx)?;
-		}
+		//if is_lhs {
+		//	self.sensitivity
+		//		.can_drive(&coupling_type.sensitivity, location, global_ctx)?;
+		//}
 		use crate::analyzer::SignalType::*;
 		self.signal_type = match (&self.signal_type, &coupling_type.signal_type) {
 			(Auto(_), Auto(_)) => self.signal_type.clone(),
@@ -554,7 +554,7 @@ impl Signal {
 		use SignalType::*;
 		match &mut self.signal_type {
 			Bus(bus) => bus.signedness = signedness,
-			Wire(_) => panic!("You cannot set signedness on a wire"),
+			Wire(_) => (),
 			Auto(_) => {
 				self.signal_type = SignalType::Bus(BusType {
 					width: None,
@@ -639,13 +639,20 @@ impl Variable {
 			VariableKind::ModuleInstance(_) => false,
 		}
 	}
+	pub fn get_clock_name(&self) -> IdTableKey {
+		match &self.kind {
+			VariableKind::Signal(signal) => signal.get_clock_name(),
+			VariableKind::Generic(_) => panic!("This variable is not a signal"),
+			VariableKind::ModuleInstance(_) => panic!("This variable is not a signal"),
+		}
+	}
 	pub fn register(
 		&self,
 		nc_table: &crate::lexer::NumericConstantTable,
 		id_table: &id_table::IdTable,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
-		nc_widths: Option<&HashMap<SourceSpan, crate::core::NumericConstant>>,
+		additional_ctx: Option<&AdditionalContext>,
 		mut builder: SignalBuilder,
 	) -> miette::Result<SignalId> {
 		debug!(
@@ -685,21 +692,33 @@ impl Variable {
 							},
 							EvaluatedLocated(_, location) => {
 								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-								expr_ast
-									.expression
-									.codegen(nc_table, id_table, expr_ast.scope_id, scope, nc_widths)?
+								expr_ast.expression.codegen(
+									nc_table,
+									id_table,
+									expr_ast.scope_id,
+									scope,
+									additional_ctx,
+								)?
 							},
 							Evaluable(location) => {
 								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-								expr_ast
-									.expression
-									.codegen(nc_table, id_table, expr_ast.scope_id, scope, nc_widths)?
+								expr_ast.expression.codegen(
+									nc_table,
+									id_table,
+									expr_ast.scope_id,
+									scope,
+									additional_ctx,
+								)?
 							},
 							WidthOf(location) => {
 								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-								expr_ast
-									.expression
-									.codegen(nc_table, id_table, expr_ast.scope_id, scope, nc_widths)?
+								expr_ast.expression.codegen(
+									nc_table,
+									id_table,
+									expr_ast.scope_id,
+									scope,
+									additional_ctx,
+								)?
 							}, //FIXME coming soon
 						};
 						debug!("Width is {:?}", width);
@@ -724,25 +743,27 @@ impl Variable {
 							let expr = scope.evaluated_expressions.get(location).unwrap();
 							let codegened =
 								expr.expression
-									.codegen(nc_table, id_table, expr.scope_id, scope, nc_widths)?;
+									.codegen(nc_table, id_table, expr.scope_id, scope, additional_ctx)?;
 							builder = builder.array(codegened).unwrap();
 						},
 						Evaluable(location) => {
-							let expr = scope
-								.evaluated_expressions
-								.get(location)
-								.unwrap()
-								.expression
-								.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+							let expr = scope.evaluated_expressions.get(location).unwrap().expression.codegen(
+								nc_table,
+								id_table,
+								scope_id,
+								scope,
+								additional_ctx,
+							)?;
 							builder = builder.array(expr).unwrap();
 						},
 						WidthOf(location) => {
-							let expr = scope
-								.evaluated_expressions
-								.get(location)
-								.unwrap()
-								.expression
-								.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
+							let expr = scope.evaluated_expressions.get(location).unwrap().expression.codegen(
+								nc_table,
+								id_table,
+								scope_id,
+								scope,
+								additional_ctx,
+							)?;
 							builder = builder.array(expr).unwrap(); // FIXME it should be width of
 						},
 					}
@@ -814,12 +835,14 @@ pub struct RegisterInstance {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct NonRegister {
 	pub interface: HashMap<IdTableKey, InternalVariableId>,
+	pub clocks: Vec<InternalVariableId>,
 }
 
 impl NonRegister {
 	pub fn new() -> Self {
 		Self {
 			interface: HashMap::new(),
+			clocks: Vec::new(),
 		}
 	}
 	pub fn add_variable(&mut self, name: IdTableKey, var: InternalVariableId) -> Result<(), CompilerDiagnosticBuilder> {
@@ -827,6 +850,10 @@ impl NonRegister {
 			Some(_) => Err(SemanticError::DuplicateVariableDeclaration.to_diagnostic_builder()),
 			None => Ok(()),
 		}
+	}
+	pub fn add_clock(&mut self, name: IdTableKey, var: InternalVariableId) -> Result<(), CompilerDiagnosticBuilder> {
+		self.clocks.push(var);
+		self.add_variable(name, var)
 	}
 }
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -895,6 +922,9 @@ impl VariableKind {
 					},
 					_ => (),
 				}
+				for dim in &mut sig.dimensions {
+					dim.eval(nc_table, id_table, scope)?;
+				}
 			},
 			_ => unreachable!(),
 		}
@@ -915,10 +945,16 @@ impl VariableKind {
 			_ => false,
 		}
 	}
-	pub fn add_value(&mut self, value: BusWidth) {
+	pub fn add_value(&mut self, value: BusWidth) -> Result<(), CompilerDiagnosticBuilder> {
 		use VariableKind::*;
 		match self {
-			Generic(gen) => gen.value = Some(value),
+			Generic(gen) => {
+				match &mut gen.value {
+					Some(_) => return Err(SemanticError::MultipleAssignment.to_diagnostic_builder()),
+					None => gen.value = Some(value),
+				}
+				Ok(())
+			},
 			_ => panic!("Only generic variables can have values"),
 		}
 	}
@@ -929,32 +965,14 @@ impl VariableKind {
 			VariableKind::ModuleInstance(_) => panic!("Module instantion can't have dimensions"),
 		}
 	}
-	pub fn to_signal(&self) -> Signal {
+	pub fn to_signal(&self) -> Result<Signal, CompilerDiagnosticBuilder> {
 		match self {
-			VariableKind::Signal(signal) => signal.clone(),
-			VariableKind::Generic(gen) => {
-				match &gen.value {
-					None => (),
-					Some(val) => {
-						return Signal::new_from_constant(&val.get_nc(), SourceSpan::new_between(0, 0));
-						//return Signal::new_from_constant(val, gen.kind.location());
-					},
-				}
-				match &gen.kind {
-					GenericVariableKind::Int(signedness, location) => Signal::new_bus(
-						Some(BusWidth::Evaluated(crate::core::NumericConstant::new(
-							BigInt::from(64),
-							None,
-							None,
-							None,
-						))),
-						signedness.clone(),
-						*location,
-					),
-					GenericVariableKind::Bool(location) => Signal::new_wire(*location),
-				}
+			VariableKind::Signal(signal) => Ok(signal.clone()),
+			VariableKind::Generic(gen) => match &gen.value {
+				None => Err(SemanticError::GenericUsedWithoutValue.to_diagnostic_builder()),
+				Some(val) => Ok(Signal::new_from_constant(&val.get_nc(), SourceSpan::new_between(0, 0))),
 			},
-			VariableKind::ModuleInstance(_) => todo!(), // ERROR,
+			VariableKind::ModuleInstance(_) => Err(SemanticError::ModuleInstantionUsedAsSignal.to_diagnostic_builder()),
 		}
 	}
 	pub fn is_module_instance(&self) -> bool {

@@ -1,0 +1,6 @@
+module X{}
+
+impl X{
+	wire x; 
+	x = x |1u1;
+}

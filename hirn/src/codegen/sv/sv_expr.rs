@@ -224,12 +224,26 @@ impl SVExpressionCodegen {
 			_ => (),
 		}
 
-		let is_result_bool = match expr.op {
-			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual | LogicalAnd | LogicalOr => true,
-			_ => false,
+		let casts_needed = match expr.op {
+			// Relational operators work on operands of the same width
+			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual => false,
+
+			// Bitwise operators work on operands of the same width
+			BitwiseAnd | BitwiseOr | BitwiseXor => false,
+
+			// Logical operators only work on booleans (same width)
+			LogicalAnd | LogicalOr => false,
+
+			// Arithmetic operators allow mixed width
+			Add | Subtract | Multiply | Divide | Modulo => true,
+
+			// Shift operators allow mixed width
+			ShiftLeft | ShiftRight => true,
+
+			Min | Max => unreachable!("Min and Max should be handled separately"),
 		};
 
-		let cast_str = if !is_result_bool && self.width_casts() {
+		let cast_str = if casts_needed && self.width_casts() {
 			self.push_width_casts(false);
 			let str = self.translate_expression_try_eval(&expr.width()?)?;
 			self.pop_width_casts();

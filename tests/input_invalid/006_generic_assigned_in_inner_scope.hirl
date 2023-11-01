@@ -1,0 +1,7 @@
+module Y{}
+impl Y{
+  int a;
+  {
+    a = 1;
+  }
+}

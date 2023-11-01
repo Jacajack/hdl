@@ -1,0 +1,5 @@
+module X{}
+impl X{
+  int a;
+  unsigned auto b = a;
+}
