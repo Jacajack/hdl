@@ -15,14 +15,14 @@ pub struct PrettyPrinterContext<'extras> {
 	newline_given: bool,
 	pub after_brackets: bool,
 	pub afer_else: bool,
-	output: &'extras mut dyn Write
+	output: &'extras mut dyn Write,
 }
 impl<'extras> PrettyPrinterContext<'extras> {
 	pub fn new(
 		id_table: &'extras IdTable,
 		comment_table: &'extras CommentTable,
 		constant_table: &'extras NumericConstantTable,
-		output: &'extras mut dyn Write
+		output: &'extras mut dyn Write,
 	) -> Self {
 		Self {
 			indentation_level: 0,

@@ -4,11 +4,11 @@ use hdllang::core::DiagnosticBuffer;
 use hdllang::lexer::{IdTable, Lexer, LogosLexer, LogosLexerContext};
 use hdllang::parser;
 use hdllang::parser::ast::Root;
-use hdllang::parser::ParserError;
 use hdllang::parser::pretty_printer::PrettyPrintable;
+use hdllang::parser::ParserError;
 use rstest::*;
 use std::collections::HashMap;
-use std::io::{Write, Read};
+use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use subprocess::{ExitStatus, Popen, PopenConfig};
 use tempfile::NamedTempFile;
@@ -98,10 +98,7 @@ fn run_hdlc(input_path: &Path) -> miette::Result<NamedTempFile> {
 fn pretty_print_file(input_path: &Path) -> miette::Result<NamedTempFile> {
 	let src = std::fs::read_to_string(input_path).expect("failed to read source code");
 	let mut tmpfile = NamedTempFile::new().unwrap();
-	pretty_print(
-		src,
-		&mut tmpfile,
-	)?;
+	pretty_print(src, &mut tmpfile)?;
 	Ok(tmpfile)
 }
 
@@ -188,7 +185,7 @@ fn pretty_print_and_compile_run_iverilog(path: PathBuf) {
 	sv_file_orignal.as_file().read_to_string(&mut org_str).unwrap();
 	let mut pretty_printed_str = String::new();
 	sv_file.as_file().read_to_string(&mut pretty_printed_str).unwrap();
-	assert_eq!(org_str, pretty_printed_str);	
+	assert_eq!(org_str, pretty_printed_str);
 }
 
 #[rstest]
