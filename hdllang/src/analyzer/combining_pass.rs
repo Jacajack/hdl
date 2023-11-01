@@ -259,11 +259,24 @@ pub struct GlobalAnalyzerContext<'a> {
 	pub generic_modules: HashMap<IdTableKey, &'a ModuleImplementation>,
 	pub design: hirn::design::DesignHandle,
 }
+pub struct AdditionalContext{
+	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
+	pub array_or_bus: HashMap<SourceSpan, bool>, // to distinguish between array and bus in index expr
+}
+impl AdditionalContext{
+	pub fn new(nc_widths:HashMap<SourceSpan, NumericConstant>, array_or_bus:HashMap<SourceSpan, bool>)->Self{
+		AdditionalContext{
+			nc_widths,
+			array_or_bus,
+		}
+	}
+}
 /// Per module context for semantic analysis
 pub struct LocalAnalyzerContex {
 	pub are_we_in_conditional: usize,
 	pub scope: ModuleImplementationScope,
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
+	pub array_or_bus: HashMap<SourceSpan, bool>, // to distinguish between array and bus in index expr
 	pub casts: HashMap<SourceSpan, Signal>,
 	pub widths_map: HashMap<SourceSpan, BusWidth>,
 	pub scope_map: HashMap<SourceSpan, usize>,
@@ -285,6 +298,7 @@ impl LocalAnalyzerContex {
 			casts: HashMap::new(),
 			are_we_in_true_branch: vec![true], // initial value is true :)
 			number_of_recursive_calls: 0,
+			array_or_bus: HashMap::new(),
 		}
 	}
 	pub fn second_pass(&mut self, ctx: &GlobalAnalyzerContext) -> miette::Result<()> {
@@ -957,6 +971,7 @@ impl ModuleImplementationStatement {
 	) -> miette::Result<()> {
 		info!("Reading scope id for {:?}", self.get_location());
 		let scope_id = local_ctx.scope_map.get(&self.get_location()).unwrap().to_owned();
+		let additional_ctx = AdditionalContext::new(local_ctx.nc_widths.clone(), local_ctx.array_or_bus.clone());
 		use ModuleImplementationStatement::*;
 		match self {
 			VariableBlock(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
@@ -967,14 +982,14 @@ impl ModuleImplementationStatement {
 					ctx.id_table,
 					scope_id,
 					&local_ctx.scope,
-					Some(&local_ctx.nc_widths),
+					Some(&additional_ctx),
 				)?;
 				let rhs = assignment.rhs.codegen(
 					ctx.nc_table,
 					ctx.id_table,
 					scope_id,
 					&local_ctx.scope,
-					Some(&local_ctx.nc_widths),
+					Some(&additional_ctx),
 				)?;
 				debug!("Codegen for assignment");
 				debug!("Lhs is {:?}", lhs);
@@ -993,7 +1008,7 @@ impl ModuleImplementationStatement {
 					ctx.id_table,
 					scope_id,
 					&local_ctx.scope,
-					Some(&local_ctx.nc_widths),
+					Some(&additional_ctx),
 				)?;
 				debug!("{:?}", condition_expr);
 				match conditional.else_statement {
@@ -1024,7 +1039,7 @@ impl ModuleImplementationStatement {
 						ctx.id_table,
 						scope_id,
 						&local_ctx.scope,
-						Some(&local_ctx.nc_widths),
+						Some(&additional_ctx),
 					)?)
 					.map_err(|err| {
 						CompilerError::HirnApiError(err)
@@ -1042,7 +1057,7 @@ impl ModuleImplementationStatement {
 							ctx.id_table,
 							scope_id,
 							&local_ctx.scope,
-							Some(&local_ctx.nc_widths),
+							Some(&additional_ctx),
 						)?;
 						let mut else_scope = api_scope
 							.if_scope(hirn::design::Expression::Unary(UnaryExpression {
@@ -1066,14 +1081,14 @@ impl ModuleImplementationStatement {
 					ctx.id_table,
 					scope_id,
 					&local_ctx.scope,
-					Some(&local_ctx.nc_widths),
+					Some(&additional_ctx),
 				)?;
 				let mut rhs = for_stmt.range.rhs.codegen(
 					ctx.nc_table,
 					ctx.id_table,
 					scope_id,
 					&local_ctx.scope,
-					Some(&local_ctx.nc_widths),
+					Some(&additional_ctx),
 				)?;
 				use RangeOpcode::*;
 				match &for_stmt.range.code {
@@ -1089,7 +1104,7 @@ impl ModuleImplementationStatement {
 						rhs = hirn::design::Expression::Binary(hirn::design::BinaryExpression {
 							op: hirn::design::BinaryOp::Subtract,
 							lhs: Box::new(rhs),
-							rhs: Box::new(hirn::design::Expression::Constant(hirn::design::NumericConstant::one())),
+							rhs: Box::new(hirn::design::Expression::Constant(hirn::design::NumericConstant::new_signed(1.into()))),
 						})
 					},
 				}
@@ -1126,7 +1141,7 @@ impl ModuleImplementationStatement {
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
-								Some(&local_ctx.nc_widths),
+								Some(&additional_ctx),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&clk_var.name).unwrap().as_str())
 									.map_err(|err| {
@@ -1142,7 +1157,7 @@ impl ModuleImplementationStatement {
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
-								Some(&local_ctx.nc_widths),
+								Some(&additional_ctx),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&next_var.name).unwrap().as_str())
 									.map_err(|err| {
@@ -1158,7 +1173,7 @@ impl ModuleImplementationStatement {
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
-								Some(&local_ctx.nc_widths),
+								Some(&additional_ctx),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&en_var.name).unwrap().as_str())
 									.map_err(|err| {
@@ -1174,7 +1189,7 @@ impl ModuleImplementationStatement {
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
-								Some(&local_ctx.nc_widths),
+								Some(&additional_ctx),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&nreset_var.name).unwrap().as_str())
 									.map_err(|err| {
@@ -1190,7 +1205,7 @@ impl ModuleImplementationStatement {
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
-								Some(&local_ctx.nc_widths),
+								Some(&additional_ctx),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&data_var.name).unwrap().as_str())
 									.map_err(|err| {
@@ -1323,7 +1338,7 @@ impl ModuleImplementationStatement {
 						ctx.id_table,
 						scope_id,
 						&local_ctx.scope,
-						Some(&local_ctx.nc_widths),
+						Some(&additional_ctx),
 						api_scope
 							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
 							.map_err(|err| {
@@ -1362,7 +1377,7 @@ impl ModuleImplementationStatement {
 						ctx.id_table,
 						scope_id,
 						&local_ctx.scope,
-						Some(&local_ctx.nc_widths),
+						Some(&additional_ctx),
 						api_scope
 							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
 							.map_err(|err| {
@@ -1403,7 +1418,7 @@ impl ModuleImplementationStatement {
 						ctx.id_table,
 						scope_id,
 						&local_ctx.scope,
-						Some(&local_ctx.nc_widths),
+						Some(&additional_ctx),
 						api_scope
 							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
 							.map_err(|err| {
@@ -1688,6 +1703,7 @@ impl VariableDefinition {
 		local_ctx: &mut LocalAnalyzerContex,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
+		let additional_ctx = AdditionalContext::new(local_ctx.nc_widths.clone(), local_ctx.array_or_bus.clone());
 		let scope_id = local_ctx.scope_map.get(&self.location).unwrap().to_owned();
 		for direct_initializer in &self.initializer_list {
 			let variable = local_ctx
@@ -1699,7 +1715,7 @@ impl VariableDefinition {
 				ctx.id_table,
 				scope_id,
 				&local_ctx.scope,
-				Some(&local_ctx.nc_widths),
+				Some(&additional_ctx),
 				api_scope
 					.new_signal(ctx.id_table.get_by_key(&variable.var.name).unwrap().as_str())
 					.unwrap(),
@@ -1711,7 +1727,7 @@ impl VariableDefinition {
 						ctx.id_table,
 						scope_id,
 						&local_ctx.scope,
-						Some(&local_ctx.nc_widths),
+						Some(&additional_ctx),
 					)?;
 					debug!("Lhs is {:?}", hirn::design::Expression::Signal(api_id.into()));
 					debug!("Rhs is {:?}", rhs);
