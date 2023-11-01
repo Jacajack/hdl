@@ -318,7 +318,12 @@ impl ConditionalExpression {
 	}
 }
 
-fn shallow_validate_slice(slice: &SignalSlice, ctx: &EvalContext, scope: &ScopeHandle, allow_nonscalar: bool) -> Result<(), EvalError> {
+fn shallow_validate_slice(
+	slice: &SignalSlice,
+	ctx: &EvalContext,
+	scope: &ScopeHandle,
+	allow_nonscalar: bool,
+) -> Result<(), EvalError> {
 	let design_handle = scope.design();
 	let signal = design_handle.get_signal(slice.signal).expect("Signal not in design");
 
@@ -329,15 +334,15 @@ fn shallow_validate_slice(slice: &SignalSlice, ctx: &EvalContext, scope: &ScopeH
 
 		// Full array - okay if we allow that
 		(true, _sig_rank, 0) => {},
-		
+
 		// Full array - an error if we don't allow that
-		(false, _sig_rank, 0) =>  return Err(ExpressionError::SliceRankMismatch.into()),
-		
+		(false, _sig_rank, 0) => return Err(ExpressionError::SliceRankMismatch.into()),
+
 		// Matching rank is always fine
 		(_, sig_rank, ind_rank) if sig_rank == ind_rank => {},
 
 		// Non-scalar/non-full-array is always bad
-		(_, _, _) => return Err(ExpressionError::SliceRankMismatch.into()),
+		(..) => return Err(ExpressionError::SliceRankMismatch.into()),
 	};
 
 	// Indices must be generic
@@ -522,7 +527,8 @@ mod test {
 		m.scope().assign(arr_a.into(), arr_b.into())?;
 
 		// Array element assign is fine
-		m.scope().assign(arr_a.index(0.into()).into(), arr_b.index(0.into()).into())?;
+		m.scope()
+			.assign(arr_a.index(0.into()).into(), arr_b.index(0.into()).into())?;
 
 		// Using array in an expression is a no no
 		let err = m.scope().assign(arr_a.into(), Expression::from(arr_b) + arr_b.into());
