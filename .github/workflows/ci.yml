@@ -33,53 +33,58 @@ jobs:
         default_author: github_actions
         message: '[bot] Format Rust code'
 
-  cargo-build:
-    name: Cargo build
+  # Disabled: done as a part of the coverage
+  # cargo-build:
+  #   name: Cargo build
+  #   if: ${{ false }}
+  #   # if: ${{ always() }}
+  #   needs: [cargo-fmt]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   - name: Build
+  #     run: cargo build --verbose
+  #   - uses: Swatinem/rust-cache@v2
+  #     with:
+  #       shared-key: "post-cargo-build"
+  
+  # Disabled: done as a part of the coverage
+  # cargo-test:
+  #   name: Cargo test
+  #   if: ${{ always() && needs.cargo-build.result == 'success' }}
+  #   needs: [cargo-build]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #   - uses: actions/checkout@v3
+  #   - uses: Swatinem/rust-cache@v2
+  #     with:
+  #         shared-key: "post-cargo-build"
+  #   - name: Install iVerilog
+  #     run: sudo apt-get install -y iverilog
+  #   - name: Tests
+  #     run: cargo test --workspace --verbose
+
+  # Disabled in the main CI
+  # parser-fuzz-test:
+  #   name: Parser fuzz test (constant seed)
+  #   if: ${{ false }}
+  #   # if: ${{ always() && needs.cargo-coverage.result == 'success' }}
+  #   needs: [cargo-fmt]
+  #   runs-on: ubuntu-latest
+  #   steps:
+  #     - uses: actions/checkout@v3
+  #     - uses: Swatinem/rust-cache@v2
+  #       with:
+  #           shared-key: "post-cargo-build"
+  #     - name: Python setup
+  #       run: pip3 install fuzzingbook
+  #     - name: Fuzzer tests
+  #       run: utils/parser_test.py --seed 3721
+
+  cargo-coverage:
+    name: Tests & coverage
     if: ${{ always() }}
     needs: [cargo-fmt]
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - name: Build
-      run: cargo build --verbose
-    - uses: Swatinem/rust-cache@v2
-      with:
-        shared-key: "post-cargo-build"
-    
-  cargo-test:
-    name: Cargo test
-    if: ${{ always() && needs.cargo-build.result == 'success' }}
-    needs: [cargo-build]
-    runs-on: ubuntu-latest
-    steps:
-    - uses: actions/checkout@v3
-    - uses: Swatinem/rust-cache@v2
-      with:
-          shared-key: "post-cargo-build"
-    - name: Install iVerilog
-      run: sudo apt-get install -y iverilog
-    - name: Tests
-      run: cargo test --workspace --verbose
-
-  parser-fuzz-test:
-    name: Parser fuzz test (constant seed)
-    if: ${{ always() && needs.cargo-build.result == 'success' }}
-    needs: [cargo-build]
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v3
-      - uses: Swatinem/rust-cache@v2
-        with:
-            shared-key: "post-cargo-build"
-      - name: Python setup
-        run: pip3 install fuzzingbook
-      - name: Fuzzer tests
-        run: utils/parser_test.py --seed 3721
-
-  gather-coverage:
-    name: Gather coverage
-    if: ${{ always() && needs.cargo-test.result == 'success' }}
-    needs: [cargo-test]
     runs-on: ubuntu-latest
     container:
       image: xd009642/tarpaulin:develop-nightly
@@ -91,7 +96,7 @@ jobs:
         run: |
             apt-get update
             apt-get install -y iverilog
-      - name: Generate code coverage
+      - name: Run tests & get coverage
         run: |
           cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
       - name: Upload to codecov.io
