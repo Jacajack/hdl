@@ -75,3 +75,27 @@ jobs:
         run: pip3 install fuzzingbook
       - name: Fuzzer tests
         run: utils/parser_test.py --seed 3721
+
+  gather-coverage:
+    name: Gather coverage
+    if: ${{ always() && needs.cargo-test.result == 'success' }}
+    needs: [cargo-test]
+    runs-on: ubuntu-latest
+    container:
+      image: xd009642/tarpaulin:develop-nightly
+      options: --security-opt seccomp=unconfined
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v2
+      - name: Install iVerilog
+        run: |
+            apt-get update
+            apt-get install -y iverilog
+      - name: Generate code coverage
+        run: |
+          cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
+      - name: Upload to codecov.io
+        uses: codecov/codecov-action@v2
+        with:
+          token: ${{secrets.CODECOV_TOKEN}}
+          fail_ci_if_error: true
