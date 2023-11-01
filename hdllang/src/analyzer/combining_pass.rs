@@ -979,9 +979,12 @@ impl ModuleImplementationStatement {
 				debug!("Codegen for assignment");
 				debug!("Lhs is {:?}", lhs);
 				debug!("Rhs is {:?}", rhs);
-				api_scope
-						.assign(lhs, rhs)
-						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(self.get_location(), "Error occured here").build())?;
+				api_scope.assign(lhs, rhs).map_err(|err| {
+					CompilerError::HirnApiError(err)
+						.to_diagnostic_builder()
+						.label(self.get_location(), "Error occured here")
+						.build()
+				})?;
 				debug!("Assignment done");
 			},
 			IfElseStatement(conditional) => {
@@ -995,16 +998,23 @@ impl ModuleImplementationStatement {
 				debug!("{:?}", condition_expr);
 				match conditional.else_statement {
 					Some(ref else_stmt) => {
-						let (mut if_scope, mut else_scope) = api_scope
-							.if_else_scope(condition_expr)
-							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(self.get_location(), "Error occured here").build())?;
+						let (mut if_scope, mut else_scope) =
+							api_scope.if_else_scope(condition_expr).map_err(|err| {
+								CompilerError::HirnApiError(err)
+									.to_diagnostic_builder()
+									.label(self.get_location(), "Error occured here")
+									.build()
+							})?;
 						conditional.if_statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
 						else_stmt.codegen_pass(ctx, local_ctx, &mut else_scope)?;
 					},
 					None => {
-						let mut if_scope = api_scope
-							.if_scope(condition_expr)
-							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(self.get_location(), "Error occured here").build())?;
+						let mut if_scope = api_scope.if_scope(condition_expr).map_err(|err| {
+							CompilerError::HirnApiError(err)
+								.to_diagnostic_builder()
+								.label(self.get_location(), "Error occured here")
+								.build()
+						})?;
 						conditional.if_statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
 					},
 				}
@@ -1016,7 +1026,12 @@ impl ModuleImplementationStatement {
 						&local_ctx.scope,
 						Some(&local_ctx.nc_widths),
 					)?)
-					.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(self.get_location(), "Error occured here").build())?;
+					.map_err(|err| {
+						CompilerError::HirnApiError(err)
+							.to_diagnostic_builder()
+							.label(self.get_location(), "Error occured here")
+							.build()
+					})?;
 				conditional
 					.if_statement
 					.codegen_pass(ctx, local_ctx, &mut inner_scope)?;
@@ -1034,7 +1049,12 @@ impl ModuleImplementationStatement {
 								op: hirn::design::UnaryOp::LogicalNot,
 								operand: Box::new(expr),
 							}))
-							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(self.get_location(), "Error occured here").build())?;
+							.map_err(|err| {
+								CompilerError::HirnApiError(err)
+									.to_diagnostic_builder()
+									.label(self.get_location(), "Error occured here")
+									.build()
+							})?;
 						else_statement.codegen_pass(ctx, local_ctx, &mut else_scope)?
 					},
 					None => (),
@@ -1075,7 +1095,12 @@ impl ModuleImplementationStatement {
 				}
 				let (mut for_scope, iterator_id) = api_scope
 					.loop_scope(&ctx.id_table.get_value(&for_stmt.id), lhs, rhs)
-					.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(self.get_location(), "Error occured here").build())?;
+					.map_err(|err| {
+						CompilerError::HirnApiError(err)
+							.to_diagnostic_builder()
+							.label(self.get_location(), "Error occured here")
+							.build()
+					})?;
 				let id = local_ctx.scope_map.get(&for_stmt.statement.get_location()).unwrap();
 				local_ctx
 					.scope
@@ -1104,7 +1129,12 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&clk_var.name).unwrap().as_str())
-									.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(clk_var.location, "Error occured here").build())?
+									.map_err(|err| {
+										CompilerError::HirnApiError(err)
+											.to_diagnostic_builder()
+											.label(clk_var.location, "Error occured here")
+											.build()
+									})?
 									.generated(),
 							)?;
 							let next_id = next_var.register(
@@ -1115,7 +1145,12 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&next_var.name).unwrap().as_str())
-									.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(next_var.location, "Error occured here").build())?
+									.map_err(|err| {
+										CompilerError::HirnApiError(err)
+											.to_diagnostic_builder()
+											.label(next_var.location, "Error occured here")
+											.build()
+									})?
 									.generated(),
 							)?;
 							let enable_id = en_var.register(
@@ -1126,7 +1161,12 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&en_var.name).unwrap().as_str())
-									.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(en_var.location, "Error occured here").build())?
+									.map_err(|err| {
+										CompilerError::HirnApiError(err)
+											.to_diagnostic_builder()
+											.label(en_var.location, "Error occured here")
+											.build()
+									})?
 									.generated(),
 							)?;
 							let reset_id = nreset_var.register(
@@ -1137,7 +1177,12 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&nreset_var.name).unwrap().as_str())
-									.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(nreset_var.location, "Error occured here").build())?
+									.map_err(|err| {
+										CompilerError::HirnApiError(err)
+											.to_diagnostic_builder()
+											.label(nreset_var.location, "Error occured here")
+											.build()
+									})?
 									.generated(),
 							)?;
 							let data_id = data_var.register(
@@ -1148,7 +1193,12 @@ impl ModuleImplementationStatement {
 								Some(&local_ctx.nc_widths),
 								api_scope
 									.new_signal(ctx.id_table.get_by_key(&data_var.name).unwrap().as_str())
-									.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(data_var.location, "Error occured here").build())?
+									.map_err(|err| {
+										CompilerError::HirnApiError(err)
+											.to_diagnostic_builder()
+											.label(data_var.location, "Error occured here")
+											.build()
+									})?
 									.generated(),
 							)?;
 							for stmt in &inst.port_bind {
@@ -1158,27 +1208,52 @@ impl ModuleImplementationStatement {
 									"clk" => {
 										api_scope
 											.assign(hirn::design::Expression::Signal(clk_id.into()), rhs)
-											.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(clk_var.location, "Error occured here").build())?;
+											.map_err(|err| {
+												CompilerError::HirnApiError(err)
+													.to_diagnostic_builder()
+													.label(clk_var.location, "Error occured here")
+													.build()
+											})?;
 									},
 									"next" => {
 										api_scope
 											.assign(hirn::design::Expression::Signal(next_id.into()), rhs)
-											.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(next_var.location, "Error occured here").build())?;
+											.map_err(|err| {
+												CompilerError::HirnApiError(err)
+													.to_diagnostic_builder()
+													.label(next_var.location, "Error occured here")
+													.build()
+											})?;
 									},
 									"en" => {
 										api_scope
 											.assign(hirn::design::Expression::Signal(enable_id.into()), rhs)
-											.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(en_var.location, "Error occured here").build())?;
+											.map_err(|err| {
+												CompilerError::HirnApiError(err)
+													.to_diagnostic_builder()
+													.label(en_var.location, "Error occured here")
+													.build()
+											})?;
 									},
 									"nreset" => {
 										api_scope
 											.assign(hirn::design::Expression::Signal(reset_id.into()), rhs)
-											.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(nreset_var.location, "Error occured here").build())?;
+											.map_err(|err| {
+												CompilerError::HirnApiError(err)
+													.to_diagnostic_builder()
+													.label(nreset_var.location, "Error occured here")
+													.build()
+											})?;
 									},
 									"data" => {
 										api_scope
 											.assign(rhs, hirn::design::Expression::Signal(data_id.into()))
-											.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(data_var.location, "Error occured here").build())?;
+											.map_err(|err| {
+												CompilerError::HirnApiError(err)
+													.to_diagnostic_builder()
+													.label(data_var.location, "Error occured here")
+													.build()
+											})?;
 									},
 									_ => unreachable!(),
 								}
@@ -1190,7 +1265,12 @@ impl ModuleImplementationStatement {
 								.clk(clk_id)
 								.output(data_id)
 								.build()
-								.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(self.get_location(), "Error occured here").build())?;
+								.map_err(|err| {
+									CompilerError::HirnApiError(err)
+										.to_diagnostic_builder()
+										.label(self.get_location(), "Error occured here")
+										.build()
+								})?;
 							return Ok(());
 						}
 					}
@@ -1217,7 +1297,12 @@ impl ModuleImplementationStatement {
 				};
 				let mut builder = api_scope
 					.new_module(m_handle, &ctx.id_table.get_value(&inst.instance_name).as_str())
-					.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(self.get_location(), "Error occured here").build())?;
+					.map_err(|err| {
+						CompilerError::HirnApiError(err)
+							.to_diagnostic_builder()
+							.label(self.get_location(), "Error occured here")
+							.build()
+					})?;
 				debug!("Codegen for generic variables");
 				for stmt in &inst.port_bind {
 					let var = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
@@ -1241,12 +1326,20 @@ impl ModuleImplementationStatement {
 						Some(&local_ctx.nc_widths),
 						api_scope
 							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
-							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(var.location, "Error occured here").build())?
+							.map_err(|err| {
+								CompilerError::HirnApiError(err)
+									.to_diagnostic_builder()
+									.label(var.location, "Error occured here")
+									.build()
+							})?,
 					)?;
 					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
-					api_scope
-						.assign(var_id.into(), rhs)
-						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(var.location, "Error occured here").build())?;
+					api_scope.assign(var_id.into(), rhs).map_err(|err| {
+						CompilerError::HirnApiError(err)
+							.to_diagnostic_builder()
+							.label(var.location, "Error occured here")
+							.build()
+					})?;
 					debug!("Assigned succesfuly");
 				}
 				debug!("Codegen for clocks");
@@ -1272,12 +1365,20 @@ impl ModuleImplementationStatement {
 						Some(&local_ctx.nc_widths),
 						api_scope
 							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
-							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(var.location, "Error occured here").build())?
+							.map_err(|err| {
+								CompilerError::HirnApiError(err)
+									.to_diagnostic_builder()
+									.label(var.location, "Error occured here")
+									.build()
+							})?,
 					)?;
 					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
-					api_scope
-						.assign(var_id.into(), rhs)
-						.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(var.location, "Error occured here").build())?;
+					api_scope.assign(var_id.into(), rhs).map_err(|err| {
+						CompilerError::HirnApiError(err)
+							.to_diagnostic_builder()
+							.label(var.location, "Error occured here")
+							.build()
+					})?;
 					debug!("Assigned succesfuly");
 				}
 				debug!("Codegen for other variables");
@@ -1305,7 +1406,12 @@ impl ModuleImplementationStatement {
 						Some(&local_ctx.nc_widths),
 						api_scope
 							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
-							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(var.location, "Error occured here").build())?
+							.map_err(|err| {
+								CompilerError::HirnApiError(err)
+									.to_diagnostic_builder()
+									.label(var.location, "Error occured here")
+									.build()
+							})?
 							.generated(),
 					)?;
 					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
@@ -1316,19 +1422,32 @@ impl ModuleImplementationStatement {
 						.expect("This was checked during analysis of a module")
 						.direction
 					{
-						crate::analyzer::Direction::Input(_) => api_scope
-							.assign(var_id.into(), rhs)
-							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(var.location, "Error occured here").build())?,
-						crate::analyzer::Direction::Output(_) => api_scope
-							.assign(rhs, var_id.into())
-							.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(var.location, "Error occured here").build())?,
+						crate::analyzer::Direction::Input(_) => {
+							api_scope.assign(var_id.into(), rhs).map_err(|err| {
+								CompilerError::HirnApiError(err)
+									.to_diagnostic_builder()
+									.label(var.location, "Error occured here")
+									.build()
+							})?
+						},
+						crate::analyzer::Direction::Output(_) => {
+							api_scope.assign(rhs, var_id.into()).map_err(|err| {
+								CompilerError::HirnApiError(err)
+									.to_diagnostic_builder()
+									.label(var.location, "Error occured here")
+									.build()
+							})?
+						},
 						_ => unreachable!(),
 					}
 					debug!("Assigned succesfuly");
 				}
-				builder
-					.build()
-					.map_err(|err| CompilerError::HirnApiError(err).to_diagnostic_builder().label(self.get_location(), "Error occured here").build())?;
+				builder.build().map_err(|err| {
+					CompilerError::HirnApiError(err)
+						.to_diagnostic_builder()
+						.label(self.get_location(), "Error occured here")
+						.build()
+				})?;
 			},
 			ModuleImplementationBlockStatement(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
 		};
