@@ -7,8 +7,8 @@ use log::debug;
 
 use crate::analyzer::module_implementation_scope::InternalVariableId;
 use crate::analyzer::{
-	BusWidth, GlobalAnalyzerContext, LocalAnalyzerContex, ModuleImplementationScope, SemanticError,
-	SensitivityGraphEntry, Signal, Variable, AdditionalContext,
+	AdditionalContext, BusWidth, GlobalAnalyzerContext, LocalAnalyzerContex, ModuleImplementationScope, SemanticError,
+	SensitivityGraphEntry, Signal, Variable,
 };
 use crate::parser::ast::{Expression, SourceLocation, VariableDeclaration};
 use crate::ProvidesCompilerDiagnostic;

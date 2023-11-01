@@ -692,21 +692,33 @@ impl Variable {
 							},
 							EvaluatedLocated(_, location) => {
 								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-								expr_ast
-									.expression
-									.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
+								expr_ast.expression.codegen(
+									nc_table,
+									id_table,
+									expr_ast.scope_id,
+									scope,
+									additional_ctx,
+								)?
 							},
 							Evaluable(location) => {
 								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-								expr_ast
-									.expression
-									.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
+								expr_ast.expression.codegen(
+									nc_table,
+									id_table,
+									expr_ast.scope_id,
+									scope,
+									additional_ctx,
+								)?
 							},
 							WidthOf(location) => {
 								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-								expr_ast
-									.expression
-									.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
+								expr_ast.expression.codegen(
+									nc_table,
+									id_table,
+									expr_ast.scope_id,
+									scope,
+									additional_ctx,
+								)?
 							}, //FIXME coming soon
 						};
 						debug!("Width is {:?}", width);
@@ -735,21 +747,23 @@ impl Variable {
 							builder = builder.array(codegened).unwrap();
 						},
 						Evaluable(location) => {
-							let expr = scope
-								.evaluated_expressions
-								.get(location)
-								.unwrap()
-								.expression
-								.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+							let expr = scope.evaluated_expressions.get(location).unwrap().expression.codegen(
+								nc_table,
+								id_table,
+								scope_id,
+								scope,
+								additional_ctx,
+							)?;
 							builder = builder.array(expr).unwrap();
 						},
 						WidthOf(location) => {
-							let expr = scope
-								.evaluated_expressions
-								.get(location)
-								.unwrap()
-								.expression
-								.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+							let expr = scope.evaluated_expressions.get(location).unwrap().expression.codegen(
+								nc_table,
+								id_table,
+								scope_id,
+								scope,
+								additional_ctx,
+							)?;
 							builder = builder.array(expr).unwrap(); // FIXME it should be width of
 						},
 					}

@@ -259,13 +259,13 @@ pub struct GlobalAnalyzerContext<'a> {
 	pub generic_modules: HashMap<IdTableKey, &'a ModuleImplementation>,
 	pub design: hirn::design::DesignHandle,
 }
-pub struct AdditionalContext{
+pub struct AdditionalContext {
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
 	pub array_or_bus: HashMap<SourceSpan, bool>, // to distinguish between array and bus in index expr
 }
-impl AdditionalContext{
-	pub fn new(nc_widths:HashMap<SourceSpan, NumericConstant>, array_or_bus:HashMap<SourceSpan, bool>)->Self{
-		AdditionalContext{
+impl AdditionalContext {
+	pub fn new(nc_widths: HashMap<SourceSpan, NumericConstant>, array_or_bus: HashMap<SourceSpan, bool>) -> Self {
+		AdditionalContext {
 			nc_widths,
 			array_or_bus,
 		}
@@ -1104,7 +1104,9 @@ impl ModuleImplementationStatement {
 						rhs = hirn::design::Expression::Binary(hirn::design::BinaryExpression {
 							op: hirn::design::BinaryOp::Subtract,
 							lhs: Box::new(rhs),
-							rhs: Box::new(hirn::design::Expression::Constant(hirn::design::NumericConstant::new_signed(1.into()))),
+							rhs: Box::new(hirn::design::Expression::Constant(
+								hirn::design::NumericConstant::new_signed(1.into()),
+							)),
 						})
 					},
 				}
