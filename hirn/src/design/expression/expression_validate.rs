@@ -318,14 +318,27 @@ impl ConditionalExpression {
 	}
 }
 
-fn shallow_validate_slice(slice: &SignalSlice, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), EvalError> {
+fn shallow_validate_slice(slice: &SignalSlice, ctx: &EvalContext, scope: &ScopeHandle, allow_nonscalar: bool) -> Result<(), EvalError> {
 	let design_handle = scope.design();
 	let signal = design_handle.get_signal(slice.signal).expect("Signal not in design");
 
 	// Validate rank
-	if signal.rank() != slice.indices.len() {
-		return Err(ExpressionError::SliceRankMismatch.into());
-	}
+	match (allow_nonscalar, signal.rank(), slice.indices.len()) {
+		// Scalars are always okay
+		(_, 0, 0) => {},
+
+		// Full array - okay if we allow that
+		(true, _sig_rank, 0) => {},
+		
+		// Full array - an error if we don't allow that
+		(false, _sig_rank, 0) =>  return Err(ExpressionError::SliceRankMismatch.into()),
+		
+		// Matching rank is always fine
+		(_, sig_rank, ind_rank) if sig_rank == ind_rank => {},
+
+		// Non-scalar/non-full-array is always bad
+		(_, _, _) => return Err(ExpressionError::SliceRankMismatch.into()),
+	};
 
 	// Indices must be generic
 	for index in &slice.indices {
@@ -344,7 +357,7 @@ impl Expression {
 	/// Returns a set of variables used in the expression
 	pub fn get_variables(&self) -> HashSet<SignalId> {
 		let vars = Rc::new(RefCell::new(HashSet::new()));
-		self.traverse(&|e| -> Result<(), ()> {
+		self.traverse(&mut |e| -> Result<(), ()> {
 			match e {
 				Expression::Signal(slice) => {
 					(*vars).borrow_mut().insert(slice.signal);
@@ -359,7 +372,8 @@ impl Expression {
 
 	/// Validates the expression
 	pub fn validate(&self, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), EvalError> {
-		self.traverse(&|e| -> Result<(), EvalError> {
+		let mut is_root_level = true;
+		self.traverse(&mut |e| -> Result<(), EvalError> {
 			// Check if all variables used in the expression are a subset of the ones
 			// accessible within this scope
 			let expr_variables = self.get_variables();
@@ -370,15 +384,18 @@ impl Expression {
 
 			/// Peform shallow validation of each expresion sub-type (i.e. non-recursive)
 			use Expression::*;
-			match e {
+			let result = match e {
 				Constant(_) => Ok(()),
-				Signal(slice) => shallow_validate_slice(slice, ctx, scope),
+				Signal(slice) => shallow_validate_slice(slice, ctx, scope, is_root_level),
 				Unary(e) => e.shallow_validate(ctx, scope),
 				Binary(e) => e.shallow_validate(ctx, scope),
 				Builtin(op) => op.shallow_validate(ctx, scope),
 				Cast(c) => c.shallow_validate(ctx, scope),
 				Conditional(c) => c.shallow_validate(ctx, scope),
-			}
+			};
+
+			is_root_level = false;
+			result
 		})
 	}
 
@@ -477,6 +494,40 @@ mod test {
 				ExpressionError::InvalidBitIndex
 			)))
 		));
+		Ok(())
+	}
+
+	#[test]
+	fn rank_check() -> Result<(), DesignError> {
+		let mut d = DesignHandle::new();
+		let m = d.new_module("m")?;
+
+		let arr_a = m
+			.scope()
+			.new_signal("a")?
+			.constant()
+			.array(16.into())?
+			.unsigned(16u32.into())
+			.build()?;
+
+		let arr_b = m
+			.scope()
+			.new_signal("b")?
+			.constant()
+			.array(16.into())?
+			.unsigned(16u32.into())
+			.build()?;
+
+		// Array assign is fine
+		m.scope().assign(arr_a.into(), arr_b.into())?;
+
+		// Array element assign is fine
+		m.scope().assign(arr_a.index(0.into()).into(), arr_b.index(0.into()).into())?;
+
+		// Using array in an expression is a no no
+		let err = m.scope().assign(arr_a.into(), Expression::from(arr_b) + arr_b.into());
+		assert!(err.is_err());
+
 		Ok(())
 	}
 }
