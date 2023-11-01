@@ -1,5 +1,5 @@
 # HDL
-[![Main CI](https://github.com/Jacajack/hdl/actions/workflows/ci.yml/badge.svg)](https://github.com/Jacajack/hdl/actions/workflows/ci.yml) [![Nightly CI](https://github.com/Jacajack/hdl/actions/workflows/nightly.yml/badge.svg?branch=main)](https://github.com/Jacajack/hdl/actions/workflows/nightly.yml) [![codecov](https://codecov.io/gh/Jacajack/hdl/graph/badge.svg?token=NCOY8ZS9BQ)](https://codecov.io/gh/Jacajack/hdl)
+[![Main CI](https://github.com/Jacajack/hdl/actions/workflows/ci.yml/badge.svg)](https://github.com/Jacajack/hdl/actions/workflows/ci.yml)  [![codecov](https://codecov.io/gh/Jacajack/hdl/graph/badge.svg?token=NCOY8ZS9BQ)](https://codecov.io/gh/Jacajack/hdl)
 
 A hardware description language named after a funny bird.
 
