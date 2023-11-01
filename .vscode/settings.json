@@ -15,4 +15,5 @@
 		"./hdllang/Cargo.toml",
 		"Cargo.toml",
 	],
+	"files.insertFinalNewline": true,
 }

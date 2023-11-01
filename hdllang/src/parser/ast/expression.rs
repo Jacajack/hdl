@@ -18,7 +18,7 @@ use crate::analyzer::{
 	AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContex, ModuleImplementationScope,
 	SemanticError, Signal, SignalSensitivity, SignalSignedness, SignalType, VariableKind,
 };
-use crate::core::{NumericConstant, CompilerDiagnosticBuilder};
+use crate::core::{CompilerDiagnosticBuilder, NumericConstant};
 use crate::lexer::IdTableKey;
 use crate::parser::ast::{
 	opcodes::*, MatchExpressionAntecendent, MatchExpressionStatement, RangeExpression, SourceLocation, TypeName,
@@ -254,20 +254,26 @@ impl Expression {
 			},
 		}
 	}
-	pub fn assign(&self, value: BusWidth, local_ctx: &mut LocalAnalyzerContex, scope_id: usize) -> Result<(), CompilerDiagnosticBuilder> {
+	pub fn assign(
+		&self,
+		value: BusWidth,
+		local_ctx: &mut LocalAnalyzerContex,
+		scope_id: usize,
+	) -> Result<(), CompilerDiagnosticBuilder> {
 		use Expression::*;
 		match self {
 			Identifier(id) => {
-				if local_ctx.scope.is_declared(scope_id, &id.id).is_none(){
-					return Err(SemanticError::VariableNotDeclared
-							.to_diagnostic_builder()
-							.label(id.location, "This variable is not defined in this scope, so it cannot be assigned to here")
-					)
+				if local_ctx.scope.is_declared(scope_id, &id.id).is_none() {
+					return Err(SemanticError::VariableNotDeclared.to_diagnostic_builder().label(
+						id.location,
+						"This variable is not defined in this scope, so it cannot be assigned to here",
+					));
 				}
 				let mut var = local_ctx.scope.get_variable(scope_id, &id.id).unwrap().clone();
-				var.var.kind.add_value(value)
-					.map_err(|err| 
-						err.label(self.get_location(), "Cannot assign value to this variable"))?;
+				var.var
+					.kind
+					.add_value(value)
+					.map_err(|err| err.label(self.get_location(), "Cannot assign value to this variable"))?;
 				local_ctx.scope.redeclare_variable(var);
 				Ok(())
 			},
@@ -748,23 +754,26 @@ impl Expression {
 						.is_signedness_specified(global_ctx, local_ctx, current_scope),
 				}
 			},
-    		Identifier(_) => todo!(),
-    		ParenthesizedExpression(expr) => expr.expression.is_signedness_specified(global_ctx, local_ctx, current_scope),
-    		MatchExpression(_) => todo!(),
-    		ConditionalExpression(_) => todo!(),
-    		Tuple(_) => unreachable!(),
-    		TernaryExpression(tern) => {
+			Identifier(_) => todo!(),
+			ParenthesizedExpression(expr) => {
+				expr.expression
+					.is_signedness_specified(global_ctx, local_ctx, current_scope)
+			},
+			MatchExpression(_) => todo!(),
+			ConditionalExpression(_) => todo!(),
+			Tuple(_) => unreachable!(),
+			TernaryExpression(tern) => {
 				tern.true_branch
 					.is_signedness_specified(global_ctx, local_ctx, current_scope)
 					|| tern
 						.false_branch
 						.is_signedness_specified(global_ctx, local_ctx, current_scope)
 			},
-    		PostfixWithIndex(_) => true, // FIXME
-    		PostfixWithRange(_) => true,
-    		PostfixWithArgs(_) => todo!(),
-    		PostfixWithId(_) => todo!(),
-    		UnaryCastExpression(_) => todo!(),
+			PostfixWithIndex(_) => true, // FIXME
+			PostfixWithRange(_) => true,
+			PostfixWithArgs(_) => todo!(),
+			PostfixWithId(_) => todo!(),
+			UnaryCastExpression(_) => todo!(),
 		}
 	}
 	pub fn is_lvalue(&self) -> bool {
@@ -1021,7 +1030,9 @@ impl Expression {
 										.unwrap()
 										.expression
 										.codegen(nc_table, id_table, scope_id, scope, nc_widths)?
-										- hirn::design::Expression::Constant(hirn::design::NumericConstant::new_signed(BigInt::from(1))),
+										- hirn::design::Expression::Constant(
+											hirn::design::NumericConstant::new_signed(BigInt::from(1)),
+										),
 								),
 								lsb: Box::new(hirn::design::Expression::Constant(
 									hirn::design::NumericConstant::new_signed(BigInt::from(0)),
@@ -1232,7 +1243,7 @@ impl Expression {
 					.expression
 					.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
 				todo!()
-				},
+			},
 			BinaryExpression(binop) => {
 				use crate::parser::ast::BinaryOpcode::*;
 				let lhs = binop.lhs.codegen(nc_table, id_table, scope_id, scope, nc_widths)?;
@@ -1433,7 +1444,7 @@ impl Expression {
 						(Unsigned(_), NoSignedness) => {
 							constant.signed = Some(false);
 							local_ctx.nc_widths.insert(self.get_location(), constant.clone());
-						}
+						},
 					}
 				}
 				Ok(sig)
@@ -1451,8 +1462,10 @@ impl Expression {
 					},
 				}
 				.clone();
-				let mut sig = var.var.kind.to_signal().map_err(|err|
-					err.label(self.get_location(), "This identifier cannot represents a signal").build())?;
+				let mut sig = var.var.kind.to_signal().map_err(|err| {
+					err.label(self.get_location(), "This identifier cannot represents a signal")
+						.build()
+				})?;
 				sig.evaluate_as_lhs(is_lhs, global_ctx, coupling_type, location)?;
 				if var.var.kind == crate::analyzer::VariableKind::Signal(sig.clone()) {
 					return Ok(sig);
@@ -1511,7 +1524,14 @@ impl Expression {
 						},
 						MatchExpressionAntecendent::Default { location: _ } => (),
 					};
-					stmt.expression.evaluate_type(global_ctx, scope_id, local_ctx, coupling_type.clone(), is_lhs, location)?;
+					stmt.expression.evaluate_type(
+						global_ctx,
+						scope_id,
+						local_ctx,
+						coupling_type.clone(),
+						is_lhs,
+						location,
+					)?;
 					res = stmt.expression.evaluate_type(
 						global_ctx,
 						scope_id,
@@ -1554,7 +1574,14 @@ impl Expression {
 						},
 						MatchExpressionAntecendent::Default { location: _ } => (),
 					};
-					stmt.expression.evaluate_type(global_ctx, scope_id, local_ctx, coupling_type.clone(), is_lhs, location)?;
+					stmt.expression.evaluate_type(
+						global_ctx,
+						scope_id,
+						local_ctx,
+						coupling_type.clone(),
+						is_lhs,
+						location,
+					)?;
 					res = stmt.expression.evaluate_type(
 						global_ctx,
 						scope_id,
@@ -1970,11 +1997,11 @@ impl Expression {
 							.scope
 							.widths
 							.insert(function.location, coupling_type.width().unwrap());
-						let signedness = match func_name.as_str(){
-							"zext"=>SignalSignedness::Unsigned(self.get_location()),
-							"ext"=>coupling_type.get_signedness(),
-							"sext"=>SignalSignedness::Signed(self.get_location()),
-							_=> unreachable!(),
+						let signedness = match func_name.as_str() {
+							"zext" => SignalSignedness::Unsigned(self.get_location()),
+							"ext" => coupling_type.get_signedness(),
+							"sext" => SignalSignedness::Signed(self.get_location()),
+							_ => unreachable!(),
 						};
 						let r_type = Signal::new_bus(coupling_type.width(), signedness, location);
 						Ok(r_type)
@@ -2353,7 +2380,6 @@ impl Expression {
 				}
 				debug!("type_first: {:?}", type_first);
 				let type_second = match binop.code.is_relational() {
-
 					true => binop.rhs.evaluate_type(
 						global_ctx,
 						scope_id,

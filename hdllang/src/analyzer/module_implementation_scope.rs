@@ -4,12 +4,13 @@ use hirn::design::{ModuleHandle, SignalId};
 use log::*;
 
 use crate::{
+	analyzer::{ClockSensitivityList, InstanceError},
 	lexer::{IdTable, IdTableKey},
 	parser::ast::Scope,
-	ProvidesCompilerDiagnostic, SourceSpan, analyzer::{InstanceError, ClockSensitivityList},
+	ProvidesCompilerDiagnostic, SourceSpan,
 };
 
-use super::{GlobalAnalyzerContext, SemanticError, Variable, VariableKind, SignalSensitivity};
+use super::{GlobalAnalyzerContext, SemanticError, SignalSensitivity, Variable, VariableKind};
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
 pub struct InternalVariableId {
 	id: usize,
@@ -71,14 +72,19 @@ pub trait ScopeTrait {
 	fn is_generic(&self) -> bool;
 }
 impl ModuleImplementationScope {
-	pub fn get_variable_by_id(&self, key: InternalVariableId) -> Option<VariableDefined>{
+	pub fn get_variable_by_id(&self, key: InternalVariableId) -> Option<VariableDefined> {
 		self.variables.get(&key).map(|x| x.clone())
 	}
 	pub fn display_interface(&self, id_table: &IdTable) -> String {
 		let mut s = String::new();
 		let scope = self.scopes.first().unwrap();
 		for (name, var) in &scope.variables {
-			s += format!("Variable {}: {:?}\n", id_table.get_value(name), self.variables.get(var).unwrap().var.kind).as_str();
+			s += format!(
+				"Variable {}: {:?}\n",
+				id_table.get_value(name),
+				self.variables.get(var).unwrap().var.kind
+			)
+			.as_str();
 		}
 		s += format!("dupa").as_str();
 
@@ -203,7 +209,10 @@ impl ModuleImplementationScope {
 		scope.variables.get(key).and_then(|x| self.variables.get(x))
 	}
 	pub fn is_declared(&self, scope_key: usize, key: &IdTableKey) -> Option<SourceSpan> {
-		self.scopes[scope_key].variables.get(key).map(|x| self.variables.get(x).unwrap().var.location)
+		self.scopes[scope_key]
+			.variables
+			.get(key)
+			.map(|x| self.variables.get(x).unwrap().var.location)
 	}
 	pub fn insert_api_id(&mut self, id: InternalVariableId, api_id: SignalId) {
 		self.api_ids.insert(id, api_id);
@@ -315,91 +324,93 @@ impl ModuleImplementationScope {
 		Ok(())
 	}
 	pub fn second_pass(&self, ctx: &GlobalAnalyzerContext) -> miette::Result<()> {
-		for v in self.variables.values(){
-				match &v.var.kind {
-					VariableKind::Signal(sig) => {
-						if !sig.is_sensititivity_specified() {
-							return Err(miette::Report::new(
-								SemanticError::MissingSensitivityQualifier
-									.to_diagnostic_builder()
-									.label(
-										v.var.location,
-										"Signal must be either const, clock, comb, sync or async",
-									)
-									.build(),
-							));
-						}
-						if !sig.is_signedness_specified() {
-							return Err(miette::Report::new(
-								SemanticError::MissingSignednessQualifier
-									.to_diagnostic_builder()
-									.label(v.var.location, "Bus signal must be either signed or unsigned")
-									.build(),
-							));
-						}
-						if !sig.is_width_specified() {
-							return Err(miette::Report::new(
-								SemanticError::WidthNotKnown
-									.to_diagnostic_builder()
-									.label(v.var.location, "Bus signals must have specified width")
-									.build(),
-							));
-						}
-					},
-					VariableKind::Generic(_) => (),
-					VariableKind::ModuleInstance(inst) => {
-						use crate::analyzer::ModuleInstanceKind::*;
-						match &inst.kind{
-        					Module(m) => {
-								let mut clock_mapping: HashMap<IdTableKey, IdTableKey> = HashMap::new();
-							},
-        					Register(r) => {
-								let clk_var = self.get_variable_by_id(r.clk).unwrap();
-								let data_var = self.get_variable_by_id(r.data).unwrap();
-								let next_var = self.get_variable_by_id(r.next).unwrap();
-								let enable_var = self.get_variable_by_id(r.enable).unwrap();
-								// we dont have to test sensitivity of reset signal, because it is not-worse than async
-								//let reset_var = self.get_variable_by_id(r.nreset).unwrap(); 
+		for v in self.variables.values() {
+			match &v.var.kind {
+				VariableKind::Signal(sig) => {
+					if !sig.is_sensititivity_specified() {
+						return Err(miette::Report::new(
+							SemanticError::MissingSensitivityQualifier
+								.to_diagnostic_builder()
+								.label(
+									v.var.location,
+									"Signal must be either const, clock, comb, sync or async",
+								)
+								.build(),
+						));
+					}
+					if !sig.is_signedness_specified() {
+						return Err(miette::Report::new(
+							SemanticError::MissingSignednessQualifier
+								.to_diagnostic_builder()
+								.label(v.var.location, "Bus signal must be either signed or unsigned")
+								.build(),
+						));
+					}
+					if !sig.is_width_specified() {
+						return Err(miette::Report::new(
+							SemanticError::WidthNotKnown
+								.to_diagnostic_builder()
+								.label(v.var.location, "Bus signals must have specified width")
+								.build(),
+						));
+					}
+				},
+				VariableKind::Generic(_) => (),
+				VariableKind::ModuleInstance(inst) => {
+					use crate::analyzer::ModuleInstanceKind::*;
+					match &inst.kind {
+						Module(m) => {
+							let mut clock_mapping: HashMap<IdTableKey, IdTableKey> = HashMap::new();
+						},
+						Register(r) => {
+							let clk_var = self.get_variable_by_id(r.clk).unwrap();
+							let data_var = self.get_variable_by_id(r.data).unwrap();
+							let next_var = self.get_variable_by_id(r.next).unwrap();
+							let enable_var = self.get_variable_by_id(r.enable).unwrap();
+							// we dont have to test sensitivity of reset signal, because it is not-worse than async
+							//let reset_var = self.get_variable_by_id(r.nreset).unwrap();
 
-								if !clk_var.is_clock() {
-									return Err(miette::Report::new(
-										InstanceError::ArgumentsMismatch
-											.to_diagnostic_builder()
-											.label(clk_var.var.location, "Clk signal must be marked as clock")
-											.build(),
-									));
-								}
-								let list = ClockSensitivityList::new().with_clock(clk_var.var.get_clock_name(), true, data_var.var.location);
-								let data_sensitivity = SignalSensitivity::Sync(list, data_var.var.location);
-								data_var.get_sensitivity()
-									.can_drive(&data_sensitivity, data_var.var.location, ctx)?;
-								if !next_var.get_sensitivity().is_not_worse_than(&clk_var.get_sensitivity()) {
-									return Err(miette::Report::new(
-										InstanceError::ArgumentsMismatch
-											.to_diagnostic_builder()
-											.label(
-												next_var.location(),
-												"Next signal must be synchronized with clock",
-											)
-											.build(),
-									));
-								}
-								if ! enable_var.get_sensitivity().is_not_worse_than(&clk_var.get_sensitivity()) {
-									return Err(miette::Report::new(
-										InstanceError::ArgumentsMismatch
-											.to_diagnostic_builder()
-											.label(
-												enable_var.location(),
-												"Enable signal must be synchronized with clock",
-											)
-											.build(),
-									));
-								}
-							},
-    					}
-					},
-				}
+							if !clk_var.is_clock() {
+								return Err(miette::Report::new(
+									InstanceError::ArgumentsMismatch
+										.to_diagnostic_builder()
+										.label(clk_var.var.location, "Clk signal must be marked as clock")
+										.build(),
+								));
+							}
+							let list = ClockSensitivityList::new().with_clock(
+								clk_var.var.get_clock_name(),
+								true,
+								data_var.var.location,
+							);
+							let data_sensitivity = SignalSensitivity::Sync(list, data_var.var.location);
+							data_var
+								.get_sensitivity()
+								.can_drive(&data_sensitivity, data_var.var.location, ctx)?;
+							if !next_var.get_sensitivity().is_not_worse_than(&clk_var.get_sensitivity()) {
+								return Err(miette::Report::new(
+									InstanceError::ArgumentsMismatch
+										.to_diagnostic_builder()
+										.label(next_var.location(), "Next signal must be synchronized with clock")
+										.build(),
+								));
+							}
+							if !enable_var
+								.get_sensitivity()
+								.is_not_worse_than(&clk_var.get_sensitivity())
+							{
+								return Err(miette::Report::new(
+									InstanceError::ArgumentsMismatch
+										.to_diagnostic_builder()
+										.label(enable_var.location(), "Enable signal must be synchronized with clock")
+										.build(),
+								));
+							}
+						},
+					}
+				},
 			}
+		}
 		Ok(())
 	}
 }
@@ -418,8 +429,8 @@ impl VariableDefined {
 	pub fn is_clock(&self) -> bool {
 		self.var.is_clock()
 	}
-	pub fn get_sensitivity(&self) -> SignalSensitivity{
-		match &self.var.kind{
+	pub fn get_sensitivity(&self) -> SignalSensitivity {
+		match &self.var.kind {
 			VariableKind::Signal(sig) => sig.sensitivity.clone(),
 			_ => unreachable!(), //probably unsafe
 		}
