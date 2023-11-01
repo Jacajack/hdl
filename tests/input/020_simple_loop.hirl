@@ -1,0 +1,6 @@
+module X{}
+impl X{
+    for (i in [0:<16]) {
+        
+    }    
+}
