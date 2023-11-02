@@ -1,0 +1,4 @@
+module X{}
+impl X{
+	input const wire a;
+}
