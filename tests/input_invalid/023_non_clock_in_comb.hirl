@@ -1,0 +1,4 @@
+module X{
+	input const wire x;
+	input comb(x) wire y;
+}
