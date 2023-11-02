@@ -13,8 +13,8 @@ pub use narrow_eval::NarrowEval;
 pub use numeric_constant::NumericConstant;
 pub use width_expression::WidthExpression;
 
-use super::signal::{SignalSensitivity, SignalSlice};
-use super::{SignalId, SignalSignedness};
+use super::signal::{SignalSensitivity, SignalSlice, SignalSliceRange};
+use super::{SignalId, SignalSignedness, DesignHandle};
 
 /// Binary operators
 #[derive(Clone, Copy, Debug)]
@@ -496,6 +496,54 @@ impl Expression {
 			Builtin(BuiltinOp::BusSelect { expr, .. }) | Builtin(BuiltinOp::BitSelect { expr, .. }) => expr.try_drive(),
 			_ => None,
 		}
+	}
+
+	/// Returns slice and bits affected if this expression is driven
+	pub fn try_drive_bits(&self) -> Option<SignalSliceRange> {
+		use Expression::*;
+		match self {
+			Signal(slice) => {
+				Some(SignalSliceRange::new_full(slice.clone()))
+			}
+
+			Builtin(BuiltinOp::BusSelect{expr, lsb, msb}) => {
+				let inner = expr.try_drive_bits()?;
+				match (inner.slice(), inner.lsb_msb()) {
+					(inner, None) => {
+						Some(SignalSliceRange::new(inner.clone(), (**lsb).clone(), (**msb).clone()))
+					}
+					(inner, Some((inner_lsb, _))) => {
+						let new_lsb = inner_lsb.clone() + (**lsb).clone();
+						let new_msb = inner_lsb.clone() + (**msb).clone();
+						Some(SignalSliceRange::new(inner.clone(), new_lsb, new_msb))
+					}
+				}
+			}
+
+			Builtin(BuiltinOp::BitSelect{expr, index}) => {
+				let inner = expr.try_drive_bits()?;
+				match (inner.slice(), inner.lsb_msb()) {
+					(inner, None) => {
+						Some(SignalSliceRange::new(inner.clone(), (**index).clone(), (**index).clone()))
+					}
+					(inner, Some((inner_lsb, _))) => {
+						let new_lsb = inner_lsb.clone() + (**index).clone();
+						let new_msb = new_lsb.clone();
+						Some(SignalSliceRange::new(inner.clone(), new_lsb, new_msb))
+					}
+				}
+			}
+
+			_ => None
+		}
+	}
+
+	/// Returns a list of signal slice ranges which are used in this expression
+	pub fn get_used_slice_ranges(&self) -> Vec<SignalSliceRange> {
+		let slices = vec![];
+		// TODO corner case bus select of bus select
+		todo!();
+		slices
 	}
 
 	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
