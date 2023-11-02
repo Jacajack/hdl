@@ -223,11 +223,16 @@ impl SensitivityGraph {
 										.unwrap()
 										.weight()
 										.location,
+										ctx,
 									global_ctx,
 								)
 								.map_err(|mut err| {
 									log::debug!("Sensitivity nodes are {:?}", sensitivty_nodes);
-									let origin_node = self.get_index(*sensitivty_nodes.get(&sens).unwrap());
+									log::debug!("Indexes are {:?}", self.graph_entries);
+									let origin_node = match sensitivty_nodes.get(&sens){
+										Some(node) => self.get_index(*node),
+										None => neighbour,
+									};
 									log::debug!("Origin node is {:?}", origin_node);
 									log::debug!("Graph is {:?}", self.graph);
 									let nodes_between = petgraph::algo::all_simple_paths::<Vec<_>, _>(

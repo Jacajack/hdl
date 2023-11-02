@@ -1,5 +1,5 @@
 use crate::{
-	analyzer::SemanticError, core::CompilerDiagnosticBuilder, lexer::IdTableKey, ProvidesCompilerDiagnostic, SourceSpan,
+	analyzer::SemanticError, core::CompilerDiagnosticBuilder, ProvidesCompilerDiagnostic, SourceSpan,
 };
 
 use super::{GlobalAnalyzerContext, module_implementation_scope::InternalVariableId};
@@ -86,6 +86,12 @@ impl SignalSensitivity {
 				(Sync(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
 				(Sync(..), Clock(..)) => *self = sens.clone(),
 				(Sync(..), Const(_)) => (),
+				(Clock(loc1, Some(id1)), Clock(loc2, Some(id2))) => {
+					let list = ClockSensitivityList::new()
+					.with_clock(*id1, true, *loc1)
+					.with_clock(*id2, true, *loc2);
+					*self = Comb(list, location);
+				},
 				(Clock(..), _) => (),
 				(Const(_), Const(_)) => (),
 				(Const(_), _) => *self = sens.clone(),
@@ -229,6 +235,7 @@ impl SignalSensitivity {
 		&self,
 		rhs: &SignalSensitivity,
 		location: SourceSpan,
+		scope: &crate::analyzer::module_implementation_scope::ModuleImplementationScope,
 		global_ctx: &GlobalAnalyzerContext,
 	) -> Result<(), CompilerDiagnosticBuilder> {
 		use SignalSensitivity::*;
@@ -242,8 +249,11 @@ impl SignalSensitivity {
 			| (Clock(..), Clock(..)) => (),
 			(NoSensitivity, _) => (),
 			(Comb(curent, lhs_location), Comb(incoming, _)) => {
+				log::debug!("Curent {:?}", curent);
+				log::debug!("Incoming {:?}", incoming);
 				for value in &incoming.list {
 					if !curent.contains_clock(value.clock_signal) {
+						let var_rhs = scope.get_variable_by_id(value.clock_signal).unwrap();
 						return Err(
 							SemanticError::DifferingSensitivities
 								.to_diagnostic_builder()
@@ -251,9 +261,8 @@ impl SignalSensitivity {
 									location,
 									"Cannot assign signals - sensitivity mismatch. Sensitivty of the left hand side should be a super set of the right hand side",
 								)
-								//.label(*lhs_location, format!("This sensitivity list does not contain this clock {:?}", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
-								//.label(value.location, format!("This clock {:?} is not present in left hand side sensitivity list", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
-								,
+								.label(*lhs_location, format!("This sensitivity list does not contain this clock {:?}", global_ctx.id_table.get_by_key(&var_rhs.var.name).unwrap() ).as_str())
+								.label(value.location, format!("This clock {:?} is not present in left hand side sensitivity list", global_ctx.id_table.get_by_key(&var_rhs.var.name).unwrap() ).as_str())
 						);
 					}
 				}
