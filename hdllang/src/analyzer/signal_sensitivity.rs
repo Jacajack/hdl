@@ -79,7 +79,24 @@ impl SignalSensitivity {
 				(_, Async(_)) => *self = sens.clone(),
 				(Comb(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
 				(Comb(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
-				(Comb(..), Clock(..)) => *self = sens.clone(),
+				(Comb(l,_), Clock(loc, Some(id))) =>{
+					let mut new_list = l.clone();
+					new_list.add_clock(EdgeSensitivity{
+						clock_signal: *id,
+						on_rising: true,
+						location: *loc,
+					});
+					*self = Comb(new_list, location);
+				},
+				(Clock(loc, Some(id)), Comb(l,_)) =>{
+					let mut new_list = l.clone();
+					new_list.add_clock(EdgeSensitivity{
+						clock_signal: *id,
+						on_rising: true,
+						location: *loc,
+					});
+					*self = Comb(new_list, location);
+				},
 				(Comb(..), Const(_)) => (),
 				(_, NoSensitivity) => (),
 				(Sync(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
@@ -96,6 +113,7 @@ impl SignalSensitivity {
 				(Const(_), Const(_)) => (),
 				(Const(_), _) => *self = sens.clone(),
 				(NoSensitivity, _) => *self = sens.clone(),
+				_=> (),
 			}
 		}
 	}
