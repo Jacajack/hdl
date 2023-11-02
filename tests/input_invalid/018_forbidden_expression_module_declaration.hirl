@@ -1,0 +1,4 @@
+module X{
+	input const unsigned bus<10> b;
+	input const unsigned bus<(b[0])> a;
+}
