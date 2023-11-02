@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
-	design::{DesignHandle, ModuleId},
+	design::{DesignHandle, ModuleId, ModuleHandle},
 	elab::{ElabAssumptionsBase, ElabError, ElabReport, Elaborator, ElabMessage, ElabMessageKind, SeverityPolicy, DefaultSeverityPolicy},
 };
 
@@ -12,7 +12,7 @@ pub(super) struct FullElabCtx {
 	module_id: ModuleId,
 	report: ElabReport,
 	queued: Vec<ElabQueueItem>,
-	assumptions: Box<dyn ElabAssumptionsBase>,
+	assumptions: Arc<dyn ElabAssumptionsBase>,
 	severity_policy: Box<dyn SeverityPolicy>,
 
 	pub(super) generic_resolve_ctx: Option<GenericResolvePassCtx>,
@@ -27,6 +27,10 @@ impl FullElabCtx {
 			Some(&*self.severity_policy),
 		));
 	}
+
+	pub fn module_handle(&self) -> ModuleHandle {
+		self.design.get_module_handle(self.module_id).expect("elaborated module not in design")
+	}
 }
 
 #[derive(Default)]
@@ -37,7 +41,7 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 	fn new_context(
 		design: DesignHandle,
 		module_id: ModuleId,
-		assumptions: Box<dyn ElabAssumptionsBase>,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
 		cache: FullElabCacheHandle,
 	) -> Self {
 		Self {
@@ -79,7 +83,7 @@ impl Elaborator for FullElaborator {
 	fn elaborate(
 		&mut self,
 		id: ModuleId,
-		assumptions: Box<dyn super::ElabAssumptionsBase>,
+		assumptions: Arc<dyn super::ElabAssumptionsBase>,
 	) -> Result<ElabReport, ElabError> {
 		self.elaborator.elaborate(id, assumptions)
 	}

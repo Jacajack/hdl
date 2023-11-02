@@ -23,6 +23,7 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for GenericResolvePass {
 	fn run(&mut self, mut full_ctx: FullElabCtx) -> Result<FullElabCtx, ElabError> {
 		info!("Running generic resolution pass...");
 		let mut ctx = GenericResolvePassCtx::default();
+		let module = full_ctx.module_handle();
 
 		full_ctx.generic_resolve_ctx = Some(ctx);
 		Ok(full_ctx)

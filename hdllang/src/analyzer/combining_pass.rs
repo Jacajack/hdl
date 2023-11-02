@@ -1,7 +1,7 @@
 use super::{AlreadyCreated, ModuleDeclared, RegisterInstance, SemanticError, Variable, VariableKind};
 use hirn::{design::{ScopeHandle, UnaryExpression}, elab::{FullElaborator, Elaborator, ElabAssumptions, ElabToplevelAssumptions}};
 use log::{debug, info, warn};
-use std::collections::HashMap;
+use std::{collections::HashMap, sync::Arc};
 use std::io::Write;
 
 use crate::{
@@ -176,7 +176,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 				.id();
 
 			let mut elab = FullElaborator::new(self.ctx.design.clone());
-			let elab_report = elab.elaborate(module_id, Box::new(ElabToplevelAssumptions::default())).expect("HIRN elab error");
+			let elab_report = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::default())).expect("HIRN elab error");
 			for msg in elab_report.messages() {
 				warn!("Elab {}", msg);
 			}

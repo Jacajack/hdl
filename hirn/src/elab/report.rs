@@ -1,4 +1,4 @@
-use std::fmt::Display;
+use std::{fmt::Display, sync::Arc};
 
 use thiserror::Error;
 
@@ -52,14 +52,14 @@ pub struct ElabMessage {
 	severity: ElabMessageSeverity,
 	kind: ElabMessageKind,
 	module: ModuleId,
-	assumptions: Box<dyn ElabAssumptionsBase>,
+	assumptions: Arc<dyn ElabAssumptionsBase>,
 }
 
 impl ElabMessage {
 	pub fn new(
 		kind: ElabMessageKind,
 		module: ModuleId,
-		assumptions: Box<dyn ElabAssumptionsBase>,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
 		policy: Option<&dyn SeverityPolicy>,
 	) -> Self {
 		let severity = 
