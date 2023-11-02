@@ -527,7 +527,6 @@ impl ModuleImplementationStatement {
 			},
 			IterationStatement(iteration) => {
 				local_ctx.are_we_in_conditional += 1;
-				debug!("Iteration statement is not yet implemented");
 				let id = local_ctx.scope.new_scope(Some(scope_id));
 				let mut initial_val = iteration
 					.range
@@ -1129,7 +1128,15 @@ impl ModuleImplementationStatement {
 				local_ctx
 					.scope
 					.insert_api_id(local_ctx.scope.get_variable(*id, &for_stmt.id).unwrap().id, iterator_id);
-				for_stmt.statement.codegen_pass(ctx, local_ctx, &mut for_scope)?;
+				use crate::parser::ast::ModuleImplementationStatement::*;
+				match for_stmt.statement.as_ref() {
+					ModuleImplementationBlockStatement(block) => {
+						for statement in &block.statements {
+							statement.codegen_pass(ctx, local_ctx, &mut for_scope)?;
+						}
+					},
+					_ => unreachable!(),
+				};
 			},
 			InstantiationStatement(inst) => {
 				if ctx.id_table.get_value(&inst.module_name.get_last_module()).as_str() == "register" {

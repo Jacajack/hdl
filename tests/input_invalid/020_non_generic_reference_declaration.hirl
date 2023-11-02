@@ -1,0 +1,4 @@
+module X{
+	input const wire a;
+	input signed bus<a> b;
+}

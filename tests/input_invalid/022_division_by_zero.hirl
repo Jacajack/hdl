@@ -1,0 +1,3 @@
+module X{
+	input const signed bus<(4/0)> a;
+}
