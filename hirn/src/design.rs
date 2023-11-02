@@ -10,7 +10,7 @@ pub use comment::HasComment;
 pub use expression::{
 	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, ConditionalExpressionBranch,
 	EvalContext, EvalError, EvalType, Evaluates, EvaluatesType, Expression, NumericConstant, UnaryExpression, UnaryOp,
-	WidthExpression,
+	WidthExpression, NarrowEval
 };
 pub use functional_blocks::{
 	BlockInstance, HasInstanceName, ModuleInstance, ModuleInstanceBuilder, Register, RegisterBuilder,

@@ -31,6 +31,10 @@ impl FullElabCtx {
 	pub fn module_handle(&self) -> ModuleHandle {
 		self.design.get_module_handle(self.module_id).expect("elaborated module not in design")
 	}
+
+	pub fn design(&self) -> &DesignHandle {
+		&self.design
+	}
 }
 
 #[derive(Default)]

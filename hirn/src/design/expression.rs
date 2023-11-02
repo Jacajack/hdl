@@ -537,10 +537,20 @@ impl Expression {
 
 	/// Returns a list of signal slice ranges which are used in this expression
 	pub fn get_used_slice_ranges(&self) -> Vec<SignalSliceRange> {
-		let slices = vec![];
-
-		// TODO corner case bus select of bus select
-		todo!();
+		let mut slices = vec![];
+		self.traverse(&mut |expr| -> Result<bool, ()> {
+			if let Some(slice) = expr.try_drive_bits() {
+				// This Some(false) deserves a bit of explanation
+				// if we encounter signal[0:15][0] we don't want to go deeper 
+				// after the bit select. Doing so would result in a duplicate
+				// 'signal' references.
+				slices.push(slice);
+				Ok(false)
+			}
+			else {
+				Ok(true)
+			}
+		}).unwrap();
 		slices
 	}
 

@@ -328,6 +328,10 @@ impl SignalSliceRange {
 		}
 	}
 
+	pub fn signal(&self) -> SignalId {
+		self.slice.signal
+	}
+
 	pub fn is_full(&self) -> bool {
 		assert_eq!(self.lsb.is_none(), self.msb.is_none());
 		self.lsb.is_none()
