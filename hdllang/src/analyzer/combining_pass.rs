@@ -302,7 +302,7 @@ impl LocalAnalyzerContex {
 		}
 	}
 	pub fn second_pass(&mut self, ctx: &GlobalAnalyzerContext) -> miette::Result<()> {
-		log::error!("Second pass");
+		debug!("Second pass");
 		self.sensitivity_graph.verify(&mut self.scope, ctx)?;
 		self.scope.second_pass(ctx)?;
 		Ok(())
@@ -485,7 +485,7 @@ impl ModuleImplementationStatement {
 						.evaluate_type(ctx, scope_id, local_ctx, rhs_type, true, assignment.location)?;
 				let (left_id, loc) = assignment.lhs.get_internal_id(&local_ctx.scope, scope_id);
 				let entries = assignment.rhs.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
-				log::error!("Adding edges {:?} to {:?}", entries, left_id);
+				debug!("Adding edges {:?} to {:?}", entries, left_id);
 				local_ctx
 					.sensitivity_graph
 					.add_edges(
