@@ -7,7 +7,7 @@ use std::io::Write;
 use crate::{
 	analyzer::{
 		semantic_error::InstanceError, BusWidth, ClockSensitivityList, GenericVariable, ModuleImplementationScope,
-		ModuleInstance, ModuleInstanceKind, NonRegister, SensitivityGraphEntry, Signal, SignalSensitivity,
+		ModuleInstance, ModuleInstanceKind, NonRegister, SensitivityGraphEntry, Signal, SignalSensitivity, module_implementation_scope::InternalVariableId,
 	},
 	core::*,
 	parser::ast::*,
@@ -633,7 +633,7 @@ impl ModuleImplementationStatement {
 				let module = ctx.modules_declared.get(&name).unwrap();
 				let mut scope = module.scope.clone();
 				let mut module_instance = NonRegister::new();
-				let mut clock_mapping: HashMap<IdTableKey, IdTableKey> = HashMap::new();
+				let mut clock_mapping: HashMap<InternalVariableId, InternalVariableId> = HashMap::new();
 				if scope.get_interface_len() != inst.port_bind.len() {
 					return Err(miette::Report::new(
 						InstanceError::ArgumentsMismatch
@@ -1567,7 +1567,6 @@ impl VariableDefinition {
 						.build(),
 				));
 			}
-			spec_kind.add_name_to_clock(direct_initializer.declarator.name);
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_initializer.declarator.array_declarators {
 				let size = array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;

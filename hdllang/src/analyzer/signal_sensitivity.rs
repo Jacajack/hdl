@@ -2,11 +2,11 @@ use crate::{
 	analyzer::SemanticError, core::CompilerDiagnosticBuilder, lexer::IdTableKey, ProvidesCompilerDiagnostic, SourceSpan,
 };
 
-use super::GlobalAnalyzerContext;
+use super::{GlobalAnalyzerContext, module_implementation_scope::InternalVariableId};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct EdgeSensitivity {
-	pub clock_signal: IdTableKey,
+	pub clock_signal: InternalVariableId,
 	pub on_rising: bool,
 	pub location: SourceSpan,
 }
@@ -20,7 +20,7 @@ impl ClockSensitivityList {
 	pub fn new() -> Self {
 		Self { list: Vec::new() }
 	}
-	pub fn contains_clock(&self, id: IdTableKey) -> bool {
+	pub fn contains_clock(&self, id: InternalVariableId) -> bool {
 		for edge in &self.list {
 			if edge.clock_signal == id {
 				return true;
@@ -28,7 +28,7 @@ impl ClockSensitivityList {
 		}
 		false
 	}
-	pub fn with_clock(mut self, id: IdTableKey, on_rising: bool, location: SourceSpan) -> Self {
+	pub fn with_clock(mut self, id: InternalVariableId, on_rising: bool, location: SourceSpan) -> Self {
 		self.add_clock(EdgeSensitivity {
 			clock_signal: id,
 			on_rising,
@@ -54,7 +54,7 @@ pub enum SignalSensitivity {
 	Async(SourceSpan),
 	Comb(ClockSensitivityList, SourceSpan),
 	Sync(ClockSensitivityList, SourceSpan),
-	Clock(SourceSpan, Option<IdTableKey>),
+	Clock(SourceSpan, Option<InternalVariableId>),
 	Const(SourceSpan),
 	/// if at the end of the analysis this is still None, it is an error
 	NoSensitivity,
@@ -161,8 +161,8 @@ impl SignalSensitivity {
 									location,
 									"Cannot assign signals - sensitivity mismatch. Sensitivty of the left hand side should be a super set of the right hand side",
 								)
-								.label(*lhs_location, format!("This sensitivity list does not contain this clock {:?}", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
-								.label(value.location, format!("This clock {:?} is not present in left hand side sensitivity list", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
+								//.label(*lhs_location, format!("This sensitivity list does not contain this clock {:?}", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
+								//.label(value.location, format!("This clock {:?} is not present in left hand side sensitivity list", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
 								.build(),
 						));
 					}
@@ -251,8 +251,8 @@ impl SignalSensitivity {
 									location,
 									"Cannot assign signals - sensitivity mismatch. Sensitivty of the left hand side should be a super set of the right hand side",
 								)
-								.label(*lhs_location, format!("This sensitivity list does not contain this clock {:?}", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
-								.label(value.location, format!("This clock {:?} is not present in left hand side sensitivity list", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
+								//.label(*lhs_location, format!("This sensitivity list does not contain this clock {:?}", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
+								//.label(value.location, format!("This clock {:?} is not present in left hand side sensitivity list", global_ctx.id_table.get_by_key(&value.clock_signal).unwrap() ).as_str())
 								,
 						);
 					}
