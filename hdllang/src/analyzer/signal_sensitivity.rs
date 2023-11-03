@@ -48,6 +48,9 @@ impl ClockSensitivityList {
 		}
 		result
 	}
+	pub fn to_ids(&self)->Vec<InternalVariableId>{
+		self.list.iter().map(|x| x.clock_signal).collect()
+	}
 }
 #[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub enum SignalSensitivity {
@@ -255,6 +258,7 @@ impl SignalSensitivity {
 		location: SourceSpan,
 		scope: &crate::analyzer::module_implementation_scope::ModuleImplementationScope,
 		global_ctx: &GlobalAnalyzerContext,
+		clock_graph: &mut crate::analyzer::sensitivity_graph::ClockGraph,
 	) -> Result<(), CompilerDiagnosticBuilder> {
 		use SignalSensitivity::*;
 		log::debug!("Self {:?}", self);
@@ -263,14 +267,20 @@ impl SignalSensitivity {
 			(_, NoSensitivity)
 			| (Async(_), Async(_))
 			| (Sync(..), Sync(..))
-			| (Const(_), Const(_))
-			| (Clock(..), Clock(..)) => (),
+			| (Const(_), Const(_)) => (),
+			(Clock(_, Some(current)), Clock(_, Some(incoming))) => {
+				clock_graph.insert_clock(incoming, current);
+			},
 			(NoSensitivity, _) => (),
-			(Comb(curent, lhs_location), Comb(incoming, _)) => {
-				log::debug!("Curent {:?}", curent);
+			(Comb(current, lhs_location), Comb(incoming, _)) => {
+				log::debug!("Curent {:?}", current);
 				log::debug!("Incoming {:?}", incoming);
 				for value in &incoming.list {
-					if !curent.contains_clock(value.clock_signal) {
+					if !current.contains_clock(value.clock_signal) {
+						let ids = current.to_ids();
+						if clock_graph.is_at_least_one_an_alias(ids, &value.clock_signal){
+							continue;
+						}
 						let var_rhs = scope.get_variable_by_id(value.clock_signal).unwrap();
 						return Err(
 							SemanticError::DifferingSensitivities
@@ -335,6 +345,7 @@ impl SignalSensitivity {
 						,
 				);
 			},
+			_=> (),
 		}
 		Ok(())
 	}
