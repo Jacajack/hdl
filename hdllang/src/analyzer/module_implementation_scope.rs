@@ -251,9 +251,10 @@ impl ModuleImplementationScope {
 	pub fn get_intermidiate_signal(&self, id: InternalVariableId) -> &VariableDefined {
 		self.variables.get(&id).unwrap()
 	}
-	pub fn define_intermidiate_signal(&mut self, var: Variable) -> miette::Result<InternalVariableId> {
+	pub fn define_intermidiate_signal(&mut self, mut var: Variable) -> miette::Result<InternalVariableId> {
 		log::debug!("Defining intermidiate signal {:?}", var);
 		let id = InternalVariableId::new(self.variable_counter);
+		var.kind.add_name_to_clock(id);
 		self.variable_counter += 1;
 		let defined = VariableDefined { var, id };
 		self.variables.insert(id, defined);
@@ -361,59 +362,7 @@ impl ModuleImplementationScope {
 					}
 				},
 				VariableKind::Generic(_) => (),
-				VariableKind::ModuleInstance(inst) => {
-					use crate::analyzer::ModuleInstanceKind::*;
-					match &inst.kind {
-						Module(m) => {
-							let mut clock_mapping: HashMap<IdTableKey, IdTableKey> = HashMap::new();
-						},
-						Register(r) => {
-							let clk_var = self.get_variable_by_id(r.clk).unwrap();
-							let data_var = self.get_variable_by_id(r.data).unwrap();
-							let next_var = self.get_variable_by_id(r.next).unwrap();
-							let enable_var = self.get_variable_by_id(r.enable).unwrap();
-							// we dont have to test sensitivity of reset signal, because it is not-worse than async
-							//let reset_var = self.get_variable_by_id(r.nreset).unwrap();
-
-							if !clk_var.is_clock() {
-								return Err(miette::Report::new(
-									InstanceError::ArgumentsMismatch
-										.to_diagnostic_builder()
-										.label(clk_var.var.location, "Clk signal must be marked as clock")
-										.build(),
-								));
-							}
-							let list = ClockSensitivityList::new().with_clock(
-								clk_var.id,
-								true,
-								data_var.var.location,
-							);
-							let data_sensitivity = SignalSensitivity::Sync(list, data_var.var.location);
-							data_var
-								.get_sensitivity()
-								.can_drive(&data_sensitivity, data_var.var.location, ctx)?;
-							if !next_var.get_sensitivity().is_not_worse_than(&clk_var.get_sensitivity()) {
-								return Err(miette::Report::new(
-									InstanceError::ArgumentsMismatch
-										.to_diagnostic_builder()
-										.label(next_var.location(), "Next signal must be synchronized with clock")
-										.build(),
-								));
-							}
-							if !enable_var
-								.get_sensitivity()
-								.is_not_worse_than(&clk_var.get_sensitivity())
-							{
-								return Err(miette::Report::new(
-									InstanceError::ArgumentsMismatch
-										.to_diagnostic_builder()
-										.label(enable_var.location(), "Enable signal must be synchronized with clock")
-										.build(),
-								));
-							}
-						},
-					}
-				},
+				VariableKind::ModuleInstance(inst) => (),
 			}
 		}
 		Ok(())

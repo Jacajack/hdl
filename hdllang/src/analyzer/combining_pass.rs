@@ -1140,87 +1140,88 @@ impl ModuleImplementationStatement {
 								api_scope.clone(),
 								&ctx.id_table.get_value(&inst.instance_name),
 							);
-							let clk_var = local_ctx.scope.get_intermidiate_signal(reg.clk).var.clone();
-							let data_var = local_ctx.scope.get_intermidiate_signal(reg.data).var.clone();
-							let next_var = local_ctx.scope.get_intermidiate_signal(reg.next).var.clone();
-							let en_var = local_ctx.scope.get_intermidiate_signal(reg.enable).var.clone();
-							let nreset_var = local_ctx.scope.get_intermidiate_signal(reg.nreset).var.clone();
-							let clk_id = clk_var.register(
+							let clk_var = local_ctx.scope.get_intermidiate_signal(reg.clk).clone();
+							let data_var = local_ctx.scope.get_intermidiate_signal(reg.data).clone();
+							let next_var = local_ctx.scope.get_intermidiate_signal(reg.next).clone();
+							let en_var = local_ctx.scope.get_intermidiate_signal(reg.enable).clone();
+							let nreset_var = local_ctx.scope.get_intermidiate_signal(reg.nreset).clone();
+							let clk_id = clk_var.var.register(
 								ctx.nc_table,
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
 								Some(&additional_ctx),
 								api_scope
-									.new_signal(ctx.id_table.get_by_key(&clk_var.name).unwrap().as_str())
+									.new_signal(ctx.id_table.get_by_key(&clk_var.var. name).unwrap().as_str())
 									.map_err(|err| {
 										CompilerError::HirnApiError(err)
 											.to_diagnostic_builder()
-											.label(clk_var.location, "Error occured here")
+											.label(clk_var.var.location, "Error occured here")
 											.build()
 									})?
 									.generated(),
 							)?;
-							let next_id = next_var.register(
+							local_ctx.scope.insert_api_id(clk_var.id, clk_id);
+							let next_id = next_var.var.register(
 								ctx.nc_table,
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
 								Some(&additional_ctx),
 								api_scope
-									.new_signal(ctx.id_table.get_by_key(&next_var.name).unwrap().as_str())
+									.new_signal(ctx.id_table.get_by_key(&next_var.var.name).unwrap().as_str())
 									.map_err(|err| {
 										CompilerError::HirnApiError(err)
 											.to_diagnostic_builder()
-											.label(next_var.location, "Error occured here")
+											.label(next_var.var.location, "Error occured here")
 											.build()
 									})?
 									.generated(),
 							)?;
-							let enable_id = en_var.register(
+							let enable_id = en_var.var.register(
 								ctx.nc_table,
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
 								Some(&additional_ctx),
 								api_scope
-									.new_signal(ctx.id_table.get_by_key(&en_var.name).unwrap().as_str())
+									.new_signal(ctx.id_table.get_by_key(&en_var.var.name).unwrap().as_str())
 									.map_err(|err| {
 										CompilerError::HirnApiError(err)
 											.to_diagnostic_builder()
-											.label(en_var.location, "Error occured here")
+											.label(en_var.var.location, "Error occured here")
 											.build()
 									})?
 									.generated(),
 							)?;
-							let reset_id = nreset_var.register(
+							let reset_id = nreset_var.var.register(
 								ctx.nc_table,
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
 								Some(&additional_ctx),
 								api_scope
-									.new_signal(ctx.id_table.get_by_key(&nreset_var.name).unwrap().as_str())
+									.new_signal(ctx.id_table.get_by_key(&nreset_var.var.name).unwrap().as_str())
 									.map_err(|err| {
 										CompilerError::HirnApiError(err)
 											.to_diagnostic_builder()
-											.label(nreset_var.location, "Error occured here")
+											.label(nreset_var.var.location, "Error occured here")
 											.build()
 									})?
 									.generated(),
 							)?;
-							let data_id = data_var.register(
+							let data_id = data_var.var.register(
 								ctx.nc_table,
 								ctx.id_table,
 								scope_id,
 								&local_ctx.scope,
 								Some(&additional_ctx),
 								api_scope
-									.new_signal(ctx.id_table.get_by_key(&data_var.name).unwrap().as_str())
+									.new_signal(ctx.id_table.get_by_key(&data_var.var.name).unwrap().as_str())
 									.map_err(|err| {
 										CompilerError::HirnApiError(err)
 											.to_diagnostic_builder()
-											.label(data_var.location, "Error occured here")
+											.label(data_var.var.location, "Error occured here")
 											.build()
 									})?
 									.generated(),
@@ -1235,7 +1236,7 @@ impl ModuleImplementationStatement {
 											.map_err(|err| {
 												CompilerError::HirnApiError(err)
 													.to_diagnostic_builder()
-													.label(clk_var.location, "Error occured here")
+													.label(clk_var.var.location, "Error occured here")
 													.build()
 											})?;
 									},
@@ -1245,7 +1246,7 @@ impl ModuleImplementationStatement {
 											.map_err(|err| {
 												CompilerError::HirnApiError(err)
 													.to_diagnostic_builder()
-													.label(next_var.location, "Error occured here")
+													.label(next_var.var.location, "Error occured here")
 													.build()
 											})?;
 									},
@@ -1255,7 +1256,7 @@ impl ModuleImplementationStatement {
 											.map_err(|err| {
 												CompilerError::HirnApiError(err)
 													.to_diagnostic_builder()
-													.label(en_var.location, "Error occured here")
+													.label(en_var.var.location, "Error occured here")
 													.build()
 											})?;
 									},
@@ -1265,7 +1266,7 @@ impl ModuleImplementationStatement {
 											.map_err(|err| {
 												CompilerError::HirnApiError(err)
 													.to_diagnostic_builder()
-													.label(nreset_var.location, "Error occured here")
+													.label(nreset_var.var.location, "Error occured here")
 													.build()
 											})?;
 									},
@@ -1275,7 +1276,7 @@ impl ModuleImplementationStatement {
 											.map_err(|err| {
 												CompilerError::HirnApiError(err)
 													.to_diagnostic_builder()
-													.label(data_var.location, "Error occured here")
+													.label(data_var.var.location, "Error occured here")
 													.build()
 											})?;
 									},
@@ -1902,9 +1903,10 @@ fn create_register(
 		};
 	}
 	use crate::parser::ast::PortBindStatement::*;
-	let clk_type = clk_stmt
+	let mut clk_type = clk_stmt
 		.unwrap()
 		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), false)?;
+	clk_type.sensitivity = SignalSensitivity::Clock(clk_stmt.unwrap().location(), None);
 	debug!("Clk type is {:?}", clk_type);
 	if clk_type.is_array() {
 		return Err(miette::Report::new(
@@ -1914,16 +1916,24 @@ fn create_register(
 				.build(),
 		));
 	}
+	
 	let inst_name = ctx.id_table.get_value(&inst_stmt.instance_name).clone();
 	let clk_name = ctx.id_table.insert_or_get(format!("{}_clk", inst_name).as_str());
 	let next_name = ctx.id_table.insert_or_get(format!("{}_nxt_c", inst_name).as_str());
 	let en_name = ctx.id_table.insert_or_get(format!("{}_en_c", inst_name).as_str());
 	let nreset_name = ctx.id_table.insert_or_get(format!("{}_nreset", inst_name).as_str());
 	let data_name = ctx.id_table.insert_or_get(format!("{}_out_r", inst_name).as_str());
-
+	
+	debug!("Clk type is {:?}", clk_type);
+	let clk_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
+		clk_name,
+		next_stmt.unwrap().location(),
+		VariableKind::Signal(clk_type),
+	))?;
 	let mut data_type = data_stmt
 		.unwrap()
 		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), true)?;
+	data_type.sensitivity = SignalSensitivity::Sync(ClockSensitivityList::new().with_clock(clk_var_id, true, data_stmt.unwrap().location()), data_stmt.unwrap().location());
 	debug!("Data type is {:?}", data_type);
 	if data_type.is_array() {
 		return Err(miette::Report::new(
@@ -1937,7 +1947,7 @@ fn create_register(
 	let mut next_type = next_stmt
 		.unwrap()
 		.get_type(ctx, local_ctx, scope_id, data_type.clone(), false)?;
-	next_type.sensitivity = SignalSensitivity::NoSensitivity;
+	next_type.sensitivity = SignalSensitivity::Comb(ClockSensitivityList::new().with_clock(clk_var_id, true, next_stmt.unwrap().location()), next_stmt.unwrap().location());
 	debug!("Next type is {:?}", next_type);
 	if next_type.is_array() {
 		return Err(miette::Report::new(
@@ -2020,12 +2030,14 @@ fn create_register(
 			))
 		},
 	};
-	let nreset_type = nreset_stmt
+	let mut nreset_type = nreset_stmt
 		.unwrap()
 		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), false)?;
-	let en_type = en_stmt
+	nreset_type.sensitivity = SignalSensitivity::Async(nreset_stmt.unwrap().location());
+	let mut en_type = en_stmt
 		.unwrap()
 		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), false)?;
+	en_type.sensitivity =  SignalSensitivity::Comb(ClockSensitivityList::new().with_clock(clk_var_id, true, en_stmt.unwrap().location()), en_stmt.unwrap().location());
 	debug!("En type is {:?}", en_type);
 	let en_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 		en_name,
@@ -2043,12 +2055,6 @@ fn create_register(
 		data_name,
 		next_stmt.unwrap().location(),
 		VariableKind::Signal(data_type.clone()),
-	))?;
-	debug!("Clk type is {:?}", clk_type);
-	let clk_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
-		clk_name,
-		next_stmt.unwrap().location(),
-		VariableKind::Signal(clk_type),
 	))?;
 	debug!("Next type is {:?}", next_type);
 	let next_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(

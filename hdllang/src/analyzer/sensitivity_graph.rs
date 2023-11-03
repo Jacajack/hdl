@@ -186,6 +186,41 @@ impl SensitivityGraph {
 			graph_entries: BiHashMap::new(),
 		}
 	}
+	pub fn get_node_sensitivity_only_clock(
+		&self,
+		node: SensitivityGraphEntry,
+		ctx: &mut ModuleImplementationScope,
+		global_ctx: &GlobalAnalyzerContext,
+		already_visited: &mut HashSet<SensitivityGraphEntry>,
+		sensitivty_nodes: &mut HashMap<SignalSensitivity, SensitivityGraphEntry>,
+		clock_graph: &mut ClockGraph,
+	) -> miette::Result<()> {
+		log::debug!(
+			"Getting sensitivity for node {:?} with already visited {:?}",
+			node,
+			already_visited
+		);
+		match node {
+			SensitivityGraphEntry::Signal(id, _) => {
+				if already_visited.contains(&node) {
+					return Ok(());
+				}
+				let var_sens = ctx.get_variable_by_id(id).unwrap();
+				match var_sens.var.kind {
+					super::VariableKind::Signal(sig) => {
+						if let SignalSensitivity::Clock(..) = sig.sensitivity{
+							log::debug!("Getting sensitivity for clock {:?}", sig.sensitivity);
+							self.get_node_sensitivity(node, ctx, global_ctx, already_visited, sensitivty_nodes, clock_graph)?;
+						}
+					},
+					super::VariableKind::Generic(_) => (),
+					_ => unreachable!(),
+				};
+				Ok(())
+			},
+			SensitivityGraphEntry::Const(_) => Ok(()),
+		}
+	}
 	pub fn get_node_sensitivity(
 		&self,
 		node: SensitivityGraphEntry,
@@ -309,6 +344,9 @@ impl SensitivityGraph {
 		let mut visited = HashSet::new();
 		let mut sens_nodes = HashMap::new();
 		let mut clock_graph = ClockGraph::new();
+		for node in self.graph.raw_nodes() {
+			self.get_node_sensitivity_only_clock(node.weight, scope, global_ctx, &mut visited, &mut sens_nodes, &mut clock_graph)?;
+		}
 		for node in self.graph.raw_nodes() {
 			self.get_node_sensitivity(node.weight, scope, global_ctx, &mut visited, &mut sens_nodes, &mut clock_graph)?;
 		}
