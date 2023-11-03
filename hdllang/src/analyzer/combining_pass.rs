@@ -145,9 +145,27 @@ impl<'a> SemanticalAnalyzer<'a> {
 		self.passes.push(first_pass);
 		self.passes.push(second_pass);
 		for module in self.modules_implemented.values() {
+			let scope = match self.ctx.modules_declared.get(&module.id){
+				Some(m) => m.scope.clone(),
+				None => {
+					return Err(miette::Report::new(
+						SemanticError::ModuleNotDeclared
+							.to_diagnostic_builder()
+							.label(
+								module.location,
+								format!(
+									"Declaration of {:?} module cannot be found",
+									self.ctx.id_table.get_by_key(&module.id).unwrap()
+								)
+								.as_str(),
+							)
+							.build(),
+					))
+				},
+			};
 			let mut local_ctx = LocalAnalyzerContex::new(
 				module.id,
-				self.ctx.modules_declared.get(&module.id).unwrap().scope.clone(),
+				scope,
 			);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
@@ -160,9 +178,27 @@ impl<'a> SemanticalAnalyzer<'a> {
 		self.passes.push(second_pass);
 		self.passes.push(codegen_pass);
 		for module in self.modules_implemented.values() {
+			let scope = match self.ctx.modules_declared.get(&module.id){
+				Some(m) => m.scope.clone(),
+				None => {
+					return Err(miette::Report::new(
+						SemanticError::ModuleNotDeclared
+							.to_diagnostic_builder()
+							.label(
+								module.location,
+								format!(
+									"Declaration of {:?} module cannot be found",
+									self.ctx.id_table.get_by_key(&module.id).unwrap()
+								)
+								.as_str(),
+							)
+							.build(),
+					))
+				},
+			};
 			let mut local_ctx = LocalAnalyzerContex::new(
 				module.id,
-				self.ctx.modules_declared.get(&module.id).unwrap().scope.clone(),
+				scope,
 			);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
@@ -190,9 +226,27 @@ impl<'a> SemanticalAnalyzer<'a> {
 		self.passes.push(second_pass);
 		self.passes.push(codegen_pass);
 		for module in self.modules_implemented.values() {
+			let scope = match self.ctx.modules_declared.get(&module.id){
+				Some(m) => m.scope.clone(),
+				None => {
+					return Err(miette::Report::new(
+						SemanticError::ModuleNotDeclared
+							.to_diagnostic_builder()
+							.label(
+								module.location,
+								format!(
+									"Declaration of {:?} module cannot be found",
+									self.ctx.id_table.get_by_key(&module.id).unwrap()
+								)
+								.as_str(),
+							)
+							.build(),
+					))
+				},
+			};
 			let mut local_ctx = LocalAnalyzerContex::new(
 				module.id,
-				self.ctx.modules_declared.get(&module.id).unwrap().scope.clone(),
+				scope,
 			);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
@@ -319,28 +373,10 @@ impl ModuleImplementation {
 			"Analyzing module implementation {}",
 			ctx.id_table.get_by_key(&self.id).unwrap()
 		);
-		use crate::parser::ast::ModuleImplementationStatement::*;
-		match ctx.modules_declared.get(&self.id) {
-			Some(_) => (),
-			None => {
-				return Err(miette::Report::new(
-					SemanticError::ModuleNotDeclared
-						.to_diagnostic_builder()
-						.label(
-							self.location,
-							format!(
-								"Declaration of {:?} module cannot be found",
-								ctx.id_table.get_by_key(&self.id).unwrap()
-							)
-							.as_str(),
-						)
-						.build(),
-				))
-			},
-		}
 
 		// This has to be done this way to avoid creating a inner scope with the first block
 		let id = 0;
+		use crate::parser::ast::ModuleImplementationStatement::*;
 		match &self.statement {
 			ModuleImplementationBlockStatement(block) => {
 				for statement in &block.statements {
