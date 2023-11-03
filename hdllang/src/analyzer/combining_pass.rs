@@ -145,7 +145,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 		self.passes.push(first_pass);
 		self.passes.push(second_pass);
 		for module in self.modules_implemented.values() {
-			let scope = match self.ctx.modules_declared.get(&module.id){
+			let scope = match self.ctx.modules_declared.get(&module.id) {
 				Some(m) => m.scope.clone(),
 				None => {
 					return Err(miette::Report::new(
@@ -163,10 +163,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 					))
 				},
 			};
-			let mut local_ctx = LocalAnalyzerContex::new(
-				module.id,
-				scope,
-			);
+			let mut local_ctx = LocalAnalyzerContex::new(module.id, scope);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
@@ -178,7 +175,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 		self.passes.push(second_pass);
 		self.passes.push(codegen_pass);
 		for module in self.modules_implemented.values() {
-			let scope = match self.ctx.modules_declared.get(&module.id){
+			let scope = match self.ctx.modules_declared.get(&module.id) {
 				Some(m) => m.scope.clone(),
 				None => {
 					return Err(miette::Report::new(
@@ -196,10 +193,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 					))
 				},
 			};
-			let mut local_ctx = LocalAnalyzerContex::new(
-				module.id,
-				scope,
-			);
+			let mut local_ctx = LocalAnalyzerContex::new(module.id, scope);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
@@ -226,7 +220,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 		self.passes.push(second_pass);
 		self.passes.push(codegen_pass);
 		for module in self.modules_implemented.values() {
-			let scope = match self.ctx.modules_declared.get(&module.id){
+			let scope = match self.ctx.modules_declared.get(&module.id) {
 				Some(m) => m.scope.clone(),
 				None => {
 					return Err(miette::Report::new(
@@ -244,10 +238,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 					))
 				},
 			};
-			let mut local_ctx = LocalAnalyzerContex::new(
-				module.id,
-				scope,
-			);
+			let mut local_ctx = LocalAnalyzerContex::new(module.id, scope);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
