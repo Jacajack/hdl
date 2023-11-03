@@ -1,0 +1,25 @@
+module simple_counter{
+	input clock clk;
+	input async wire nreset;
+	input comb(clk) wire enable;
+	output unsigned sync(clk) bus<16> data;
+}
+module counterr{
+	input clock dupa;
+	input async wire nreset;
+	input comb(dupa) wire enable;
+	input unsigned comb(dupa) bus<16> next;
+	output unsigned sync(dupa) bus<16> data;
+}
+impl counterr{}
+impl simple_counter{
+	bus<16> counter_next = trunc(data + 1u1);
+	counterr counter{
+		dupa:clk,
+		nreset,
+		enable,
+		next: counter_next,
+		data,
+	};
+}
+

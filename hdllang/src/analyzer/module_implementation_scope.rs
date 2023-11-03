@@ -252,9 +252,9 @@ impl ModuleImplementationScope {
 		self.variables.get(&id).unwrap()
 	}
 	pub fn define_intermidiate_signal(&mut self, mut var: Variable) -> miette::Result<InternalVariableId> {
-		log::debug!("Defining intermidiate signal {:?}", var);
 		let id = InternalVariableId::new(self.variable_counter);
 		var.kind.add_name_to_clock(id);
+		log::debug!("Defining intermidiate signal {:?}", var);
 		self.variable_counter += 1;
 		let defined = VariableDefined { var, id };
 		self.variables.insert(id, defined);
@@ -331,39 +331,37 @@ impl ModuleImplementationScope {
 	}
 	pub fn second_pass(&self, ctx: &GlobalAnalyzerContext) -> miette::Result<()> {
 		for v in self.variables.values() {
-			match &v.var.kind {
-				VariableKind::Signal(sig) => {
-					if !sig.is_sensititivity_specified() {
-						return Err(miette::Report::new(
-							SemanticError::MissingSensitivityQualifier
-								.to_diagnostic_builder()
-								.label(
-									v.var.location,
-									"Signal must be either const, clock, comb, sync or async",
-								)
-								.build(),
-						));
-					}
-					if !sig.is_signedness_specified() {
-						return Err(miette::Report::new(
-							SemanticError::MissingSignednessQualifier
-								.to_diagnostic_builder()
-								.label(v.var.location, "Bus signal must be either signed or unsigned")
-								.build(),
-						));
-					}
-					if !sig.is_width_specified() {
-						return Err(miette::Report::new(
-							SemanticError::WidthNotKnown
-								.to_diagnostic_builder()
-								.label(v.var.location, "Bus signals must have specified width")
-								.build(),
-						));
-					}
-				},
-				VariableKind::Generic(_) => (),
-				VariableKind::ModuleInstance(inst) => (),
+			if let VariableKind::Signal(sig) = &v.var.kind {
+				if !sig.is_sensititivity_specified() {
+					return Err(miette::Report::new(
+						SemanticError::MissingSensitivityQualifier
+							.to_diagnostic_builder()
+							.label(
+								v.var.location,
+								"Signal must be either const, clock, comb, sync or async",
+							)
+							.build(),
+					));
+				}
+				if !sig.is_signedness_specified() {
+					return Err(miette::Report::new(
+						SemanticError::MissingSignednessQualifier
+							.to_diagnostic_builder()
+							.label(v.var.location, "Bus signal must be either signed or unsigned")
+							.build(),
+					));
+				}
+				if !sig.is_width_specified() {
+					return Err(miette::Report::new(
+						SemanticError::WidthNotKnown
+							.to_diagnostic_builder()
+							.label(v.var.location, "Bus signals must have specified width")
+							.build(),
+					));
+				}
 			}
+			// we do not have to check for module instances, because their members are checked in previous pass
+			// we also do not have to check for generics
 		}
 		Ok(())
 	}

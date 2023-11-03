@@ -806,15 +806,16 @@ impl ModuleImplementationStatement {
 						_ => unreachable!(),
 					};
 					let mut coming = stmt.get_type(ctx, local_ctx, scope_id, clk_type.clone(), is_output)?;
-					if let SignalSensitivity::Clock(_, Some(name)) = coming.sensitivity {
-						clock_mapping.insert(clk_type.get_clock_name(), name);
-						coming.evaluate_as_lhs(false, ctx, clk_type, stmt.location())?;
+					if let SignalSensitivity::Clock(_, _) = coming.sensitivity {
+						coming.evaluate_as_lhs(false, ctx, clk_type.clone(), stmt.location())?;
 						debug!("Adding variable {:?}", new_name_str);
 						let new_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 							new_name,
 							stmt.location(),
-							VariableKind::Signal(coming),
+							interface_variable.var.kind,
 						))?;
+						debug!("Inserting clock mapping {:?} -> {:?}", clk_type.get_clock_name(), new_id);
+						clock_mapping.insert(clk_type.get_clock_name(), new_id);
 						if is_output {
 							let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
 							local_ctx
@@ -873,7 +874,7 @@ impl ModuleImplementationStatement {
 						.to_signal()
 						.expect("This was checked during analysis of a module");
 					interface_signal.translate_clocks(&clock_mapping);
-					debug!("Interface variable is {:?}", interface_variable.var.kind);
+					debug!("Interface signal is {:?}", interface_signal);
 					let is_output = match interface_signal.direction {
 						crate::analyzer::Direction::Input(_) => false,
 						crate::analyzer::Direction::Output(_) => true,
@@ -1339,30 +1340,30 @@ impl ModuleImplementationStatement {
 						"Codegen pass for port bind {:?}",
 						ctx.id_table.get_value(&stmt.get_id())
 					);
-					let var = &local_ctx
+					let var = local_ctx
 						.scope
-						.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap())
-						.var;
-					let var_id: hirn::design::SignalId = var.register(
+						.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap()).clone();
+					let var_id: hirn::design::SignalId = var.var.register(
 						ctx.nc_table,
 						ctx.id_table,
 						scope_id,
 						&local_ctx.scope,
 						Some(&additional_ctx),
 						api_scope
-							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
+							.new_signal(ctx.id_table.get_by_key(&var.var.name).unwrap().as_str())
 							.map_err(|err| {
 								CompilerError::HirnApiError(err)
 									.to_diagnostic_builder()
-									.label(var.location, "Error occured here")
+									.label(var.var.location, "Error occured here")
 									.build()
 							})?,
 					)?;
+					local_ctx.scope.insert_api_id(var.id, var_id);
 					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
 					api_scope.assign(var_id.into(), rhs).map_err(|err| {
 						CompilerError::HirnApiError(err)
 							.to_diagnostic_builder()
-							.label(var.location, "Error occured here")
+							.label(var.var.location, "Error occured here")
 							.build()
 					})?;
 					debug!("Assigned succesfuly");
@@ -1381,27 +1382,28 @@ impl ModuleImplementationStatement {
 					let var = &local_ctx
 						.scope
 						.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap())
-						.var;
-					let var_id: hirn::design::SignalId = var.register(
+						.clone();
+					let var_id: hirn::design::SignalId = var.var.register(
 						ctx.nc_table,
 						ctx.id_table,
 						scope_id,
 						&local_ctx.scope,
 						Some(&additional_ctx),
 						api_scope
-							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
+							.new_signal(ctx.id_table.get_by_key(&var.var.name).unwrap().as_str())
 							.map_err(|err| {
 								CompilerError::HirnApiError(err)
 									.to_diagnostic_builder()
-									.label(var.location, "Error occured here")
+									.label(var.var.location, "Error occured here")
 									.build()
 							})?,
 					)?;
+					local_ctx.scope.insert_api_id(var.id, var_id);
 					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
 					api_scope.assign(var_id.into(), rhs).map_err(|err| {
 						CompilerError::HirnApiError(err)
 							.to_diagnostic_builder()
-							.label(var.location, "Error occured here")
+							.label(var.var.location, "Error occured here")
 							.build()
 					})?;
 					debug!("Assigned succesfuly");
@@ -1421,24 +1423,24 @@ impl ModuleImplementationStatement {
 					let var = &local_ctx
 						.scope
 						.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap())
-						.var
 						.clone();
-					let var_id: hirn::design::SignalId = var.register(
+					let var_id: hirn::design::SignalId = var.var.register(
 						ctx.nc_table,
 						ctx.id_table,
 						scope_id,
 						&local_ctx.scope,
 						Some(&additional_ctx),
 						api_scope
-							.new_signal(ctx.id_table.get_by_key(&var.name).unwrap().as_str())
+							.new_signal(ctx.id_table.get_by_key(&var.var.name).unwrap().as_str())
 							.map_err(|err| {
 								CompilerError::HirnApiError(err)
 									.to_diagnostic_builder()
-									.label(var.location, "Error occured here")
+									.label(var.var.location, "Error occured here")
 									.build()
 							})?
 							.generated(),
 					)?;
+					local_ctx.scope.insert_api_id(var.id, var_id);
 					builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
 					match interface_variable
 						.var
@@ -1451,7 +1453,7 @@ impl ModuleImplementationStatement {
 							api_scope.assign(var_id.into(), rhs).map_err(|err| {
 								CompilerError::HirnApiError(err)
 									.to_diagnostic_builder()
-									.label(var.location, "Error occured here")
+									.label(var.var.location, "Error occured here")
 									.build()
 							})?
 						},
@@ -1459,7 +1461,7 @@ impl ModuleImplementationStatement {
 							api_scope.assign(rhs, var_id.into()).map_err(|err| {
 								CompilerError::HirnApiError(err)
 									.to_diagnostic_builder()
-									.label(var.location, "Error occured here")
+									.label(var.var.location, "Error occured here")
 									.build()
 							})?
 						},
