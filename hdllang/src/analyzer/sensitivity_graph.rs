@@ -6,7 +6,7 @@ use std::{
 use super::{GlobalAnalyzerContext, ModuleImplementationScope, SignalSensitivity};
 use bimap::BiHashMap;
 use itertools::Itertools;
-use petgraph::{algo::is_cyclic_directed, prelude::DiGraph};
+use petgraph::{algo::is_cyclic_directed, prelude::{DiGraph, UnGraph}};
 
 use crate::{
 	analyzer::SemanticError, core::CompilerDiagnosticBuilder, parser::ast::SourceLocation, ProvidesCompilerDiagnostic,
@@ -20,13 +20,13 @@ pub struct ClockGraphEntry {
 }
 
 pub struct ClockGraph {
-	graph: DiGraph<ClockGraphEntry, ()>,
+	graph: UnGraph<ClockGraphEntry, ()>,
 	graph_entries: BiHashMap<SenstivityGraphIndex, ClockGraphEntry>,
 }
 impl ClockGraph {
 	pub fn new() -> Self {
 		Self {
-			graph: DiGraph::new(),
+			graph: UnGraph::default(),
 			graph_entries: BiHashMap::new(),
 		}
 	}

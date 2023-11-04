@@ -162,6 +162,7 @@ impl SignalSensitivity {
 			_ => true,
 		}
 	}
+	/// DEPRECATED
 	pub fn can_drive(
 		&mut self,
 		rhs: &SignalSensitivity,
@@ -265,13 +266,35 @@ impl SignalSensitivity {
 		log::debug!("Other {:?}", rhs);
 		match (&self, rhs) {
 			(_, NoSensitivity)
-			| (Async(_), Async(_))
-			| (Sync(..), Sync(..))
-			| (Const(_), Const(_)) => (),
+			| (Async(_), _)
+			| (Const(_), Const(_)) 
+			| (NoSensitivity, _) => (),
+			(Sync(current, lhs_location), Sync(incoming, _)) => {
+				log::debug!("Curent {:?}", current);
+				log::debug!("Incoming {:?}", incoming);
+				for value in &incoming.list {
+					if !current.contains_clock(value.clock_signal) {
+						let ids = current.to_ids();
+						if clock_graph.is_at_least_one_an_alias(ids, &value.clock_signal){
+							continue;
+						}
+						let var_rhs = scope.get_variable_by_id(value.clock_signal).unwrap();
+						return Err(
+							SemanticError::DifferingSensitivities
+								.to_diagnostic_builder()
+								.label(
+									location,
+									"Cannot assign signals - sensitivity mismatch. Sensitivty of the destination signal should be a super set of the source signal",
+								)
+								.label(*lhs_location, format!("This sensitivity list does not contain this clock {:?}", global_ctx.id_table.get_by_key(&var_rhs.var.name).unwrap() ).as_str())
+								.label(value.location, format!("This clock {:?} is not present in destination signal sensitivity list", global_ctx.id_table.get_by_key(&var_rhs.var.name).unwrap() ).as_str())
+						);
+					}
+				}
+			},
 			(Clock(_, Some(current)), Clock(_, Some(incoming))) => {
 				clock_graph.insert_clock(incoming, current);
 			},
-			(NoSensitivity, _) => (),
 			(Comb(current, lhs_location), Comb(incoming, _)) => {
 				log::debug!("Curent {:?}", current);
 				log::debug!("Incoming {:?}", incoming);
@@ -287,10 +310,10 @@ impl SignalSensitivity {
 								.to_diagnostic_builder()
 								.label(
 									location,
-									"Cannot assign signals - sensitivity mismatch. Sensitivty of the left hand side should be a super set of the right hand side",
+									"Cannot assign signals - sensitivity mismatch. Sensitivty of the destination signal should be a super set of the source signal",
 								)
 								.label(*lhs_location, format!("This sensitivity list does not contain this clock {:?}", global_ctx.id_table.get_by_key(&var_rhs.var.name).unwrap() ).as_str())
-								.label(value.location, format!("This clock {:?} is not present in left hand side sensitivity list", global_ctx.id_table.get_by_key(&var_rhs.var.name).unwrap() ).as_str())
+								.label(value.location, format!("This clock {:?} is not present in destination signal sensitivity list", global_ctx.id_table.get_by_key(&var_rhs.var.name).unwrap() ).as_str())
 						);
 					}
 				}
@@ -301,19 +324,18 @@ impl SignalSensitivity {
 						.label(*self.location().unwrap(), "This sensitivity is better than asynchronous")
 						.label(
 							location,
-							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the right hand side",
+							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the source signal",
 						)
 						.label(*sensitivity_location, "This sensitivity is asynchronous")
 						,
 				);
 			},
-			(Async(_), _) => (),
 			(_, Comb(_, sensitivity_location)) => {
 				return Err(SemanticError::DifferingSensitivities
 						.to_diagnostic_builder()
 						.label(
 							location,
-							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the right hand side",
+							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the source signal",
 						)
 						.label(*sensitivity_location, "This sensitivity is better than comb")
 						,
@@ -325,7 +347,7 @@ impl SignalSensitivity {
 						.to_diagnostic_builder()
 						.label(
 							location,
-							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the right hand side",
+							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the source signal",
 						)
 						.label(*sensitivity_location, "This sensitivity is better than sync")
 						,
@@ -338,14 +360,14 @@ impl SignalSensitivity {
 						.to_diagnostic_builder()
 						.label(
 							location,
-							"Cannot bind signals - sensitivity mismatch. Sensitivity on the left assignment side must be worse or same as on the right hand side",
+							"Cannot bind signals - sensitivity mismatch. Sensitivity on the left assignment side must be worse or same as on the source signal",
 						)
 						.label(*sensitivity_location, "This sensitivity is const")
 						.label(*rhs.location().unwrap(), "This sensitivity is worse than const")
 						,
 				);
 			},
-			_=> (),
+			_=> unreachable!(),
 		}
 		Ok(())
 	}

@@ -1,0 +1,7 @@
+module m {}
+impl m {
+	clock clk, clk2;
+	sync(clk) unsigned bus<8> a;
+	sync(clk2) unsigned bus<8> b;
+	a = b;
+}
