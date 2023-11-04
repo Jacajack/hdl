@@ -1,16 +1,36 @@
 use std::collections::{HashSet, HashMap};
-
+use std::sync::Arc;
 use log::info;
 
-use crate::{elab::ElabError, design::{ScopeId, SignalId, NarrowEval}};
+use crate::design::{ScopeHandle, ConditionalScope, RangeScope};
+use crate::elab::{ElabSignal, ElabAssumptionsBase};
+use crate::{elab::{ElabError, ElabAssumptions}, design::{ScopeId, SignalId, NarrowEval}};
+use crate::elab::GenericVar;
 
 use super::{full_elab::{FullElabCtx, FullElabCacheHandle}, ElabPass};
 
 #[derive(Default)]
 pub(super) struct GenericResolvePassCtx {
-	scope_condition_depends: HashMap<ScopeId, HashSet<SignalId>>,
-	scope_depends: HashMap<ScopeId, HashSet<SignalId>>,
-	scope_results: HashMap<ScopeId, HashSet<SignalId>>,
+	signals: HashMap<(SignalId, usize), ElabSignal>,
+	assumptions: HashMap<(SignalId, Vec<GenericVar>, usize), GenericVar>,
+}
+
+impl GenericResolvePassCtx {
+	fn analyze_resolved_scope(&mut self, assumptions: Arc<dyn ElabAssumptionsBase>) {
+
+	}
+
+	fn analyze_unconditional_scope(&mut self, scope: ScopeHandle, assumptions: Arc<dyn ElabAssumptionsBase>) {
+		
+	}
+
+	fn analyze_if_scope(&mut self, cond_scope: &ConditionalScope, assumptions: Arc<dyn ElabAssumptionsBase>) {
+		// cond_scope.condition.narrow_eval(ctx);
+	}
+
+	fn analyze_for_scope(&mut self, range_scope: &RangeScope, assumptions: Arc<dyn ElabAssumptionsBase>) {
+		
+	}
 }
 
 pub(super) struct GenericResolvePass;
