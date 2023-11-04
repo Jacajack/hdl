@@ -6,7 +6,10 @@ use std::{
 use super::{GlobalAnalyzerContext, ModuleImplementationScope, SignalSensitivity};
 use bimap::BiHashMap;
 use itertools::Itertools;
-use petgraph::{algo::is_cyclic_directed, prelude::{DiGraph, UnGraph}};
+use petgraph::{
+	algo::is_cyclic_directed,
+	prelude::{DiGraph, UnGraph},
+};
 
 use crate::{
 	analyzer::SemanticError, core::CompilerDiagnosticBuilder, parser::ast::SourceLocation, ProvidesCompilerDiagnostic,
@@ -208,9 +211,16 @@ impl SensitivityGraph {
 				let var_sens = ctx.get_variable_by_id(id).unwrap();
 				match var_sens.var.kind {
 					super::VariableKind::Signal(sig) => {
-						if let SignalSensitivity::Clock(..) = sig.sensitivity{
+						if let SignalSensitivity::Clock(..) = sig.sensitivity {
 							log::debug!("Getting sensitivity for clock {:?}", sig.sensitivity);
-							self.get_node_sensitivity(node, ctx, global_ctx, already_visited, sensitivty_nodes, clock_graph)?;
+							self.get_node_sensitivity(
+								node,
+								ctx,
+								global_ctx,
+								already_visited,
+								sensitivty_nodes,
+								clock_graph,
+							)?;
 						}
 					},
 					super::VariableKind::Generic(_) => (),
@@ -273,14 +283,14 @@ impl SensitivityGraph {
 										.unwrap()
 										.weight()
 										.location,
-										ctx,
+									ctx,
 									global_ctx,
-									clock_graph
+									clock_graph,
 								)
 								.map_err(|mut err| {
 									log::debug!("Sensitivity nodes are {:?}", sensitivty_nodes);
 									log::debug!("Indexes are {:?}", self.graph_entries);
-									let origin_node = match sensitivty_nodes.get(&sens){
+									let origin_node = match sensitivty_nodes.get(&sens) {
 										Some(node) => self.get_index(*node),
 										None => neighbour,
 									};
@@ -345,10 +355,24 @@ impl SensitivityGraph {
 		let mut sens_nodes = HashMap::new();
 		let mut clock_graph = ClockGraph::new();
 		for node in self.graph.raw_nodes() {
-			self.get_node_sensitivity_only_clock(node.weight, scope, global_ctx, &mut visited, &mut sens_nodes, &mut clock_graph)?;
+			self.get_node_sensitivity_only_clock(
+				node.weight,
+				scope,
+				global_ctx,
+				&mut visited,
+				&mut sens_nodes,
+				&mut clock_graph,
+			)?;
 		}
 		for node in self.graph.raw_nodes() {
-			self.get_node_sensitivity(node.weight, scope, global_ctx, &mut visited, &mut sens_nodes, &mut clock_graph)?;
+			self.get_node_sensitivity(
+				node.weight,
+				scope,
+				global_ctx,
+				&mut visited,
+				&mut sens_nodes,
+				&mut clock_graph,
+			)?;
 		}
 		Ok(())
 	}

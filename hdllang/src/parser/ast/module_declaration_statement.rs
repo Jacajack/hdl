@@ -280,12 +280,27 @@ pub fn analyze_qualifiers(
 				let mut sensitivity_list = ClockSensitivityList { list: Vec::new() };
 				match sync.expressions.len() {
 					1 => {
-						let name2 = sync.expressions[0].create_edge_sensitivity(current_scope, scope, id_table,sync.location)?;
+						let name2 = sync.expressions[0].create_edge_sensitivity(
+							current_scope,
+							scope,
+							id_table,
+							sync.location,
+						)?;
 						sensitivity_list.list.push(name2);
 					},
 					2 => {
-						let name2 = sync.expressions[0].create_edge_sensitivity(current_scope, scope,id_table,sync.location)?;
-						let name3 = sync.expressions[1].create_edge_sensitivity(current_scope, scope,id_table,sync.location)?;
+						let name2 = sync.expressions[0].create_edge_sensitivity(
+							current_scope,
+							scope,
+							id_table,
+							sync.location,
+						)?;
+						let name3 = sync.expressions[1].create_edge_sensitivity(
+							current_scope,
+							scope,
+							id_table,
+							sync.location,
+						)?;
 						if name3.clock_signal != name2.clock_signal {
 							return Err(miette::Report::new(SemanticError::ForbiddenExpressionInSyncOrComb
 									.to_diagnostic_builder()

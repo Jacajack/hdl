@@ -6,8 +6,9 @@ use std::io::Write;
 
 use crate::{
 	analyzer::{
-		semantic_error::InstanceError, BusWidth, ClockSensitivityList, GenericVariable, ModuleImplementationScope,
-		ModuleInstance, ModuleInstanceKind, NonRegister, SensitivityGraphEntry, Signal, SignalSensitivity, module_implementation_scope::InternalVariableId,
+		module_implementation_scope::InternalVariableId, semantic_error::InstanceError, BusWidth, ClockSensitivityList,
+		GenericVariable, ModuleImplementationScope, ModuleInstance, ModuleInstanceKind, NonRegister,
+		SensitivityGraphEntry, Signal, SignalSensitivity,
 	},
 	core::*,
 	parser::ast::*,
@@ -833,7 +834,7 @@ impl ModuleImplementationStatement {
 						_ => unreachable!(),
 					};
 					let mut coming = stmt.get_type(ctx, local_ctx, scope_id, clk_type.clone(), is_output)?;
-					if let SignalSensitivity::Clock(_, _) = coming.sensitivity {
+					if let SignalSensitivity::Clock(..) = coming.sensitivity {
 						coming.evaluate_as_lhs(false, ctx, clk_type.clone(), stmt.location())?;
 						debug!("Adding variable {:?}", new_name_str);
 						let new_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
@@ -841,7 +842,11 @@ impl ModuleImplementationStatement {
 							stmt.location(),
 							interface_variable.var.kind,
 						))?;
-						debug!("Inserting clock mapping {:?} -> {:?}", clk_type.get_clock_name(), new_id);
+						debug!(
+							"Inserting clock mapping {:?} -> {:?}",
+							clk_type.get_clock_name(),
+							new_id
+						);
 						clock_mapping.insert(clk_type.get_clock_name(), new_id);
 						if is_output {
 							let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
@@ -1180,7 +1185,7 @@ impl ModuleImplementationStatement {
 								&local_ctx.scope,
 								Some(&additional_ctx),
 								api_scope
-									.new_signal(ctx.id_table.get_by_key(&clk_var.var. name).unwrap().as_str())
+									.new_signal(ctx.id_table.get_by_key(&clk_var.var.name).unwrap().as_str())
 									.map_err(|err| {
 										CompilerError::HirnApiError(err)
 											.to_diagnostic_builder()
@@ -1369,7 +1374,8 @@ impl ModuleImplementationStatement {
 					);
 					let var = local_ctx
 						.scope
-						.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap()).clone();
+						.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap())
+						.clone();
 					let var_id: hirn::design::SignalId = var.var.register(
 						ctx.nc_table,
 						ctx.id_table,
@@ -1945,14 +1951,14 @@ fn create_register(
 				.build(),
 		));
 	}
-	
+
 	let inst_name = ctx.id_table.get_value(&inst_stmt.instance_name).clone();
 	let clk_name = ctx.id_table.insert_or_get(format!("{}_clk", inst_name).as_str());
 	let next_name = ctx.id_table.insert_or_get(format!("{}_nxt_c", inst_name).as_str());
 	let en_name = ctx.id_table.insert_or_get(format!("{}_en_c", inst_name).as_str());
 	let nreset_name = ctx.id_table.insert_or_get(format!("{}_nreset", inst_name).as_str());
 	let data_name = ctx.id_table.insert_or_get(format!("{}_out_r", inst_name).as_str());
-	
+
 	debug!("Clk type is {:?}", clk_type);
 	let clk_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 		clk_name,
@@ -1962,7 +1968,10 @@ fn create_register(
 	let mut data_type = data_stmt
 		.unwrap()
 		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), true)?;
-	data_type.sensitivity = SignalSensitivity::Sync(ClockSensitivityList::new().with_clock(clk_var_id, true, data_stmt.unwrap().location()), data_stmt.unwrap().location());
+	data_type.sensitivity = SignalSensitivity::Sync(
+		ClockSensitivityList::new().with_clock(clk_var_id, true, data_stmt.unwrap().location()),
+		data_stmt.unwrap().location(),
+	);
 	debug!("Data type is {:?}", data_type);
 	if data_type.is_array() {
 		return Err(miette::Report::new(
@@ -1976,7 +1985,10 @@ fn create_register(
 	let mut next_type = next_stmt
 		.unwrap()
 		.get_type(ctx, local_ctx, scope_id, data_type.clone(), false)?;
-	next_type.sensitivity = SignalSensitivity::Comb(ClockSensitivityList::new().with_clock(clk_var_id, true, next_stmt.unwrap().location()), next_stmt.unwrap().location());
+	next_type.sensitivity = SignalSensitivity::Comb(
+		ClockSensitivityList::new().with_clock(clk_var_id, true, next_stmt.unwrap().location()),
+		next_stmt.unwrap().location(),
+	);
 	debug!("Next type is {:?}", next_type);
 	if next_type.is_array() {
 		return Err(miette::Report::new(
@@ -2066,7 +2078,10 @@ fn create_register(
 	let mut en_type = en_stmt
 		.unwrap()
 		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), false)?;
-	en_type.sensitivity =  SignalSensitivity::Comb(ClockSensitivityList::new().with_clock(clk_var_id, true, en_stmt.unwrap().location()), en_stmt.unwrap().location());
+	en_type.sensitivity = SignalSensitivity::Comb(
+		ClockSensitivityList::new().with_clock(clk_var_id, true, en_stmt.unwrap().location()),
+		en_stmt.unwrap().location(),
+	);
 	debug!("En type is {:?}", en_type);
 	let en_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 		en_name,

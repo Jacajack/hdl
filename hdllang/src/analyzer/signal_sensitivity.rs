@@ -1,8 +1,6 @@
-use crate::{
-	analyzer::SemanticError, core::CompilerDiagnosticBuilder, ProvidesCompilerDiagnostic, SourceSpan,
-};
+use crate::{analyzer::SemanticError, core::CompilerDiagnosticBuilder, ProvidesCompilerDiagnostic, SourceSpan};
 
-use super::{GlobalAnalyzerContext, module_implementation_scope::InternalVariableId};
+use super::{module_implementation_scope::InternalVariableId, GlobalAnalyzerContext};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
 pub struct EdgeSensitivity {
@@ -48,7 +46,7 @@ impl ClockSensitivityList {
 		}
 		result
 	}
-	pub fn to_ids(&self)->Vec<InternalVariableId>{
+	pub fn to_ids(&self) -> Vec<InternalVariableId> {
 		self.list.iter().map(|x| x.clock_signal).collect()
 	}
 }
@@ -82,18 +80,18 @@ impl SignalSensitivity {
 				(_, Async(_)) => *self = sens.clone(),
 				(Comb(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
 				(Comb(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
-				(Comb(l,_), Clock(loc, Some(id))) =>{
+				(Comb(l, _), Clock(loc, Some(id))) => {
 					let mut new_list = l.clone();
-					new_list.add_clock(EdgeSensitivity{
+					new_list.add_clock(EdgeSensitivity {
 						clock_signal: *id,
 						on_rising: true,
 						location: *loc,
 					});
 					*self = Comb(new_list, location);
 				},
-				(Clock(loc, Some(id)), Comb(l,_)) =>{
+				(Clock(loc, Some(id)), Comb(l, _)) => {
 					let mut new_list = l.clone();
-					new_list.add_clock(EdgeSensitivity{
+					new_list.add_clock(EdgeSensitivity {
 						clock_signal: *id,
 						on_rising: true,
 						location: *loc,
@@ -108,15 +106,15 @@ impl SignalSensitivity {
 				(Sync(..), Const(_)) => (),
 				(Clock(loc1, Some(id1)), Clock(loc2, Some(id2))) => {
 					let list = ClockSensitivityList::new()
-					.with_clock(*id1, true, *loc1)
-					.with_clock(*id2, true, *loc2);
+						.with_clock(*id1, true, *loc1)
+						.with_clock(*id2, true, *loc2);
 					*self = Comb(list, location);
 				},
 				(Clock(..), _) => (),
 				(Const(_), Const(_)) => (),
 				(Const(_), _) => *self = sens.clone(),
 				(NoSensitivity, _) => *self = sens.clone(),
-				_=> (),
+				_ => (),
 			}
 		}
 	}
@@ -265,17 +263,14 @@ impl SignalSensitivity {
 		log::debug!("Self {:?}", self);
 		log::debug!("Other {:?}", rhs);
 		match (&self, rhs) {
-			(_, NoSensitivity)
-			| (Async(_), _)
-			| (Const(_), Const(_)) 
-			| (NoSensitivity, _) => (),
+			(_, NoSensitivity) | (Async(_), _) | (Const(_), Const(_)) | (NoSensitivity, _) => (),
 			(Sync(current, lhs_location), Sync(incoming, _)) => {
 				log::debug!("Curent {:?}", current);
 				log::debug!("Incoming {:?}", incoming);
 				for value in &incoming.list {
 					if !current.contains_clock(value.clock_signal) {
 						let ids = current.to_ids();
-						if clock_graph.is_at_least_one_an_alias(ids, &value.clock_signal){
+						if clock_graph.is_at_least_one_an_alias(ids, &value.clock_signal) {
 							continue;
 						}
 						let var_rhs = scope.get_variable_by_id(value.clock_signal).unwrap();
@@ -301,7 +296,7 @@ impl SignalSensitivity {
 				for value in &incoming.list {
 					if !current.contains_clock(value.clock_signal) {
 						let ids = current.to_ids();
-						if clock_graph.is_at_least_one_an_alias(ids, &value.clock_signal){
+						if clock_graph.is_at_least_one_an_alias(ids, &value.clock_signal) {
 							continue;
 						}
 						let var_rhs = scope.get_variable_by_id(value.clock_signal).unwrap();
@@ -367,7 +362,7 @@ impl SignalSensitivity {
 						,
 				);
 			},
-			_=> unreachable!(),
+			_ => unreachable!(),
 		}
 		Ok(())
 	}
