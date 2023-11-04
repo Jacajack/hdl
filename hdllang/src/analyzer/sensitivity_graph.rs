@@ -6,7 +6,7 @@ use std::{
 use super::{GlobalAnalyzerContext, ModuleImplementationScope, SignalSensitivity};
 use bimap::BiHashMap;
 use itertools::Itertools;
-use petgraph::{algo::is_cyclic_directed, prelude::DiGraph};
+use petgraph::{algo::is_cyclic_directed, prelude::{DiGraph, UnGraph}};
 
 use crate::{
 	analyzer::SemanticError, core::CompilerDiagnosticBuilder, parser::ast::SourceLocation, ProvidesCompilerDiagnostic,
@@ -20,13 +20,13 @@ pub struct ClockGraphEntry {
 }
 
 pub struct ClockGraph {
-	graph: DiGraph<ClockGraphEntry, ()>,
+	graph: UnGraph<ClockGraphEntry, ()>,
 	graph_entries: BiHashMap<SenstivityGraphIndex, ClockGraphEntry>,
 }
 impl ClockGraph {
 	pub fn new() -> Self {
 		Self {
-			graph: DiGraph::new(),
+			graph: UnGraph::default(),
 			graph_entries: BiHashMap::new(),
 		}
 	}
@@ -47,14 +47,27 @@ impl ClockGraph {
 			.unwrap()
 			.clone()
 	}
-	pub fn insert_clock(&mut self, from: ClockGraphEntry, to: ClockGraphEntry) {
-		let from_id = self.insert_or_get_index(from);
-		let to_id = self.insert_or_get_index(to);
+	pub fn insert_clock(&mut self, from: &InternalVariableId, to: &InternalVariableId) {
+		log::debug!("Inserting clock from {:?} to {:?}", from, to);
+		let from_id = self.insert_or_get_index(ClockGraphEntry { id: *from });
+		let to_id = self.insert_or_get_index(ClockGraphEntry { id: *to });
 		self.graph.add_edge(from_id, to_id, ());
+		assert!(self.are_clocks_connected(from, to));
 	}
-	pub fn are_clocks_connected(&self, from: ClockGraphEntry, to: ClockGraphEntry) -> bool {
-		let from_id = self.get_index(from);
-		let to_id = self.get_index(to);
+	pub fn is_at_least_one_an_alias(&mut self, lhs: Vec<InternalVariableId>, rhs: &InternalVariableId) -> bool {
+		log::debug!("Checking if {:?} is an alias of {:?}", lhs, rhs);
+		log::debug!("Graph is {:?}", self.graph);
+		for lhs in lhs {
+			if self.are_clocks_connected(rhs, &lhs) {
+				log::debug!("Found alias");
+				return true;
+			}
+		}
+		false
+	}
+	pub fn are_clocks_connected(&mut self, from: &InternalVariableId, to: &InternalVariableId) -> bool {
+		let from_id = self.insert_or_get_index(ClockGraphEntry { id: *from });
+		let to_id = self.insert_or_get_index(ClockGraphEntry { id: *to });
 		petgraph::algo::has_path_connecting(&self.graph, from_id, to_id, None)
 	}
 }
@@ -173,6 +186,41 @@ impl SensitivityGraph {
 			graph_entries: BiHashMap::new(),
 		}
 	}
+	pub fn get_node_sensitivity_only_clock(
+		&self,
+		node: SensitivityGraphEntry,
+		ctx: &mut ModuleImplementationScope,
+		global_ctx: &GlobalAnalyzerContext,
+		already_visited: &mut HashSet<SensitivityGraphEntry>,
+		sensitivty_nodes: &mut HashMap<SignalSensitivity, SensitivityGraphEntry>,
+		clock_graph: &mut ClockGraph,
+	) -> miette::Result<()> {
+		log::debug!(
+			"Getting sensitivity for node {:?} with already visited {:?}",
+			node,
+			already_visited
+		);
+		match node {
+			SensitivityGraphEntry::Signal(id, _) => {
+				if already_visited.contains(&node) {
+					return Ok(());
+				}
+				let var_sens = ctx.get_variable_by_id(id).unwrap();
+				match var_sens.var.kind {
+					super::VariableKind::Signal(sig) => {
+						if let SignalSensitivity::Clock(..) = sig.sensitivity{
+							log::debug!("Getting sensitivity for clock {:?}", sig.sensitivity);
+							self.get_node_sensitivity(node, ctx, global_ctx, already_visited, sensitivty_nodes, clock_graph)?;
+						}
+					},
+					super::VariableKind::Generic(_) => (),
+					_ => unreachable!(),
+				};
+				Ok(())
+			},
+			SensitivityGraphEntry::Const(_) => Ok(()),
+		}
+	}
 	pub fn get_node_sensitivity(
 		&self,
 		node: SensitivityGraphEntry,
@@ -180,6 +228,7 @@ impl SensitivityGraph {
 		global_ctx: &GlobalAnalyzerContext,
 		already_visited: &mut HashSet<SensitivityGraphEntry>,
 		sensitivty_nodes: &mut HashMap<SignalSensitivity, SensitivityGraphEntry>,
+		clock_graph: &mut ClockGraph,
 	) -> miette::Result<SignalSensitivity> {
 		log::debug!(
 			"Getting sensitivity for node {:?} with already visited {:?}",
@@ -210,6 +259,7 @@ impl SensitivityGraph {
 									global_ctx,
 									already_visited,
 									sensitivty_nodes,
+									clock_graph,
 								)?],
 								location,
 							);
@@ -223,11 +273,17 @@ impl SensitivityGraph {
 										.unwrap()
 										.weight()
 										.location,
+										ctx,
 									global_ctx,
+									clock_graph
 								)
 								.map_err(|mut err| {
 									log::debug!("Sensitivity nodes are {:?}", sensitivty_nodes);
-									let origin_node = self.get_index(*sensitivty_nodes.get(&sens).unwrap());
+									log::debug!("Indexes are {:?}", self.graph_entries);
+									let origin_node = match sensitivty_nodes.get(&sens){
+										Some(node) => self.get_index(*node),
+										None => neighbour,
+									};
 									log::debug!("Origin node is {:?}", origin_node);
 									log::debug!("Graph is {:?}", self.graph);
 									let nodes_between = petgraph::algo::all_simple_paths::<Vec<_>, _>(
@@ -287,8 +343,12 @@ impl SensitivityGraph {
 		assert!(!is_cyclic_directed(&self.graph));
 		let mut visited = HashSet::new();
 		let mut sens_nodes = HashMap::new();
+		let mut clock_graph = ClockGraph::new();
 		for node in self.graph.raw_nodes() {
-			self.get_node_sensitivity(node.weight, scope, global_ctx, &mut visited, &mut sens_nodes)?;
+			self.get_node_sensitivity_only_clock(node.weight, scope, global_ctx, &mut visited, &mut sens_nodes, &mut clock_graph)?;
+		}
+		for node in self.graph.raw_nodes() {
+			self.get_node_sensitivity(node.weight, scope, global_ctx, &mut visited, &mut sens_nodes, &mut clock_graph)?;
 		}
 		Ok(())
 	}

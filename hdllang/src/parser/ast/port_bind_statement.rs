@@ -191,7 +191,6 @@ impl PortBindStatement {
 					}
 				}
 				new_war.add_dimenstions(dimensions);
-				new_war.add_name_to_clock(direct_declarator.name);
 				let mut sig = new_war
 					.to_signal()
 					.expect("This was checked during analysis of declaration");

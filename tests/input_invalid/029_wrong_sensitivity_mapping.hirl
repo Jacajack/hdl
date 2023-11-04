@@ -1,0 +1,10 @@
+module X{}
+impl X{
+	clock wire a, b,c,d;
+	a = b;
+	b = c;
+	//c = d;
+	comb(d) wire e;
+	comb(a) wire f;
+	f = e;
+}

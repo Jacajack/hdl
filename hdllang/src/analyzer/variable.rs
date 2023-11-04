@@ -278,7 +278,7 @@ pub struct Signal {
 	pub direction: Direction,
 }
 impl Signal {
-	pub fn translate_clocks(&mut self, clocks: &HashMap<IdTableKey, IdTableKey>) {
+	pub fn translate_clocks(&mut self, clocks: &HashMap<InternalVariableId, InternalVariableId>) {
 		use SignalSensitivity::*;
 		match &mut self.sensitivity {
 			Comb(list, id) => {
@@ -305,7 +305,7 @@ impl Signal {
 			_ => false,
 		}
 	}
-	pub fn get_clock_name(&self) -> IdTableKey {
+	pub fn get_clock_name(&self) -> InternalVariableId {
 		use SignalSensitivity::*;
 		match &self.sensitivity {
 			Clock(_, Some(name)) => *name,
@@ -639,7 +639,7 @@ impl Variable {
 			VariableKind::ModuleInstance(_) => false,
 		}
 	}
-	pub fn get_clock_name(&self) -> IdTableKey {
+	pub fn get_clock_name(&self) -> InternalVariableId {
 		match &self.kind {
 			VariableKind::Signal(signal) => signal.get_clock_name(),
 			VariableKind::Generic(_) => panic!("This variable is not a signal"),
@@ -668,13 +668,13 @@ impl Variable {
 					Async(_) => builder = builder.asynchronous(),
 					Comb(list, _) => {
 						for edge in &list.list {
-							let id = scope.get_api_id(scope_id, &edge.clock_signal).unwrap();
+							let id = scope.get_api_id_by_internal_id(edge.clock_signal).unwrap();
 							builder = builder.comb(id, edge.on_rising);
 						}
 					},
 					Sync(list, _) => {
 						for edge in &list.list {
-							let id = scope.get_api_id(scope_id, &edge.clock_signal).unwrap();
+							let id = scope.get_api_id_by_internal_id(edge.clock_signal).unwrap();
 							builder = builder.sync(id, edge.on_rising);
 						}
 					},
@@ -891,7 +891,7 @@ pub enum VariableKind {
 
 impl VariableKind {
 	/// only if needed
-	pub fn add_name_to_clock(&mut self, id: IdTableKey) {
+	pub fn add_name_to_clock(&mut self, id: InternalVariableId) {
 		use VariableKind::*;
 		match self {
 			Signal(sig) => match &mut sig.sensitivity {

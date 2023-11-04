@@ -231,11 +231,15 @@ impl ModuleImplementationScope {
 			}
 		}
 	}
+	pub fn get_api_id_by_internal_id(&self, id: InternalVariableId) -> Option<SignalId> {
+		self.api_ids.get(&id).map(|x| x.clone())
+	}
 	pub fn clear_scope(&mut self, scope_id: usize) {
 		self.scopes[scope_id].variables.clear();
 	}
-	pub fn define_variable(&mut self, scope_id: usize, var: Variable) -> miette::Result<InternalVariableId> {
+	pub fn define_variable(&mut self, scope_id: usize, mut var: Variable) -> miette::Result<InternalVariableId> {
 		let id = InternalVariableId::new(self.variable_counter);
+		var.kind.add_name_to_clock(id);
 		self.variable_counter += 1;
 		let name = var.name.clone();
 		let defined = VariableDefined { var, id };
@@ -247,9 +251,10 @@ impl ModuleImplementationScope {
 	pub fn get_intermidiate_signal(&self, id: InternalVariableId) -> &VariableDefined {
 		self.variables.get(&id).unwrap()
 	}
-	pub fn define_intermidiate_signal(&mut self, var: Variable) -> miette::Result<InternalVariableId> {
-		log::debug!("Defining intermidiate signal {:?}", var);
+	pub fn define_intermidiate_signal(&mut self, mut var: Variable) -> miette::Result<InternalVariableId> {
 		let id = InternalVariableId::new(self.variable_counter);
+		var.kind.add_name_to_clock(id);
+		log::debug!("Defining intermidiate signal {:?}", var);
 		self.variable_counter += 1;
 		let defined = VariableDefined { var, id };
 		self.variables.insert(id, defined);
@@ -257,7 +262,7 @@ impl ModuleImplementationScope {
 	}
 	pub fn declare_variable(
 		&mut self,
-		var: Variable,
+		mut var: Variable,
 		nc_table: &crate::lexer::NumericConstantTable,
 		id_table: &IdTable,
 		handle: &mut ModuleHandle,
@@ -275,6 +280,7 @@ impl ModuleImplementationScope {
 			None => (),
 		}
 		let id = InternalVariableId::new(self.variable_counter);
+		var.kind.add_name_to_clock(id);
 		self.variable_counter += 1;
 		let name = var.name.clone();
 		self.internal_ids.insert(id, (0, name));
@@ -325,91 +331,37 @@ impl ModuleImplementationScope {
 	}
 	pub fn second_pass(&self, ctx: &GlobalAnalyzerContext) -> miette::Result<()> {
 		for v in self.variables.values() {
-			match &v.var.kind {
-				VariableKind::Signal(sig) => {
-					if !sig.is_sensititivity_specified() {
-						return Err(miette::Report::new(
-							SemanticError::MissingSensitivityQualifier
-								.to_diagnostic_builder()
-								.label(
-									v.var.location,
-									"Signal must be either const, clock, comb, sync or async",
-								)
-								.build(),
-						));
-					}
-					if !sig.is_signedness_specified() {
-						return Err(miette::Report::new(
-							SemanticError::MissingSignednessQualifier
-								.to_diagnostic_builder()
-								.label(v.var.location, "Bus signal must be either signed or unsigned")
-								.build(),
-						));
-					}
-					if !sig.is_width_specified() {
-						return Err(miette::Report::new(
-							SemanticError::WidthNotKnown
-								.to_diagnostic_builder()
-								.label(v.var.location, "Bus signals must have specified width")
-								.build(),
-						));
-					}
-				},
-				VariableKind::Generic(_) => (),
-				VariableKind::ModuleInstance(inst) => {
-					use crate::analyzer::ModuleInstanceKind::*;
-					match &inst.kind {
-						Module(m) => {
-							let mut clock_mapping: HashMap<IdTableKey, IdTableKey> = HashMap::new();
-						},
-						Register(r) => {
-							let clk_var = self.get_variable_by_id(r.clk).unwrap();
-							let data_var = self.get_variable_by_id(r.data).unwrap();
-							let next_var = self.get_variable_by_id(r.next).unwrap();
-							let enable_var = self.get_variable_by_id(r.enable).unwrap();
-							// we dont have to test sensitivity of reset signal, because it is not-worse than async
-							//let reset_var = self.get_variable_by_id(r.nreset).unwrap();
-
-							if !clk_var.is_clock() {
-								return Err(miette::Report::new(
-									InstanceError::ArgumentsMismatch
-										.to_diagnostic_builder()
-										.label(clk_var.var.location, "Clk signal must be marked as clock")
-										.build(),
-								));
-							}
-							let list = ClockSensitivityList::new().with_clock(
-								clk_var.var.get_clock_name(),
-								true,
-								data_var.var.location,
-							);
-							let data_sensitivity = SignalSensitivity::Sync(list, data_var.var.location);
-							data_var
-								.get_sensitivity()
-								.can_drive(&data_sensitivity, data_var.var.location, ctx)?;
-							if !next_var.get_sensitivity().is_not_worse_than(&clk_var.get_sensitivity()) {
-								return Err(miette::Report::new(
-									InstanceError::ArgumentsMismatch
-										.to_diagnostic_builder()
-										.label(next_var.location(), "Next signal must be synchronized with clock")
-										.build(),
-								));
-							}
-							if !enable_var
-								.get_sensitivity()
-								.is_not_worse_than(&clk_var.get_sensitivity())
-							{
-								return Err(miette::Report::new(
-									InstanceError::ArgumentsMismatch
-										.to_diagnostic_builder()
-										.label(enable_var.location(), "Enable signal must be synchronized with clock")
-										.build(),
-								));
-							}
-						},
-					}
-				},
+			if let VariableKind::Signal(sig) = &v.var.kind {
+				if !sig.is_sensititivity_specified() {
+					return Err(miette::Report::new(
+						SemanticError::MissingSensitivityQualifier
+							.to_diagnostic_builder()
+							.label(
+								v.var.location,
+								"Signal must be either const, clock, comb, sync or async",
+							)
+							.build(),
+					));
+				}
+				if !sig.is_signedness_specified() {
+					return Err(miette::Report::new(
+						SemanticError::MissingSignednessQualifier
+							.to_diagnostic_builder()
+							.label(v.var.location, "Bus signal must be either signed or unsigned")
+							.build(),
+					));
+				}
+				if !sig.is_width_specified() {
+					return Err(miette::Report::new(
+						SemanticError::WidthNotKnown
+							.to_diagnostic_builder()
+							.label(v.var.location, "Bus signals must have specified width")
+							.build(),
+					));
+				}
 			}
+			// we do not have to check for module instances, because their members are checked in previous pass
+			// we also do not have to check for generics
 		}
 		Ok(())
 	}

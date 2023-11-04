@@ -213,18 +213,52 @@ impl Expression {
 			},
 		}
 	}
-	pub fn create_edge_sensitivity(&self) -> miette::Result<EdgeSensitivity> {
+	pub fn create_edge_sensitivity(&self, current_scope: usize, scope: &ModuleImplementationScope, id_table: &crate::lexer::IdTable, list_location: SourceSpan) -> miette::Result<EdgeSensitivity> {
 		use self::Expression::*;
 		match self {
-			Identifier(id) => Ok(EdgeSensitivity {
-				clock_signal: id.id,
-				on_rising: true,
-				location: id.location,
-			}),
+			Identifier(id) =>{
+				let var = match scope.get_variable(current_scope, &id.id){
+					None =>return Err(miette::Report::new(
+						SemanticError::VariableNotDeclared
+							.to_diagnostic_builder()
+							.label(
+								id.location,
+								format!(
+									"This variable {:?} is not declared",
+									id_table.get_by_key(&id.id).unwrap()
+								)
+								.as_str(),
+							)
+							.build(),
+					)),
+					Some(var) => var,
+				}; 
+				if !var.is_clock() {
+					return Err(miette::Report::new(
+						SemanticError::NotClockSignalInSync
+							.to_diagnostic_builder()
+							.label(list_location, "This sync list contains non-clock signals")
+							.label(
+								id.location,
+								format!(
+									"This variable {:?} is not a clock signal",
+									id_table.get_by_key(&id.id).unwrap()
+								)
+								.as_str(),
+							)
+							.build(),
+					));
+				}
+				Ok(EdgeSensitivity {
+					clock_signal: var.id,
+					on_rising: true,
+					location: id.location,
+				})
+			} ,
 			UnaryOperatorExpression(unary) => {
 				use crate::parser::ast::UnaryOpcode::*;
 				match unary.code {
-					LogicalNot => unary.expression.create_edge_sensitivity().map(|mut edge| {
+					LogicalNot => unary.expression.create_edge_sensitivity(current_scope, scope,id_table, list_location).map(|mut edge| {
 						edge.on_rising = !edge.on_rising;
 						edge
 					}),
