@@ -111,7 +111,7 @@ pub enum TokenKind {
 	#[token("async",           |_| KeywordKind::Async)]
 	#[token("impl",            |_| KeywordKind::Impl)]
 	#[token("clock",           |_| KeywordKind::Clock)]
-	#[token("conditional",     |_| KeywordKind::Conditional)]
+	#[token("cond",     |_| KeywordKind::Conditional)]
 	#[token("match",           |_| KeywordKind::Match)]
 	#[token("bus",             |_| KeywordKind::Bus)]
 	#[token("comb",            |_| KeywordKind::Comb)]
