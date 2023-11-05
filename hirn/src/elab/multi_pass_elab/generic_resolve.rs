@@ -102,6 +102,11 @@ impl GenericResolvePassCtx {
 			use petgraph::data::Element::*;
 			match element {
 				Node{weight: signal_id} => {
+					// If the variable has an assumption already, we don't need to resolve it
+					if assumptions.get(signal_id).is_some() {
+						continue;
+					}
+					
 					let sig = self.design.get_signal(signal_id).expect("signal not in design");
 					let expr = assigned_values.get(&signal_id).ok_or_else(|| {
 						error!("The generic variable '{}' is not assigned", sig.name());
@@ -197,7 +202,7 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for GenericResolvePass {
 
 		let result = ctx.analyze_unconditional_scope(module.scope(), full_ctx.assumptions());
 		if let Err(err) = result {
-			error!("Module {:?} contains errors", module.id());
+			error!("Module {:?} contains errors ({:?})", module.id(), err);
 			full_ctx.add_message(err.into());
 		}
 
