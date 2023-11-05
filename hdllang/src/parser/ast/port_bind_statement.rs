@@ -7,7 +7,7 @@ use log::debug;
 
 use crate::analyzer::module_implementation_scope::InternalVariableId;
 use crate::analyzer::{
-	AdditionalContext, BusWidth, GlobalAnalyzerContext, LocalAnalyzerContex, ModuleImplementationScope, SemanticError,
+	AdditionalContext, BusWidth, GlobalAnalyzerContext, LocalAnalyzerContext, ModuleImplementationScope, SemanticError,
 	SensitivityGraphEntry, Signal, Variable,
 };
 use crate::parser::ast::{Expression, SourceLocation, VariableDeclaration};
@@ -71,7 +71,7 @@ impl PortBindStatement {
 	pub fn get_sensitivity_entry(
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
-		local_ctx: &LocalAnalyzerContex,
+		local_ctx: &LocalAnalyzerContext,
 		scope_id: usize,
 	) -> Vec<SensitivityGraphEntry> {
 		use self::PortBindStatement::*;
@@ -115,7 +115,7 @@ impl PortBindStatement {
 	pub fn get_type(
 		&self,
 		ctx: &GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		scope_id: usize,
 		interface_signal: Signal,
 		is_output: bool,
@@ -213,11 +213,11 @@ impl PortBindStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		api_scope: &mut ScopeHandle,
 		current_scope: usize,
 	) -> miette::Result<hirn::design::Expression> {
-		let additional_ctx = AdditionalContext::new(local_ctx.nc_widths.clone(), local_ctx.array_or_bus.clone());
+		let additional_ctx = AdditionalContext::new(local_ctx.nc_widths.clone(), local_ctx.array_or_bus.clone(), local_ctx.casts.clone());
 		use self::PortBindStatement::*;
 		match self {
 			OnlyId(only_id) => {

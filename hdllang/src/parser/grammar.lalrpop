@@ -267,7 +267,7 @@ DirectInitializer: DirectInitializer = {
 			expression,
 			location:SourceSpan::new_between(start,end),
 		}},
-	<start: @L>  <declarator:DirectDecl> "=" <expr:ExprWithTuple> <end: @R> =>
+	<declarator:DirectDecl> <start: @L> "=" <end: @R> <expr:ExprWithTuple> =>
 	{
 	let expression = Some(expr);
 	DirectInitializer{

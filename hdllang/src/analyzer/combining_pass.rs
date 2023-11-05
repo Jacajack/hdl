@@ -126,7 +126,7 @@ pub struct SemanticalAnalyzer<'a> {
 	passes: Vec<
 		for<'b> fn(
 			&mut GlobalAnalyzerContext<'a>,
-			&mut LocalAnalyzerContex,
+			&mut LocalAnalyzerContext,
 			&ModuleImplementation,
 		) -> miette::Result<()>,
 	>,
@@ -164,7 +164,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 					))
 				},
 			};
-			let mut local_ctx = LocalAnalyzerContex::new(module.id, scope);
+			let mut local_ctx = LocalAnalyzerContext::new(module.id, scope);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
@@ -194,7 +194,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 					))
 				},
 			};
-			let mut local_ctx = LocalAnalyzerContex::new(module.id, scope);
+			let mut local_ctx = LocalAnalyzerContext::new(module.id, scope);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
@@ -239,7 +239,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 					))
 				},
 			};
-			let mut local_ctx = LocalAnalyzerContex::new(module.id, scope);
+			let mut local_ctx = LocalAnalyzerContext::new(module.id, scope);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
@@ -264,7 +264,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 /// This pass collects all variables
 pub fn first_pass(
 	ctx: &mut GlobalAnalyzerContext,
-	local_ctx: &mut LocalAnalyzerContex,
+	local_ctx: &mut LocalAnalyzerContext,
 	module: &ModuleImplementation,
 ) -> miette::Result<()> {
 	// all passes are performed per module
@@ -276,7 +276,7 @@ pub fn first_pass(
 /// This pass checks if all variables have specified sensitivity and width if needed
 pub fn second_pass(
 	ctx: &mut GlobalAnalyzerContext,
-	local_ctx: &mut LocalAnalyzerContex,
+	local_ctx: &mut LocalAnalyzerContext,
 	module: &ModuleImplementation,
 ) -> miette::Result<()> {
 	// all passes are performed per module
@@ -288,7 +288,7 @@ pub fn second_pass(
 /// This pass invokes HIRN API and creates proper module
 pub fn codegen_pass(
 	ctx: &mut GlobalAnalyzerContext,
-	local_ctx: &mut LocalAnalyzerContex,
+	local_ctx: &mut LocalAnalyzerContext,
 	module: &ModuleImplementation,
 ) -> miette::Result<()> {
 	module.codegen_pass(ctx, local_ctx)?;
@@ -308,31 +308,33 @@ pub struct GlobalAnalyzerContext<'a> {
 pub struct AdditionalContext {
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
 	pub array_or_bus: HashMap<SourceSpan, bool>, // to distinguish between array and bus in index expr
+	pub casts: HashMap<SourceSpan, Cast>,
 }
 impl AdditionalContext {
-	pub fn new(nc_widths: HashMap<SourceSpan, NumericConstant>, array_or_bus: HashMap<SourceSpan, bool>) -> Self {
+	pub fn new(nc_widths: HashMap<SourceSpan, NumericConstant>, array_or_bus: HashMap<SourceSpan, bool>, casts:HashMap<SourceSpan, Cast>) -> Self {
 		AdditionalContext {
 			nc_widths,
 			array_or_bus,
+			casts,
 		}
 	}
 }
 /// Per module context for semantic analysis
-pub struct LocalAnalyzerContex {
+pub struct LocalAnalyzerContext {
 	pub scope: ModuleImplementationScope,
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
 	pub array_or_bus: HashMap<SourceSpan, bool>, // to distinguish between array and bus in index expr
-	pub casts: HashMap<SourceSpan, Signal>,
 	pub widths_map: HashMap<SourceSpan, BusWidth>,
 	pub scope_map: HashMap<SourceSpan, usize>,
 	pub module_id: IdTableKey,
 	pub sensitivity_graph: super::SensitivityGraph,
 	pub are_we_in_true_branch: Vec<bool>,
 	pub number_of_recursive_calls: usize,
+	pub casts: HashMap<SourceSpan, Cast>,
 }
-impl LocalAnalyzerContex {
+impl LocalAnalyzerContext {
 	pub fn new(module_id: IdTableKey, scope: ModuleImplementationScope) -> Self {
-		LocalAnalyzerContex {
+		LocalAnalyzerContext {
 			scope,
 			scope_map: HashMap::new(),
 			module_id,
@@ -357,7 +359,7 @@ impl ModuleImplementation {
 	pub fn first_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 	) -> miette::Result<()> {
 		debug!(
 			"Analyzing module implementation {}",
@@ -384,7 +386,7 @@ impl ModuleImplementation {
 	pub fn second_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 	) -> miette::Result<()> {
 		local_ctx.second_pass(ctx)?;
 		Ok(())
@@ -393,7 +395,7 @@ impl ModuleImplementation {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 	) -> miette::Result<()> {
 		debug!(
 			"Codegen pass for module implementation {}",
@@ -432,7 +434,7 @@ impl ModuleImplementationStatement {
 	pub fn first_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		scope_id: usize,
 	) -> miette::Result<()> {
 		local_ctx.scope_map.insert(self.get_location(), scope_id);
@@ -954,7 +956,7 @@ impl ModuleImplementationStatement {
 				if scope.is_generic() && local_ctx.are_we_in_true_branch.last().unwrap().clone() {
 					scope.unmark_as_generic();
 					let implementation = ctx.generic_modules.get(&name).unwrap().clone();
-					let mut new_local_ctx = LocalAnalyzerContex::new(implementation.id, scope);
+					let mut new_local_ctx = LocalAnalyzerContext::new(implementation.id, scope);
 					new_local_ctx.number_of_recursive_calls = recursive_calls;
 					first_pass(ctx, &mut new_local_ctx, &implementation)?;
 					new_local_ctx.second_pass(ctx)?;
@@ -981,12 +983,12 @@ impl ModuleImplementationStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
 		info!("Reading scope id for {:?}", self.get_location());
 		let scope_id = local_ctx.scope_map.get(&self.get_location()).unwrap().to_owned();
-		let additional_ctx = AdditionalContext::new(local_ctx.nc_widths.clone(), local_ctx.array_or_bus.clone());
+		let additional_ctx = AdditionalContext::new(local_ctx.nc_widths.clone(), local_ctx.array_or_bus.clone(), local_ctx.casts.clone());
 		use ModuleImplementationStatement::*;
 		match self {
 			VariableBlock(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
@@ -1505,7 +1507,7 @@ impl ModuleImplementationBlockStatement {
 	pub fn analyze(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		scope_id: usize,
 	) -> miette::Result<()> {
 		let new_id = local_ctx.scope.new_scope(Some(scope_id));
@@ -1518,7 +1520,7 @@ impl ModuleImplementationBlockStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
 		let mut subscope = api_scope.new_subscope().unwrap();
@@ -1533,7 +1535,7 @@ impl VariableDefinition {
 		&self,
 		already_created: AlreadyCreated,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		scope_id: usize,
 	) -> miette::Result<()> {
 		local_ctx.scope_map.insert(self.location, scope_id);
@@ -1654,7 +1656,7 @@ impl VariableDefinition {
 								entries,
 								crate::analyzer::SensitivityGraphEntry::Signal(
 									id,
-									direct_initializer.declarator.get_location(),
+									direct_initializer.location,
 								),
 								expr.get_location(),
 							)
@@ -1702,7 +1704,7 @@ impl VariableDefinition {
 									id,
 									direct_initializer.declarator.get_location(),
 								),
-								expr.get_location(),
+								direct_initializer.location,
 							)
 							.map_err(|e| e.build())?;
 					}
@@ -1731,10 +1733,10 @@ impl VariableDefinition {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
-		let additional_ctx = AdditionalContext::new(local_ctx.nc_widths.clone(), local_ctx.array_or_bus.clone());
+		let additional_ctx = AdditionalContext::new(local_ctx.nc_widths.clone(), local_ctx.array_or_bus.clone(), local_ctx.casts.clone());
 		let scope_id = local_ctx.scope_map.get(&self.location).unwrap().to_owned();
 		for direct_initializer in &self.initializer_list {
 			let variable = local_ctx
@@ -1776,7 +1778,7 @@ impl VariableBlock {
 	pub fn analyze(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		mut already_created: AlreadyCreated,
 		scope_id: usize,
 	) -> miette::Result<()> {
@@ -1789,7 +1791,7 @@ impl VariableBlock {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
 		for statement in &self.statements {
@@ -1803,7 +1805,7 @@ impl VariableBlockStatement {
 		&self,
 		already_created: AlreadyCreated,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		scope_id: usize,
 	) -> miette::Result<()> {
 		match self {
@@ -1819,7 +1821,7 @@ impl VariableBlockStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
 		match self {
@@ -1837,7 +1839,7 @@ fn create_register(
 	inst_stmt: &InstantiationStatement,
 	scope_id: usize,
 	ctx: &mut GlobalAnalyzerContext,
-	local_ctx: &mut LocalAnalyzerContex,
+	local_ctx: &mut LocalAnalyzerContext,
 ) -> miette::Result<RegisterInstance> {
 	if inst_stmt.port_bind.len() != 5 {
 		return Err(miette::Report::new(

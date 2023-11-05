@@ -72,6 +72,13 @@ impl SignalSensitivity {
 			NoSensitivity => "none",
 		}
 	}
+	pub fn is_none(&self) -> bool {
+		use SignalSensitivity::*;
+		match self {
+			NoSensitivity => true,
+			_ => false,
+		}
+	}
 	pub fn evaluate_sensitivity(&mut self, others: Vec<SignalSensitivity>, location: SourceSpan) {
 		use SignalSensitivity::*;
 		for sens in others {
@@ -319,7 +326,7 @@ impl SignalSensitivity {
 						.label(*self.location().unwrap(), "This sensitivity is better than asynchronous")
 						.label(
 							location,
-							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the source signal",
+							"Cannot assign signals - sensitivity mismatch. Sensitivty of the destination signal should be a super set of the source signal"
 						)
 						.label(*sensitivity_location, "This sensitivity is asynchronous")
 						,
@@ -330,7 +337,7 @@ impl SignalSensitivity {
 						.to_diagnostic_builder()
 						.label(
 							location,
-							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the source signal",
+							"Cannot assign signals - sensitivity mismatch. Sensitivty of the destination signal should be a super set of the source signal"
 						)
 						.label(*sensitivity_location, "This sensitivity is better than comb")
 						,
@@ -342,7 +349,7 @@ impl SignalSensitivity {
 						.to_diagnostic_builder()
 						.label(
 							location,
-							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the source signal",
+							"Cannot assign signals - sensitivity mismatch. Sensitivty of the destination signal should be a super set of the source signal"
 						)
 						.label(*sensitivity_location, "This sensitivity is better than sync")
 						,
@@ -355,7 +362,7 @@ impl SignalSensitivity {
 						.to_diagnostic_builder()
 						.label(
 							location,
-							"Cannot bind signals - sensitivity mismatch. Sensitivity on the left assignment side must be worse or same as on the source signal",
+							"Cannot assign signals - sensitivity mismatch. Sensitivty of the destination signal should be a super set of the source signal"
 						)
 						.label(*sensitivity_location, "This sensitivity is const")
 						.label(*rhs.location().unwrap(), "This sensitivity is worse than const")

@@ -3,7 +3,7 @@ use std::{
 	hash::Hash,
 };
 
-use super::{GlobalAnalyzerContext, ModuleImplementationScope, SignalSensitivity, LocalAnalyzerContex};
+use super::{GlobalAnalyzerContext, ModuleImplementationScope, SignalSensitivity, LocalAnalyzerContext};
 use bimap::BiHashMap;
 use itertools::Itertools;
 use petgraph::{
@@ -401,7 +401,7 @@ impl crate::parser::ast::Expression {
 	pub fn get_sensitivity_entry(
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
-		ctx: &LocalAnalyzerContex,
+		ctx: &LocalAnalyzerContext,
 		scope_id: usize,
 	) -> Vec<SensitivityGraphEntry> {
 		use crate::parser::ast::Expression::*;
@@ -498,7 +498,15 @@ impl crate::parser::ast::Expression {
 				unreachable!()			
 			},
 			UnaryOperatorExpression(unary) => unary.expression.get_sensitivity_entry(global_ctx, ctx, scope_id),
-			UnaryCastExpression(_) => todo!(),
+			UnaryCastExpression(cast) => {
+				let c = ctx.casts.get(&self.get_location()).unwrap();
+				if c.dest_sensitivity.is_none(){
+					return cast.expression.get_sensitivity_entry(global_ctx, ctx, scope_id);
+				}
+				else{
+					return vec![SensitivityGraphEntry::new_sens(c.dest_sensitivity.clone())];
+				}
+			},
 			BinaryExpression(binop) => vec![
 				binop.lhs.get_sensitivity_entry(global_ctx, ctx, scope_id),
 				binop.rhs.get_sensitivity_entry(global_ctx, ctx, scope_id),

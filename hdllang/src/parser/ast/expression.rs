@@ -15,7 +15,7 @@ mod unary_cast_expression;
 mod unary_operator_expression;
 
 use crate::analyzer::{
-	AdditionalContext, AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContex,
+	AdditionalContext, AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContext,
 	ModuleImplementationScope, SemanticError, Signal, SignalSensitivity, SignalSignedness, SignalType, VariableKind, ModuleInstanceKind,
 };
 use crate::core::{CompilerDiagnosticBuilder, NumericConstant};
@@ -39,7 +39,7 @@ pub use postfix_with_id::PostfixWithId;
 pub use postfix_with_index::PostfixWithIndex;
 pub use postfix_with_range::PostfixWithRange;
 use std::cmp::max;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Error, Formatter};
 use std::vec;
 pub use ternary_expression::TernaryExpression;
@@ -302,7 +302,7 @@ impl Expression {
 	pub fn assign(
 		&self,
 		value: BusWidth,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		scope_id: usize,
 	) -> Result<(), CompilerDiagnosticBuilder> {
 		use Expression::*;
@@ -664,7 +664,7 @@ impl Expression {
 	pub fn is_signedness_specified(
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
-		local_ctx: &LocalAnalyzerContex,
+		local_ctx: &LocalAnalyzerContext,
 		current_scope: usize,
 	) -> bool {
 		use Expression::*;
@@ -725,7 +725,7 @@ impl Expression {
 	pub fn is_width_specified(
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
-		local_ctx: &LocalAnalyzerContex,
+		local_ctx: &LocalAnalyzerContext,
 		current_scope: usize,
 	) -> bool {
 		use Expression::*;
@@ -1253,7 +1253,49 @@ impl Expression {
 				let src = unary_cast
 					.expression
 					.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
-				todo!()
+				let cast = additional_ctx.unwrap().casts.get(&self.get_location()).unwrap();
+				use SignalSensitivity::*;
+				let sensitivity = match &cast.dest_sensitivity {
+        			Async(_) => Some(hirn::design::SignalSensitivity::Async),
+        			Comb(list, _) => {
+						let mut new_list = hirn::design::ClockSensitivityList::new_empty();
+						for edge in &list.list {
+							let id = scope.get_api_id_by_internal_id(edge.clock_signal).unwrap();
+							let new_edge = hirn::design::EdgeSensitivity {
+								clock_signal: id,
+								on_rising: edge.on_rising,
+							};
+							new_list.push(new_edge);
+						}
+						Some(hirn::design::SignalSensitivity::Comb(new_list))
+					},
+					Sync(list, _) => {
+						let mut new_list = hirn::design::ClockSensitivityList::new_empty();
+						for edge in &list.list {
+							let id = scope.get_api_id_by_internal_id(edge.clock_signal).unwrap();
+							let new_edge = hirn::design::EdgeSensitivity {
+								clock_signal: id,
+								on_rising: edge.on_rising,
+							};
+							new_list.push(new_edge);
+						}
+						Some(hirn::design::SignalSensitivity::Sync(new_list))
+					},
+        			Clock(_, _) => Some(hirn::design::SignalSensitivity::Clock),
+        			Const(_) => Some(hirn::design::SignalSensitivity::Const),
+        			NoSensitivity => None,
+    			};
+				use SignalSignedness::*;
+				let signedness = match &cast.dest_signedness{
+    			    Signed(_) => Some(hirn::design::SignalSignedness::Signed),
+    			    Unsigned(_) => Some(hirn::design::SignalSignedness::Unsigned),
+    			    NoSignedness => None,
+    			};
+				Ok(hirn::design::Expression::Cast(hirn::design::CastExpression{
+					src: Box::new(src),
+					signedness,
+					sensitivity,
+				}))
 			},
 			BinaryExpression(binop) => {
 				use crate::parser::ast::BinaryOpcode::*;
@@ -1318,7 +1360,7 @@ impl Expression {
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
 		scope_id: usize,
-		local_ctx: &LocalAnalyzerContex,
+		local_ctx: &LocalAnalyzerContext,
 	) -> miette::Result<bool> {
 		use Expression::*;
 		match self {
@@ -1381,7 +1423,7 @@ impl Expression {
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
 		scope_id: usize,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		coupling_type: Signal,
 		is_lhs: bool,
 		location: SourceSpan,
@@ -2362,17 +2404,18 @@ impl Expression {
 							}
 						}
 						let mut r = sig.clone();
+						let mut cast = Cast::new(self.get_location());
 						if !r.is_sensititivity_specified() {
 							r.sensitivity = expr.sensitivity.clone();
 						}
 						else{
-							
+							cast.add_sensitivity(r.sensitivity.clone())
 						}
 						if !r.is_signedness_specified() {
 							r.set_signedness(expr.get_signedness(), location);
 						}
 						else{
-							
+							cast.add_signedness(r.get_signedness());
 						}
 						if !r.is_width_specified() {
 							r.set_width(
@@ -2382,7 +2425,7 @@ impl Expression {
 							)
 						}
 						debug!("casted to: {:?}", r);
-						local_ctx.casts.insert(self.get_location(), r.clone());
+						local_ctx.casts.insert(self.get_location(), cast);
 						Ok(r)
 					},
 					VariableKind::Generic(_) => {
@@ -2588,7 +2631,27 @@ impl Expression {
 		}
 	}
 }
-
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Cast{
+	pub location: SourceSpan,
+	pub dest_signedness: SignalSignedness,
+	pub dest_sensitivity: SignalSensitivity,
+}
+impl Cast{
+	pub fn new(location: SourceSpan) -> Self{
+		Self{
+			location,
+			dest_signedness: SignalSignedness::NoSignedness,
+			dest_sensitivity: SignalSensitivity::NoSensitivity,
+		}
+	}
+	pub fn add_signedness(&mut self, signedness: SignalSignedness){
+		self.dest_signedness = signedness;
+	}
+	pub fn add_sensitivity(&mut self, sensitivity: SignalSensitivity){
+		self.dest_sensitivity = sensitivity;
+	}
+}
 fn report_not_allowed_expression(span: SourceSpan, expr_name: &str) -> miette::Result<Option<NumericConstant>> {
 	Err(miette::Report::new(
 		SemanticError::ExpressionNotAllowedInNonGenericModuleDeclaration
