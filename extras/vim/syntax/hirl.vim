@@ -17,7 +17,7 @@ syn keyword hirl_keywords super
 syn keyword hirl_keywords root
 syn keyword hirl_keywords package
 syn keyword hirl_keywords use
-syn keyword hirl_keywords conditional
+syn keyword hirl_keywords cond
 syn keyword hirl_keywords match
 hi def link hirl_keywords Keyword
 
@@ -25,6 +25,11 @@ hi def link hirl_keywords Keyword
 syn keyword hirl_types wire
 syn keyword hirl_types auto
 syn keyword hirl_types bus
+syn keyword hirl_types ubus
+syn keyword hirl_types sbus
+syn keyword hirl_types int
+syn keyword hirl_types uint
+syn keyword hirl_types bool
 hi def link hirl_types Type
 
 " Input/output
