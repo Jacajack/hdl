@@ -319,7 +319,6 @@ impl AdditionalContext {
 }
 /// Per module context for semantic analysis
 pub struct LocalAnalyzerContex {
-	pub are_we_in_conditional: usize,
 	pub scope: ModuleImplementationScope,
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
 	pub array_or_bus: HashMap<SourceSpan, bool>, // to distinguish between array and bus in index expr
@@ -334,7 +333,6 @@ pub struct LocalAnalyzerContex {
 impl LocalAnalyzerContex {
 	pub fn new(module_id: IdTableKey, scope: ModuleImplementationScope) -> Self {
 		LocalAnalyzerContex {
-			are_we_in_conditional: 0,
 			scope,
 			scope_map: HashMap::new(),
 			module_id,
@@ -449,17 +447,6 @@ impl ModuleImplementationStatement {
 					report_not_allowed_lhs(assignment.lhs.get_location())?;
 				}
 				if assignment.lhs.is_generic(ctx, scope_id, local_ctx)? {
-					if local_ctx.are_we_in_conditional > 0 {
-						return Err(miette::Report::new(
-							SemanticError::GenericInConditional
-								.to_diagnostic_builder()
-								.label(
-									assignment.location,
-									"Generic variable cannot be assigned in conditional statement",
-								)
-								.build(),
-						));
-					}
 					debug!("Lhs is generic");
 					match assignment.rhs.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)? {
 						Some(val) => assignment.lhs.assign(
@@ -529,7 +516,6 @@ impl ModuleImplementationStatement {
 					.condition
 					.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?;
 				let if_scope = local_ctx.scope.new_scope(Some(scope_id));
-				local_ctx.are_we_in_conditional += 1;
 				debug!("Condition is {:?}", condition_type);
 				let cond = condition_type.unwrap().value != num_bigint::BigInt::from(0);
 				local_ctx.are_we_in_true_branch.push(cond);
@@ -544,10 +530,8 @@ impl ModuleImplementationStatement {
 					},
 					None => (),
 				}
-				local_ctx.are_we_in_conditional -= 1;
 			},
 			IterationStatement(iteration) => {
-				local_ctx.are_we_in_conditional += 1;
 				let id = local_ctx.scope.new_scope(Some(scope_id));
 				let mut initial_val = iteration
 					.range
@@ -601,7 +585,6 @@ impl ModuleImplementationStatement {
 					initial_val += 1;
 				}
 
-				local_ctx.are_we_in_conditional -= 1;
 			},
 			InstantiationStatement(inst) => {
 				let name = inst.module_name.get_last_module();
