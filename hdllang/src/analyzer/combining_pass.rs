@@ -1211,6 +1211,7 @@ impl ModuleImplementationStatement {
 									})?
 									.generated(),
 							)?;
+							local_ctx.scope.insert_api_id(next_var.id, next_id);
 							let enable_id = en_var.var.register(
 								ctx.nc_table,
 								ctx.id_table,
@@ -1227,6 +1228,7 @@ impl ModuleImplementationStatement {
 									})?
 									.generated(),
 							)?;
+							local_ctx.scope.insert_api_id(en_var.id, enable_id);
 							let reset_id = nreset_var.var.register(
 								ctx.nc_table,
 								ctx.id_table,
@@ -1243,6 +1245,7 @@ impl ModuleImplementationStatement {
 									})?
 									.generated(),
 							)?;
+							local_ctx.scope.insert_api_id(nreset_var.id, reset_id);
 							let data_id = data_var.var.register(
 								ctx.nc_table,
 								ctx.id_table,
@@ -1259,6 +1262,7 @@ impl ModuleImplementationStatement {
 									})?
 									.generated(),
 							)?;
+							local_ctx.scope.insert_api_id(data_var.id, data_id);
 							for stmt in &inst.port_bind {
 								let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
 								debug!("Codegen pass for port bind {:?}", stmt);

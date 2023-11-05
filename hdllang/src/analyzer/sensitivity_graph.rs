@@ -12,7 +12,7 @@ use petgraph::{
 };
 
 use crate::{
-	analyzer::SemanticError, core::CompilerDiagnosticBuilder, parser::ast::SourceLocation, ProvidesCompilerDiagnostic,
+	analyzer::{SemanticError, VariableKind, ModuleInstanceKind}, core::CompilerDiagnosticBuilder, parser::ast::SourceLocation, ProvidesCompilerDiagnostic,
 	SourceSpan,
 };
 
@@ -473,7 +473,30 @@ impl crate::parser::ast::Expression {
 					_ => unreachable!(),
 				}
 			},
-			PostfixWithId(_) => todo!(),
+			PostfixWithId(postfix) => {
+				let var = ctx.get_variable(scope_id, &postfix.expression).unwrap();
+				if let VariableKind::ModuleInstance(inst) = &var.var.kind{
+					use ModuleInstanceKind::*;
+					match &inst.kind{
+    				    Module(m) => {
+							let v = m.interface.get(&postfix.id).unwrap();
+							let var = ctx.get_variable_by_id(*v).unwrap();
+							return vec![SensitivityGraphEntry::new_signal(var.id, var.var.location)];
+						},
+    				    Register(reg) => {
+							return match global_ctx.id_table.get_value(&postfix.id).as_str(){
+								"clk" => vec![SensitivityGraphEntry::new_signal(reg.clk, reg.location)],
+								"next" => vec![SensitivityGraphEntry::new_signal(reg.next, reg.location)],
+								"nreset" => vec![SensitivityGraphEntry::new_signal(reg.nreset, reg.location)],
+								"data" => vec![SensitivityGraphEntry::new_signal(reg.data, reg.location)],
+								"en" => vec![SensitivityGraphEntry::new_signal(reg.enable, reg.location)],
+								_=> unreachable!()
+							};
+						},
+    				}
+				}	
+				unreachable!()			
+			},
 			UnaryOperatorExpression(unary) => unary.expression.get_sensitivity_entry(global_ctx, ctx, scope_id),
 			UnaryCastExpression(_) => todo!(),
 			BinaryExpression(binop) => vec![

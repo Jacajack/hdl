@@ -16,7 +16,7 @@ mod unary_operator_expression;
 
 use crate::analyzer::{
 	AdditionalContext, AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContex,
-	ModuleImplementationScope, SemanticError, Signal, SignalSensitivity, SignalSignedness, SignalType, VariableKind,
+	ModuleImplementationScope, SemanticError, Signal, SignalSensitivity, SignalSignedness, SignalType, VariableKind, ModuleInstanceKind,
 };
 use crate::core::{CompilerDiagnosticBuilder, NumericConstant};
 use crate::lexer::IdTableKey;
@@ -1212,7 +1212,28 @@ impl Expression {
 					_ => unreachable!(),
 				}
 			},
-			PostfixWithId(_) => todo!(),
+			PostfixWithId(postfix) => {
+				let var = scope.get_variable(scope_id, &postfix.expression).unwrap();
+				match &var.var.kind {
+					VariableKind::ModuleInstance(instance) => match &instance.kind {
+						ModuleInstanceKind::Register(m) => {
+							match id_table.get_value(&postfix.id).as_str(){
+								"data"=> Ok(scope.get_api_id_by_internal_id(m.data).unwrap().into()),
+								"en"=> Ok(scope.get_api_id_by_internal_id(m.enable).unwrap().into()),
+								"next"=> Ok(scope.get_api_id_by_internal_id(m.next).unwrap().into()),
+								"clk"=> Ok(scope.get_api_id_by_internal_id(m.clk).unwrap().into()),
+								"nreset"=> Ok(scope.get_api_id_by_internal_id(m.nreset).unwrap().into()),
+								_=> unreachable!(),
+							}
+						},
+						ModuleInstanceKind::Module(m) => {
+							let var = m.interface.get(&postfix.id).unwrap();
+							Ok(scope.get_api_id_by_internal_id(*var).unwrap().into())
+						},
+					},
+					_ => unreachable!(),
+				}
+			},
 			UnaryOperatorExpression(unary) => {
 				use crate::parser::ast::UnaryOpcode::*;
 				let operand = unary
@@ -2158,8 +2179,58 @@ impl Expression {
 				let m = local_ctx.scope.get_variable(scope_id, &module.expression);
 				match m {
 					Some(var) => match &var.var.kind {
-						crate::analyzer::VariableKind::ModuleInstance(_) => {
-							todo!()
+						crate::analyzer::VariableKind::ModuleInstance(m) => {
+							use ModuleInstanceKind::*;
+							match &m.kind{
+        						Module(m) => {
+									match m.interface.get(&module.id){
+        							    Some(id) => {
+											let sig = local_ctx.scope.get_intermidiate_signal(*id);
+											return Ok(sig.var.kind.to_signal().unwrap());
+										},
+        							    None => {
+											return Err(miette::Report::new(
+												SemanticError::IdNotSubscriptable
+													.to_diagnostic_builder()
+													.label(self.get_location(), "This variable is not part of this module interface")
+													.build(),
+											));
+										},
+        							}
+								},
+        						Register(reg) => {
+									match global_ctx.id_table.get_value(&module.id).as_str(){
+										"data"=>{
+											let var = local_ctx.scope.get_variable_by_id(reg.data).unwrap();
+											return Ok(var.var.kind.to_signal().unwrap());
+										},
+										"next"=>{
+											let var = local_ctx.scope.get_variable_by_id(reg.next).unwrap();
+											return Ok(var.var.kind.to_signal().unwrap());
+										},
+										"en"=>{
+											let var = local_ctx.scope.get_variable_by_id(reg.enable).unwrap();
+											return Ok(var.var.kind.to_signal().unwrap());
+										},
+										"clk"=>{
+											let var = local_ctx.scope.get_variable_by_id(reg.clk).unwrap();
+											return Ok(var.var.kind.to_signal().unwrap());
+										},
+										"nreset"=>{
+											let var = local_ctx.scope.get_variable_by_id(reg.nreset).unwrap();
+											return Ok(var.var.kind.to_signal().unwrap());
+										},
+										_=> {
+												return Err(miette::Report::new(
+												SemanticError::IdNotSubscriptable
+													.to_diagnostic_builder()
+													.label(self.get_location(), "This variable is not part of this module interface")
+													.build(),
+											));
+										}
+									}
+								},
+   	 						}
 						},
 						_ => {
 							return Err(miette::Report::new(

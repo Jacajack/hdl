@@ -1,0 +1,20 @@
+module m {}
+impl m {
+	clock wire clk;
+	comb(clk) auto next ;
+	sync(clk) unsigned auto out = 4u5; 
+	async wire nreset;
+	comb(clk) wire en;
+	register reg {
+		clk,
+		nreset: nreset,
+		en: en,
+		next: next,
+		data: out,
+	}
+	auto d = reg.xxx;
+	auto e = reg.en;
+	auto n = reg.next;
+	auto c = reg.clk;
+	auto r = reg.nreset;
+}
