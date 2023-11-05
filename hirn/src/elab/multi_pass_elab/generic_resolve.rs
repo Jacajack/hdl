@@ -158,6 +158,10 @@ impl GenericResolvePassCtx {
 			let scope_handle = self.design.get_scope_handle(cond_scope.scope).expect("scope not in design");
 			self.analyze_unconditional_scope(scope_handle, assumptions)?;
 		}
+		else if let Some(else_scope_id) = cond_scope.else_scope{
+			let scope_handle = self.design.get_scope_handle(else_scope_id).expect("scope not in design");
+			self.analyze_unconditional_scope(scope_handle, assumptions)?;
+		}
 		Ok(())
 	}
 
