@@ -6,7 +6,7 @@ module sequencer {
 
 impl sequencer {
     comb(clk) bus<16> next = (data + 1u1)[0:15];
-    register state{
+    reg state{
         clk,
         en: true,
         nreset,

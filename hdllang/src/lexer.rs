@@ -73,6 +73,8 @@ impl ProvidesCompilerDiagnostic for LexerError {
 pub enum KeywordKind {
 	Auto,
 	Bus,
+	SBus,
+	UBus,
 	Bool,
 	Clock,
 	Comb,
@@ -87,6 +89,7 @@ pub enum KeywordKind {
 	Impl,
 	Input,
 	Int,
+	UInt,
 	Match,
 	Module,
 	Node,

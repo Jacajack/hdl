@@ -5,7 +5,7 @@ impl m {
 	const unsigned auto out = 4u5; // ERROR
 	async wire nreset;
 	comb(clk) wire en;
-	register reg {
+	reg reg1 {
 		clk,
 		nreset: nreset,
 		en: en,

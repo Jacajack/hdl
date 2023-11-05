@@ -1,7 +1,7 @@
-module cond{}
+module conditional{}
 
-impl cond{
-	auto x = conditional{
+impl conditional{
+	auto x = cond{
 		1u1 => 1u3,
 		default => 0u3
 	};

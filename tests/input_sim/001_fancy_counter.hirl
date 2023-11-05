@@ -11,14 +11,14 @@ module fancy_counter{
 }
 
 impl fancy_counter{
-	register counter{
+	reg counter{
 		clk, nreset, en,
 		next: trunc(data + 1u1),
 		data,
 	};
 
 	sync(clk) auto counter_last;
-	register delayed{
+	reg delayed{
 		clk, nreset, en,
 		next: data,
 		data: counter_last
