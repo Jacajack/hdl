@@ -132,6 +132,8 @@ pub enum SemanticError {
 	ModuleInstantionUsedAsSignal,
 	#[error("It is not allowed to assign value to generic variable more than once")]
 	MultipleAssignment,
+	#[error("Each match expression must be unique")]
+	DuplicateMatchValue,
 	#[error(transparent)]
 	InstanceError(InstanceError),
 }
@@ -290,6 +292,9 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
 			MultipleAssignment => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all generic variables are assigned only once")
+				.build(),
+    		DuplicateMatchValue => CompilerDiagnosticBuilder::from_error(&self)
+				.help("Please make sure that all match expressions are unique")
 				.build(),
 		}
 	}

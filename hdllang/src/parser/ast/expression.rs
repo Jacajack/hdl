@@ -1556,6 +1556,7 @@ impl Expression {
 					));
 				}
 				let mut res = Signal::new_empty();
+				let mut present_already = HashMap::new();
 				for stmt in &match_expr.statements {
 					match &stmt.antecedent {
 						MatchExpressionAntecendent::Expression {
@@ -1563,6 +1564,16 @@ impl Expression {
 							location: _,
 						} => {
 							for expr in expressions {
+								let value = expr.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?.unwrap();
+								if let Some(prev) =  present_already.insert(value.value.clone(), expr.get_location()) {
+									return Err(miette::Report::new(
+										SemanticError::DuplicateMatchValue
+											.to_diagnostic_builder()
+											.label(prev, "Value is already present here in this match expression")
+											.label(expr.get_location(), "This value is already present in this match expression")
+											.build(),
+									));
+								}
 								let expr_type = expr.evaluate_type(
 									global_ctx,
 									scope_id,
