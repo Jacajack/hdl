@@ -1,8 +1,9 @@
+use super::eval::EvalAssumptions;
 use super::width_expression::WidthExpression;
 use super::{BinaryExpression, BinaryOp, BuiltinOp, EvalContext, EvalError, Expression};
 
 pub trait NarrowEval {
-	fn narrow_eval(&self, ctx: &EvalContext) -> Result<i64, EvalError>;
+	fn narrow_eval(&self, ctx: &dyn EvalAssumptions) -> Result<i64, EvalError>;
 
 	fn const_narrow_eval(&self) -> Result<i64, EvalError> {
 		self.narrow_eval(&EvalContext::default())
@@ -10,7 +11,7 @@ pub trait NarrowEval {
 }
 
 impl NarrowEval for BinaryExpression {
-	fn narrow_eval(&self, ctx: &EvalContext) -> Result<i64, EvalError> {
+	fn narrow_eval(&self, ctx: &dyn EvalAssumptions) -> Result<i64, EvalError> {
 		use BinaryOp::*;
 		let lhs = self.lhs.narrow_eval(ctx)?;
 		let rhs = self.rhs.narrow_eval(ctx)?;
@@ -27,7 +28,7 @@ impl NarrowEval for BinaryExpression {
 }
 
 impl NarrowEval for BuiltinOp {
-	fn narrow_eval(&self, ctx: &EvalContext) -> Result<i64, EvalError> {
+	fn narrow_eval(&self, ctx: &dyn EvalAssumptions) -> Result<i64, EvalError> {
 		use BuiltinOp::*;
 		use Expression::*;
 		match self {
@@ -58,7 +59,7 @@ impl NarrowEval for BuiltinOp {
 }
 
 impl NarrowEval for Expression {
-	fn narrow_eval(&self, ctx: &EvalContext) -> Result<i64, EvalError> {
+	fn narrow_eval(&self, ctx: &dyn EvalAssumptions) -> Result<i64, EvalError> {
 		use Expression::*;
 
 		match self {

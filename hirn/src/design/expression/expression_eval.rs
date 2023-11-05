@@ -1,3 +1,4 @@
+use super::eval::EvalAssumptions;
 use super::{
 	eval::Evaluates, EvalContext, EvalError, Expression, NumericConstant, SignalId, SignalSlice, WidthExpression,
 };
@@ -7,13 +8,13 @@ use super::{
 };
 
 impl Evaluates for NumericConstant {
-	fn eval(&self, _ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
+	fn eval(&self, _ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError> {
 		Ok(self.clone())
 	}
 }
 
 impl Evaluates for SignalId {
-	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
+	fn eval(&self, ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError> {
 		if let Some(design) = ctx.design() {
 			let signal = design.get_signal(*self).unwrap();
 
@@ -32,7 +33,7 @@ impl Evaluates for SignalId {
 }
 
 impl Evaluates for SignalSlice {
-	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
+	fn eval(&self, ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError> {
 		// Evaluate indices
 		let mut indices = Vec::new();
 		for index in &self.indices {
@@ -46,7 +47,7 @@ impl Evaluates for SignalSlice {
 }
 
 impl Evaluates for ConditionalExpression {
-	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
+	fn eval(&self, ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError> {
 		for branch in &self.branches {
 			if branch.condition.eval(ctx)?.is_nonzero() {
 				return branch.value.eval(ctx);
@@ -57,7 +58,7 @@ impl Evaluates for ConditionalExpression {
 }
 
 impl Evaluates for CastExpression {
-	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
+	fn eval(&self, ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError> {
 		match self.signedness {
 			Some(SignalSignedness::Signed) => self.src.eval(ctx)?.as_signed().into(),
 			Some(SignalSignedness::Unsigned) => self.src.eval(ctx)?.as_unsigned().into(),
@@ -67,7 +68,7 @@ impl Evaluates for CastExpression {
 }
 
 impl Evaluates for BinaryExpression {
-	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
+	fn eval(&self, ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError> {
 		use BinaryOp::*;
 		match self.op {
 			LogicalAnd => match self.lhs.eval(ctx)?.is_nonzero() {
@@ -110,7 +111,7 @@ impl Evaluates for BinaryExpression {
 }
 
 impl Evaluates for UnaryExpression {
-	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
+	fn eval(&self, ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError> {
 		use UnaryOp::*;
 		let operand_value = self.operand.eval(ctx)?;
 		match self.op {
@@ -126,7 +127,7 @@ impl Evaluates for UnaryExpression {
 }
 
 impl Evaluates for BuiltinOp {
-	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
+	fn eval(&self, ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError> {
 		use BuiltinOp::*;
 		match self {
 			ZeroExtend { expr, width } => {
@@ -193,7 +194,7 @@ impl Evaluates for BuiltinOp {
 }
 
 impl Evaluates for Expression {
-	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError> {
+	fn eval(&self, ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError> {
 		use Expression::*;
 		match self {
 			Constant(value) => value.eval(ctx),

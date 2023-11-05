@@ -35,6 +35,10 @@ impl FullElabCtx {
 	pub fn design(&self) -> &DesignHandle {
 		&self.design
 	}
+
+	pub fn assumptions(&self) -> Arc<dyn ElabAssumptionsBase> {
+		self.assumptions.clone()
+	}
 }
 
 #[derive(Default)]

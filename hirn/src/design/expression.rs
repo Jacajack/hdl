@@ -7,7 +7,7 @@ mod numeric_constant;
 mod type_eval;
 mod width_expression;
 
-pub use eval::{EvalContext, EvalError, EvalType, Evaluates, EvaluatesType};
+pub use eval::{EvalContext, EvalError, EvalType, Evaluates, EvaluatesType, EvalAssumptions};
 pub use expression_validate::ExpressionError;
 pub use narrow_eval::NarrowEval;
 pub use numeric_constant::NumericConstant;

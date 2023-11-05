@@ -2,7 +2,7 @@ use std::collections::{HashSet, HashMap};
 use std::sync::Arc;
 use log::info;
 
-use crate::design::{ScopeHandle, ConditionalScope, RangeScope};
+use crate::design::{ScopeHandle, ConditionalScope, RangeScope, Evaluates};
 use crate::elab::{ElabSignal, ElabAssumptionsBase};
 use crate::{elab::{ElabError, ElabAssumptions}, design::{ScopeId, SignalId, NarrowEval}};
 use crate::elab::GenericVar;
@@ -16,8 +16,12 @@ pub(super) struct GenericResolvePassCtx {
 }
 
 impl GenericResolvePassCtx {
-	fn analyze_resolved_scope(&mut self, assumptions: Arc<dyn ElabAssumptionsBase>) {
-
+	fn analyze_resolved_scope(&mut self, scope: ScopeHandle, assumptions: Arc<dyn ElabAssumptionsBase>) {
+		for sig_id in scope.signals() {
+			let sig = scope.design().get_signal(sig_id).unwrap();
+			let width = sig.width().eval(&assumptions).unwrap();
+			info!("Found signal {} with width {:?}", sig.name(), width);
+		}
 	}
 
 	fn analyze_unconditional_scope(&mut self, scope: ScopeHandle, assumptions: Arc<dyn ElabAssumptionsBase>) {
@@ -44,6 +48,8 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for GenericResolvePass {
 		info!("Running generic resolution pass...");
 		let mut ctx = GenericResolvePassCtx::default();
 		let module = full_ctx.module_handle();
+
+		ctx.analyze_resolved_scope(module.scope(), full_ctx.assumptions());
 
 		for asmt in module.scope().assignments() {
 			let lhs_bits = asmt.lhs.try_drive_bits().expect("undrivable lhs");
