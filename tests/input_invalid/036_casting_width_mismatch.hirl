@@ -1,0 +1,4 @@
+module m{}
+impl m{
+	const wire a = (const wire)2u4; // probably we should change casting to only consider senstivity and signedness
+}
