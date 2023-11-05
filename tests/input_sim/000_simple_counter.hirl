@@ -7,7 +7,7 @@ module simple_counter{
 
 impl simple_counter{
 	bus<16> counter_next = trunc(data + 1u1);
-	register counter{
+	reg counter{
 		clk,
 		nreset,
 		en: enable,

@@ -612,7 +612,7 @@ impl ModuleImplementationStatement {
 					},
 					None => (),
 				}
-				if ctx.id_table.get_value(&name).as_str() == "register" {
+				if ctx.id_table.get_value(&name).as_str() == "reg" {
 					let v = Variable::new(
 						inst.instance_name,
 						inst.location,
@@ -1157,7 +1157,7 @@ impl ModuleImplementationStatement {
 				};
 			},
 			InstantiationStatement(inst) => {
-				if ctx.id_table.get_value(&inst.module_name.get_last_module()).as_str() == "register" {
+				if ctx.id_table.get_value(&inst.module_name.get_last_module()).as_str() == "reg" {
 					let r = local_ctx.scope.get_variable(scope_id, &inst.instance_name).unwrap(); //FIXME
 					if let VariableKind::ModuleInstance(m) = &r.var.kind {
 						if let ModuleInstanceKind::Register(reg) = &m.kind {
