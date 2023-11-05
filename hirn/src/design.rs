@@ -28,7 +28,7 @@ use std::rc::{Rc, Weak};
 use thiserror::Error;
 
 /// References a module in a design
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Ord, PartialOrd, Debug)]
 pub struct ModuleId {
 	id: usize,
 }
@@ -41,7 +41,7 @@ impl ModuleId {
 }
 
 /// References a signal in a design
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Ord, PartialOrd, Debug)]
 pub struct SignalId {
 	id: usize,
 }
@@ -63,7 +63,7 @@ impl SignalId {
 }
 
 /// References a scope in a design
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct ScopeId {
 	id: usize,
 }
