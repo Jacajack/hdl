@@ -512,7 +512,7 @@ impl ModuleImplementationStatement {
 						.lhs
 						.evaluate_type(ctx, scope_id, local_ctx, rhs_type, true, assignment.location)?;
 				let (left_id, loc) = assignment.lhs.get_internal_id(&local_ctx.scope, scope_id);
-				let entries = assignment.rhs.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+				let entries = assignment.rhs.get_sensitivity_entry(ctx, local_ctx, scope_id);
 				debug!("Adding edges {:?} to {:?}", entries, left_id);
 				local_ctx
 					.sensitivity_graph
@@ -860,7 +860,7 @@ impl ModuleImplementationStatement {
 								.map_err(|e| e.build())?;
 						}
 						else {
-							let entries = stmt.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+							let entries = stmt.get_sensitivity_entry(ctx, local_ctx, scope_id);
 							local_ctx
 								.sensitivity_graph
 								.add_edges(
@@ -930,7 +930,7 @@ impl ModuleImplementationStatement {
 							.map_err(|e| e.build())?;
 					}
 					else {
-						let entries = stmt.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+						let entries = stmt.get_sensitivity_entry(ctx, local_ctx, scope_id);
 						local_ctx
 							.sensitivity_graph
 							.add_edges(
@@ -1664,7 +1664,7 @@ impl VariableDefinition {
 								location: direct_initializer.declarator.get_location(),
 							},
 						)?;
-						let entries = expr.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+						let entries = expr.get_sensitivity_entry(ctx, local_ctx, scope_id);
 						local_ctx
 							.sensitivity_graph
 							.add_edges(
@@ -1710,7 +1710,7 @@ impl VariableDefinition {
 								location: direct_initializer.declarator.get_location(),
 							},
 						)?;
-						let entries = expr.get_sensitivity_entry(ctx, &local_ctx.scope, scope_id);
+						let entries = expr.get_sensitivity_entry(ctx, local_ctx, scope_id);
 						local_ctx
 							.sensitivity_graph
 							.add_edges(
@@ -2113,7 +2113,7 @@ fn create_register(
 	local_ctx
 		.sensitivity_graph
 		.add_edges(
-			en_stmt.unwrap().get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id),
+			en_stmt.unwrap().get_sensitivity_entry(&ctx, local_ctx, scope_id),
 			SensitivityGraphEntry::Signal(en_var_id, en_stmt.unwrap().location()),
 			en_stmt.unwrap().location(),
 		)
@@ -2123,7 +2123,7 @@ fn create_register(
 		.add_edges(
 			nreset_stmt
 				.unwrap()
-				.get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id),
+				.get_sensitivity_entry(&ctx, local_ctx, scope_id),
 			SensitivityGraphEntry::Signal(nreset_var_id, nreset_stmt.unwrap().location()),
 			nreset_stmt.unwrap().location(),
 		)
@@ -2133,7 +2133,7 @@ fn create_register(
 		.add_edges(
 			next_stmt
 				.unwrap()
-				.get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id),
+				.get_sensitivity_entry(&ctx, local_ctx, scope_id),
 			SensitivityGraphEntry::Signal(next_var_id, next_stmt.unwrap().location()),
 			next_stmt.unwrap().location(),
 		)
@@ -2143,7 +2143,7 @@ fn create_register(
 		.add_edges(
 			clk_stmt
 				.unwrap()
-				.get_sensitivity_entry(&ctx, &local_ctx.scope, scope_id),
+				.get_sensitivity_entry(&ctx, local_ctx, scope_id),
 			SensitivityGraphEntry::Signal(clk_var_id, clk_stmt.unwrap().location()),
 			clk_stmt.unwrap().location(),
 		)

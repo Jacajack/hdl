@@ -2,7 +2,7 @@ use crate::{analyzer::SemanticError, core::CompilerDiagnosticBuilder, ProvidesCo
 
 use super::{module_implementation_scope::InternalVariableId, GlobalAnalyzerContext};
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct EdgeSensitivity {
 	pub clock_signal: InternalVariableId,
 	pub on_rising: bool,
@@ -10,7 +10,7 @@ pub struct EdgeSensitivity {
 }
 
 /// Determines sensitivity of a signal to certain clocks
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ClockSensitivityList {
 	pub list: Vec<EdgeSensitivity>,
 }
@@ -50,7 +50,7 @@ impl ClockSensitivityList {
 		self.list.iter().map(|x| x.clock_signal).collect()
 	}
 }
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SignalSensitivity {
 	Async(SourceSpan),
 	Comb(ClockSensitivityList, SourceSpan),

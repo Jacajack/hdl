@@ -71,20 +71,20 @@ impl PortBindStatement {
 	pub fn get_sensitivity_entry(
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
-		scope: &ModuleImplementationScope,
+		local_ctx: &LocalAnalyzerContex,
 		scope_id: usize,
 	) -> Vec<SensitivityGraphEntry> {
 		use self::PortBindStatement::*;
 		match self {
 			OnlyId(only_id) => {
-				let var = scope.get_variable(scope_id, &only_id.id).unwrap();
+				let var = local_ctx.scope.get_variable(scope_id, &only_id.id).unwrap();
 				vec![SensitivityGraphEntry::Signal(var.id, var.var.location)]
 			},
 			IdWithExpression(id_with_expression) => id_with_expression
 				.expression
-				.get_sensitivity_entry(global_ctx, scope, scope_id),
+				.get_sensitivity_entry(global_ctx, local_ctx, scope_id),
 			IdWithDeclaration(id_with_declaration) => {
-				let mut var = scope.get_variable(scope_id, &id_with_declaration.id).unwrap().clone();
+				let mut var = local_ctx.scope.get_variable(scope_id, &id_with_declaration.id).unwrap().clone();
 				vec![SensitivityGraphEntry::Signal(var.id, var.var.location)]
 			},
 		}

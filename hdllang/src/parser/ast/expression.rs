@@ -2365,11 +2365,14 @@ impl Expression {
 						if !r.is_sensititivity_specified() {
 							r.sensitivity = expr.sensitivity.clone();
 						}
-						if !r.is_direction_specified() {
-							r.direction = expr.direction.clone();
+						else{
+							
 						}
 						if !r.is_signedness_specified() {
 							r.set_signedness(expr.get_signedness(), location);
+						}
+						else{
+							
 						}
 						if !r.is_width_specified() {
 							r.set_width(
