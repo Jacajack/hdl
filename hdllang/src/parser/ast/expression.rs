@@ -16,7 +16,8 @@ mod unary_operator_expression;
 
 use crate::analyzer::{
 	AdditionalContext, AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContext,
-	ModuleImplementationScope, SemanticError, Signal, SignalSensitivity, SignalSignedness, SignalType, VariableKind, ModuleInstanceKind,
+	ModuleImplementationScope, ModuleInstanceKind, SemanticError, Signal, SignalSensitivity, SignalSignedness,
+	SignalType, VariableKind,
 };
 use crate::core::{CompilerDiagnosticBuilder, NumericConstant};
 use crate::lexer::IdTableKey;
@@ -1216,15 +1217,13 @@ impl Expression {
 				let var = scope.get_variable(scope_id, &postfix.expression).unwrap();
 				match &var.var.kind {
 					VariableKind::ModuleInstance(instance) => match &instance.kind {
-						ModuleInstanceKind::Register(m) => {
-							match id_table.get_value(&postfix.id).as_str(){
-								"data"=> Ok(scope.get_api_id_by_internal_id(m.data).unwrap().into()),
-								"en"=> Ok(scope.get_api_id_by_internal_id(m.enable).unwrap().into()),
-								"next"=> Ok(scope.get_api_id_by_internal_id(m.next).unwrap().into()),
-								"clk"=> Ok(scope.get_api_id_by_internal_id(m.clk).unwrap().into()),
-								"nreset"=> Ok(scope.get_api_id_by_internal_id(m.nreset).unwrap().into()),
-								_=> unreachable!(),
-							}
+						ModuleInstanceKind::Register(m) => match id_table.get_value(&postfix.id).as_str() {
+							"data" => Ok(scope.get_api_id_by_internal_id(m.data).unwrap().into()),
+							"en" => Ok(scope.get_api_id_by_internal_id(m.enable).unwrap().into()),
+							"next" => Ok(scope.get_api_id_by_internal_id(m.next).unwrap().into()),
+							"clk" => Ok(scope.get_api_id_by_internal_id(m.clk).unwrap().into()),
+							"nreset" => Ok(scope.get_api_id_by_internal_id(m.nreset).unwrap().into()),
+							_ => unreachable!(),
 						},
 						ModuleInstanceKind::Module(m) => {
 							let var = m.interface.get(&postfix.id).unwrap();
@@ -1256,8 +1255,8 @@ impl Expression {
 				let cast = additional_ctx.unwrap().casts.get(&self.get_location()).unwrap();
 				use SignalSensitivity::*;
 				let sensitivity = match &cast.dest_sensitivity {
-        			Async(_) => Some(hirn::design::SignalSensitivity::Async),
-        			Comb(list, _) => {
+					Async(_) => Some(hirn::design::SignalSensitivity::Async),
+					Comb(list, _) => {
 						let mut new_list = hirn::design::ClockSensitivityList::new_empty();
 						for edge in &list.list {
 							let id = scope.get_api_id_by_internal_id(edge.clock_signal).unwrap();
@@ -1281,17 +1280,17 @@ impl Expression {
 						}
 						Some(hirn::design::SignalSensitivity::Sync(new_list))
 					},
-        			Clock(_, _) => Some(hirn::design::SignalSensitivity::Clock),
-        			Const(_) => Some(hirn::design::SignalSensitivity::Const),
-        			NoSensitivity => None,
-    			};
+					Clock(..) => Some(hirn::design::SignalSensitivity::Clock),
+					Const(_) => Some(hirn::design::SignalSensitivity::Const),
+					NoSensitivity => None,
+				};
 				use SignalSignedness::*;
-				let signedness = match &cast.dest_signedness{
-    			    Signed(_) => Some(hirn::design::SignalSignedness::Signed),
-    			    Unsigned(_) => Some(hirn::design::SignalSignedness::Unsigned),
-    			    NoSignedness => None,
-    			};
-				Ok(hirn::design::Expression::Cast(hirn::design::CastExpression{
+				let signedness = match &cast.dest_signedness {
+					Signed(_) => Some(hirn::design::SignalSignedness::Signed),
+					Unsigned(_) => Some(hirn::design::SignalSignedness::Unsigned),
+					NoSignedness => None,
+				};
+				Ok(hirn::design::Expression::Cast(hirn::design::CastExpression {
 					src: Box::new(src),
 					signedness,
 					sensitivity,
@@ -2223,56 +2222,58 @@ impl Expression {
 					Some(var) => match &var.var.kind {
 						crate::analyzer::VariableKind::ModuleInstance(m) => {
 							use ModuleInstanceKind::*;
-							match &m.kind{
-        						Module(m) => {
-									match m.interface.get(&module.id){
-        							    Some(id) => {
-											let sig = local_ctx.scope.get_intermidiate_signal(*id);
-											return Ok(sig.var.kind.to_signal().unwrap());
-										},
-        							    None => {
-											return Err(miette::Report::new(
-												SemanticError::IdNotSubscriptable
-													.to_diagnostic_builder()
-													.label(self.get_location(), "This variable is not part of this module interface")
-													.build(),
-											));
-										},
-        							}
+							match &m.kind {
+								Module(m) => match m.interface.get(&module.id) {
+									Some(id) => {
+										let sig = local_ctx.scope.get_intermidiate_signal(*id);
+										return Ok(sig.var.kind.to_signal().unwrap());
+									},
+									None => {
+										return Err(miette::Report::new(
+											SemanticError::IdNotSubscriptable
+												.to_diagnostic_builder()
+												.label(
+													self.get_location(),
+													"This variable is not part of this module interface",
+												)
+												.build(),
+										));
+									},
 								},
-        						Register(reg) => {
-									match global_ctx.id_table.get_value(&module.id).as_str(){
-										"data"=>{
-											let var = local_ctx.scope.get_variable_by_id(reg.data).unwrap();
-											return Ok(var.var.kind.to_signal().unwrap());
-										},
-										"next"=>{
-											let var = local_ctx.scope.get_variable_by_id(reg.next).unwrap();
-											return Ok(var.var.kind.to_signal().unwrap());
-										},
-										"en"=>{
-											let var = local_ctx.scope.get_variable_by_id(reg.enable).unwrap();
-											return Ok(var.var.kind.to_signal().unwrap());
-										},
-										"clk"=>{
-											let var = local_ctx.scope.get_variable_by_id(reg.clk).unwrap();
-											return Ok(var.var.kind.to_signal().unwrap());
-										},
-										"nreset"=>{
-											let var = local_ctx.scope.get_variable_by_id(reg.nreset).unwrap();
-											return Ok(var.var.kind.to_signal().unwrap());
-										},
-										_=> {
-												return Err(miette::Report::new(
-												SemanticError::IdNotSubscriptable
-													.to_diagnostic_builder()
-													.label(self.get_location(), "This variable is not part of this module interface")
-													.build(),
-											));
-										}
-									}
+								Register(reg) => match global_ctx.id_table.get_value(&module.id).as_str() {
+									"data" => {
+										let var = local_ctx.scope.get_variable_by_id(reg.data).unwrap();
+										return Ok(var.var.kind.to_signal().unwrap());
+									},
+									"next" => {
+										let var = local_ctx.scope.get_variable_by_id(reg.next).unwrap();
+										return Ok(var.var.kind.to_signal().unwrap());
+									},
+									"en" => {
+										let var = local_ctx.scope.get_variable_by_id(reg.enable).unwrap();
+										return Ok(var.var.kind.to_signal().unwrap());
+									},
+									"clk" => {
+										let var = local_ctx.scope.get_variable_by_id(reg.clk).unwrap();
+										return Ok(var.var.kind.to_signal().unwrap());
+									},
+									"nreset" => {
+										let var = local_ctx.scope.get_variable_by_id(reg.nreset).unwrap();
+										return Ok(var.var.kind.to_signal().unwrap());
+									},
+									_ => {
+										return Err(miette::Report::new(
+											SemanticError::IdNotSubscriptable
+												.to_diagnostic_builder()
+												.label(
+													self.get_location(),
+													"This variable is not part of this module interface",
+												)
+												.build(),
+										));
+									},
 								},
-   	 						}
+							}
 						},
 						_ => {
 							return Err(miette::Report::new(
@@ -2408,13 +2409,13 @@ impl Expression {
 						if !r.is_sensititivity_specified() {
 							r.sensitivity = expr.sensitivity.clone();
 						}
-						else{
+						else {
 							cast.add_sensitivity(r.sensitivity.clone())
 						}
 						if !r.is_signedness_specified() {
 							r.set_signedness(expr.get_signedness(), location);
 						}
-						else{
+						else {
 							cast.add_signedness(r.get_signedness());
 						}
 						if !r.is_width_specified() {
@@ -2632,23 +2633,23 @@ impl Expression {
 	}
 }
 #[derive(Debug, Clone, Eq, PartialEq)]
-pub struct Cast{
+pub struct Cast {
 	pub location: SourceSpan,
 	pub dest_signedness: SignalSignedness,
 	pub dest_sensitivity: SignalSensitivity,
 }
-impl Cast{
-	pub fn new(location: SourceSpan) -> Self{
-		Self{
+impl Cast {
+	pub fn new(location: SourceSpan) -> Self {
+		Self {
 			location,
 			dest_signedness: SignalSignedness::NoSignedness,
 			dest_sensitivity: SignalSensitivity::NoSensitivity,
 		}
 	}
-	pub fn add_signedness(&mut self, signedness: SignalSignedness){
+	pub fn add_signedness(&mut self, signedness: SignalSignedness) {
 		self.dest_signedness = signedness;
 	}
-	pub fn add_sensitivity(&mut self, sensitivity: SignalSensitivity){
+	pub fn add_sensitivity(&mut self, sensitivity: SignalSensitivity) {
 		self.dest_sensitivity = sensitivity;
 	}
 }

@@ -311,7 +311,11 @@ pub struct AdditionalContext {
 	pub casts: HashMap<SourceSpan, Cast>,
 }
 impl AdditionalContext {
-	pub fn new(nc_widths: HashMap<SourceSpan, NumericConstant>, array_or_bus: HashMap<SourceSpan, bool>, casts:HashMap<SourceSpan, Cast>) -> Self {
+	pub fn new(
+		nc_widths: HashMap<SourceSpan, NumericConstant>,
+		array_or_bus: HashMap<SourceSpan, bool>,
+		casts: HashMap<SourceSpan, Cast>,
+	) -> Self {
 		AdditionalContext {
 			nc_widths,
 			array_or_bus,
@@ -586,7 +590,6 @@ impl ModuleImplementationStatement {
 					}
 					initial_val += 1;
 				}
-
 			},
 			InstantiationStatement(inst) => {
 				let name = inst.module_name.get_last_module();
@@ -988,7 +991,11 @@ impl ModuleImplementationStatement {
 	) -> miette::Result<()> {
 		info!("Reading scope id for {:?}", self.get_location());
 		let scope_id = local_ctx.scope_map.get(&self.get_location()).unwrap().to_owned();
-		let additional_ctx = AdditionalContext::new(local_ctx.nc_widths.clone(), local_ctx.array_or_bus.clone(), local_ctx.casts.clone());
+		let additional_ctx = AdditionalContext::new(
+			local_ctx.nc_widths.clone(),
+			local_ctx.array_or_bus.clone(),
+			local_ctx.casts.clone(),
+		);
 		use ModuleImplementationStatement::*;
 		match self {
 			VariableBlock(block) => block.codegen_pass(ctx, local_ctx, api_scope)?,
@@ -1654,10 +1661,7 @@ impl VariableDefinition {
 							.sensitivity_graph
 							.add_edges(
 								entries,
-								crate::analyzer::SensitivityGraphEntry::Signal(
-									id,
-									direct_initializer.location,
-								),
+								crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.location),
 								expr.get_location(),
 							)
 							.map_err(|e| e.build())?;
@@ -1736,7 +1740,11 @@ impl VariableDefinition {
 		local_ctx: &mut LocalAnalyzerContext,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
-		let additional_ctx = AdditionalContext::new(local_ctx.nc_widths.clone(), local_ctx.array_or_bus.clone(), local_ctx.casts.clone());
+		let additional_ctx = AdditionalContext::new(
+			local_ctx.nc_widths.clone(),
+			local_ctx.array_or_bus.clone(),
+			local_ctx.casts.clone(),
+		);
 		let scope_id = local_ctx.scope_map.get(&self.location).unwrap().to_owned();
 		for direct_initializer in &self.initializer_list {
 			let variable = local_ctx
@@ -2106,9 +2114,7 @@ fn create_register(
 	local_ctx
 		.sensitivity_graph
 		.add_edges(
-			nreset_stmt
-				.unwrap()
-				.get_sensitivity_entry(&ctx, local_ctx, scope_id),
+			nreset_stmt.unwrap().get_sensitivity_entry(&ctx, local_ctx, scope_id),
 			SensitivityGraphEntry::Signal(nreset_var_id, nreset_stmt.unwrap().location()),
 			nreset_stmt.unwrap().location(),
 		)
@@ -2116,9 +2122,7 @@ fn create_register(
 	local_ctx
 		.sensitivity_graph
 		.add_edges(
-			next_stmt
-				.unwrap()
-				.get_sensitivity_entry(&ctx, local_ctx, scope_id),
+			next_stmt.unwrap().get_sensitivity_entry(&ctx, local_ctx, scope_id),
 			SensitivityGraphEntry::Signal(next_var_id, next_stmt.unwrap().location()),
 			next_stmt.unwrap().location(),
 		)
@@ -2126,9 +2130,7 @@ fn create_register(
 	local_ctx
 		.sensitivity_graph
 		.add_edges(
-			clk_stmt
-				.unwrap()
-				.get_sensitivity_entry(&ctx, local_ctx, scope_id),
+			clk_stmt.unwrap().get_sensitivity_entry(&ctx, local_ctx, scope_id),
 			SensitivityGraphEntry::Signal(clk_var_id, clk_stmt.unwrap().location()),
 			clk_stmt.unwrap().location(),
 		)

@@ -3,7 +3,7 @@ use std::{
 	hash::Hash,
 };
 
-use super::{GlobalAnalyzerContext, ModuleImplementationScope, SignalSensitivity, LocalAnalyzerContext};
+use super::{GlobalAnalyzerContext, LocalAnalyzerContext, ModuleImplementationScope, SignalSensitivity};
 use bimap::BiHashMap;
 use itertools::Itertools;
 use petgraph::{
@@ -12,8 +12,10 @@ use petgraph::{
 };
 
 use crate::{
-	analyzer::{SemanticError, VariableKind, ModuleInstanceKind}, core::CompilerDiagnosticBuilder, parser::ast::SourceLocation, ProvidesCompilerDiagnostic,
-	SourceSpan,
+	analyzer::{ModuleInstanceKind, SemanticError, VariableKind},
+	core::CompilerDiagnosticBuilder,
+	parser::ast::SourceLocation,
+	ProvidesCompilerDiagnostic, SourceSpan,
 };
 
 use super::module_implementation_scope::InternalVariableId;
@@ -406,7 +408,9 @@ impl crate::parser::ast::Expression {
 	) -> Vec<SensitivityGraphEntry> {
 		use crate::parser::ast::Expression::*;
 		match self {
-			Number(_) => vec![SensitivityGraphEntry::new_sens(SignalSensitivity::Const(self.get_location()))],
+			Number(_) => vec![SensitivityGraphEntry::new_sens(SignalSensitivity::Const(
+				self.get_location(),
+			))],
 			Identifier(id) => {
 				let var = ctx.scope.get_variable(scope_id, &id.id).unwrap();
 				vec![SensitivityGraphEntry::new_signal(var.id, var.var.location)]
@@ -458,7 +462,9 @@ impl crate::parser::ast::Expression {
 			PostfixWithArgs(function) => {
 				let func_name = global_ctx.id_table.get_value(&function.id);
 				match func_name.as_str() {
-					"zeroes" | "ones" => vec![SensitivityGraphEntry::new_sens(SignalSensitivity::Const(self.get_location()))],
+					"zeroes" | "ones" => vec![SensitivityGraphEntry::new_sens(SignalSensitivity::Const(
+						self.get_location(),
+					))],
 					"rep" | "trunc" | "zext" | "ext" | "sext" | "fold_or" | "fold_xor" | "fold_and" => function
 						.argument_list
 						.first()
@@ -475,35 +481,35 @@ impl crate::parser::ast::Expression {
 			},
 			PostfixWithId(postfix) => {
 				let var = ctx.scope.get_variable(scope_id, &postfix.expression).unwrap();
-				if let VariableKind::ModuleInstance(inst) = &var.var.kind{
+				if let VariableKind::ModuleInstance(inst) = &var.var.kind {
 					use ModuleInstanceKind::*;
-					match &inst.kind{
-    				    Module(m) => {
+					match &inst.kind {
+						Module(m) => {
 							let v = m.interface.get(&postfix.id).unwrap();
 							let var = ctx.scope.get_variable_by_id(*v).unwrap();
 							return vec![SensitivityGraphEntry::new_signal(var.id, var.var.location)];
 						},
-    				    Register(reg) => {
-							return match global_ctx.id_table.get_value(&postfix.id).as_str(){
+						Register(reg) => {
+							return match global_ctx.id_table.get_value(&postfix.id).as_str() {
 								"clk" => vec![SensitivityGraphEntry::new_signal(reg.clk, reg.location)],
 								"next" => vec![SensitivityGraphEntry::new_signal(reg.next, reg.location)],
 								"nreset" => vec![SensitivityGraphEntry::new_signal(reg.nreset, reg.location)],
 								"data" => vec![SensitivityGraphEntry::new_signal(reg.data, reg.location)],
 								"en" => vec![SensitivityGraphEntry::new_signal(reg.enable, reg.location)],
-								_=> unreachable!()
+								_ => unreachable!(),
 							};
 						},
-    				}
-				}	
-				unreachable!()			
+					}
+				}
+				unreachable!()
 			},
 			UnaryOperatorExpression(unary) => unary.expression.get_sensitivity_entry(global_ctx, ctx, scope_id),
 			UnaryCastExpression(cast) => {
 				let c = ctx.casts.get(&self.get_location()).unwrap();
-				if c.dest_sensitivity.is_none(){
+				if c.dest_sensitivity.is_none() {
 					return cast.expression.get_sensitivity_entry(global_ctx, ctx, scope_id);
 				}
-				else{
+				else {
 					return vec![SensitivityGraphEntry::new_sens(c.dest_sensitivity.clone())];
 				}
 			},

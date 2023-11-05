@@ -84,7 +84,11 @@ impl PortBindStatement {
 				.expression
 				.get_sensitivity_entry(global_ctx, local_ctx, scope_id),
 			IdWithDeclaration(id_with_declaration) => {
-				let mut var = local_ctx.scope.get_variable(scope_id, &id_with_declaration.id).unwrap().clone();
+				let mut var = local_ctx
+					.scope
+					.get_variable(scope_id, &id_with_declaration.id)
+					.unwrap()
+					.clone();
 				vec![SensitivityGraphEntry::Signal(var.id, var.var.location)]
 			},
 		}
@@ -217,7 +221,11 @@ impl PortBindStatement {
 		api_scope: &mut ScopeHandle,
 		current_scope: usize,
 	) -> miette::Result<hirn::design::Expression> {
-		let additional_ctx = AdditionalContext::new(local_ctx.nc_widths.clone(), local_ctx.array_or_bus.clone(), local_ctx.casts.clone());
+		let additional_ctx = AdditionalContext::new(
+			local_ctx.nc_widths.clone(),
+			local_ctx.array_or_bus.clone(),
+			local_ctx.casts.clone(),
+		);
 		use self::PortBindStatement::*;
 		match self {
 			OnlyId(only_id) => {
