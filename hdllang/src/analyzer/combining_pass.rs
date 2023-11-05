@@ -1,6 +1,6 @@
 use super::{AlreadyCreated, ModuleDeclared, RegisterInstance, SemanticError, Variable, VariableKind};
-use hirn::{design::{ScopeHandle, UnaryExpression}, elab::{FullElaborator, Elaborator, ElabAssumptions, ElabToplevelAssumptions}};
-use log::{debug, info, warn};
+use hirn::{design::{ScopeHandle, UnaryExpression}, elab::{FullElaborator, Elaborator, ElabAssumptions, ElabToplevelAssumptions, ElabMessageSeverity}};
+use log::{debug, info, warn, error};
 use std::{collections::HashMap, sync::Arc};
 use std::io::Write;
 
@@ -175,11 +175,28 @@ impl<'a> SemanticalAnalyzer<'a> {
 				.handle
 				.id();
 
+			// FIXME use Miette here
 			let mut elab = FullElaborator::new(self.ctx.design.clone());
-			let elab_report = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::default())).expect("HIRN elab error");
-			for msg in elab_report.messages() {
-				warn!("Elab {}", msg);
-			}
+			let elab_result = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::default()));
+			match elab_result {
+				Ok(elab_report) => for msg in elab_report.messages() {
+					match msg.severity() {
+						ElabMessageSeverity::Error => {
+							error!("elab: {}", msg);
+						},
+						ElabMessageSeverity::Warning => {
+							warn!("elab: {}", msg);
+						},
+						ElabMessageSeverity::Info => {
+							info!("elab: {}", msg);
+						},
+					}
+				}
+
+				Err(err) => {
+					panic!("Fatal elab error: {}", err);
+				}
+			};
 
 			let mut output_string = String::new();
 			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);

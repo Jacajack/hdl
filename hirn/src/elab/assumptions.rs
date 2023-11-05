@@ -2,7 +2,7 @@ use std::{rc::Rc, collections::HashMap, sync::Arc};
 
 use dyn_clone::DynClone;
 
-use crate::design::{SignalId, EvalAssumptions, DesignHandle, NumericConstant};
+use crate::design::{SignalId, EvalAssumptions, DesignHandle, NumericConstant, self};
 
 use super::GenericVar;
 
@@ -14,6 +14,20 @@ pub trait ElabAssumptionsBase: DynClone + core::fmt::Debug {
 
 	fn get(&self, id: SignalId) -> Option<&NumericConstant> {
 		self.get_indexed(id, &vec![])
+	}
+}
+
+impl EvalAssumptions for &dyn ElabAssumptionsBase {
+	fn design(&self) -> Option<DesignHandle> {
+		ElabAssumptionsBase::design(*self)
+	}
+
+	fn signal(&self, signal: SignalId, indices: &Vec<GenericVar>) -> Option<&NumericConstant> {
+		self.get_indexed(signal, indices)
+	}
+
+	fn scalar_signal(&self, signal: SignalId) -> Option<&NumericConstant> {
+		self.get(signal)
 	}
 }
 
@@ -45,14 +59,16 @@ impl ElabAssumptionsBase for ElabToplevelAssumptions {
 
 #[derive(Clone, Debug)]
 pub struct ElabAssumptions {
+	design: Option<DesignHandle>,
 	parent: Option<Arc<dyn ElabAssumptionsBase>>,
 	scalar_assumptions: HashMap<SignalId, NumericConstant>,
 	assumptions: HashMap<(SignalId, Vec<GenericVar>), NumericConstant>,
 }
 
 impl ElabAssumptions {
-	pub fn new() -> Self {
+	pub fn new(design: Option<DesignHandle>) -> Self {
 		Self {
+			design,
 			parent: None,
 			scalar_assumptions: HashMap::new(),
 			assumptions: HashMap::new(),
@@ -61,6 +77,7 @@ impl ElabAssumptions {
 
 	pub fn new_with_parent(parent: Arc<dyn ElabAssumptionsBase>) -> Self {
 		Self {
+			design: parent.design(),
 			parent: Some(parent),
 			scalar_assumptions: HashMap::new(),
 			assumptions: HashMap::new(),
@@ -77,6 +94,18 @@ impl ElabAssumptions {
 }
 
 impl ElabAssumptionsBase for ElabAssumptions {
+	fn design(&self) -> Option<DesignHandle> {
+		if let Some(ref design) = self.design {
+			Some(design.clone())
+		}
+		else if let Some(ref parent) = self.parent {
+			parent.design()
+		}
+		else {
+			None
+		}
+	}
+
 	fn get_indexed(&self, id: SignalId, indices: &Vec<GenericVar>) -> Option<&NumericConstant> {
 		if indices.is_empty() {
 			return self.get(id);

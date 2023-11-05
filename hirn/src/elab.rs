@@ -18,13 +18,6 @@ pub type GenericVar = i64;
 pub enum ElabError {
 	#[error(transparent)]
 	EvalError(#[from] EvalError),
-
-	#[error("Too many for iterations")]
-	MaxForIterCount, // FIXME iterator signal ID
-
-	#[error("Cyclic generic variable dependency")]
-	CyclicGenericDependency, // FIXME signal IDs
-
-	#[error("Target signal is not drivable")]
-	NotDrivable,
+	// #[error(transparent)]
+	// ModuleElabFailed(#[from] ElabMessageKind),
 }

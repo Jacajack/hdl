@@ -250,6 +250,13 @@ pub struct DesignHandle {
 	handle: Rc<RefCell<DesignCore>>,
 }
 
+impl std::fmt::Debug for DesignHandle {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "(DesignHandle")?;
+		Ok(())
+	}
+}
+
 impl DesignHandle {
 	/// Creates a new HIRN design
 	pub fn new() -> Self {

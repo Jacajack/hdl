@@ -17,13 +17,19 @@ impl SeverityPolicy for DefaultSeverityPolicy {
 		use ElabMessageKind::*;
 		use ElabMessageSeverity::*;
 		match kind {
-			SignalUnused(_) => ElabMessageSeverity::Warning,
-			SignalPartiallyUnused => ElabMessageSeverity::Warning,
+			SignalUnused(_) => Warning,
+			SignalPartiallyUnused => Warning,
 			SignalNotDriven(_) => Error,
 			SignalPartiallyDriven => Error,
 			CombLoop => Error,
 			WidthMismatch => Error,
 			Notice(_) => Info,
+			MaxForIterCount => Error,
+			CyclicGenericDependency => Error,
+			MultipleGenericAssignments => Error,
+			UnassignedGeneric => Error,
+			NotDrivable => Error,
+			EvalError(_) => Error,
 		}
 	}
 }
@@ -109,6 +115,9 @@ pub enum ElabMessageKind {
 	#[error("Signal has no driver")]
 	SignalNotDriven(SignalId),
 
+	#[error("Expression evaluation failed")]
+	EvalError(#[from] crate::design::EvalError),
+
 	#[error("Some bits in signal are not driven")]
 	SignalPartiallyDriven,
 
@@ -126,4 +135,19 @@ pub enum ElabMessageKind {
 
 	#[error("Notice for the user")]
 	Notice(String),
+
+	#[error("Too many for iterations")]
+	MaxForIterCount, // FIXME iterator signal ID
+
+	#[error("Cyclic generic variable dependency")]
+	CyclicGenericDependency, // FIXME signal IDs
+
+	#[error("Generic variable assigned more than once")]
+	MultipleGenericAssignments, // FIXME signal IDs
+
+	#[error("Unassigned generic variable")]
+	UnassignedGeneric, // FIXME signal ID
+
+	#[error("Target signal is not drivable")]
+	NotDrivable, // FIXME signal ID
 }
