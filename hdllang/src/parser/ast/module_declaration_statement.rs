@@ -75,7 +75,6 @@ impl VariableDeclarationStatement {
 
 		for direct_declarator in &self.direct_declarators {
 			let mut spec_kind = kind.clone();
-			spec_kind.add_name_to_clock(direct_declarator.name);
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_declarator.array_declarators {
 				let size = array_declarator.evaluate(nc_table, 0, scope)?;
@@ -272,27 +271,7 @@ pub fn analyze_qualifiers(
 			Comb(comb) => {
 				let mut sensitivity_list = ClockSensitivityList { list: Vec::new() };
 				for signal in &comb.expressions {
-					let sensitivity = signal.create_edge_sensitivity()?;
-					match scope.get_variable(current_scope, &sensitivity.clock_signal) {
-						Some(var) => {
-							if !var.var.is_clock() {
-								return Err(miette::Report::new(
-									SemanticError::NotClockSignalInSync
-										.to_diagnostic_builder()
-										.label(sensitivity.location, "This signal is not a clock signal")
-										.build(),
-								));
-							}
-						},
-						None => {
-							return Err(miette::Report::new(
-								SemanticError::VariableNotDeclared
-									.to_diagnostic_builder()
-									.label(sensitivity.location, "This signal is not declared")
-									.build(),
-							))
-						},
-					}
+					let sensitivity = signal.create_edge_sensitivity(current_scope, scope, id_table, comb.location)?;
 					sensitivity_list.list.push(sensitivity);
 				}
 				already_created.add_sensitivity(SignalSensitivity::Comb(sensitivity_list, comb.location))?;
@@ -301,82 +280,27 @@ pub fn analyze_qualifiers(
 				let mut sensitivity_list = ClockSensitivityList { list: Vec::new() };
 				match sync.expressions.len() {
 					1 => {
-						let name2 = sync.expressions[0].create_edge_sensitivity()?;
-						match scope.get_variable(current_scope, &name2.clock_signal) {
-							None => {
-								return Err(miette::Report::new(
-									SemanticError::VariableNotDeclared
-										.to_diagnostic_builder()
-										.label(
-											name2.location,
-											format!(
-												"This variable {:?} is not declared",
-												id_table.get_by_key(&name2.clock_signal).unwrap()
-											)
-											.as_str(),
-										)
-										.build(),
-								))
-							},
-							Some(var) => {
-								if !var.is_clock() {
-									return Err(miette::Report::new(
-										SemanticError::NotClockSignalInSync
-											.to_diagnostic_builder()
-											.label(sync.location, "This sync list contains non-clock signals")
-											.label(
-												name2.location,
-												format!(
-													"This variable {:?} is not a clock signal",
-													id_table.get_by_key(&name2.clock_signal).unwrap()
-												)
-												.as_str(),
-											)
-											.build(),
-									));
-								}
-							},
-						}
+						let name2 = sync.expressions[0].create_edge_sensitivity(
+							current_scope,
+							scope,
+							id_table,
+							sync.location,
+						)?;
 						sensitivity_list.list.push(name2);
 					},
 					2 => {
-						let name2 = sync.expressions[0].create_edge_sensitivity()?;
-						let name3 = sync.expressions[1].create_edge_sensitivity()?;
-						match scope.get_variable(current_scope, &name2.clock_signal) {
-							None => {
-								return Err(miette::Report::new(
-									SemanticError::VariableNotDeclared
-										.to_diagnostic_builder()
-										.label(
-											name2.location,
-											format!(
-												"This variable {:?} is not declared",
-												id_table.get_by_key(&name2.clock_signal).unwrap()
-											)
-											.as_str(),
-										)
-										.build(),
-								))
-							},
-							Some(var) => {
-								if !var.is_clock() {
-									return Err(miette::Report::new(
-										SemanticError::NotClockSignalInSync
-											.to_diagnostic_builder()
-											.label(sync.location, "This sync list contains non-clock signals")
-											.label(
-												name2.location,
-												format!(
-													"This variable {:?} is not a clock signal",
-													id_table.get_by_key(&name2.clock_signal).unwrap()
-												)
-												.as_str(),
-											)
-											.build(),
-									));
-								}
-							},
-						}
+						let name2 = sync.expressions[0].create_edge_sensitivity(
+							current_scope,
+							scope,
+							id_table,
+							sync.location,
+						)?;
+						let name3 = sync.expressions[1].create_edge_sensitivity(
+							current_scope,
+							scope,
+							id_table,
+							sync.location,
+						)?;
 						if name3.clock_signal != name2.clock_signal {
 							return Err(miette::Report::new(SemanticError::ForbiddenExpressionInSyncOrComb
 									.to_diagnostic_builder()

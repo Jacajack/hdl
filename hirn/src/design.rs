@@ -19,7 +19,8 @@ use log::debug;
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
 pub use scope::{Scope, ScopeHandle, ConditionalScope, RangeScope};
 pub use signal::{
-	HasSensitivity, HasSignedness, Signal, SignalBuilder, SignalClass, SignalSensitivity, SignalSignedness, SignalSlice,
+	ClockSensitivityList, EdgeSensitivity, HasSensitivity, HasSignedness, Signal, SignalBuilder, SignalClass,
+	SignalSensitivity, SignalSignedness, SignalSlice,
 };
 
 use std::cell::RefCell;

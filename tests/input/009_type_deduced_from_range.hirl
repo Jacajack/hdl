@@ -6,7 +6,7 @@ module sequencer {
 
 impl sequencer {
 	auto next = (data + 1u1)[0:15];
-	register state{
+	reg state{
 		clk: clk,
 		en: true,
 		nreset,

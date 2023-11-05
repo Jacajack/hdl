@@ -12,4 +12,9 @@ impl m {
 		next: next,
 		data: out,
 	}
+	auto d = reg1.data;
+	auto e = reg1.en;
+	auto n = reg1.next;
+	auto c = reg1.clk;
+	auto r = reg1.nreset;
 }

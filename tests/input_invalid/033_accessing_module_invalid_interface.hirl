@@ -1,0 +1,28 @@
+module mod{
+	input clock clk;
+	input async nreset;
+	input comb(clk) en;
+	input comb(clk) unsigned<16> next;
+	output sync(clk) unsigned<16> data;
+}
+
+module m {}
+impl m {
+	clock wire clk;
+	comb(clk) auto next ;
+	sync(clk) unsigned auto out = 4u16; 
+	async wire nreset;
+	comb(clk) wire en;
+	mod reg1 {
+		clk,
+		nreset: nreset,
+		en: en,
+		next: next,
+		data: out,
+	}
+	auto d = reg1.xx;
+	auto e = reg1.en;
+	auto n = reg1.next;
+	auto c = reg1.clk;
+	auto r = reg1.nreset;
+}

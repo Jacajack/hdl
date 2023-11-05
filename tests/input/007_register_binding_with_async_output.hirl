@@ -5,7 +5,7 @@ impl m {
 	async unsigned auto out = 4u5;
 	async wire nreset;
 	comb(clk) wire en;
-	register reg {
+	reg reg1 {
 		clk,
 		nreset: nreset,
 		en: en,

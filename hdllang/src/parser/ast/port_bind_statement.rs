@@ -7,7 +7,7 @@ use log::debug;
 
 use crate::analyzer::module_implementation_scope::InternalVariableId;
 use crate::analyzer::{
-	AdditionalContext, BusWidth, GlobalAnalyzerContext, LocalAnalyzerContex, ModuleImplementationScope, SemanticError,
+	AdditionalContext, BusWidth, GlobalAnalyzerContext, LocalAnalyzerContext, ModuleImplementationScope, SemanticError,
 	SensitivityGraphEntry, Signal, Variable,
 };
 use crate::parser::ast::{Expression, SourceLocation, VariableDeclaration};
@@ -71,20 +71,24 @@ impl PortBindStatement {
 	pub fn get_sensitivity_entry(
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
-		scope: &ModuleImplementationScope,
+		local_ctx: &LocalAnalyzerContext,
 		scope_id: usize,
 	) -> Vec<SensitivityGraphEntry> {
 		use self::PortBindStatement::*;
 		match self {
 			OnlyId(only_id) => {
-				let var = scope.get_variable(scope_id, &only_id.id).unwrap();
+				let var = local_ctx.scope.get_variable(scope_id, &only_id.id).unwrap();
 				vec![SensitivityGraphEntry::Signal(var.id, var.var.location)]
 			},
 			IdWithExpression(id_with_expression) => id_with_expression
 				.expression
-				.get_sensitivity_entry(global_ctx, scope, scope_id),
+				.get_sensitivity_entry(global_ctx, local_ctx, scope_id),
 			IdWithDeclaration(id_with_declaration) => {
-				let mut var = scope.get_variable(scope_id, &id_with_declaration.id).unwrap().clone();
+				let mut var = local_ctx
+					.scope
+					.get_variable(scope_id, &id_with_declaration.id)
+					.unwrap()
+					.clone();
 				vec![SensitivityGraphEntry::Signal(var.id, var.var.location)]
 			},
 		}
@@ -115,7 +119,7 @@ impl PortBindStatement {
 	pub fn get_type(
 		&self,
 		ctx: &GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		scope_id: usize,
 		interface_signal: Signal,
 		is_output: bool,
@@ -191,7 +195,6 @@ impl PortBindStatement {
 					}
 				}
 				new_war.add_dimenstions(dimensions);
-				new_war.add_name_to_clock(direct_declarator.name);
 				let mut sig = new_war
 					.to_signal()
 					.expect("This was checked during analysis of declaration");
@@ -214,11 +217,15 @@ impl PortBindStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		api_scope: &mut ScopeHandle,
 		current_scope: usize,
 	) -> miette::Result<hirn::design::Expression> {
-		let additional_ctx = AdditionalContext::new(local_ctx.nc_widths.clone(), local_ctx.array_or_bus.clone());
+		let additional_ctx = AdditionalContext::new(
+			local_ctx.nc_widths.clone(),
+			local_ctx.array_or_bus.clone(),
+			local_ctx.casts.clone(),
+		);
 		use self::PortBindStatement::*;
 		match self {
 			OnlyId(only_id) => {

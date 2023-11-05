@@ -15,8 +15,9 @@ mod unary_cast_expression;
 mod unary_operator_expression;
 
 use crate::analyzer::{
-	AdditionalContext, AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContex,
-	ModuleImplementationScope, SemanticError, Signal, SignalSensitivity, SignalSignedness, SignalType, VariableKind,
+	AdditionalContext, AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContext,
+	ModuleImplementationScope, ModuleInstanceKind, SemanticError, Signal, SignalSensitivity, SignalSignedness,
+	SignalType, VariableKind,
 };
 use crate::core::{CompilerDiagnosticBuilder, NumericConstant};
 use crate::lexer::IdTableKey;
@@ -39,7 +40,7 @@ pub use postfix_with_id::PostfixWithId;
 pub use postfix_with_index::PostfixWithIndex;
 pub use postfix_with_range::PostfixWithRange;
 use std::cmp::max;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Error, Formatter};
 use std::vec;
 pub use ternary_expression::TernaryExpression;
@@ -213,21 +214,66 @@ impl Expression {
 			},
 		}
 	}
-	pub fn create_edge_sensitivity(&self) -> miette::Result<EdgeSensitivity> {
+	pub fn create_edge_sensitivity(
+		&self,
+		current_scope: usize,
+		scope: &ModuleImplementationScope,
+		id_table: &crate::lexer::IdTable,
+		list_location: SourceSpan,
+	) -> miette::Result<EdgeSensitivity> {
 		use self::Expression::*;
 		match self {
-			Identifier(id) => Ok(EdgeSensitivity {
-				clock_signal: id.id,
-				on_rising: true,
-				location: id.location,
-			}),
+			Identifier(id) => {
+				let var = match scope.get_variable(current_scope, &id.id) {
+					None => {
+						return Err(miette::Report::new(
+							SemanticError::VariableNotDeclared
+								.to_diagnostic_builder()
+								.label(
+									id.location,
+									format!(
+										"This variable {:?} is not declared",
+										id_table.get_by_key(&id.id).unwrap()
+									)
+									.as_str(),
+								)
+								.build(),
+						))
+					},
+					Some(var) => var,
+				};
+				if !var.is_clock() {
+					return Err(miette::Report::new(
+						SemanticError::NotClockSignalInSync
+							.to_diagnostic_builder()
+							.label(list_location, "This sync list contains non-clock signals")
+							.label(
+								id.location,
+								format!(
+									"This variable {:?} is not a clock signal",
+									id_table.get_by_key(&id.id).unwrap()
+								)
+								.as_str(),
+							)
+							.build(),
+					));
+				}
+				Ok(EdgeSensitivity {
+					clock_signal: var.id,
+					on_rising: true,
+					location: id.location,
+				})
+			},
 			UnaryOperatorExpression(unary) => {
 				use crate::parser::ast::UnaryOpcode::*;
 				match unary.code {
-					LogicalNot => unary.expression.create_edge_sensitivity().map(|mut edge| {
-						edge.on_rising = !edge.on_rising;
-						edge
-					}),
+					LogicalNot => unary
+						.expression
+						.create_edge_sensitivity(current_scope, scope, id_table, list_location)
+						.map(|mut edge| {
+							edge.on_rising = !edge.on_rising;
+							edge
+						}),
 					_ => {
 						return Err(miette::Report::new(
 							SemanticError::ForbiddenExpressionInSyncOrComb
@@ -257,7 +303,7 @@ impl Expression {
 	pub fn assign(
 		&self,
 		value: BusWidth,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		scope_id: usize,
 	) -> Result<(), CompilerDiagnosticBuilder> {
 		use Expression::*;
@@ -280,116 +326,6 @@ impl Expression {
 			_ => unreachable!(),
 		}
 	}
-	//pub fn evaluate_as_lhs(
-	//	&self,
-	//	global_ctx: &GlobalAnalyzerContext,
-	//	scope_id: usize,
-	//	local_ctx: &mut LocalAnalyzerContex,
-	//	coupling_type: Option<Signal>,
-	//	location: SourceSpan,
-	//) -> miette::Result<Signal> {
-	//	use Expression::*;
-	//	match self {
-	//		Identifier(id) => {
-	//			let mut var = match local_ctx.scope.get_variable(scope_id, &id.id) {
-	//				Some(var) => var,
-	//				None => {
-	//					return Err(miette::Report::new(
-	//						SemanticError::VariableNotDeclared
-	//							.to_diagnostic_builder()
-	//							.label(id.location, "This variable is not defined in this scope")
-	//							.build(),
-	//					))
-	//				},
-	//			}
-	//			.clone();
-	//			let mut sig = var.var.kind.to_signal();
-	//			if coupling_type.is_none() {
-	//				return Ok(sig);
-	//			}
-
-	//			let mut coupling_type = coupling_type.unwrap();
-	//			sig.sensitivity
-	//				.can_drive(&coupling_type.sensitivity, location, global_ctx)?;
-	//			use crate::analyzer::SignalType::*;
-	//			sig.signal_type = match (&sig.signal_type, &coupling_type.signal_type) {
-	//				(Auto(_), Auto(_)) => sig.signal_type.clone(),
-	//				(Auto(_), _) => coupling_type.signal_type.clone(),
-	//				(Bus(bus), Bus(bus1)) => {
-	//					use crate::analyzer::SignalSignedness::*;
-	//					let mut new: crate::analyzer::BusType = bus1.clone();
-	//					new.signedness = match (&bus.signedness, &bus1.signedness) {
-	//						(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => bus.signedness.clone(),
-	//						(Signed(_), Unsigned(_)) => todo!(),
-	//						(_, NoSignedness) => bus.signedness.clone(),
-	//						(Unsigned(_), Signed(_)) => todo!(),
-	//						(NoSignedness, _) => bus1.signedness.clone(),
-	//					};
-	//					new.width = match (&bus.width, &bus1.width) {
-	//						(_, None) => bus.width.clone(),
-	//						(None, Some(_)) => bus1.width.clone(),
-	//						(Some(coming), Some(original)) => {
-	//							match (&coming.get_value(), &original.get_value()) {
-	//								(Some(val1), Some(val2)) => {
-	//									if val1 != val2 {
-	//										return Err(miette::Report::new(
-	//											SemanticError::DifferingBusWidths
-	//												.to_diagnostic_builder()
-	//												.label(
-	//													location,
-	//													format!(
-	//														"Cannot assign signals - width mismatch. {} bits vs {} bits",
-	//														val2, val1
-	//													)
-	//													.as_str(),
-	//												)
-	//												.label(bus1.location, "First width specified here")
-	//												.label(bus.location, "Second width specified here")
-	//												.build(),
-	//										));
-	//									}
-	//								},
-	//								_ => (),
-	//							}
-
-	//							bus.width.clone()
-	//						},
-	//					};
-	//					SignalType::Bus(new)
-	//				},
-	//				(Bus(bus), Wire(wire)) | (Wire(wire), Bus(bus)) => {
-	//					if bus.width.clone().unwrap().get_value().unwrap() != 1.into(){
-	//						return Err(miette::Report::new(
-	//							SemanticError::BoundingWireWithBus
-	//								.to_diagnostic_builder()
-	//								.label(location, "Cannot assign bus to a wire and vice versa")
-	//								.label(*wire, "Signal specified as wire here")
-	//								.label(bus.location, "Signal specified as a bus here")
-	//								.build(),
-	//						));
-	//					}
-	//					else {
-	//						sig.signal_type.clone()
-	//					}
-	//				},
-	//				(Bus(_), Auto(_)) => sig.signal_type.clone(),
-	//				(Wire(_), _) => sig.signal_type.clone(),
-	//			};
-	//			if var.var.kind == crate::analyzer::VariableKind::Signal(sig.clone()) {
-	//				return Ok(sig);
-	//			}
-	//			var.var.kind = crate::analyzer::VariableKind::Signal(sig.clone());
-	//			local_ctx.scope.redeclare_variable(var);
-	//			Ok(sig)
-	//		},
-	//		ParenthesizedExpression(_) => todo!(),
-	//		PostfixWithIndex(_) => todo!(),
-	//		PostfixWithRange(_) => todo!(),
-	//		PostfixWithArgs(_) => todo!(),
-	//		PostfixWithId(_) => todo!(),
-	//		_ => report_not_allowed_lhs(self.get_location()),
-	//	}
-	//}
 	pub fn evaluate(
 		// 1) jest, bo jest 2) jest, tu masz wartośc 3) nie może być bo nie wiadomo
 		&self,
@@ -729,7 +665,7 @@ impl Expression {
 	pub fn is_signedness_specified(
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
-		local_ctx: &LocalAnalyzerContex,
+		local_ctx: &LocalAnalyzerContext,
 		current_scope: usize,
 	) -> bool {
 		use Expression::*;
@@ -790,7 +726,7 @@ impl Expression {
 	pub fn is_width_specified(
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
-		local_ctx: &LocalAnalyzerContex,
+		local_ctx: &LocalAnalyzerContext,
 		current_scope: usize,
 	) -> bool {
 		use Expression::*;
@@ -1277,7 +1213,26 @@ impl Expression {
 					_ => unreachable!(),
 				}
 			},
-			PostfixWithId(_) => todo!(),
+			PostfixWithId(postfix) => {
+				let var = scope.get_variable(scope_id, &postfix.expression).unwrap();
+				match &var.var.kind {
+					VariableKind::ModuleInstance(instance) => match &instance.kind {
+						ModuleInstanceKind::Register(m) => match id_table.get_value(&postfix.id).as_str() {
+							"data" => Ok(scope.get_api_id_by_internal_id(m.data).unwrap().into()),
+							"en" => Ok(scope.get_api_id_by_internal_id(m.enable).unwrap().into()),
+							"next" => Ok(scope.get_api_id_by_internal_id(m.next).unwrap().into()),
+							"clk" => Ok(scope.get_api_id_by_internal_id(m.clk).unwrap().into()),
+							"nreset" => Ok(scope.get_api_id_by_internal_id(m.nreset).unwrap().into()),
+							_ => unreachable!(),
+						},
+						ModuleInstanceKind::Module(m) => {
+							let var = m.interface.get(&postfix.id).unwrap();
+							Ok(scope.get_api_id_by_internal_id(*var).unwrap().into())
+						},
+					},
+					_ => unreachable!(),
+				}
+			},
 			UnaryOperatorExpression(unary) => {
 				use crate::parser::ast::UnaryOpcode::*;
 				let operand = unary
@@ -1297,7 +1252,49 @@ impl Expression {
 				let src = unary_cast
 					.expression
 					.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
-				todo!()
+				let cast = additional_ctx.unwrap().casts.get(&self.get_location()).unwrap();
+				use SignalSensitivity::*;
+				let sensitivity = match &cast.dest_sensitivity {
+					Async(_) => Some(hirn::design::SignalSensitivity::Async),
+					Comb(list, _) => {
+						let mut new_list = hirn::design::ClockSensitivityList::new_empty();
+						for edge in &list.list {
+							let id = scope.get_api_id_by_internal_id(edge.clock_signal).unwrap();
+							let new_edge = hirn::design::EdgeSensitivity {
+								clock_signal: id,
+								on_rising: edge.on_rising,
+							};
+							new_list.push(new_edge);
+						}
+						Some(hirn::design::SignalSensitivity::Comb(new_list))
+					},
+					Sync(list, _) => {
+						let mut new_list = hirn::design::ClockSensitivityList::new_empty();
+						for edge in &list.list {
+							let id = scope.get_api_id_by_internal_id(edge.clock_signal).unwrap();
+							let new_edge = hirn::design::EdgeSensitivity {
+								clock_signal: id,
+								on_rising: edge.on_rising,
+							};
+							new_list.push(new_edge);
+						}
+						Some(hirn::design::SignalSensitivity::Sync(new_list))
+					},
+					Clock(..) => Some(hirn::design::SignalSensitivity::Clock),
+					Const(_) => Some(hirn::design::SignalSensitivity::Const),
+					NoSensitivity => None,
+				};
+				use SignalSignedness::*;
+				let signedness = match &cast.dest_signedness {
+					Signed(_) => Some(hirn::design::SignalSignedness::Signed),
+					Unsigned(_) => Some(hirn::design::SignalSignedness::Unsigned),
+					NoSignedness => None,
+				};
+				Ok(hirn::design::Expression::Cast(hirn::design::CastExpression {
+					src: Box::new(src),
+					signedness,
+					sensitivity,
+				}))
 			},
 			BinaryExpression(binop) => {
 				use crate::parser::ast::BinaryOpcode::*;
@@ -1362,7 +1359,7 @@ impl Expression {
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
 		scope_id: usize,
-		local_ctx: &LocalAnalyzerContex,
+		local_ctx: &LocalAnalyzerContext,
 	) -> miette::Result<bool> {
 		use Expression::*;
 		match self {
@@ -1425,7 +1422,7 @@ impl Expression {
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
 		scope_id: usize,
-		local_ctx: &mut LocalAnalyzerContex,
+		local_ctx: &mut LocalAnalyzerContext,
 		coupling_type: Signal,
 		is_lhs: bool,
 		location: SourceSpan,
@@ -1559,7 +1556,6 @@ impl Expression {
 					));
 				}
 				let mut res = Signal::new_empty();
-				let mut sensitivity = val.sensitivity.clone();
 				for stmt in &match_expr.statements {
 					match &stmt.antecedent {
 						MatchExpressionAntecendent::Expression {
@@ -1595,9 +1591,7 @@ impl Expression {
 						is_lhs,
 						match_expr.location,
 					)?;
-					sensitivity.evaluate_sensitivity(vec![res.sensitivity.clone()], self.get_location());
 				}
-				res.sensitivity = sensitivity;
 				Ok(res)
 			},
 			ConditionalExpression(cond) => {
@@ -1687,11 +1681,6 @@ impl Expression {
 					location,
 				)?;
 				debug!("condition: {:?}", type_condition);
-				//type_first.sensitivity.evaluate_sensitivity(
-				//	vec![type_second.sensitivity, type_condition.sensitivity],
-				//	self.get_location(),
-				//);
-				type_first.sensitivity = SignalSensitivity::NoSensitivity;
 				Ok(type_first) // FIXME
 			},
 			PostfixWithIndex(index) => {
@@ -1699,7 +1688,7 @@ impl Expression {
 					global_ctx,
 					scope_id,
 					local_ctx,
-					Signal::new_empty_with_sensitivity(coupling_type.sensitivity.clone()),
+					Signal::new_empty(),
 					is_lhs,
 					location,
 				)?;
@@ -1774,7 +1763,7 @@ impl Expression {
 					global_ctx,
 					scope_id,
 					local_ctx,
-					Signal::new_empty_with_sensitivity(coupling_type.sensitivity.clone()),
+					Signal::new_empty(),
 					is_lhs,
 					location,
 				)?;
@@ -1936,7 +1925,6 @@ impl Expression {
 							SignalSignedness::Unsigned(self.get_location()),
 							self.get_location(),
 						);
-						expr.sensitivity = SignalSensitivity::Const(self.get_location());
 						Ok(expr)
 					},
 					"trunc" => {
@@ -2105,8 +2093,6 @@ impl Expression {
 								));
 							}
 							nc.value += n_sig.width().unwrap().get_value().unwrap();
-							t.sensitivity
-								.evaluate_sensitivity(vec![n_sig.sensitivity], self.get_location())
 						}
 						t.set_width(
 							BusWidth::Evaluated(nc),
@@ -2234,8 +2220,60 @@ impl Expression {
 				let m = local_ctx.scope.get_variable(scope_id, &module.expression);
 				match m {
 					Some(var) => match &var.var.kind {
-						crate::analyzer::VariableKind::ModuleInstance(_) => {
-							todo!()
+						crate::analyzer::VariableKind::ModuleInstance(m) => {
+							use ModuleInstanceKind::*;
+							match &m.kind {
+								Module(m) => match m.interface.get(&module.id) {
+									Some(id) => {
+										let sig = local_ctx.scope.get_intermidiate_signal(*id);
+										return Ok(sig.var.kind.to_signal().unwrap());
+									},
+									None => {
+										return Err(miette::Report::new(
+											SemanticError::IdNotSubscriptable
+												.to_diagnostic_builder()
+												.label(
+													self.get_location(),
+													"This variable is not part of this module interface",
+												)
+												.build(),
+										));
+									},
+								},
+								Register(reg) => match global_ctx.id_table.get_value(&module.id).as_str() {
+									"data" => {
+										let var = local_ctx.scope.get_variable_by_id(reg.data).unwrap();
+										return Ok(var.var.kind.to_signal().unwrap());
+									},
+									"next" => {
+										let var = local_ctx.scope.get_variable_by_id(reg.next).unwrap();
+										return Ok(var.var.kind.to_signal().unwrap());
+									},
+									"en" => {
+										let var = local_ctx.scope.get_variable_by_id(reg.enable).unwrap();
+										return Ok(var.var.kind.to_signal().unwrap());
+									},
+									"clk" => {
+										let var = local_ctx.scope.get_variable_by_id(reg.clk).unwrap();
+										return Ok(var.var.kind.to_signal().unwrap());
+									},
+									"nreset" => {
+										let var = local_ctx.scope.get_variable_by_id(reg.nreset).unwrap();
+										return Ok(var.var.kind.to_signal().unwrap());
+									},
+									_ => {
+										return Err(miette::Report::new(
+											SemanticError::IdNotSubscriptable
+												.to_diagnostic_builder()
+												.label(
+													self.get_location(),
+													"This variable is not part of this module interface",
+												)
+												.build(),
+										));
+									},
+								},
+							}
 						},
 						_ => {
 							return Err(miette::Report::new(
@@ -2367,14 +2405,18 @@ impl Expression {
 							}
 						}
 						let mut r = sig.clone();
+						let mut cast = Cast::new(self.get_location());
 						if !r.is_sensititivity_specified() {
 							r.sensitivity = expr.sensitivity.clone();
 						}
-						if !r.is_direction_specified() {
-							r.direction = expr.direction.clone();
+						else {
+							cast.add_sensitivity(r.sensitivity.clone())
 						}
 						if !r.is_signedness_specified() {
 							r.set_signedness(expr.get_signedness(), location);
+						}
+						else {
+							cast.add_signedness(r.get_signedness());
 						}
 						if !r.is_width_specified() {
 							r.set_width(
@@ -2384,7 +2426,7 @@ impl Expression {
 							)
 						}
 						debug!("casted to: {:?}", r);
-						local_ctx.casts.insert(self.get_location(), r.clone());
+						local_ctx.casts.insert(self.get_location(), cast);
 						Ok(r)
 					},
 					VariableKind::Generic(_) => {
@@ -2481,9 +2523,6 @@ impl Expression {
 							.build(),
 					));
 				}
-				type_first
-					.sensitivity
-					.evaluate_sensitivity(vec![type_second.sensitivity.clone()], location);
 				let w = match &binop.code {
 					Multiplication => {
 						use SignalType::*;
@@ -2564,10 +2603,9 @@ impl Expression {
 						BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(1)))
 					},
 				};
-				Ok(Signal::new_bus_with_sensitivity(
-					w,
+				Ok(Signal::new_bus(
+					Some(w),
 					type_first.get_signedness(),
-					type_first.sensitivity.clone(),
 					self.get_location(),
 				))
 			},
@@ -2594,7 +2632,27 @@ impl Expression {
 		}
 	}
 }
-
+#[derive(Debug, Clone, Eq, PartialEq)]
+pub struct Cast {
+	pub location: SourceSpan,
+	pub dest_signedness: SignalSignedness,
+	pub dest_sensitivity: SignalSensitivity,
+}
+impl Cast {
+	pub fn new(location: SourceSpan) -> Self {
+		Self {
+			location,
+			dest_signedness: SignalSignedness::NoSignedness,
+			dest_sensitivity: SignalSensitivity::NoSensitivity,
+		}
+	}
+	pub fn add_signedness(&mut self, signedness: SignalSignedness) {
+		self.dest_signedness = signedness;
+	}
+	pub fn add_sensitivity(&mut self, sensitivity: SignalSensitivity) {
+		self.dest_sensitivity = sensitivity;
+	}
+}
 fn report_not_allowed_expression(span: SourceSpan, expr_name: &str) -> miette::Result<Option<NumericConstant>> {
 	Err(miette::Report::new(
 		SemanticError::ExpressionNotAllowedInNonGenericModuleDeclaration

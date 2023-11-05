@@ -1,0 +1,6 @@
+module X{}
+impl X{
+	clock wire a, b,c;
+	comb(a,b) wire d;
+	comb(a,b,c) wire e = d & c;
+}
