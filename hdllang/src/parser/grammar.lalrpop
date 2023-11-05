@@ -755,12 +755,24 @@ TypeDeclarator: TypeDeclarator ={
 		location:SourceSpan::new_between(start,end),
 		}
 	},
-	<start:@L> "unsigned" <specifier:CompType> <end:@R> =>{
+	<start:@L> "unsigned" <start1:@L> "int"  <end:@R> =>{
 		let qualifiers = vec![TypeQualifier::Unsigned{
-			location:SourceSpan::new_between(start,end),
+			location:SourceSpan::new_between(start,start1),
 		}];
 		TypeDeclarator{
-		specifier,
+		specifier:TypeSpecifier::Int{
+			location:SourceSpan::new_between(start1,end),
+		},
+		qualifiers,
+		location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start:@L> "signed" <start1:@L> "int" <end:@R> =>{
+		let qualifiers = vec![];
+		TypeDeclarator{
+		specifier:TypeSpecifier::Int{
+			location:SourceSpan::new_between(start1,end),
+		},
 		qualifiers,
 		location:SourceSpan::new_between(start,end),
 		}
