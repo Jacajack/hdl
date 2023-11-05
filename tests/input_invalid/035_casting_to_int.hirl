@@ -1,0 +1,4 @@
+module m{}
+impl m{
+	const a = (int)1u1;
+}

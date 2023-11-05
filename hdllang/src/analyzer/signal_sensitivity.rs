@@ -2,7 +2,7 @@ use crate::{analyzer::SemanticError, core::CompilerDiagnosticBuilder, ProvidesCo
 
 use super::{module_implementation_scope::InternalVariableId, GlobalAnalyzerContext};
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
 pub struct EdgeSensitivity {
 	pub clock_signal: InternalVariableId,
 	pub on_rising: bool,
@@ -10,7 +10,7 @@ pub struct EdgeSensitivity {
 }
 
 /// Determines sensitivity of a signal to certain clocks
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ClockSensitivityList {
 	pub list: Vec<EdgeSensitivity>,
 }
@@ -50,7 +50,7 @@ impl ClockSensitivityList {
 		self.list.iter().map(|x| x.clock_signal).collect()
 	}
 }
-#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub enum SignalSensitivity {
 	Async(SourceSpan),
 	Comb(ClockSensitivityList, SourceSpan),
@@ -70,6 +70,13 @@ impl SignalSensitivity {
 			Clock(..) => "clock",
 			Const(_) => "const",
 			NoSensitivity => "none",
+		}
+	}
+	pub fn is_none(&self) -> bool {
+		use SignalSensitivity::*;
+		match self {
+			NoSensitivity => true,
+			_ => false,
 		}
 	}
 	pub fn evaluate_sensitivity(&mut self, others: Vec<SignalSensitivity>, location: SourceSpan) {
@@ -319,7 +326,7 @@ impl SignalSensitivity {
 						.label(*self.location().unwrap(), "This sensitivity is better than asynchronous")
 						.label(
 							location,
-							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the source signal",
+							"Cannot assign signals - sensitivity mismatch. Sensitivty of the destination signal should be a super set of the source signal"
 						)
 						.label(*sensitivity_location, "This sensitivity is asynchronous")
 						,
@@ -330,7 +337,7 @@ impl SignalSensitivity {
 						.to_diagnostic_builder()
 						.label(
 							location,
-							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the source signal",
+							"Cannot assign signals - sensitivity mismatch. Sensitivty of the destination signal should be a super set of the source signal"
 						)
 						.label(*sensitivity_location, "This sensitivity is better than comb")
 						,
@@ -342,7 +349,7 @@ impl SignalSensitivity {
 						.to_diagnostic_builder()
 						.label(
 							location,
-							"Cannot assign signals - sensitivity mismatch. Sensitivity of the land hand side should be worse or the same as the source signal",
+							"Cannot assign signals - sensitivity mismatch. Sensitivty of the destination signal should be a super set of the source signal"
 						)
 						.label(*sensitivity_location, "This sensitivity is better than sync")
 						,
@@ -355,7 +362,7 @@ impl SignalSensitivity {
 						.to_diagnostic_builder()
 						.label(
 							location,
-							"Cannot bind signals - sensitivity mismatch. Sensitivity on the left assignment side must be worse or same as on the source signal",
+							"Cannot assign signals - sensitivity mismatch. Sensitivty of the destination signal should be a super set of the source signal"
 						)
 						.label(*sensitivity_location, "This sensitivity is const")
 						.label(*rhs.location().unwrap(), "This sensitivity is worse than const")

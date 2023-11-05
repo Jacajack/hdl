@@ -111,7 +111,10 @@ impl ClockSensitivityList {
 		list.push(*edge);
 		list
 	}
-
+	pub fn new_empty() -> Self {
+		let list = Self { 0: HashSet::new() };
+		list
+	}
 	pub fn push(&mut self, edge: EdgeSensitivity) {
 		self.0.insert(edge);
 	}

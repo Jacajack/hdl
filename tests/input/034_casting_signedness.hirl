@@ -1,0 +1,6 @@
+module m{}
+impl m{
+	const signed bus<4> a;
+	const unsigned bus<4> b;
+	a = (signed auto)b;
+}
