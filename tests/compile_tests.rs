@@ -166,7 +166,7 @@ fn compile_run_iverilog_with_sim(input_path: &Path) -> Result<(), String> {
 }
 
 fn compile_run_iverilog(path: PathBuf) {
-	let sv_file = run_hdlc(path.as_path(), false).unwrap();
+	let sv_file = run_hdlc(path.as_path(), true).unwrap();
 
 	if !std::env::var("NO_IVERILOG").is_ok() {
 		let iverilog_path = std::env::var("IVERILOG_PATH").unwrap_or("iverilog".into());
