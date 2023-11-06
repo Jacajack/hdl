@@ -1,7 +1,7 @@
 use super::{AlreadyCreated, ModuleDeclared, RegisterInstance, SemanticError, Variable, VariableKind};
 use hirn::{
-	design::{ScopeHandle, UnaryExpression},
-	elab::{ElabAssumptions, ElabMessageSeverity, ElabToplevelAssumptions, Elaborator, FullElaborator},
+	design::ScopeHandle,
+	elab::{ElabMessageSeverity, ElabToplevelAssumptions, Elaborator, FullElaborator},
 };
 use log::{debug, error, info, warn};
 use std::io::Write;
@@ -597,11 +597,8 @@ impl ModuleImplementationStatement {
 									initial_val.clone(),
 								))),
 								direction: crate::analyzer::Direction::None,
-								dimensions: Vec::new(),
-								kind: crate::analyzer::GenericVariableKind::Int(
-									crate::analyzer::SignalSignedness::NoSignedness,
-									iteration.location,
-								),
+        						width: Some(BusWidth::Evaluated(NumericConstant::new_from_value(64.into()))),
+        						signedness: crate::analyzer::SignalSignedness::Unsigned(iteration.location),
 							}),
 						),
 					)?;

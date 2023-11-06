@@ -134,11 +134,6 @@ impl ModuleImplementationScope {
 						}
 					},
 					VariableKind::Generic(gen) => {
-						gen.dimensions.iter_mut().for_each(|dim| {
-							debug!("Transforming dimension {:?} to generic", dim);
-							dim.to_generic();
-							debug!("Transformed dimension {:?} to generic", dim);
-						});
 						match &mut gen.value {
 							// unreachable!(),
 							Some(val) => {
