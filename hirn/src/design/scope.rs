@@ -22,6 +22,13 @@ pub struct ConditionalScope {
 	pub else_scope: Option<ScopeId>,
 }
 
+impl ConditionalScope {
+	/// Returns a set of variables on which the condition of this scope depends
+	pub fn condition_dependencies(&self) -> HashSet<SignalId> {
+		self.condition.get_variables()
+	}
+}
+
 /// Scope associated with a loop statement
 #[derive(Clone, Debug)]
 pub struct RangeScope {
@@ -36,6 +43,16 @@ pub struct RangeScope {
 
 	/// Child scope
 	pub scope: ScopeId,
+}
+
+impl RangeScope {
+	/// Returns a set of variables on which the condition of this scope depends
+	pub fn condition_dependencies(&self) -> HashSet<SignalId> {
+		let mut deps = HashSet::new();
+		deps.extend(self.iterator_begin.get_variables().iter());
+		deps.extend(self.iterator_end.get_variables().iter());
+		deps
+	}
 }
 
 /// Assignment of signals
@@ -71,6 +88,22 @@ impl Assignment {
 	/// Sets the comment
 	pub fn comment(&mut self, comment: &str) {
 		self.comment = Some(comment.to_string());
+	}
+
+	/// Returns a set of variables which need to be evaluated before making the assignment
+	pub fn dependencies(&self) -> HashSet<SignalId> {
+		let mut deps = HashSet::new();
+		deps.extend(self.rhs.get_variables().iter());
+		let lhs_slice = self.lhs.try_drive().expect("LHS not drivable in assignment");
+		for index in lhs_slice.indices {
+			deps.extend(index.get_variables().iter());
+		}
+		deps
+	}
+
+	/// Returns ID of the signal driven by this assignment
+	pub fn driven_signal(&self) -> SignalId {
+		self.lhs.try_drive().expect("LHS not drivable in assignment").signal
 	}
 }
 
@@ -136,16 +169,12 @@ impl Scope {
 		child: ScopeId,
 		else_scope: Option<ScopeId>,
 	) -> Result<ScopeId, DesignError> {
-		// self.add_subscope(child)?;
 		self.conditionals.push(ConditionalScope {
 			condition,
 			scope: child,
 			else_scope,
 		});
 		Ok(child)
-
-		// TODO assert condition valid in this scope
-		// TODO assert condition is compile-time constant
 	}
 
 	/// Adds a new loop sub-scope
@@ -156,7 +185,6 @@ impl Scope {
 		iterator_end: Expression,
 		child: ScopeId,
 	) -> Result<ScopeId, DesignError> {
-		// self.add_subscope(child)?;
 		self.loops.push(RangeScope {
 			iterator_var,
 			iterator_begin,
@@ -164,20 +192,11 @@ impl Scope {
 			scope: child,
 		});
 		Ok(child)
-
-		// TODO assert iterator var in child scope
-		// TODO assert expressions valid in this scope
-		// TODO assert iterator_var type is int
-		// TODO assert iterator_begin is compile-time constant
-		// TODO assert iterator_end is compile-time constant
 	}
 
 	/// Adds a block instance in this scope
 	fn add_block(&mut self, block: BlockInstance) -> Result<(), DesignError> {
 		self.blocks.push(block);
-
-		// TODO check if all expressions can be evaluated inside this scope
-
 		Ok(())
 	}
 
@@ -383,6 +402,49 @@ impl ScopeHandle {
 
 	pub fn blocks(&self) -> Vec<BlockInstance> {
 		this_scope!(self).blocks.clone()
+	}
+
+	/// Returns a set of variables on which the condition of this scope depends
+	/// This is not recursive.
+	pub fn condition_dependencies(&self) -> HashSet<SignalId> {
+		if let Some(parent) = self.parent_handle() {
+			for subscope in &parent.conditional_subscopes() {
+				if subscope.scope == self.scope {
+					return subscope.condition_dependencies();
+				}
+			}
+
+			for subscope in &parent.loop_subscopes() {
+				if subscope.scope == self.scope {
+					return subscope.condition_dependencies();
+				}
+			}
+
+			for subscope in &parent.subscopes() {
+				if *subscope == self.scope {
+					return HashSet::new();
+				}
+			}
+
+			panic!("This scope is not contained in its parent");
+		}
+		else {
+			HashSet::new()
+		}
+	}
+
+	/// Returns a set of all signals affected by this scope (i.e. LHS signals)
+	/// Not recursive.
+	pub fn output_signals(&self) -> HashSet<SignalId> {
+		let mut signals: HashSet<SignalId> = HashSet::new();
+
+		for assignment in &this_scope!(self).assignments {
+			signals.insert(assignment.driven_signal());
+		}
+
+		todo!();
+
+		signals
 	}
 
 	pub fn parent(&self) -> Option<ScopeId> {

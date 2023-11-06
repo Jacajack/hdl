@@ -1,8 +1,6 @@
-use std::sync::{Arc, Mutex};
-
 use log::info;
 
-use crate::elab::ElabError;
+use crate::elab::{ElabError, ElabMessageKind};
 
 use super::{
 	full_elab::{FullElabCacheHandle, FullElabCtx},
@@ -16,8 +14,10 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for TestPass {
 		"TestPass"
 	}
 
-	fn run(&mut self, ctx: FullElabCtx) -> Result<FullElabCtx, ElabError> {
+	fn run(&mut self, mut ctx: FullElabCtx) -> Result<FullElabCtx, ElabError> {
 		info!("Running test elaboration pass...");
+
+		ctx.add_message(ElabMessageKind::Notice("asdf".into()));
 		Ok(ctx)
 	}
 }

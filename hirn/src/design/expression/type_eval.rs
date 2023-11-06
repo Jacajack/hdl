@@ -1,11 +1,11 @@
 use super::{
 	BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalContext, EvalError, EvalType,
-	EvaluatesType, NumericConstant, UnaryExpression,
+	EvaluatesType, NumericConstant, UnaryExpression, eval::EvalAssumptions,
 };
 use crate::design::{BinaryOp, Expression, SignalId, SignalSensitivity, SignalSignedness, SignalSlice};
 
 impl EvaluatesType for NumericConstant {
-	fn eval_type(&self, _ctx: &EvalContext) -> Result<EvalType, EvalError> {
+	fn eval_type(&self, _ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError> {
 		Ok(EvalType {
 			signedness: self.signedness()?,
 			sensitivity: SignalSensitivity::Generic,
@@ -14,7 +14,7 @@ impl EvaluatesType for NumericConstant {
 }
 
 impl EvaluatesType for SignalId {
-	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
+	fn eval_type(&self, ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError> {
 		if let Some(design) = ctx.design() {
 			let signal = design.get_signal(*self).expect("Evaluated signal must be in design");
 			Ok(EvalType {
@@ -29,7 +29,7 @@ impl EvaluatesType for SignalId {
 }
 
 impl EvaluatesType for BinaryExpression {
-	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
+	fn eval_type(&self, ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError> {
 		let lhs = self.lhs.eval_type(ctx)?;
 		let rhs = self.rhs.eval_type(ctx)?;
 
@@ -60,13 +60,13 @@ impl EvaluatesType for BinaryExpression {
 }
 
 impl EvaluatesType for SignalSlice {
-	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
+	fn eval_type(&self, ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError> {
 		self.signal.eval_type(ctx)
 	}
 }
 
 impl EvaluatesType for ConditionalExpression {
-	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
+	fn eval_type(&self, ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError> {
 		let default_type = self.default_value().eval_type(ctx)?;
 		let branch_types_res: Result<Vec<_>, EvalError> =
 			self.branches().iter().map(|br| br.value().eval_type(ctx)).collect();
@@ -97,7 +97,7 @@ impl EvaluatesType for ConditionalExpression {
 }
 
 impl EvaluatesType for UnaryExpression {
-	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
+	fn eval_type(&self, ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError> {
 		let op_type = self.operand.eval_type(ctx)?;
 
 		use SignalSensitivity::*;
@@ -113,7 +113,7 @@ impl EvaluatesType for UnaryExpression {
 }
 
 impl EvaluatesType for BuiltinOp {
-	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
+	fn eval_type(&self, ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError> {
 		use BuiltinOp::*;
 		Ok(match self {
 			BitSelect { expr, .. } => expr.eval_type(ctx)?,
@@ -157,7 +157,7 @@ impl EvaluatesType for BuiltinOp {
 }
 
 impl EvaluatesType for CastExpression {
-	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
+	fn eval_type(&self, ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError> {
 		let src_type = self.src.eval_type(ctx)?;
 		let signedness = self.signedness.clone().unwrap_or(src_type.signedness);
 		let sensitivity = self.sensitivity.clone().unwrap_or(src_type.sensitivity);
@@ -170,7 +170,7 @@ impl EvaluatesType for CastExpression {
 }
 
 impl EvaluatesType for Expression {
-	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError> {
+	fn eval_type(&self, ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError> {
 		use Expression::*;
 		match self {
 			Constant(value) => value.eval_type(ctx),

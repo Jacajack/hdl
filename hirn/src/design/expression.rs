@@ -7,14 +7,14 @@ mod numeric_constant;
 mod type_eval;
 mod width_expression;
 
-pub use eval::{EvalContext, EvalError, EvalType, Evaluates, EvaluatesType};
+pub use eval::{EvalContext, EvalError, EvalType, Evaluates, EvaluatesType, EvalAssumptions};
 pub use expression_validate::ExpressionError;
 pub use narrow_eval::NarrowEval;
 pub use numeric_constant::NumericConstant;
 pub use width_expression::WidthExpression;
 
-use super::signal::{SignalSensitivity, SignalSlice};
-use super::{SignalId, SignalSignedness};
+use super::signal::{SignalSensitivity, SignalSlice, SignalSliceRange};
+use super::{SignalId, SignalSignedness, DesignHandle};
 
 /// Binary operators
 #[derive(Clone, Copy, Debug)]
@@ -128,49 +128,38 @@ impl BuiltinOp {
 		Ok(())
 	}
 
-	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<(), T>) -> Result<(), T> {
+	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<bool, T>) -> Result<(), T> {
 		use BuiltinOp::*;
 		match self {
 			ZeroExtend { expr, width } | SignExtend { expr, width } => {
-				f(expr)?;
-				expr.traverse(f)?;
-				f(width)?;
-				width.traverse(f)?;
+				if f(expr)?	{expr.traverse(f)?;}
+				if f(width)? {width.traverse(f)?;}
 			},
 
 			BusSelect { expr, msb, lsb } => {
-				f(expr)?;
-				expr.traverse(f)?;
-				f(lsb)?;
-				lsb.traverse(f)?;
-				f(msb)?;
-				msb.traverse(f)?;
+				if f(expr)? {expr.traverse(f)?;}
+				if f(lsb)? {lsb.traverse(f)?;}
+				if f(msb)? {msb.traverse(f)?;}
 			},
 
 			BitSelect { expr, index } => {
-				f(expr)?;
-				expr.traverse(f)?;
-				f(index)?;
-				index.traverse(f)?;
+				if f(expr)? {expr.traverse(f)?;}
+				if f(index)? {index.traverse(f)?;}
 			},
 
 			Replicate { expr, count } => {
-				f(expr)?;
-				expr.traverse(f)?;
-				f(count)?;
-				count.traverse(f)?;
+				if f(expr)? {expr.traverse(f)?;}
+				if f(count)? {count.traverse(f)?;}
 			},
 
 			Join(exprs) => {
 				for expr in exprs {
-					f(expr)?;
-					expr.traverse(f)?;
+					if f(expr)? {expr.traverse(f)?;}
 				}
 			},
 
 			Width(expr) => {
-				f(expr)?;
-				expr.traverse(f)?;
+				if f(expr)? {expr.traverse(f)?;}
 			},
 		}
 		Ok(())
@@ -240,15 +229,19 @@ impl ConditionalExpression {
 		Ok(())
 	}
 
-	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<(), T>) -> Result<(), T> {
-		f(&self.default)?;
-		self.default.traverse(f)?;
-		for branch in &self.branches {
-			f(&branch.condition)?;
-			branch.condition.traverse(f)?;
-			f(&branch.value)?;
-			branch.value.traverse(f)?;
+	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<bool, T>) -> Result<(), T> {
+		if f(&self.default)? {
+			self.default.traverse(f)?;
 		}
+		for branch in &self.branches {
+			if f(&branch.condition)? {
+				branch.condition.traverse(f)?;
+			}
+			if f(&branch.value)? {
+			branch.value.traverse(f)?;
+			}
+		}
+
 		Ok(())
 	}
 }
@@ -294,9 +287,10 @@ impl CastExpression {
 		Ok(())
 	}
 
-	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<(), T>) -> Result<(), T> {
-		f(&self.src)?;
-		self.src.traverse(f)?;
+	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<bool, T>) -> Result<(), T> {
+		if f(&self.src)? {
+			self.src.traverse(f)?;
+		}
 		Ok(())
 	}
 }
@@ -323,11 +317,13 @@ impl BinaryExpression {
 		Ok(())
 	}
 
-	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<(), T>) -> Result<(), T> {
-		f(&self.lhs)?;
-		self.lhs.traverse(f)?;
-		f(&self.rhs)?;
-		self.rhs.traverse(f)?;
+	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<bool, T>) -> Result<(), T> {
+		if f(&self.lhs)? {
+			self.lhs.traverse(f)?;
+		}
+		if f(&self.rhs)? {
+			self.rhs.traverse(f)?;
+		}
 		Ok(())
 	}
 }
@@ -349,9 +345,10 @@ impl UnaryExpression {
 		Ok(())
 	}
 
-	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<(), T>) -> Result<(), T> {
-		f(&self.operand)?;
-		self.operand.traverse(f)?;
+	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<bool, T>) -> Result<(), T> {
+		if f(&self.operand)? {
+			self.operand.traverse(f)?;
+		}
 		Ok(())
 	}
 }
@@ -498,6 +495,65 @@ impl Expression {
 		}
 	}
 
+	/// Returns slice and bits affected if this expression is driven
+	pub fn try_drive_bits(&self) -> Option<SignalSliceRange> {
+		use Expression::*;
+		match self {
+			Signal(slice) => {
+				Some(SignalSliceRange::new_full(slice.clone()))
+			}
+
+			Builtin(BuiltinOp::BusSelect{expr, lsb, msb}) => {
+				let inner = expr.try_drive_bits()?;
+				match (inner.slice(), inner.lsb_msb()) {
+					(inner, None) => {
+						Some(SignalSliceRange::new(inner.clone(), (**lsb).clone(), (**msb).clone()))
+					}
+					(inner, Some((inner_lsb, _))) => {
+						let new_lsb = inner_lsb.clone() + (**lsb).clone();
+						let new_msb = inner_lsb.clone() + (**msb).clone();
+						Some(SignalSliceRange::new(inner.clone(), new_lsb, new_msb))
+					}
+				}
+			}
+
+			Builtin(BuiltinOp::BitSelect{expr, index}) => {
+				let inner = expr.try_drive_bits()?;
+				match (inner.slice(), inner.lsb_msb()) {
+					(inner, None) => {
+						Some(SignalSliceRange::new(inner.clone(), (**index).clone(), (**index).clone()))
+					}
+					(inner, Some((inner_lsb, _))) => {
+						let new_lsb = inner_lsb.clone() + (**index).clone();
+						let new_msb = new_lsb.clone();
+						Some(SignalSliceRange::new(inner.clone(), new_lsb, new_msb))
+					}
+				}
+			}
+
+			_ => None
+		}
+	}
+
+	/// Returns a list of signal slice ranges which are used in this expression
+	pub fn get_used_slice_ranges(&self) -> Vec<SignalSliceRange> {
+		let mut slices = vec![];
+		self.traverse(&mut |expr| -> Result<bool, ()> {
+			if let Some(slice) = expr.try_drive_bits() {
+				// This Some(false) deserves a bit of explanation
+				// if we encounter signal[0:15][0] we don't want to go deeper 
+				// after the bit select. Doing so would result in a duplicate
+				// 'signal' references.
+				slices.push(slice);
+				Ok(false)
+			}
+			else {
+				Ok(true)
+			}
+		}).unwrap();
+		slices
+	}
+
 	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
 		f(self)?;
 		use Expression::*;
@@ -518,22 +574,24 @@ impl Expression {
 		Ok(())
 	}
 
-	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<(), T>) -> Result<(), T> {
-		f(self)?;
+	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<bool, T>) -> Result<(), T> {
+		if f(self)? {
 		use Expression::*;
-		match self {
-			Binary(expr) => expr.traverse(f)?,
-			Unary(expr) => expr.traverse(f)?,
-			Conditional(expr) => expr.traverse(f)?,
-			Builtin(expr) => expr.traverse(f)?,
-			Cast(expr) => expr.traverse(f)?,
-			Constant(_) => (),
-			Signal(slice) => {
-				for index_expr in &slice.indices {
-					f(index_expr)?;
-					index_expr.traverse(f)?;
-				}
-			},
+			match self {
+				Binary(expr) => expr.traverse(f)?,
+				Unary(expr) => expr.traverse(f)?,
+				Conditional(expr) => expr.traverse(f)?,
+				Builtin(expr) => expr.traverse(f)?,
+				Cast(expr) => expr.traverse(f)?,
+				Constant(_) => (),
+				Signal(slice) => {
+					for index_expr in &slice.indices {
+						if f(index_expr)? {
+							index_expr.traverse(f)?;
+						}
+					}
+				},
+			}
 		}
 		Ok(())
 	}

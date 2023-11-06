@@ -1,4 +1,6 @@
 extern crate hirn;
+use std::sync::Arc;
+
 use hirn::{
 	codegen::{sv::SVCodegen, Codegen},
 	design::{DesignHandle, Expression, SignalDirection},
@@ -69,7 +71,7 @@ fn main() -> Result<(), HirnError> {
 	loop_scope.assign(m_bus.into(), iter.into())?;
 
 	let mut elab = hirn::elab::FullElaborator::new(d.clone());
-	let elab_report = elab.elaborate(m.id(), Box::new(ElabToplevelAssumptions::default()))?;
+	let elab_report = elab.elaborate(m.id(), Arc::new(ElabToplevelAssumptions::default()))?;
 	println!("{:?}", elab_report);
 
 	let mut source = String::new();

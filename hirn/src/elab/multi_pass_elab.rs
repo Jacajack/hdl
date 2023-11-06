@@ -1,11 +1,11 @@
 mod full_elab;
-mod generic_resolve;
+mod signal_graph_pass;
 mod test_pass;
 
 pub use full_elab::FullElaborator;
 use log::info;
 
-use std::collections::VecDeque;
+use std::{collections::VecDeque, sync::Arc};
 
 use crate::design::{DesignHandle, ModuleId};
 
@@ -16,7 +16,7 @@ pub trait ElabPassContext<T> {
 	fn new_context(
 		design: DesignHandle,
 		module_id: ModuleId,
-		assumptions: Box<dyn ElabAssumptionsBase>,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
 		cache: T,
 	) -> Self;
 	fn queued(&self) -> Vec<ElabQueueItem>;
@@ -45,11 +45,11 @@ where
 #[derive(Clone, Debug)]
 pub struct ElabQueueItem {
 	module: ModuleId,
-	assumptions: Box<dyn ElabAssumptionsBase>,
+	assumptions: Arc<dyn ElabAssumptionsBase>,
 }
 
 impl ElabQueueItem {
-	pub fn new(module: ModuleId, assumptions: Box<dyn ElabAssumptionsBase>) -> Self {
+	pub fn new(module: ModuleId, assumptions: Arc<dyn ElabAssumptionsBase>) -> Self {
 		Self { module, assumptions }
 	}
 }
@@ -100,7 +100,7 @@ where
 	fn elab_module(
 		&mut self,
 		id: ModuleId,
-		assumptions: Box<dyn ElabAssumptionsBase>,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<ElabReport, ElabError> {
 		let mut ctx = Ctx::new_context(self.design.clone(), id, assumptions, self.cache.clone());
 
@@ -121,11 +121,11 @@ where
 	Ctx: ElabPassContext<Cache>,
 	Cache: Default + Clone,
 {
-	fn elaborate(&mut self, id: ModuleId, assumptions: Box<dyn ElabAssumptionsBase>) -> Result<ElabReport, ElabError> {
-		self.queue.push_back(ElabQueueItem {
-			module: id,
+	fn elaborate(&mut self, id: ModuleId, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<ElabReport, ElabError> {
+		self.queue.push_back(ElabQueueItem::new(
+			id,
 			assumptions,
-		});
+		));
 
 		self.run_queue()
 	}

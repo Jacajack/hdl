@@ -1,7 +1,7 @@
 use super::{AlreadyCreated, ModuleDeclared, RegisterInstance, SemanticError, Variable, VariableKind};
-use hirn::design::{ScopeHandle, UnaryExpression};
-use log::{debug, info};
-use std::collections::HashMap;
+use hirn::{design::{ScopeHandle, UnaryExpression}, elab::{FullElaborator, Elaborator, ElabAssumptions, ElabToplevelAssumptions, ElabMessageSeverity}};
+use log::{debug, info, warn, error};
+use std::{collections::HashMap, sync::Arc};
 use std::io::Write;
 
 use crate::{
@@ -198,24 +198,48 @@ impl<'a> SemanticalAnalyzer<'a> {
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
-			todo!("Invoke elaboration");
-			let mut output_string: String = String::new();
-			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design, &mut output_string);
+			
+			let module_id = self.ctx
+				.modules_declared
+				.get_mut(&local_ctx.module_id)
+				.unwrap()
+				.handle
+				.id();
+
+			// FIXME use Miette here
+			let mut elab = FullElaborator::new(self.ctx.design.clone());
+			let elab_result = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::default()));
+			match elab_result {
+				Ok(elab_report) => for msg in elab_report.messages() {
+					match msg.severity() {
+						ElabMessageSeverity::Error => {
+							error!("elab: {}", msg);
+						},
+						ElabMessageSeverity::Warning => {
+							warn!("elab: {}", msg);
+						},
+						ElabMessageSeverity::Info => {
+							info!("elab: {}", msg);
+						},
+					}
+				}
+
+				Err(err) => {
+					panic!("Fatal elab error: {}", err);
+				}
+			};
+
+			let mut output_string = String::new();
+			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
 			use hirn::codegen::Codegen;
 			sv_codegen
-				.emit_module(
-					self.ctx
-						.modules_declared
-						.get_mut(&local_ctx.module_id)
-						.unwrap()
-						.handle
-						.id(),
-				)
+				.emit_module(module_id)
 				.unwrap();
 			write!(output, "{}", output_string).unwrap();
 		}
 		Ok(())
 	}
+
 	pub fn compile(&mut self, output: &mut dyn Write) -> miette::Result<()> {
 		self.passes.push(first_pass);
 		self.passes.push(second_pass);

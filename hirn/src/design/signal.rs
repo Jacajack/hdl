@@ -291,6 +291,56 @@ impl From<SignalId> for SignalSlice {
 	}
 }
 
+/// Signal slice but with two expressions for lsb and msb index
+#[derive(Clone, Debug)]
+pub struct SignalSliceRange {
+	slice: SignalSlice,
+	lsb: Option<Expression>,
+	msb: Option<Expression>,
+}
+
+impl SignalSliceRange {
+	pub fn new_full(slice: SignalSlice) -> Self {
+		Self { slice, lsb: None, msb: None }
+	}
+
+	pub fn new(slice: SignalSlice, lsb: Expression, msb: Expression) -> Self {
+		Self {
+			slice,
+			lsb: Some(lsb),
+			msb: Some(msb),
+		}
+	}
+
+	pub fn slice(&self) -> &SignalSlice {
+		&self.slice
+	}
+
+	pub fn lsb(&self) -> Option<&Expression> {
+		self.lsb.as_ref()
+	}
+
+	pub fn msb(&self) -> Option<&Expression> {
+		self.msb.as_ref()
+	}
+
+	pub fn lsb_msb(&self) -> Option<(&Expression, &Expression)> {
+		match (self.lsb.as_ref(), self.msb.as_ref()) {
+			(Some(lsb), Some(msb)) => Some((lsb, msb)),
+			_ => None,
+		}
+	}
+
+	pub fn signal(&self) -> SignalId {
+		self.slice.signal
+	}
+
+	pub fn is_full(&self) -> bool {
+		assert_eq!(self.lsb.is_none(), self.msb.is_none());
+		self.lsb.is_none()
+	}
+}
+
 /// Physical signal representation
 #[derive(Clone, Debug)]
 pub struct Signal {
