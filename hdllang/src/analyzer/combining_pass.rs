@@ -1773,15 +1773,14 @@ impl VariableBlockStatement {
 		Ok(())
 	}
 }
-impl IfElseStatement{
+impl IfElseStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
 		local_ctx: &mut LocalAnalyzerContext,
 		scope_id: usize,
 		api_scope: &mut ScopeHandle,
-	) ->miette::Result<()>
-	{
+	) -> miette::Result<()> {
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		let additional_ctx = AdditionalContext::new(
 			local_ctx.nc_widths.clone(),
@@ -1797,13 +1796,12 @@ impl IfElseStatement{
 		)?;
 		match self.else_statement {
 			Some(ref else_stmt) => {
-				let (mut if_scope, mut else_scope) =
-					api_scope.if_else_scope(condition_expr).map_err(|err| {
-						CompilerError::HirnApiError(err)
-							.to_diagnostic_builder()
-							.label(self.location, "Error occured here")
-							.build()
-					})?;
+				let (mut if_scope, mut else_scope) = api_scope.if_else_scope(condition_expr).map_err(|err| {
+					CompilerError::HirnApiError(err)
+						.to_diagnostic_builder()
+						.label(self.location, "Error occured here")
+						.build()
+				})?;
 				match self.if_statement.as_ref() {
 					ModuleImplementationBlockStatement(block) => {
 						log::debug!("Codegen for if block");
