@@ -5,7 +5,7 @@ use crate::{
 	elab::{ElabAssumptionsBase, ElabError, ElabReport, Elaborator, ElabMessage, ElabMessageKind, SeverityPolicy, DefaultSeverityPolicy},
 };
 
-use super::{test_pass::TestPass, ElabPassContext, ElabQueueItem, MultiPassElaborator, generic_resolve::{GenericResolvePass, GenericResolvePassCtx}};
+use super::{test_pass::TestPass, ElabPassContext, ElabQueueItem, MultiPassElaborator, signal_graph_pass::{SignalGraphPass, SignalGraphPassResult, SignalGraphPassConfig}};
 
 pub(super) struct FullElabCtx {
 	design: DesignHandle,
@@ -15,7 +15,8 @@ pub(super) struct FullElabCtx {
 	assumptions: Arc<dyn ElabAssumptionsBase>,
 	severity_policy: Box<dyn SeverityPolicy>,
 
-	pub(super) generic_resolve_ctx: Option<GenericResolvePassCtx>,
+	pub(super) sig_graph_result: Option<SignalGraphPassResult>,
+	pub(super) sig_graph_config: SignalGraphPassConfig,
 }
 
 impl FullElabCtx {
@@ -50,7 +51,7 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 		design: DesignHandle,
 		module_id: ModuleId,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
-		cache: FullElabCacheHandle,
+		_cache: FullElabCacheHandle,
 	) -> Self {
 		Self {
 			design,
@@ -59,7 +60,8 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 			queued: Vec::new(),
 			report: ElabReport::default(),
 			severity_policy: Box::new(DefaultSeverityPolicy),
-			generic_resolve_ctx: None,
+			sig_graph_config: SignalGraphPassConfig::default(),
+			sig_graph_result: None,
 		}
 	}
 
@@ -82,7 +84,7 @@ impl FullElaborator {
 	pub fn new(design: DesignHandle) -> Self {
 		let mut elaborator = MultiPassElaborator::new(design);
 		elaborator.add_pass(Box::new(TestPass {}));
-		elaborator.add_pass(Box::new(GenericResolvePass {}));
+		elaborator.add_pass(Box::new(SignalGraphPass {}));
 		Self { elaborator }
 	}
 }

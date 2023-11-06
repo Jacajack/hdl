@@ -53,10 +53,10 @@ fn compile(mut code: String, file_name: String, output: &mut dyn Write, elab: bo
 	let mut analyzer = hdllang::analyzer::SemanticalAnalyzer::new(global_ctx, &modules);
 
 	if elab {
-		analyzer.compile(output)
+		analyzer.compile_and_elaborate(output)
 	}
 	else {
-		analyzer.compile_and_elaborate(output)
+		analyzer.compile(output)
 	}.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code)))?;
 	
 	Ok(())

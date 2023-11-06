@@ -1,5 +1,5 @@
 mod full_elab;
-mod generic_resolve;
+mod signal_graph_pass;
 mod test_pass;
 
 pub use full_elab::FullElaborator;
