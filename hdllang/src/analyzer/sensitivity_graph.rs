@@ -173,7 +173,7 @@ impl SensitivityGraph {
 		let from_id = self.insert_or_get_index(from);
 		let to_id = self.insert_or_get_index(to);
 
-		if from_id != to_id{
+		if from_id != to_id {
 			self.graph.add_edge(from_id, to_id, edge);
 		}
 
@@ -252,12 +252,12 @@ impl SensitivityGraph {
 				let mut var_sens = ctx.get_variable_by_id(id).unwrap();
 				let return_sig = match &mut var_sens.var.kind {
 					super::VariableKind::Signal(sig) => {
-						if !sig.sensitivity.is_none(){
+						if !sig.sensitivity.is_none() {
 							return Ok(sig.sensitivity.clone());
 						}
 						let neighbours = self
-						.graph
-						.neighbors_directed(self.get_index(&node), petgraph::Direction::Incoming);
+							.graph
+							.neighbors_directed(self.get_index(&node), petgraph::Direction::Incoming);
 						for neighbour in neighbours {
 							sens.evaluate_sensitivity(
 								vec![self.deduce_sensitivity(
