@@ -1,11 +1,18 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
-	design::{DesignHandle, ModuleId, ModuleHandle},
-	elab::{ElabAssumptionsBase, ElabError, ElabReport, Elaborator, ElabMessage, ElabMessageKind, SeverityPolicy, DefaultSeverityPolicy},
+	design::{DesignHandle, ModuleHandle, ModuleId},
+	elab::{
+		DefaultSeverityPolicy, ElabAssumptionsBase, ElabError, ElabMessage, ElabMessageKind, ElabReport, Elaborator,
+		SeverityPolicy,
+	},
 };
 
-use super::{test_pass::TestPass, ElabPassContext, ElabQueueItem, MultiPassElaborator, signal_graph_pass::{SignalGraphPass, SignalGraphPassResult, SignalGraphPassConfig}};
+use super::{
+	signal_graph_pass::{SignalGraphPass, SignalGraphPassConfig, SignalGraphPassResult},
+	test_pass::TestPass,
+	ElabPassContext, ElabQueueItem, MultiPassElaborator,
+};
 
 pub(super) struct FullElabCtx {
 	design: DesignHandle,
@@ -30,7 +37,9 @@ impl FullElabCtx {
 	}
 
 	pub fn module_handle(&self) -> ModuleHandle {
-		self.design.get_module_handle(self.module_id).expect("elaborated module not in design")
+		self.design
+			.get_module_handle(self.module_id)
+			.expect("elaborated module not in design")
 	}
 
 	pub fn design(&self) -> &DesignHandle {

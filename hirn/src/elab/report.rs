@@ -69,9 +69,7 @@ impl ElabMessage {
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 		policy: Option<&dyn SeverityPolicy>,
 	) -> Self {
-		let severity = 
-			policy.unwrap_or(&DefaultSeverityPolicy)
-			.severity(&kind);
+		let severity = policy.unwrap_or(&DefaultSeverityPolicy).severity(&kind);
 
 		Self {
 			severity,

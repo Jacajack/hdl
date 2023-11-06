@@ -7,14 +7,14 @@ mod numeric_constant;
 mod type_eval;
 mod width_expression;
 
-pub use eval::{EvalContext, EvalError, EvalType, Evaluates, EvaluatesType, EvalAssumptions};
+pub use eval::{EvalAssumptions, EvalContext, EvalError, EvalType, Evaluates, EvaluatesType};
 pub use expression_validate::ExpressionError;
 pub use narrow_eval::NarrowEval;
 pub use numeric_constant::NumericConstant;
 pub use width_expression::WidthExpression;
 
 use super::signal::{SignalSensitivity, SignalSlice, SignalSliceRange};
-use super::{SignalId, SignalSignedness, DesignHandle};
+use super::{DesignHandle, SignalId, SignalSignedness};
 
 /// Binary operators
 #[derive(Clone, Copy, Debug)]
@@ -132,34 +132,56 @@ impl BuiltinOp {
 		use BuiltinOp::*;
 		match self {
 			ZeroExtend { expr, width } | SignExtend { expr, width } => {
-				if f(expr)?	{expr.traverse(f)?;}
-				if f(width)? {width.traverse(f)?;}
+				if f(expr)? {
+					expr.traverse(f)?;
+				}
+				if f(width)? {
+					width.traverse(f)?;
+				}
 			},
 
 			BusSelect { expr, msb, lsb } => {
-				if f(expr)? {expr.traverse(f)?;}
-				if f(lsb)? {lsb.traverse(f)?;}
-				if f(msb)? {msb.traverse(f)?;}
+				if f(expr)? {
+					expr.traverse(f)?;
+				}
+				if f(lsb)? {
+					lsb.traverse(f)?;
+				}
+				if f(msb)? {
+					msb.traverse(f)?;
+				}
 			},
 
 			BitSelect { expr, index } => {
-				if f(expr)? {expr.traverse(f)?;}
-				if f(index)? {index.traverse(f)?;}
+				if f(expr)? {
+					expr.traverse(f)?;
+				}
+				if f(index)? {
+					index.traverse(f)?;
+				}
 			},
 
 			Replicate { expr, count } => {
-				if f(expr)? {expr.traverse(f)?;}
-				if f(count)? {count.traverse(f)?;}
+				if f(expr)? {
+					expr.traverse(f)?;
+				}
+				if f(count)? {
+					count.traverse(f)?;
+				}
 			},
 
 			Join(exprs) => {
 				for expr in exprs {
-					if f(expr)? {expr.traverse(f)?;}
+					if f(expr)? {
+						expr.traverse(f)?;
+					}
 				}
 			},
 
 			Width(expr) => {
-				if f(expr)? {expr.traverse(f)?;}
+				if f(expr)? {
+					expr.traverse(f)?;
+				}
 			},
 		}
 		Ok(())
@@ -238,7 +260,7 @@ impl ConditionalExpression {
 				branch.condition.traverse(f)?;
 			}
 			if f(&branch.value)? {
-			branch.value.traverse(f)?;
+				branch.value.traverse(f)?;
 			}
 		}
 
@@ -499,39 +521,37 @@ impl Expression {
 	pub fn try_drive_bits(&self) -> Option<SignalSliceRange> {
 		use Expression::*;
 		match self {
-			Signal(slice) => {
-				Some(SignalSliceRange::new_full(slice.clone()))
-			}
+			Signal(slice) => Some(SignalSliceRange::new_full(slice.clone())),
 
-			Builtin(BuiltinOp::BusSelect{expr, lsb, msb}) => {
+			Builtin(BuiltinOp::BusSelect { expr, lsb, msb }) => {
 				let inner = expr.try_drive_bits()?;
 				match (inner.slice(), inner.lsb_msb()) {
-					(inner, None) => {
-						Some(SignalSliceRange::new(inner.clone(), (**lsb).clone(), (**msb).clone()))
-					}
+					(inner, None) => Some(SignalSliceRange::new(inner.clone(), (**lsb).clone(), (**msb).clone())),
 					(inner, Some((inner_lsb, _))) => {
 						let new_lsb = inner_lsb.clone() + (**lsb).clone();
 						let new_msb = inner_lsb.clone() + (**msb).clone();
 						Some(SignalSliceRange::new(inner.clone(), new_lsb, new_msb))
-					}
+					},
 				}
-			}
+			},
 
-			Builtin(BuiltinOp::BitSelect{expr, index}) => {
+			Builtin(BuiltinOp::BitSelect { expr, index }) => {
 				let inner = expr.try_drive_bits()?;
 				match (inner.slice(), inner.lsb_msb()) {
-					(inner, None) => {
-						Some(SignalSliceRange::new(inner.clone(), (**index).clone(), (**index).clone()))
-					}
+					(inner, None) => Some(SignalSliceRange::new(
+						inner.clone(),
+						(**index).clone(),
+						(**index).clone(),
+					)),
 					(inner, Some((inner_lsb, _))) => {
 						let new_lsb = inner_lsb.clone() + (**index).clone();
 						let new_msb = new_lsb.clone();
 						Some(SignalSliceRange::new(inner.clone(), new_lsb, new_msb))
-					}
+					},
 				}
-			}
+			},
 
-			_ => None
+			_ => None,
 		}
 	}
 
@@ -541,7 +561,7 @@ impl Expression {
 		self.traverse(&mut |expr| -> Result<bool, ()> {
 			if let Some(slice) = expr.try_drive_bits() {
 				// This Some(false) deserves a bit of explanation
-				// if we encounter signal[0:15][0] we don't want to go deeper 
+				// if we encounter signal[0:15][0] we don't want to go deeper
 				// after the bit select. Doing so would result in a duplicate
 				// 'signal' references.
 				slices.push(slice);
@@ -550,7 +570,8 @@ impl Expression {
 			else {
 				Ok(true)
 			}
-		}).unwrap();
+		})
+		.unwrap();
 		slices
 	}
 
@@ -576,7 +597,7 @@ impl Expression {
 
 	pub fn traverse<T>(&self, f: &mut dyn FnMut(&Expression) -> Result<bool, T>) -> Result<(), T> {
 		if f(self)? {
-		use Expression::*;
+			use Expression::*;
 			match self {
 				Binary(expr) => expr.traverse(f)?,
 				Unary(expr) => expr.traverse(f)?,

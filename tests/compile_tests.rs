@@ -57,8 +57,9 @@ fn compile(mut code: String, file_name: String, output: &mut dyn Write, elab: bo
 	}
 	else {
 		analyzer.compile(output)
-	}.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code)))?;
-	
+	}
+	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code)))?;
+
 	Ok(())
 }
 

@@ -1,5 +1,5 @@
 use super::{NarrowEval, WidthExpression};
-use crate::design::{Expression, SignalSignedness, HasSignedness};
+use crate::design::{Expression, HasSignedness, SignalSignedness};
 
 use num_bigint::{BigInt, BigUint};
 
@@ -664,7 +664,8 @@ impl std::fmt::Display for NumericConstant {
 				if self.is_signed() { "s" } else { "u" },
 				self.width().expect("could not get width")
 			)?;
-		} else {
+		}
+		else {
 			write!(f, "<invalid>")?;
 		}
 

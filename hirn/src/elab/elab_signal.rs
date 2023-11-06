@@ -10,7 +10,7 @@ impl SparseSignalMask {
 	fn new(width: u32) -> Self {
 		assert_ne!(width, 0, "SignalMask width cannot be 0");
 		Self {
-			width: width,
+			width,
 			mask: BigUint::from(0u32),
 		}
 	}
@@ -41,7 +41,7 @@ impl SparseSignalMask {
 		assert!(lsb < self.width);
 		assert!(msb < self.width);
 		assert!(lsb <= msb);
-		
+
 		let mut conflict_mask = SparseSignalMask::new(self.width);
 
 		// TODO optimize using bitwise magic
@@ -76,39 +76,46 @@ impl SparseSignalMask {
 
 #[derive(Clone, Debug)]
 pub enum SignalMask {
-	Full{width: u32, set: bool},
+	Full { width: u32, set: bool },
 	Sparse(SparseSignalMask),
 }
 
 impl SignalMask {
 	pub fn new(width: u32) -> Self {
 		assert_ne!(width, 0, "SignalMask width cannot be 0");
-		Self::Full{width, set: false}
+		Self::Full { width, set: false }
 	}
 
 	pub fn new_set(width: u32) -> Self {
 		assert_ne!(width, 0, "SignalMask width cannot be 0");
-		Self::Full{width, set: true}
+		Self::Full { width, set: true }
 	}
 
 	fn normalize(&mut self) {
 		use SignalMask::*;
 		match self {
-			Full{..} => {},
+			Full { .. } => {},
 			Sparse(m) => {
 				if m.is_empty() {
-					*self = Full{width: m.width(), set: false};
-				} else if m.is_full() {
-					*self = Full{width: m.width(), set: true};
+					*self = Full {
+						width: m.width(),
+						set: false,
+					};
 				}
-			}
+				else if m.is_full() {
+					*self = Full {
+						width: m.width(),
+						set: true,
+					};
+				}
+			},
 		}
 	}
 
 	pub fn width(&self) -> u32 {
 		use SignalMask::*;
 		match self {
-			Full{width, ..} => *width,
+			Full { width, .. } => *width,
 			Sparse(m) => m.width(),
 		}
 	}
@@ -118,9 +125,7 @@ impl SignalMask {
 
 		use SignalMask::*;
 		match self {
-			Full{width: _, set} => {
-				*set
-			}
+			Full { width: _, set } => *set,
 			Sparse(m) => m.get_bit(bit),
 		}
 	}
@@ -128,13 +133,16 @@ impl SignalMask {
 	pub fn set_all(&mut self) -> SignalMask {
 		use SignalMask::*;
 		match self {
-			Full{width, set: true} => Self::new_set(*width),
-			Full{width, set: false} => Self::new(*width),
+			Full { width, set: true } => Self::new_set(*width),
+			Full { width, set: false } => Self::new(*width),
 			Sparse(m) => {
 				let conflict = m.clone();
-				*self = Self::Full{width: conflict.width(), set: true};
+				*self = Self::Full {
+					width: conflict.width(),
+					set: true,
+				};
 				Self::Sparse(conflict)
-			}
+			},
 		}
 	}
 
@@ -145,19 +153,20 @@ impl SignalMask {
 
 		use SignalMask::*;
 		let conflict = match self {
-			Full{width: _, set: true} => Self::Sparse(SparseSignalMask::new_range(self.width(), lsb, msb)),
-			Full{width: _, set: false} => {
+			Full { width: _, set: true } => Self::Sparse(SparseSignalMask::new_range(self.width(), lsb, msb)),
+			Full { width: _, set: false } => {
 				*self = Self::Sparse(SparseSignalMask::new_range(self.width(), lsb, msb));
 				Self::new(self.width())
-			}
+			},
 			Sparse(m) => {
 				let conflict = m.set_bits(lsb, msb);
 				if conflict.is_empty() {
 					Self::new(self.width())
-				} else {
+				}
+				else {
 					Self::Sparse(conflict)
 				}
-			}
+			},
 		};
 
 		self.normalize();
@@ -169,28 +178,34 @@ impl SignalMask {
 
 		use SignalMask::*;
 		let conflict = match (&self, other) {
-			(Full{width: _, set: false}, rhs) => {
+			(Full { width: _, set: false }, rhs) => {
 				*self = rhs.clone();
 				Self::new(rhs.width())
 			},
 
-			(Full{width: _, set: true}, rhs) => {
-				rhs.clone()
-			},
+			(Full { width: _, set: true }, rhs) => rhs.clone(),
 
-			(Sparse(_), Full{width: rhs_w, set: false}) => {
-				Self::new(*rhs_w)
-			},
+			(
+				Sparse(_),
+				Full {
+					width: rhs_w,
+					set: false,
+				},
+			) => Self::new(*rhs_w),
 
-			(Sparse(lhs_mask), Full{width: rhs_w, set: true}) => {
+			(
+				Sparse(lhs_mask),
+				Full {
+					width: rhs_w,
+					set: true,
+				},
+			) => {
 				let conflict = lhs_mask.clone();
 				*self = Self::new_set(*rhs_w);
 				Self::Sparse(conflict)
 			},
 
-			(Sparse(lhs_mask), Sparse(rhs_mask)) => {
-				Self::Sparse(lhs_mask.clone().mask_or(rhs_mask))
-			}
+			(Sparse(lhs_mask), Sparse(rhs_mask)) => Self::Sparse(lhs_mask.clone().mask_or(rhs_mask)),
 		};
 
 		self.normalize();
@@ -201,8 +216,8 @@ impl SignalMask {
 		// Could be optimized by asserting that we're always normalized
 		use SignalMask::*;
 		match self {
-			Full{set, ..} => *set,
-			Sparse(m) => m.is_full()
+			Full { set, .. } => *set,
+			Sparse(m) => m.is_full(),
 		}
 	}
 
@@ -210,11 +225,10 @@ impl SignalMask {
 		// Could be optimized by asserting that we're always normalized
 		use SignalMask::*;
 		match self {
-			Full{set, ..} => !*set,
-			Sparse(m) => m.is_empty()
+			Full { set, .. } => !*set,
+			Sparse(m) => m.is_empty(),
 		}
 	}
-
 }
 
 pub struct ElabSignal {
@@ -296,6 +310,5 @@ mod test {
 		sig.drive();
 		assert!(sig.has_conflicts());
 		assert!(sig.is_fully_driven());
-
 	}
 }

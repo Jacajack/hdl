@@ -1,14 +1,20 @@
+use log::{debug, error, info};
+use petgraph::prelude::{DiGraphMap, GraphMap};
+use petgraph::Directed;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
-use log::{info, error, debug};
-use petgraph::Directed;
-use petgraph::prelude::{DiGraphMap, GraphMap};
 
-use crate::design::{ScopeHandle, ConditionalScope, RangeScope, Evaluates, DesignHandle, HasSensitivity, SignalSlice};
+use crate::design::{ConditionalScope, DesignHandle, Evaluates, HasSensitivity, RangeScope, ScopeHandle, SignalSlice};
 use crate::elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal};
-use crate::{elab::{ElabError, ElabAssumptions}, design::{ScopeId, SignalId}};
+use crate::{
+	design::{ScopeId, SignalId},
+	elab::{ElabAssumptions, ElabError},
+};
 
-use super::{full_elab::{FullElabCtx, FullElabCacheHandle}, ElabPass};
+use super::{
+	full_elab::{FullElabCacheHandle, FullElabCtx},
+	ElabPass,
+};
 
 #[derive(Clone, Debug, Copy)]
 pub(super) struct SignalGraphPassConfig {
@@ -42,7 +48,7 @@ pub struct GeneratedSignalId {
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneratedSignalRef {
 	id: GeneratedSignalId,
-	index: Option<u32>,	
+	index: Option<u32>,
 }
 
 /// Represents a generated signal (width + dimensions evaluated)
@@ -51,26 +57,18 @@ pub struct GeneratedSignal {
 	dimensions: Vec<usize>,
 }
 
-impl GeneratedSignal {
-
-}
+impl GeneratedSignal {}
 
 /// IDs generated each time a scope is visited
 #[derive(Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub struct ScopePassId(usize);
 
-/// Auxiliary information about a scope pass 
+/// Auxiliary information about a scope pass
 #[derive(Clone, Copy, Debug)]
 pub enum ScopePassInfo {
 	Unconditional(ScopeId),
-	Conditional {
-		id: ScopeId,
-		was_true: bool,
-	},
-	Range {
-		id: ScopeId,
-		iter_number: i64,
-	}
+	Conditional { id: ScopeId, was_true: bool },
+	Range { id: ScopeId, iter_number: i64 },
 }
 pub struct SignalGraphPassResult {
 	// signals: HashMap<GeneratedSignalId, ElabSignal>,
@@ -80,8 +78,7 @@ pub struct SignalGraphPassResult {
 	// pass_info: HashMap<usize, ScopePassInfo>,
 }
 
-impl SignalGraphPassResult {
-}
+impl SignalGraphPassResult {}
 
 struct SignalGraphPassCtx {
 	/// Design handle
@@ -106,7 +103,6 @@ struct SignalGraphPassCtx {
 	elab_signals: HashMap<GeneratedSignalRef, ElabSignal>,
 
 	comb_graph: GraphMap<GeneratedSignalRef, (), Directed>,
-
 	// clock_graph: GraphMap<GeneratedSignalId, (), Undirected>,
 	// clock_groups: HashMap<GeneratedSignalId, usize>,
 }
@@ -126,7 +122,6 @@ impl SignalGraphPassCtx {
 
 			signals: HashMap::new(),
 			elab_signals: HashMap::new(),
-
 		}
 	}
 
@@ -143,10 +138,13 @@ impl SignalGraphPassCtx {
 	fn record_conditional_scope_pass(&mut self, id: ScopeId, cond_true: bool) -> ScopePassId {
 		let pass_id = ScopePassId(self.scope_pass_counter);
 		self.scope_pass_counter += 1;
-		self.pass_info.insert(pass_id, ScopePassInfo::Conditional {
-			id,
-			was_true: cond_true,
-		});
+		self.pass_info.insert(
+			pass_id,
+			ScopePassInfo::Conditional {
+				id,
+				was_true: cond_true,
+			},
+		);
 		self.current_pass.insert(id, pass_id);
 		pass_id
 	}
@@ -155,10 +153,8 @@ impl SignalGraphPassCtx {
 	fn record_range_scope_pass(&mut self, id: ScopeId, iter: i64) -> ScopePassId {
 		let pass_id = ScopePassId(self.scope_pass_counter);
 		self.scope_pass_counter += 1;
-		self.pass_info.insert(pass_id, ScopePassInfo::Range {
-			id,
-			iter_number: iter,
-		});
+		self.pass_info
+			.insert(pass_id, ScopePassInfo::Range { id, iter_number: iter });
 		self.current_pass.insert(id, pass_id);
 		pass_id
 	}
@@ -182,14 +178,18 @@ impl SignalGraphPassCtx {
 		todo!();
 	}
 
-	fn declare_signal(&mut self, id: SignalId, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<GeneratedSignalId, ElabMessageKind> {
+	fn declare_signal(
+		&mut self,
+		id: SignalId,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
+	) -> Result<GeneratedSignalId, ElabMessageKind> {
 		let sig = self.design.get_signal(id).expect("signal not in design");
 		let pass_id = self.get_scope_pass_id(sig.parent_scope);
 		assert!(!sig.is_generic());
 
 		debug!("Signal '{}' declared in pass {:?}", sig.name(), pass_id);
 
-		// Check signal rank 
+		// Check signal rank
 		if sig.rank() > self.config.max_array_rank {
 			error!("Signal {} has rank {} which is out of range", sig.name(), sig.rank());
 			return Err(ElabMessageKind::InvalidArrayRank(sig.rank() as u32));
@@ -216,15 +216,16 @@ impl SignalGraphPassCtx {
 		// Verify total array size
 		let total_fields = dimensions.iter().product::<usize>();
 		if total_fields > self.config.max_array_size {
-			error!("Signal {} has {} fields which is out of range", sig.name(), total_fields);
+			error!(
+				"Signal {} has {} fields which is out of range",
+				sig.name(),
+				total_fields
+			);
 			return Err(ElabMessageKind::InvalidArraySize(total_fields));
 		}
 
 		// ID for the generated signal
-		let gen_id = GeneratedSignalId {
-			id,
-			pass_id,
-		};
+		let gen_id = GeneratedSignalId { id, pass_id };
 
 		// Insert all array fields into the graph and elab signal array
 		if dimensions.len() > 0 {
@@ -236,8 +237,14 @@ impl SignalGraphPassCtx {
 				};
 
 				self.comb_graph.add_node(sig_ref);
-				let sig_existed = self.elab_signals.insert(sig_ref, ElabSignal::new(width as u32)).is_some();
-				assert!(!sig_existed, "An elab signal already exists for this generated signal ref")
+				let sig_existed = self
+					.elab_signals
+					.insert(sig_ref, ElabSignal::new(width as u32))
+					.is_some();
+				assert!(
+					!sig_existed,
+					"An elab signal already exists for this generated signal ref"
+				)
 			}
 		}
 		else {
@@ -248,8 +255,14 @@ impl SignalGraphPassCtx {
 			};
 
 			self.comb_graph.add_node(sig_ref);
-			let sig_existed = self.elab_signals.insert(sig_ref, ElabSignal::new(width as u32)).is_some();
-			assert!(!sig_existed, "An elab signal already exists for this generated signal ref")
+			let sig_existed = self
+				.elab_signals
+				.insert(sig_ref, ElabSignal::new(width as u32))
+				.is_some();
+			assert!(
+				!sig_existed,
+				"An elab signal already exists for this generated signal ref"
+			)
 		}
 
 		// Register the generated signal
@@ -262,14 +275,13 @@ impl SignalGraphPassCtx {
 		assert!(!sig_exists, "Generated signal already exists!");
 
 		Ok(gen_id)
-
 	}
 
 	/// Analyzes scope contents (non-recursively)
 	fn elab_scope_content(
 		&mut self,
 		scope: ScopeHandle,
-		assumptions: Arc<dyn ElabAssumptionsBase>
+		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<(), ElabMessageKind> {
 		let pass_id = self.get_scope_pass_id(scope.id());
 		debug!("Analyzing scope {:?} (pass {:?})", scope.id(), pass_id);
@@ -289,12 +301,12 @@ impl SignalGraphPassCtx {
 	fn elab_scope(
 		&mut self,
 		scope: ScopeHandle,
-		parent_assumptions: Arc<dyn ElabAssumptionsBase>
+		parent_assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<(), ElabMessageKind> {
 		let mut assumptions = ElabAssumptions::new_with_parent(parent_assumptions);
 		let mut assigned_values = HashMap::new();
 		let mut graph = DiGraphMap::<SignalId, ()>::new();
-		
+
 		// Add all generic signals to the graph
 		for sig_id in scope.signals() {
 			let sig = scope.design().get_signal(sig_id).unwrap();
@@ -306,20 +318,26 @@ impl SignalGraphPassCtx {
 		// Process all assignments
 		for asmt in scope.assignments() {
 			let lhs_target = asmt.lhs.try_drive().ok_or(ElabMessageKind::NotDrivable)?;
-			let lhs_sig = self.design.get_signal(lhs_target.signal).expect("LHS signal not in design");
-			
+			let lhs_sig = self
+				.design
+				.get_signal(lhs_target.signal)
+				.expect("LHS signal not in design");
+
 			// We ignore actual signal assignments
 			if !lhs_sig.sensitivity().is_generic() {
 				continue;
 			}
 
-			graph.add_node(lhs_target.signal); 
+			graph.add_node(lhs_target.signal);
 			for dep_var in asmt.dependencies() {
 				graph.add_edge(dep_var, lhs_target.signal, ());
 			}
 
 			if assigned_values.insert(lhs_target.signal, asmt.rhs.clone()).is_some() {
-				error!("The generic variable '{}' is assigned to more than once", lhs_sig.name());
+				error!(
+					"The generic variable '{}' is assigned to more than once",
+					lhs_sig.name()
+				);
 				return Err(ElabMessageKind::MultipleGenericAssignments);
 			}
 		}
@@ -334,12 +352,12 @@ impl SignalGraphPassCtx {
 		for element in petgraph::algo::min_spanning_tree(&graph) {
 			use petgraph::data::Element::*;
 			match element {
-				Node{weight: signal_id} => {
+				Node { weight: signal_id } => {
 					// If the variable has an assumption already, we don't need to resolve it
 					if assumptions.get(signal_id).is_some() {
 						continue;
 					}
-					
+
 					let sig = self.design.get_signal(signal_id).expect("signal not in design");
 					let expr = assigned_values.get(&signal_id).ok_or_else(|| {
 						error!("The generic variable '{}' is not assigned", sig.name());
@@ -356,10 +374,7 @@ impl SignalGraphPassCtx {
 
 		// Analyze resolved scope
 		let assumptions_arc = Arc::new(assumptions);
-		self.elab_scope_content(
-			scope.clone(),
-			assumptions_arc.clone()
-		)?;
+		self.elab_scope_content(scope.clone(), assumptions_arc.clone())?;
 
 		// Recurse for subscopes
 		let mut visited_scopes = HashSet::new();
@@ -378,7 +393,10 @@ impl SignalGraphPassCtx {
 			if visited_scopes.contains(&child_scope) {
 				continue;
 			}
-			let handle = scope.design().get_scope_handle(child_scope).expect("scope not in design");
+			let handle = scope
+				.design()
+				.get_scope_handle(child_scope)
+				.expect("scope not in design");
 			self.elab_unconditional_scope(&handle, assumptions_arc.clone())?;
 			visited_scopes.insert(child_scope);
 		}
@@ -386,24 +404,38 @@ impl SignalGraphPassCtx {
 		Ok(())
 	}
 
-	fn elab_conditional_scope(&mut self, cond_scope: &ConditionalScope, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
+	fn elab_conditional_scope(
+		&mut self,
+		cond_scope: &ConditionalScope,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
+	) -> Result<(), ElabMessageKind> {
 		// TODO validate condition expr
-		
+
 		let cond_value = cond_scope.condition.eval(&assumptions)?;
 		if !cond_value.is_zero() {
-			let scope_handle = self.design.get_scope_handle(cond_scope.scope).expect("scope not in design");
+			let scope_handle = self
+				.design
+				.get_scope_handle(cond_scope.scope)
+				.expect("scope not in design");
 			self.record_conditional_scope_pass(scope_handle.id(), true);
 			self.elab_scope(scope_handle, assumptions)?;
 		}
-		else if let Some(else_scope_id) = cond_scope.else_scope{
-			let scope_handle = self.design.get_scope_handle(else_scope_id).expect("scope not in design");
+		else if let Some(else_scope_id) = cond_scope.else_scope {
+			let scope_handle = self
+				.design
+				.get_scope_handle(else_scope_id)
+				.expect("scope not in design");
 			self.record_conditional_scope_pass(scope_handle.id(), false);
 			self.elab_scope(scope_handle, assumptions)?;
 		}
 		Ok(())
 	}
 
-	fn elab_loop_scope(&mut self, range_scope: &RangeScope, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
+	fn elab_loop_scope(
+		&mut self,
+		range_scope: &RangeScope,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
+	) -> Result<(), ElabMessageKind> {
 		let begin_val = range_scope.iterator_begin.eval(&assumptions)?;
 		let end_val = range_scope.iterator_end.eval(&assumptions)?;
 		let iter_count = (end_val - begin_val.clone()).try_into_i64()?;
@@ -411,12 +443,18 @@ impl SignalGraphPassCtx {
 		// TODO validate expressions
 
 		if iter_count > self.config.max_for_iters {
-			error!("The for loop owning scope {:?} iterates more than {} times", range_scope.scope, self.config.max_for_iters);
+			error!(
+				"The for loop owning scope {:?} iterates more than {} times",
+				range_scope.scope, self.config.max_for_iters
+			);
 			return Err(ElabMessageKind::MaxForIterCount);
 		}
 
 		// let iter_sig = self.design.get_signal(range_scope.iterator_var).expect("iterator signal not in design");
-		let scope_handle = self.design.get_scope_handle(range_scope.scope).expect("scope not in design");
+		let scope_handle = self
+			.design
+			.get_scope_handle(range_scope.scope)
+			.expect("scope not in design");
 
 		for i in 0..=iter_count {
 			let mut iter_assumption = ElabAssumptions::new_with_parent(assumptions.clone());
@@ -430,7 +468,11 @@ impl SignalGraphPassCtx {
 		Ok(())
 	}
 
-	fn elab_unconditional_scope(&mut self, scope: &ScopeHandle, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
+	fn elab_unconditional_scope(
+		&mut self,
+		scope: &ScopeHandle,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
+	) -> Result<(), ElabMessageKind> {
 		self.record_scope_pass(scope.id());
 		self.elab_scope(scope.clone(), assumptions)?;
 		Ok(())
@@ -461,7 +503,7 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for SignalGraphPass {
 		info!("Signal graph edge count: {}", ctx.comb_graph.edge_count());
 		info!("Elab signals registered: {}", ctx.elab_signals.len());
 
-		full_ctx.sig_graph_result = Some(SignalGraphPassResult{}); // FIXME
+		full_ctx.sig_graph_result = Some(SignalGraphPassResult {}); // FIXME
 		Ok(full_ctx)
 	}
 }

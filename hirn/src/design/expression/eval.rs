@@ -5,7 +5,7 @@ use thiserror::Error;
 
 pub trait EvalAssumptions {
 	fn design(&self) -> Option<DesignHandle>;
-	
+
 	fn signal(&self, signal: SignalId, indices: &Vec<i64>) -> Option<&NumericConstant>;
 
 	fn scalar_signal(&self, signal: SignalId) -> Option<&NumericConstant> {
@@ -72,7 +72,7 @@ impl EvalAssumptions for EvalContext {
 	fn design(&self) -> Option<DesignHandle> {
 		self.design.clone()
 	}
-	
+
 	fn signal(&self, signal: SignalId, indices: &Vec<i64>) -> Option<&NumericConstant> {
 		self.assumptions.get(&(signal, indices.to_vec())) // FIXME
 	}

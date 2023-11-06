@@ -9,15 +9,15 @@ mod utils;
 pub use comment::HasComment;
 pub use expression::{
 	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, ConditionalExpressionBranch,
-	EvalContext, EvalError, EvalType, Evaluates, EvaluatesType, Expression, NumericConstant, UnaryExpression, UnaryOp,
-	WidthExpression, NarrowEval, EvalAssumptions,
+	EvalAssumptions, EvalContext, EvalError, EvalType, Evaluates, EvaluatesType, Expression, NarrowEval,
+	NumericConstant, UnaryExpression, UnaryOp, WidthExpression,
 };
 pub use functional_blocks::{
 	BlockInstance, HasInstanceName, ModuleInstance, ModuleInstanceBuilder, Register, RegisterBuilder,
 };
 use log::debug;
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
-pub use scope::{Scope, ScopeHandle, ConditionalScope, RangeScope};
+pub use scope::{ConditionalScope, RangeScope, Scope, ScopeHandle};
 pub use signal::{
 	ClockSensitivityList, EdgeSensitivity, HasSensitivity, HasSignedness, Signal, SignalBuilder, SignalClass,
 	SignalSensitivity, SignalSignedness, SignalSlice,
