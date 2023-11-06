@@ -1027,77 +1027,7 @@ impl ModuleImplementationStatement {
 				debug!("Assignment done");
 			},
 			IfElseStatement(conditional) => {
-				let condition_expr = conditional.condition.codegen(
-					ctx.nc_table,
-					ctx.id_table,
-					scope_id,
-					&local_ctx.scope,
-					Some(&additional_ctx),
-				)?;
-				debug!("{:?}", condition_expr);
-				match conditional.else_statement {
-					Some(ref else_stmt) => {
-						let (mut if_scope, mut else_scope) =
-							api_scope.if_else_scope(condition_expr).map_err(|err| {
-								CompilerError::HirnApiError(err)
-									.to_diagnostic_builder()
-									.label(self.get_location(), "Error occured here")
-									.build()
-							})?;
-						conditional.if_statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
-						else_stmt.codegen_pass(ctx, local_ctx, &mut else_scope)?;
-					},
-					None => {
-						let mut if_scope = api_scope.if_scope(condition_expr).map_err(|err| {
-							CompilerError::HirnApiError(err)
-								.to_diagnostic_builder()
-								.label(self.get_location(), "Error occured here")
-								.build()
-						})?;
-						conditional.if_statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
-					},
-				}
-				let mut inner_scope = api_scope
-					.if_scope(conditional.condition.codegen(
-						ctx.nc_table,
-						ctx.id_table,
-						scope_id,
-						&local_ctx.scope,
-						Some(&additional_ctx),
-					)?)
-					.map_err(|err| {
-						CompilerError::HirnApiError(err)
-							.to_diagnostic_builder()
-							.label(self.get_location(), "Error occured here")
-							.build()
-					})?;
-				conditional
-					.if_statement
-					.codegen_pass(ctx, local_ctx, &mut inner_scope)?;
-				match conditional.else_statement {
-					Some(ref else_statement) => {
-						let expr = conditional.condition.codegen(
-							ctx.nc_table,
-							ctx.id_table,
-							scope_id,
-							&local_ctx.scope,
-							Some(&additional_ctx),
-						)?;
-						let mut else_scope = api_scope
-							.if_scope(hirn::design::Expression::Unary(UnaryExpression {
-								op: hirn::design::UnaryOp::LogicalNot,
-								operand: Box::new(expr),
-							}))
-							.map_err(|err| {
-								CompilerError::HirnApiError(err)
-									.to_diagnostic_builder()
-									.label(self.get_location(), "Error occured here")
-									.build()
-							})?;
-						else_statement.codegen_pass(ctx, local_ctx, &mut else_scope)?
-					},
-					None => (),
-				}
+				conditional.codegen_pass(ctx, local_ctx, scope_id, api_scope)?;
 			},
 			IterationStatement(for_stmt) => {
 				let lhs = for_stmt.range.lhs.codegen(
@@ -1840,6 +1770,81 @@ impl VariableBlockStatement {
 				definition.codegen_pass(ctx, local_ctx, api_scope)?;
 			},
 		}
+		Ok(())
+	}
+}
+impl IfElseStatement{
+	pub fn codegen_pass(
+		&self,
+		ctx: &mut GlobalAnalyzerContext,
+		local_ctx: &mut LocalAnalyzerContext,
+		scope_id: usize,
+		api_scope: &mut ScopeHandle,
+	) ->miette::Result<()>
+	{
+		use crate::parser::ast::ModuleImplementationStatement::*;
+		let additional_ctx = AdditionalContext::new(
+			local_ctx.nc_widths.clone(),
+			local_ctx.array_or_bus.clone(),
+			local_ctx.casts.clone(),
+		);
+		let condition_expr = self.condition.codegen(
+			ctx.nc_table,
+			ctx.id_table,
+			scope_id,
+			&local_ctx.scope,
+			Some(&additional_ctx),
+		)?;
+		match self.else_statement {
+			Some(ref else_stmt) => {
+				let (mut if_scope, mut else_scope) =
+					api_scope.if_else_scope(condition_expr).map_err(|err| {
+						CompilerError::HirnApiError(err)
+							.to_diagnostic_builder()
+							.label(self.location, "Error occured here")
+							.build()
+					})?;
+				match self.if_statement.as_ref() {
+					ModuleImplementationBlockStatement(block) => {
+						log::debug!("Codegen for if block");
+						for statement in &block.statements {
+							statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
+						}
+					},
+					_ => unreachable!(),
+				};
+				match else_stmt.as_ref() {
+					ModuleImplementationBlockStatement(block) => {
+						log::debug!("Codegen for else block");
+						for statement in &block.statements {
+							statement.codegen_pass(ctx, local_ctx, &mut else_scope)?;
+						}
+					},
+					IfElseStatement(conditional) => {
+						log::debug!("Codegen for else-if block");
+						conditional.codegen_pass(ctx, local_ctx, scope_id, &mut else_scope)?;
+					},
+					_ => unreachable!(),
+				};
+			},
+			None => {
+				let mut if_scope = api_scope.if_scope(condition_expr).map_err(|err| {
+					CompilerError::HirnApiError(err)
+						.to_diagnostic_builder()
+						.label(self.location, "Error occured here")
+						.build()
+				})?;
+				match self.if_statement.as_ref() {
+					ModuleImplementationBlockStatement(block) => {
+						log::debug!("Codegen for single if block");
+						for statement in &block.statements {
+							statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
+						}
+					},
+					_ => unreachable!(),
+				};
+			},
+		};
 		Ok(())
 	}
 }
