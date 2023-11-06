@@ -30,6 +30,7 @@ impl SeverityPolicy for DefaultSeverityPolicy {
 			UnassignedGeneric => Error,
 			NotDrivable => Error,
 			EvalError(_) => Error,
+			_ => Error, // FIXME
 		}
 	}
 }
@@ -150,4 +151,16 @@ pub enum ElabMessageKind {
 
 	#[error("Target signal is not drivable")]
 	NotDrivable, // FIXME signal ID
+
+	#[error("Invalid signal width")]
+	InvalidSignalWidth(i64),
+
+	#[error("Invalid array dimension")]
+	InvalidArrayDimension(i64),
+
+	#[error("Invalid array rank")]
+	InvalidArrayRank(u32),
+
+	#[error("Invalid array size")]
+	InvalidArraySize(usize),
 }

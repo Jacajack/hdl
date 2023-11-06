@@ -1,10 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use log::{info, error, debug};
-use petgraph::prelude::DiGraphMap;
+use petgraph::Directed;
+use petgraph::prelude::{DiGraphMap, GraphMap};
 
-use crate::design::{ScopeHandle, ConditionalScope, RangeScope, Evaluates, DesignHandle, HasSensitivity};
-use crate::elab::{ElabAssumptionsBase, ElabMessageKind};
+use crate::design::{ScopeHandle, ConditionalScope, RangeScope, Evaluates, DesignHandle, HasSensitivity, SignalSlice};
+use crate::elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal};
 use crate::{elab::{ElabError, ElabAssumptions}, design::{ScopeId, SignalId}};
 
 use super::{full_elab::{FullElabCtx, FullElabCacheHandle}, ElabPass};
@@ -12,32 +13,53 @@ use super::{full_elab::{FullElabCtx, FullElabCacheHandle}, ElabPass};
 #[derive(Clone, Debug, Copy)]
 pub(super) struct SignalGraphPassConfig {
 	pub max_for_iters: i64,
-	pub _max_signal_width: i64,
-	pub _max_array_size: i64,
-	pub _max_array_rank: i64,
+	pub max_signal_width: i64,
+	pub max_array_dimension: i64,
+	pub max_array_rank: usize,
+	pub max_array_size: usize,
 }
 
 impl Default for SignalGraphPassConfig {
 	fn default() -> Self {
 		SignalGraphPassConfig {
 			max_for_iters: 65536,
-			_max_signal_width: 65536,
-			_max_array_size: 65536,
-			_max_array_rank: 8,
+			max_signal_width: 65536,
+			max_array_dimension: 65536,
+			max_array_size: 65536,
+			max_array_rank: 8,
 		}
 	}
 }
 
+/// Signal ID coupled with scope pass ID to distingush between generated signals
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneratedSignalId {
 	id: SignalId,
 	pass_id: ScopePassId,
 }
 
+/// References specific field of a generated signal
+#[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct GeneratedSignalRef {
+	id: GeneratedSignalId,
+	index: Option<u32>,	
+}
+
+/// Represents a generated signal (width + dimensions evaluated)
+pub struct GeneratedSignal {
+	width: u32,
+	dimensions: Vec<usize>,
+}
+
+impl GeneratedSignal {
+
+}
+
 /// IDs generated each time a scope is visited
 #[derive(Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub struct ScopePassId(usize);
 
+/// Auxiliary information about a scope pass 
 #[derive(Clone, Copy, Debug)]
 pub enum ScopePassInfo {
 	Unconditional(ScopeId),
@@ -50,7 +72,7 @@ pub enum ScopePassInfo {
 		iter_number: i64,
 	}
 }
-pub(super) struct SignalGraphPassResult {
+pub struct SignalGraphPassResult {
 	// signals: HashMap<GeneratedSignalId, ElabSignal>,
 	// comb_graph: GraphMap<GeneratedSignalId, (), Directed>,
 	// clock_graph: GraphMap<GeneratedSignalId, (), Undirected>,
@@ -58,17 +80,33 @@ pub(super) struct SignalGraphPassResult {
 	// pass_info: HashMap<usize, ScopePassInfo>,
 }
 
+impl SignalGraphPassResult {
+}
+
 struct SignalGraphPassCtx {
-	config: SignalGraphPassConfig,
+	/// Design handle
 	design: DesignHandle,
 
+	/// Configuration for this pass
+	config: SignalGraphPassConfig,
+
+	/// Counter for scope passes
 	scope_pass_counter: usize,
+
+	/// Current scope pass ID recorded for each scope
 	current_pass: HashMap<ScopeId, ScopePassId>,
+
+	/// Auxiliary information about each scope pass
 	pass_info: HashMap<ScopePassId, ScopePassInfo>,
 
+	/// All generated signals
+	signals: HashMap<GeneratedSignalId, GeneratedSignal>,
 
-	// signals: HashMap<GeneratedSignalId, ElabSignal>,
-	// comb_graph: GraphMap<GeneratedSignalId, (), Directed>,
+	/// Elaborated signals
+	elab_signals: HashMap<GeneratedSignalRef, ElabSignal>,
+
+	comb_graph: GraphMap<GeneratedSignalRef, (), Directed>,
+
 	// clock_graph: GraphMap<GeneratedSignalId, (), Undirected>,
 	// clock_groups: HashMap<GeneratedSignalId, usize>,
 }
@@ -80,11 +118,14 @@ impl SignalGraphPassCtx {
 			design,
 			scope_pass_counter: 0,
 			// signals: HashMap::new(),
-			// comb_graph: GraphMap::new(),
+			comb_graph: GraphMap::new(),
 			// clock_graph: GraphMap::new(),
 			// clock_groups: HashMap::new(),
 			pass_info: HashMap::new(),
 			current_pass: HashMap::new(),
+
+			signals: HashMap::new(),
+			elab_signals: HashMap::new(),
 
 		}
 	}
@@ -137,24 +178,110 @@ impl SignalGraphPassCtx {
 		}
 	}
 
+	fn get_generated_signal_ref(&self, slice: &SignalSlice) -> GeneratedSignalRef {
+		todo!();
+	}
+
+	fn declare_signal(&mut self, id: SignalId, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<GeneratedSignalId, ElabMessageKind> {
+		let sig = self.design.get_signal(id).expect("signal not in design");
+		let pass_id = self.get_scope_pass_id(sig.parent_scope);
+		assert!(!sig.is_generic());
+
+		debug!("Signal '{}' declared in pass {:?}", sig.name(), pass_id);
+
+		// Check signal rank 
+		if sig.rank() > self.config.max_array_rank {
+			error!("Signal {} has rank {} which is out of range", sig.name(), sig.rank());
+			return Err(ElabMessageKind::InvalidArrayRank(sig.rank() as u32));
+		}
+
+		// Evaluate width & validate range
+		let width = sig.width().eval(&assumptions)?.try_into_i64()?;
+		if width < 0 || width > self.config.max_signal_width {
+			error!("Signal {} has width {} which is out of range", sig.name(), width);
+			return Err(ElabMessageKind::InvalidSignalWidth(width));
+		}
+
+		// Evaluate dimensions
+		let mut dimensions = Vec::new();
+		for dim_expr in &sig.dimensions {
+			let dim = dim_expr.eval(&assumptions)?.try_into_i64()?;
+			if dim < 0 || dim > self.config.max_array_dimension {
+				error!("Signal {} has dimension {} which is out of range", sig.name(), dim);
+				return Err(ElabMessageKind::InvalidArrayDimension(dim));
+			}
+			dimensions.push(dim as usize);
+		}
+
+		// Verify total array size
+		let total_fields = dimensions.iter().product::<usize>();
+		if total_fields > self.config.max_array_size {
+			error!("Signal {} has {} fields which is out of range", sig.name(), total_fields);
+			return Err(ElabMessageKind::InvalidArraySize(total_fields));
+		}
+
+		// ID for the generated signal
+		let gen_id = GeneratedSignalId {
+			id,
+			pass_id,
+		};
+
+		// Insert all array fields into the graph and elab signal array
+		if dimensions.len() > 0 {
+			debug!("Array signal - will insert total of {} signal nodes", total_fields);
+			for i in 0..total_fields {
+				let sig_ref = GeneratedSignalRef {
+					id: gen_id,
+					index: Some(i as u32),
+				};
+
+				self.comb_graph.add_node(sig_ref);
+				let sig_existed = self.elab_signals.insert(sig_ref, ElabSignal::new(width as u32)).is_some();
+				assert!(!sig_existed, "An elab signal already exists for this generated signal ref")
+			}
+		}
+		else {
+			debug!("Scalar signal - inserting into graph and registering elab signals");
+			let sig_ref = GeneratedSignalRef {
+				id: gen_id,
+				index: None,
+			};
+
+			self.comb_graph.add_node(sig_ref);
+			let sig_existed = self.elab_signals.insert(sig_ref, ElabSignal::new(width as u32)).is_some();
+			assert!(!sig_existed, "An elab signal already exists for this generated signal ref")
+		}
+
+		// Register the generated signal
+		let gen_sig = GeneratedSignal {
+			width: width as u32,
+			dimensions,
+		};
+
+		let sig_exists = self.signals.insert(gen_id.clone(), gen_sig).is_some();
+		assert!(!sig_exists, "Generated signal already exists!");
+
+		Ok(gen_id)
+
+	}
+
 	/// Analyzes scope contents (non-recursively)
 	fn elab_scope_content(
 		&mut self,
 		scope: ScopeHandle,
 		assumptions: Arc<dyn ElabAssumptionsBase>
-	) {
+	) -> Result<(), ElabMessageKind> {
 		let pass_id = self.get_scope_pass_id(scope.id());
 		debug!("Analyzing scope {:?} (pass {:?})", scope.id(), pass_id);
 		debug!("Pass info: {:?}", self.pass_info.get(&pass_id));
 
 		for sig_id in scope.signals() {
 			let sig = scope.design().get_signal(sig_id).unwrap();
-			let width = sig.width().eval(&assumptions).unwrap();
-
-			// TODO validate all expressions
-
-			info!("Found signal {} with width {} - generated ID {:?}", sig.name(), width, self.get_generated_signal_id(sig_id));
+			if !sig.is_generic() {
+				self.declare_signal(sig_id, assumptions.clone())?;
+			}
 		}
+		Ok(())
 	}
 
 	/// Analyzes a scope and all its subscopes
@@ -232,7 +359,7 @@ impl SignalGraphPassCtx {
 		self.elab_scope_content(
 			scope.clone(),
 			assumptions_arc.clone()
-		);
+		)?;
 
 		// Recurse for subscopes
 		let mut visited_scopes = HashSet::new();
@@ -327,6 +454,12 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for SignalGraphPass {
 			error!("Module {:?} contains errors ({:?})", module.id(), err);
 			full_ctx.add_message(err.into());
 		}
+
+		info!("Initial elab phase for {:?} complete", module.id());
+		info!("Generated signals registered: {}", ctx.signals.len());
+		info!("Signal graph node count: {}", ctx.comb_graph.node_count());
+		info!("Signal graph edge count: {}", ctx.comb_graph.edge_count());
+		info!("Elab signals registered: {}", ctx.elab_signals.len());
 
 		full_ctx.sig_graph_result = Some(SignalGraphPassResult{}); // FIXME
 		Ok(full_ctx)
