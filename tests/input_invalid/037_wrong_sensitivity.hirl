@@ -1,0 +1,9 @@
+module X{}
+impl X{
+	async wire c;
+	wire a;
+	const wire b;
+	b=a;
+	a=c;
+	c=b;
+}
