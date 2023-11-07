@@ -1,0 +1,15 @@
+module m {}
+impl m {
+	if (8 > 4) {
+		const wire t = true;
+	}
+	else if (8 > 2) {
+		const wire t = false;
+	}
+	else {
+		const wire x = false;
+	}
+	if(1==0){
+		const wire a = true;
+	}
+}

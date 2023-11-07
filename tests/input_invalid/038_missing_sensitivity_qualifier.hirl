@@ -1,0 +1,6 @@
+module X{}
+impl X{
+	bus<4> a[4], b;
+	a[0] = b;
+	b = a[1];
+}

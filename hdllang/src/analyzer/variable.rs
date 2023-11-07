@@ -771,16 +771,49 @@ impl Variable {
 				id = builder.build().unwrap();
 			},
 			VariableKind::Generic(generic) => {
-				match &generic.kind {
-					GenericVariableKind::Int(sign, _) => match &sign {
-						SignalSignedness::Unsigned(_) => {
-							builder = builder.unsigned(Expression::from(NumericConstant::new_signed(BigInt::from(64))))
-						},
-						_ => builder = builder.signed(Expression::from(NumericConstant::new_signed(BigInt::from(64)))),
+				use BusWidth::*;
+				let width = match &generic.width {
+					Some(width) => match width{
+					Evaluated(value) => {
+						Expression::Constant(hirn::design::NumericConstant::new_signed(value.clone().value))
 					},
-					GenericVariableKind::Bool(_) => {
-						builder = builder.wire();
+					EvaluatedLocated(_, location) => {
+						let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+						expr_ast.expression.codegen(
+							nc_table,
+							id_table,
+							expr_ast.scope_id,
+							scope,
+							additional_ctx,
+						)?
 					},
+					Evaluable(location) => {
+						let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+						expr_ast.expression.codegen(
+							nc_table,
+							id_table,
+							expr_ast.scope_id,
+							scope,
+							additional_ctx,
+						)?
+					},
+					WidthOf(location) => {
+						let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+						expr_ast.expression.codegen(
+							nc_table,
+							id_table,
+							expr_ast.scope_id,
+							scope,
+							additional_ctx,
+						)?
+					}, 
+					},
+					None => Expression::Constant(hirn::design::NumericConstant::new_signed(64.into())),
+				};	
+				match generic.signedness {
+					SignalSignedness::Signed(_) => builder = builder.signed(width),
+					SignalSignedness::Unsigned(_) => builder = builder.unsigned(width),
+					SignalSignedness::NoSignedness => unreachable!(), 
 				}
 				builder = builder.generic();
 				id = builder.build().unwrap();
@@ -807,9 +840,10 @@ impl GenericVariableKind {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GenericVariable {
 	pub value: Option<BusWidth>,
+	pub width: Option<BusWidth>,
+	pub signedness: SignalSignedness,
 	pub direction: Direction,
-	pub dimensions: Vec<BusWidth>,
-	pub kind: GenericVariableKind,
+	pub location: SourceSpan,
 }
 impl GenericVariable {
 	pub fn is_direction_specified(&self) -> bool {
@@ -941,7 +975,6 @@ impl VariableKind {
 		use VariableKind::*;
 		match self {
 			Signal(sig) => sig.is_array(),
-			Generic(gen) => gen.dimensions.len() > 0,
 			_ => false,
 		}
 	}
@@ -959,10 +992,12 @@ impl VariableKind {
 		}
 	}
 	pub fn add_dimenstions(&mut self, dimensions: Vec<BusWidth>) {
+		if dimensions.len() == 0 {
+			return;
+		}
 		match self {
 			VariableKind::Signal(signal) => signal.dimensions = dimensions,
-			VariableKind::Generic(gen) => gen.dimensions = dimensions,
-			VariableKind::ModuleInstance(_) => panic!("Module instantion can't have dimensions"),
+			_ => panic!("Only signals can have dimensions"),
 		}
 	}
 	pub fn to_signal(&self) -> Result<Signal, CompilerDiagnosticBuilder> {
@@ -970,7 +1005,19 @@ impl VariableKind {
 			VariableKind::Signal(signal) => Ok(signal.clone()),
 			VariableKind::Generic(gen) => match &gen.value {
 				None => Err(SemanticError::GenericUsedWithoutValue.to_diagnostic_builder()),
-				Some(val) => Ok(Signal::new_from_constant(&val.get_nc(), SourceSpan::new_between(0, 0))),
+				Some(_) => {
+					let t= SignalType::Bus(BusType {
+						width: gen.width.clone(),
+						signedness: gen.signedness.clone(),
+						location: gen.location,
+					});
+					Ok(Signal {
+						signal_type: t,
+						dimensions: Vec::new(),
+						sensitivity: SignalSensitivity::Const(gen.location),
+						direction: gen.direction.clone(),
+					})
+				}
 			},
 			VariableKind::ModuleInstance(_) => Err(SemanticError::ModuleInstantionUsedAsSignal.to_diagnostic_builder()),
 		}

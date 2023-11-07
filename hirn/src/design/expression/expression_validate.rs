@@ -362,14 +362,14 @@ impl Expression {
 	/// Returns a set of variables used in the expression
 	pub fn get_variables(&self) -> HashSet<SignalId> {
 		let vars = Rc::new(RefCell::new(HashSet::new()));
-		self.traverse(&mut |e| -> Result<(), ()> {
+		self.traverse(&mut |e| -> Result<bool, ()> {
 			match e {
 				Expression::Signal(slice) => {
 					(*vars).borrow_mut().insert(slice.signal);
 				},
 				_ => {},
 			};
-			Ok(())
+			Ok(true) // Deep traversal
 		})
 		.unwrap();
 		vars.take()
@@ -378,7 +378,7 @@ impl Expression {
 	/// Validates the expression
 	pub fn validate(&self, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), EvalError> {
 		let mut is_root_level = true;
-		self.traverse(&mut |e| -> Result<(), EvalError> {
+		self.traverse(&mut |e| -> Result<bool, EvalError> {
 			// Check if all variables used in the expression are a subset of the ones
 			// accessible within this scope
 			let expr_variables = self.get_variables();
@@ -400,7 +400,7 @@ impl Expression {
 			};
 
 			is_root_level = false;
-			result
+			result.map(|_| true) // Always traverse deeper
 		})
 	}
 

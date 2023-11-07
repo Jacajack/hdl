@@ -4,6 +4,7 @@ use hirn::design::ModuleHandle;
 
 use crate::analyzer::module_implementation_scope::EvaluatedEntry;
 use crate::analyzer::*;
+use crate::core::NumericConstant;
 use crate::lexer::CommentTableKey;
 use crate::lexer::IdTable;
 use crate::parser::ast::SourceLocation;
@@ -102,8 +103,10 @@ impl VariableDeclarationStatement {
 					sig.dimensions = dimensions;
 					VariableKind::Signal(sig)
 				},
-				VariableKind::Generic(mut gen) => {
-					gen.dimensions = dimensions;
+				VariableKind::Generic(gen) => {
+					if dimensions.len() >0 {
+						panic!("Generic variable cannot have dimensions");
+					}
 					VariableKind::Generic(gen)
 				},
 				VariableKind::ModuleInstance(_) => unreachable!(),
@@ -158,12 +161,25 @@ impl VariableKind {
 					direction: already_created.direction,
 				}))
 			},
-			Int { location } => Ok(VariableKind::Generic(GenericVariable {
+			Int { location } =>{
+				already_created = analyze_qualifiers(
+					&type_declarator.qualifiers,
+					already_created,
+					scope,
+					current_scope,
+					id_table,
+				)?;
+				if already_created.signedness == SignalSignedness::NoSignedness{
+					already_created.signedness = SignalSignedness::Signed(*location);
+				} 
+				Ok(VariableKind::Generic(GenericVariable {
 				value: None,
-				kind: GenericVariableKind::Int(already_created.signedness, *location),
-				dimensions: Vec::new(),
+				width: None,
+				signedness: already_created.signedness,
 				direction: already_created.direction,
-			})),
+				location:*location,
+			}))
+			},
 			Wire { location } => {
 				already_created = analyze_qualifiers(
 					&type_declarator.qualifiers,
@@ -190,12 +206,15 @@ impl VariableKind {
 					dimensions: Vec::new(),
 				}))
 			},
-			Bool { location } => Ok(VariableKind::Generic(GenericVariable {
-				value: None,
-				kind: GenericVariableKind::Bool(*location),
-				dimensions: Vec::new(),
-				direction: already_created.direction,
-			})),
+			Bool { location } => {
+				Ok(VariableKind::Generic(GenericVariable {
+					value: None,
+					width: Some(BusWidth::Evaluated(NumericConstant::new_true())),
+					signedness: SignalSignedness::Unsigned(*location),
+					direction: already_created.direction,
+					location:*location,
+				}))
+			},
 			Bus(bus) => {
 				already_created = analyze_qualifiers(
 					&type_declarator.qualifiers,

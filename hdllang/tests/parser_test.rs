@@ -178,4 +178,16 @@ mod root_parser_test {
 		let s = "module module{}";
 		parse_izulu_fail(s);
 	}
+
+	#[test]
+	fn ubus() {
+		let s = "module foo{const ubus<14> x;}";
+		parse_izulu_pass(s);
+	}
+
+	#[test]
+	fn sbus() {
+		let s = "module foo{const sbus<14> x;}";
+		parse_izulu_pass(s);
+	}
 }

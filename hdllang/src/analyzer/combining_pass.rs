@@ -1,8 +1,11 @@
 use super::{AlreadyCreated, ModuleDeclared, RegisterInstance, SemanticError, Variable, VariableKind};
-use hirn::design::{ScopeHandle, UnaryExpression};
-use log::{debug, info};
-use std::collections::HashMap;
+use hirn::{
+	design::ScopeHandle,
+	elab::{ElabMessageSeverity, ElabToplevelAssumptions, Elaborator, FullElaborator},
+};
+use log::{debug, error, info, warn};
 use std::io::Write;
+use std::{collections::HashMap, sync::Arc};
 
 use crate::{
 	analyzer::{
@@ -198,24 +201,49 @@ impl<'a> SemanticalAnalyzer<'a> {
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
-			todo!("Invoke elaboration");
-			let mut output_string: String = String::new();
-			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design, &mut output_string);
+
+			let module_id = self
+				.ctx
+				.modules_declared
+				.get_mut(&local_ctx.module_id)
+				.unwrap()
+				.handle
+				.id();
+
+			// FIXME use Miette here
+			let mut elab = FullElaborator::new(self.ctx.design.clone());
+			let elab_result = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::default()));
+			match elab_result {
+				Ok(elab_report) => {
+					for msg in elab_report.messages() {
+						match msg.severity() {
+							ElabMessageSeverity::Error => {
+								error!("elab: {}", msg);
+							},
+							ElabMessageSeverity::Warning => {
+								warn!("elab: {}", msg);
+							},
+							ElabMessageSeverity::Info => {
+								info!("elab: {}", msg);
+							},
+						}
+					}
+				},
+
+				Err(err) => {
+					panic!("Fatal elab error: {}", err);
+				},
+			};
+
+			let mut output_string = String::new();
+			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
 			use hirn::codegen::Codegen;
-			sv_codegen
-				.emit_module(
-					self.ctx
-						.modules_declared
-						.get_mut(&local_ctx.module_id)
-						.unwrap()
-						.handle
-						.id(),
-				)
-				.unwrap();
+			sv_codegen.emit_module(module_id).unwrap();
 			write!(output, "{}", output_string).unwrap();
 		}
 		Ok(())
 	}
+
 	pub fn compile(&mut self, output: &mut dyn Write) -> miette::Result<()> {
 		self.passes.push(first_pass);
 		self.passes.push(second_pass);
@@ -569,11 +597,9 @@ impl ModuleImplementationStatement {
 									initial_val.clone(),
 								))),
 								direction: crate::analyzer::Direction::None,
-								dimensions: Vec::new(),
-								kind: crate::analyzer::GenericVariableKind::Int(
-									crate::analyzer::SignalSignedness::NoSignedness,
-									iteration.location,
-								),
+        						width: Some(BusWidth::Evaluated(NumericConstant::new_from_value(64.into()))),
+        						signedness: crate::analyzer::SignalSignedness::Unsigned(iteration.location),
+								location:iteration.location,
 							}),
 						),
 					)?;
@@ -612,7 +638,7 @@ impl ModuleImplementationStatement {
 					},
 					None => (),
 				}
-				if ctx.id_table.get_value(&name).as_str() == "register" {
+				if ctx.id_table.get_value(&name).as_str() == "reg" {
 					let v = Variable::new(
 						inst.instance_name,
 						inst.location,
@@ -1027,77 +1053,7 @@ impl ModuleImplementationStatement {
 				debug!("Assignment done");
 			},
 			IfElseStatement(conditional) => {
-				let condition_expr = conditional.condition.codegen(
-					ctx.nc_table,
-					ctx.id_table,
-					scope_id,
-					&local_ctx.scope,
-					Some(&additional_ctx),
-				)?;
-				debug!("{:?}", condition_expr);
-				match conditional.else_statement {
-					Some(ref else_stmt) => {
-						let (mut if_scope, mut else_scope) =
-							api_scope.if_else_scope(condition_expr).map_err(|err| {
-								CompilerError::HirnApiError(err)
-									.to_diagnostic_builder()
-									.label(self.get_location(), "Error occured here")
-									.build()
-							})?;
-						conditional.if_statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
-						else_stmt.codegen_pass(ctx, local_ctx, &mut else_scope)?;
-					},
-					None => {
-						let mut if_scope = api_scope.if_scope(condition_expr).map_err(|err| {
-							CompilerError::HirnApiError(err)
-								.to_diagnostic_builder()
-								.label(self.get_location(), "Error occured here")
-								.build()
-						})?;
-						conditional.if_statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
-					},
-				}
-				let mut inner_scope = api_scope
-					.if_scope(conditional.condition.codegen(
-						ctx.nc_table,
-						ctx.id_table,
-						scope_id,
-						&local_ctx.scope,
-						Some(&additional_ctx),
-					)?)
-					.map_err(|err| {
-						CompilerError::HirnApiError(err)
-							.to_diagnostic_builder()
-							.label(self.get_location(), "Error occured here")
-							.build()
-					})?;
-				conditional
-					.if_statement
-					.codegen_pass(ctx, local_ctx, &mut inner_scope)?;
-				match conditional.else_statement {
-					Some(ref else_statement) => {
-						let expr = conditional.condition.codegen(
-							ctx.nc_table,
-							ctx.id_table,
-							scope_id,
-							&local_ctx.scope,
-							Some(&additional_ctx),
-						)?;
-						let mut else_scope = api_scope
-							.if_scope(hirn::design::Expression::Unary(UnaryExpression {
-								op: hirn::design::UnaryOp::LogicalNot,
-								operand: Box::new(expr),
-							}))
-							.map_err(|err| {
-								CompilerError::HirnApiError(err)
-									.to_diagnostic_builder()
-									.label(self.get_location(), "Error occured here")
-									.build()
-							})?;
-						else_statement.codegen_pass(ctx, local_ctx, &mut else_scope)?
-					},
-					None => (),
-				}
+				conditional.codegen_pass(ctx, local_ctx, scope_id, api_scope)?;
 			},
 			IterationStatement(for_stmt) => {
 				let lhs = for_stmt.range.lhs.codegen(
@@ -1157,7 +1113,7 @@ impl ModuleImplementationStatement {
 				};
 			},
 			InstantiationStatement(inst) => {
-				if ctx.id_table.get_value(&inst.module_name.get_last_module()).as_str() == "register" {
+				if ctx.id_table.get_value(&inst.module_name.get_last_module()).as_str() == "reg" {
 					let r = local_ctx.scope.get_variable(scope_id, &inst.instance_name).unwrap(); //FIXME
 					if let VariableKind::ModuleInstance(m) = &r.var.kind {
 						if let ModuleInstanceKind::Register(reg) = &m.kind {
@@ -1840,6 +1796,79 @@ impl VariableBlockStatement {
 				definition.codegen_pass(ctx, local_ctx, api_scope)?;
 			},
 		}
+		Ok(())
+	}
+}
+impl IfElseStatement {
+	pub fn codegen_pass(
+		&self,
+		ctx: &mut GlobalAnalyzerContext,
+		local_ctx: &mut LocalAnalyzerContext,
+		scope_id: usize,
+		api_scope: &mut ScopeHandle,
+	) -> miette::Result<()> {
+		use crate::parser::ast::ModuleImplementationStatement::*;
+		let additional_ctx = AdditionalContext::new(
+			local_ctx.nc_widths.clone(),
+			local_ctx.array_or_bus.clone(),
+			local_ctx.casts.clone(),
+		);
+		let condition_expr = self.condition.codegen(
+			ctx.nc_table,
+			ctx.id_table,
+			scope_id,
+			&local_ctx.scope,
+			Some(&additional_ctx),
+		)?;
+		match self.else_statement {
+			Some(ref else_stmt) => {
+				let (mut if_scope, mut else_scope) = api_scope.if_else_scope(condition_expr).map_err(|err| {
+					CompilerError::HirnApiError(err)
+						.to_diagnostic_builder()
+						.label(self.location, "Error occured here")
+						.build()
+				})?;
+				match self.if_statement.as_ref() {
+					ModuleImplementationBlockStatement(block) => {
+						log::debug!("Codegen for if block");
+						for statement in &block.statements {
+							statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
+						}
+					},
+					_ => unreachable!(),
+				};
+				match else_stmt.as_ref() {
+					ModuleImplementationBlockStatement(block) => {
+						log::debug!("Codegen for else block");
+						for statement in &block.statements {
+							statement.codegen_pass(ctx, local_ctx, &mut else_scope)?;
+						}
+					},
+					IfElseStatement(conditional) => {
+						log::debug!("Codegen for else-if block");
+						conditional.codegen_pass(ctx, local_ctx, scope_id, &mut else_scope)?;
+					},
+					_ => unreachable!(),
+				};
+			},
+			None => {
+				let mut if_scope = api_scope.if_scope(condition_expr).map_err(|err| {
+					CompilerError::HirnApiError(err)
+						.to_diagnostic_builder()
+						.label(self.location, "Error occured here")
+						.build()
+				})?;
+				match self.if_statement.as_ref() {
+					ModuleImplementationBlockStatement(block) => {
+						log::debug!("Codegen for single if block");
+						for statement in &block.statements {
+							statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
+						}
+					},
+					_ => unreachable!(),
+				};
+			},
+		};
 		Ok(())
 	}
 }

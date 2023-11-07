@@ -713,10 +713,78 @@ TypeDeclarator: TypeDeclarator ={
 		location:SourceSpan::new_between(start,end),
 		}
 	},
+	<start:@L> <dir:Direction?> <mut qualifiers:Space<Qualifier>> <start1:@L> "ubus" <end1:@R> <width:VecDecl> <end:@R> =>{
+		if let Some(d)=dir{
+			qualifiers.splice(0..0, [d]);
+		};
+		qualifiers.push(TypeQualifier::Unsigned{
+			location:SourceSpan::new_between(start1,end1),
+		});
+		TypeDeclarator{
+		specifier: TypeSpecifier::Bus(Bus{
+			width: Box::new(width),
+			location:SourceSpan::new_between(start1,end1),
+			compiled_width: None,
+		}),
+		qualifiers,
+		location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start:@L> <dir:Direction?> <mut qualifiers:Space<Qualifier>> <start1:@L> "sbus" <end1:@R> <width:VecDecl> <end:@R> =>{
+		if let Some(d)=dir{
+			qualifiers.splice(0..0, [d]);
+		};
+		qualifiers.push(TypeQualifier::Signed{
+			location:SourceSpan::new_between(start1,end1),
+		});
+		TypeDeclarator{
+		specifier: TypeSpecifier::Bus(Bus{
+			width: Box::new(width),
+			location:SourceSpan::new_between(start1,end1),
+			compiled_width: None,
+		}),
+		qualifiers,
+		location:SourceSpan::new_between(start,end),
+		}
+	},
 	<start:@L> <specifier:CompType> <end:@R> =>{
 		let qualifiers = vec![];
 		TypeDeclarator{
 		specifier,
+		qualifiers,
+		location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start:@L> "unsigned" <start1:@L> "int"  <end:@R> =>{
+		let qualifiers = vec![TypeQualifier::Unsigned{
+			location:SourceSpan::new_between(start,start1),
+		}];
+		TypeDeclarator{
+		specifier:TypeSpecifier::Int{
+			location:SourceSpan::new_between(start1,end),
+		},
+		qualifiers,
+		location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start:@L> "signed" <start1:@L> "int" <end:@R> =>{
+		let qualifiers = vec![];
+		TypeDeclarator{
+		specifier:TypeSpecifier::Int{
+			location:SourceSpan::new_between(start1,end),
+		},
+		qualifiers,
+		location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start:@L> "uint" <end:@R> =>{
+		let qualifiers = vec![TypeQualifier::Unsigned{
+			location:SourceSpan::new_between(start,end),
+		}];
+		TypeDeclarator{
+		specifier:TypeSpecifier::Int{
+			location:SourceSpan::new_between(start,end),
+		},
 		qualifiers,
 		location:SourceSpan::new_between(start,end),
 		}
@@ -785,9 +853,12 @@ extern {
 		"conditional"     => TokenKind::Keyword(KeywordKind::Conditional),
 		"match"           => TokenKind::Keyword(KeywordKind::Match),
 		"bus"             => TokenKind::Keyword(KeywordKind::Bus),
+		"sbus"            => TokenKind::Keyword(KeywordKind::SBus),
+		"ubus"            => TokenKind::Keyword(KeywordKind::UBus),
 		"comb"            => TokenKind::Keyword(KeywordKind::Comb),
 		"tristate"        => TokenKind::Keyword(KeywordKind::Tristate),
 		"int"             => TokenKind::Keyword(KeywordKind::Int),
+		"uint"            => TokenKind::Keyword(KeywordKind::UInt),
 		"signed"          => TokenKind::Keyword(KeywordKind::Signed),
 		"unsigned"        => TokenKind::Keyword(KeywordKind::Unsigned),
 		"default"         => TokenKind::Keyword(KeywordKind::Default),

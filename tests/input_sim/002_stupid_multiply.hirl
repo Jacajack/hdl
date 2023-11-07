@@ -26,7 +26,7 @@ impl stupid_multiply {
 	wire output_transaction_c = output_valid && output_ready;
 
 	/// Internal FSM states
-	int
+	uint
 		STATE_IDLE = 0u2,
 		STATE_INIT = 1u2,
 		STATE_BUSY = 2u2,
@@ -36,7 +36,7 @@ impl stupid_multiply {
 	unsigned sync(clk) bus<8> a_reg, b_reg, countdown;
 
 	/// Internal FSM
-	register fsm_reg {
+	reg fsm_reg {
 		clk, nreset,
 		en: true,
 		data: state,
@@ -54,7 +54,7 @@ impl stupid_multiply {
 	output_valid = state == STATE_DONE;
 
 	/// Stores the unchanged value of a
-	register a_latch {
+	reg a_latch {
 		clk, nreset,
 		en: input_transaction_c,
 		next: a,
@@ -62,7 +62,7 @@ impl stupid_multiply {
 	}
 
 	/// Stores the unchanged value of b
-	register b_latch {
+	reg b_latch {
 		clk, nreset,
 		en: input_transaction_c,
 		next: b,
@@ -72,7 +72,7 @@ impl stupid_multiply {
 	// Note: we preload this register width b-1 because 
 	// the accumulator is still updated when countdown == 0,
 	// because only then FSM goes from BUSY to DONE.
-	register countdown_reg {
+	reg countdown_reg {
 		clk, nreset,
 		en: state == STATE_INIT || state == STATE_BUSY,
 		data: countdown,
@@ -82,7 +82,7 @@ impl stupid_multiply {
 		}
 	}
 
-	register accumulator {
+	reg accumulator {
 		clk, nreset,
 		en: state == STATE_INIT || state == STATE_BUSY,
 		data: c,

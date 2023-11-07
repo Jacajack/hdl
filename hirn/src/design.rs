@@ -9,15 +9,15 @@ mod utils;
 pub use comment::HasComment;
 pub use expression::{
 	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, ConditionalExpressionBranch,
-	EvalContext, EvalError, EvalType, Evaluates, EvaluatesType, Expression, NumericConstant, UnaryExpression, UnaryOp,
-	WidthExpression,
+	EvalAssumptions, EvalContext, EvalError, EvalType, Evaluates, EvaluatesType, Expression, NarrowEval,
+	NumericConstant, UnaryExpression, UnaryOp, WidthExpression,
 };
 pub use functional_blocks::{
 	BlockInstance, HasInstanceName, ModuleInstance, ModuleInstanceBuilder, Register, RegisterBuilder,
 };
 use log::debug;
 pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
-pub use scope::{Scope, ScopeHandle};
+pub use scope::{ConditionalScope, RangeScope, Scope, ScopeHandle};
 pub use signal::{
 	ClockSensitivityList, EdgeSensitivity, HasSensitivity, HasSignedness, Signal, SignalBuilder, SignalClass,
 	SignalSensitivity, SignalSignedness, SignalSlice,
@@ -29,7 +29,7 @@ use std::rc::{Rc, Weak};
 use thiserror::Error;
 
 /// References a module in a design
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Ord, PartialOrd, Debug)]
 pub struct ModuleId {
 	id: usize,
 }
@@ -42,7 +42,7 @@ impl ModuleId {
 }
 
 /// References a signal in a design
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, Ord, PartialOrd, Debug)]
 pub struct SignalId {
 	id: usize,
 }
@@ -64,7 +64,7 @@ impl SignalId {
 }
 
 /// References a scope in a design
-#[derive(Clone, Copy, Hash, PartialEq, Eq, Debug)]
+#[derive(Clone, Copy, Hash, PartialEq, Eq, PartialOrd, Ord, Debug)]
 pub struct ScopeId {
 	id: usize,
 }
@@ -249,6 +249,13 @@ impl DesignCore {
 #[derive(Clone)]
 pub struct DesignHandle {
 	handle: Rc<RefCell<DesignCore>>,
+}
+
+impl std::fmt::Debug for DesignHandle {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		write!(f, "(DesignHandle")?;
+		Ok(())
+	}
 }
 
 impl DesignHandle {

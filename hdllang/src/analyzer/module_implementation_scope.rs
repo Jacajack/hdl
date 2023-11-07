@@ -134,11 +134,6 @@ impl ModuleImplementationScope {
 						}
 					},
 					VariableKind::Generic(gen) => {
-						gen.dimensions.iter_mut().for_each(|dim| {
-							debug!("Transforming dimension {:?} to generic", dim);
-							dim.to_generic();
-							debug!("Transformed dimension {:?} to generic", dim);
-						});
 						match &mut gen.value {
 							// unreachable!(),
 							Some(val) => {
@@ -200,9 +195,22 @@ impl ModuleImplementationScope {
 		}
 	}
 	pub fn redeclare_variable(&mut self, var: VariableDefined) {
-		let prev = self.variables.get(&var.id).unwrap();
-		info!("Redeclared variable {:?} to {:?}", prev, var);
-		self.variables.insert(var.id, var);
+		let mut prev = self.variables.get(&var.id).unwrap().clone();
+		let prev_copy = prev.clone();
+		use VariableKind::*;
+		match(&var.var.kind, &mut prev.var.kind){
+		    (Signal(_), Signal(_)) | (Generic(_), Generic(_)) => {
+				info!("Redeclared variable {:?} to {:?}", prev, var);
+				self.variables.insert(var.id, var);
+			},
+		    (Signal(sig), Generic(gen)) => {
+				gen.width = sig.width();
+				info!("Redeclared generic variable {:?} to {:?}", prev_copy, prev);
+				self.variables.insert(var.id, prev.clone());
+			},
+		    (_, ModuleInstance(_)) | (ModuleInstance(_), _) | (Generic(_), Signal(_)) => panic!(),
+		}
+
 	}
 	pub fn get_variable_in_scope(&self, scope_id: usize, key: &IdTableKey) -> Option<&VariableDefined> {
 		let scope = &self.scopes[scope_id];
@@ -384,6 +392,7 @@ impl VariableDefined {
 	pub fn get_sensitivity(&self) -> SignalSensitivity {
 		match &self.var.kind {
 			VariableKind::Signal(sig) => sig.sensitivity.clone(),
+			VariableKind::Generic(gen) => SignalSensitivity::Const(gen.location),
 			_ => unreachable!(), //probably unsafe
 		}
 	}

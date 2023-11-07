@@ -32,7 +32,7 @@ fn parse_file_recover_tables(
 
 // Copied from main.rs
 // It would be nice if we had this living in hdllang crate.
-fn compile(mut code: String, file_name: String, output: &mut dyn Write) -> miette::Result<()> {
+fn compile(mut code: String, file_name: String, output: &mut dyn Write, elab: bool) -> miette::Result<()> {
 	let root: Root;
 	let mut ctx = LogosLexerContext {
 		id_table: IdTable::new(),
@@ -50,9 +50,16 @@ fn compile(mut code: String, file_name: String, output: &mut dyn Write) -> miett
 		&mut map,
 	)
 	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
-	hdllang::analyzer::SemanticalAnalyzer::new(global_ctx, &modules)
-		.compile(output)
-		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code)))?;
+	let mut analyzer = hdllang::analyzer::SemanticalAnalyzer::new(global_ctx, &modules);
+
+	if elab {
+		analyzer.compile_and_elaborate(output)
+	}
+	else {
+		analyzer.compile(output)
+	}
+	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code)))?;
+
 	Ok(())
 }
 
@@ -79,7 +86,7 @@ fn pretty_print(code: String, output: &mut dyn Write) -> miette::Result<()> {
 	Ok(())
 }
 
-fn run_hdlc(input_path: &Path) -> miette::Result<NamedTempFile> {
+fn run_hdlc(input_path: &Path, elab: bool) -> miette::Result<NamedTempFile> {
 	let src = std::fs::read_to_string(input_path).expect("failed to read source code");
 	let mut tmpfile = NamedTempFile::new().unwrap();
 	compile(
@@ -91,6 +98,7 @@ fn run_hdlc(input_path: &Path) -> miette::Result<NamedTempFile> {
 			.unwrap()
 			.into(),
 		&mut tmpfile,
+		elab,
 	)?;
 	Ok(tmpfile)
 }
@@ -133,7 +141,7 @@ fn compile_run_iverilog_with_sim(input_path: &Path) -> Result<(), String> {
 	let vvp_path = std::env::var("VVP_PATH").unwrap_or("vvp".into());
 
 	let dump_file = NamedTempFile::new().unwrap();
-	let compiled_file = run_hdlc(input_path).expect("compile failed");
+	let compiled_file = run_hdlc(input_path, true).expect("compile failed");
 	let tb_file = input_path.with_extension("sv");
 
 	let input_files = vec![compiled_file.path().to_path_buf(), tb_file];
@@ -159,7 +167,7 @@ fn compile_run_iverilog_with_sim(input_path: &Path) -> Result<(), String> {
 }
 
 fn compile_run_iverilog(path: PathBuf) {
-	let sv_file = run_hdlc(path.as_path()).unwrap();
+	let sv_file = run_hdlc(path.as_path(), true).unwrap();
 
 	if !std::env::var("NO_IVERILOG").is_ok() {
 		let iverilog_path = std::env::var("IVERILOG_PATH").unwrap_or("iverilog".into());
@@ -178,9 +186,9 @@ fn compile_run_iverilog(path: PathBuf) {
 }
 
 fn pretty_print_and_compile_run_iverilog(path: PathBuf) {
-	let sv_file_orignal = run_hdlc(path.as_path()).unwrap();
+	let sv_file_orignal = run_hdlc(path.as_path(), false).unwrap();
 	let pretty_printed = pretty_print_file(path.as_path()).unwrap();
-	let sv_file = run_hdlc(pretty_printed.path()).unwrap();
+	let sv_file = run_hdlc(pretty_printed.path(), false).unwrap();
 	let mut org_str = String::new();
 	sv_file_orignal.as_file().read_to_string(&mut org_str).unwrap();
 	let mut pretty_printed_str = String::new();
@@ -200,7 +208,7 @@ fn test_compile_success_sim_files(#[files("tests/input_sim/*.hirl")] path: PathB
 
 #[rstest]
 fn test_compile_failure(#[files("tests/input_invalid/*.hirl")] path: PathBuf) {
-	assert!(run_hdlc(path.as_path()).is_err());
+	assert!(run_hdlc(path.as_path(), false).is_err());
 }
 
 #[rstest]

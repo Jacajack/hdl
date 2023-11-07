@@ -3,6 +3,16 @@ use crate::design::{signal::HasSensitivity, DesignHandle, HasSignedness, SignalS
 use std::collections::HashMap;
 use thiserror::Error;
 
+pub trait EvalAssumptions {
+	fn design(&self) -> Option<DesignHandle>;
+
+	fn signal(&self, signal: SignalId, indices: &Vec<i64>) -> Option<&NumericConstant>;
+
+	fn scalar_signal(&self, signal: SignalId) -> Option<&NumericConstant> {
+		self.signal(signal, &vec![])
+	}
+}
+
 #[derive(Clone, Default)]
 pub struct EvalContext {
 	design: Option<DesignHandle>,
@@ -15,10 +25,6 @@ impl EvalContext {
 			design: Some(design),
 			assumptions: HashMap::new(),
 		}
-	}
-
-	pub fn design(&self) -> Option<DesignHandle> {
-		self.design.clone()
 	}
 
 	fn check_assumption(&self, signal: SignalId, indices: &Vec<i64>, value: &NumericConstant) -> Result<(), EvalError> {
@@ -57,18 +63,24 @@ impl EvalContext {
 		self.assume_array(signal, vec![], value)
 	}
 
-	pub fn signal(&self, signal: SignalId, indices: &Vec<i64>) -> Option<&NumericConstant> {
-		self.assumptions.get(&(signal, indices.to_vec())) // FIXME
-	}
-
 	pub fn scalar_signal(&self, signal: SignalId) -> Option<&NumericConstant> {
 		self.signal(signal, &vec![])
 	}
 }
 
+impl EvalAssumptions for EvalContext {
+	fn design(&self) -> Option<DesignHandle> {
+		self.design.clone()
+	}
+
+	fn signal(&self, signal: SignalId, indices: &Vec<i64>) -> Option<&NumericConstant> {
+		self.assumptions.get(&(signal, indices.to_vec())) // FIXME
+	}
+}
+
 /// A trait for evaluating signedness and sensitivity level of expressions
 pub trait EvaluatesType {
-	fn eval_type(&self, ctx: &EvalContext) -> Result<EvalType, EvalError>;
+	fn eval_type(&self, ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError>;
 
 	fn const_eval_type(&self) -> Result<EvalType, EvalError> {
 		self.eval_type(&EvalContext::default())
@@ -76,7 +88,7 @@ pub trait EvaluatesType {
 }
 
 pub trait Evaluates {
-	fn eval(&self, ctx: &EvalContext) -> Result<NumericConstant, EvalError>;
+	fn eval(&self, ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError>;
 
 	fn const_eval(&self) -> Result<NumericConstant, EvalError> {
 		self.eval(&EvalContext::default())

@@ -1,0 +1,7 @@
+module X{}
+impl X{
+	unsigned bus<4> A[4];
+	for(i in [1:3]){
+		A[i-1] = A[i];
+	}
+}

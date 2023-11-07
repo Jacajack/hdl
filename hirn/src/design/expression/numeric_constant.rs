@@ -1,5 +1,5 @@
 use super::{NarrowEval, WidthExpression};
-use crate::design::{Expression, SignalSignedness};
+use crate::design::{Expression, HasSignedness, SignalSignedness};
 
 use num_bigint::{BigInt, BigUint};
 
@@ -645,6 +645,31 @@ impl From<NumericConstant> for Result<NumericConstant, EvalError> {
 		else {
 			Err(value.get_error().unwrap())
 		}
+	}
+}
+
+impl HasSignedness for NumericConstant {
+	fn signedness(&self) -> SignalSignedness {
+		self.signedness
+	}
+}
+
+impl std::fmt::Display for NumericConstant {
+	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+		if self.is_valid() {
+			write!(
+				f,
+				"{}{}{}",
+				self.to_dec_str().expect("could not convert to dec str"),
+				if self.is_signed() { "s" } else { "u" },
+				self.width().expect("could not get width")
+			)?;
+		}
+		else {
+			write!(f, "<invalid>")?;
+		}
+
+		Ok(())
 	}
 }
 
