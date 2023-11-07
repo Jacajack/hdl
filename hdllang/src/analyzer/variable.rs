@@ -843,6 +843,7 @@ pub struct GenericVariable {
 	pub width: Option<BusWidth>,
 	pub signedness: SignalSignedness,
 	pub direction: Direction,
+	pub location: SourceSpan,
 }
 impl GenericVariable {
 	pub fn is_direction_specified(&self) -> bool {
@@ -1004,7 +1005,19 @@ impl VariableKind {
 			VariableKind::Signal(signal) => Ok(signal.clone()),
 			VariableKind::Generic(gen) => match &gen.value {
 				None => Err(SemanticError::GenericUsedWithoutValue.to_diagnostic_builder()),
-				Some(val) => Ok(Signal::new_from_constant(&val.get_nc(), SourceSpan::new_between(0, 0))),
+				Some(_) => {
+					let t= SignalType::Bus(BusType {
+						width: gen.width.clone(),
+						signedness: gen.signedness.clone(),
+						location: gen.location,
+					});
+					Ok(Signal {
+						signal_type: t,
+						dimensions: Vec::new(),
+						sensitivity: SignalSensitivity::Const(gen.location),
+						direction: gen.direction.clone(),
+					})
+				}
 			},
 			VariableKind::ModuleInstance(_) => Err(SemanticError::ModuleInstantionUsedAsSignal.to_diagnostic_builder()),
 		}

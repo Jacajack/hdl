@@ -177,6 +177,7 @@ impl VariableKind {
 				width: None,
 				signedness: already_created.signedness,
 				direction: already_created.direction,
+				location:*location,
 			}))
 			},
 			Wire { location } => {
@@ -211,6 +212,7 @@ impl VariableKind {
 					width: Some(BusWidth::Evaluated(NumericConstant::new_true())),
 					signedness: SignalSignedness::Unsigned(*location),
 					direction: already_created.direction,
+					location:*location,
 				}))
 			},
 			Bus(bus) => {

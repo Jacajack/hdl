@@ -599,6 +599,7 @@ impl ModuleImplementationStatement {
 								direction: crate::analyzer::Direction::None,
         						width: Some(BusWidth::Evaluated(NumericConstant::new_from_value(64.into()))),
         						signedness: crate::analyzer::SignalSignedness::Unsigned(iteration.location),
+								location:iteration.location,
 							}),
 						),
 					)?;
