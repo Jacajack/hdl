@@ -4,7 +4,7 @@ use log::{info, error, debug};
 use petgraph::Directed;
 use petgraph::prelude::{DiGraphMap, GraphMap};
 
-use crate::design::{ScopeHandle, ConditionalScope, RangeScope, Evaluates, DesignHandle, HasSensitivity, SignalSlice};
+use crate::design::{ScopeHandle, ConditionalScope, RangeScope, Evaluates, DesignHandle, HasSensitivity, SignalSlice, SignalSliceRange};
 use crate::elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal};
 use crate::{elab::{ElabError, ElabAssumptions}, design::{ScopeId, SignalId}};
 
@@ -81,6 +81,11 @@ pub struct SignalGraphPassResult {
 }
 
 impl SignalGraphPassResult {
+}
+
+struct SignalSliceRangeEvalResult<'a> {
+	elab_sig: &'a mut ElabSignal,
+	lsb_msb: Option<(i64, i64)>,
 }
 
 struct SignalGraphPassCtx {
@@ -178,8 +183,22 @@ impl SignalGraphPassCtx {
 		}
 	}
 
-	fn get_generated_signal_ref(&self, slice: &SignalSlice) -> GeneratedSignalRef {
-		todo!();
+	fn get_generated_signal_ref(&self, slice: &SignalSlice, assumptions: Arc<dyn ElabAssumptionsBase>) -> GeneratedSignalRef {
+		let gen_id = self.get_generated_signal_id(slice.signal);
+		if slice.indices.is_empty() {
+			GeneratedSignalRef {
+				id: gen_id,
+				index: None,
+			}
+		}
+		else {
+			todo!("Driving array signals not implemented yet");
+
+			// GeneratedSignalRef {
+			// 	id: gen_id,
+			// 	index: None
+			// }
+		}
 	}
 
 	fn declare_signal(&mut self, id: SignalId, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<GeneratedSignalId, ElabMessageKind> {
@@ -265,6 +284,61 @@ impl SignalGraphPassCtx {
 
 	}
 
+	fn eval_slice_range(&mut self, range: SignalSliceRange, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<SignalSliceRangeEvalResult, ElabMessageKind> {
+		let sig_ref = self.get_generated_signal_ref(range.slice(), assumptions.clone());
+		let elab_sig = self.elab_signals.get_mut(&sig_ref).expect("Sliced signal not registered in elab");
+		
+		if range.is_full() {
+			Ok(SignalSliceRangeEvalResult {
+				elab_sig,
+				lsb_msb: None,
+			})
+		} else {
+			let lsb_expr = range.lsb().unwrap();
+			let msb_expr = range.msb().unwrap();
+			let lsb_val = lsb_expr.eval(&assumptions)?;
+			let msb_val = msb_expr.eval(&assumptions)?;
+			let lsb = lsb_val.try_into_i64()?;
+			let msb = msb_val.try_into_i64()?;
+
+			if lsb < 0 || msb < 0 || msb < lsb || msb >= (elab_sig.width() as i64) {
+				error!("Signal {:?} (width {}) is driven with invalid range {}:{}", range.signal(), elab_sig.width(), msb, lsb);
+				return Err(ElabMessageKind::InvalidSignalBitRange);
+			}
+
+			Ok(SignalSliceRangeEvalResult{
+				elab_sig,
+				lsb_msb: Some((lsb, msb)),
+			})
+		}
+	}
+
+	fn drive_signal(&mut self, range: &SignalSliceRange, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
+		debug!("Driving signal {:?}", range);
+		
+		let result = self.eval_slice_range(range.clone(), assumptions)?;		
+		if let Some((lsb, msb)) = result.lsb_msb {
+			result.elab_sig.drive_bits(lsb as u32, msb as u32);
+		} else {
+			result.elab_sig.drive();
+		}
+
+		Ok(())
+	}
+
+	fn read_signal(&mut self, range: &SignalSliceRange, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
+		debug!("Marking signal as read {:?}", range);
+		
+		let result = self.eval_slice_range(range.clone(), assumptions)?;		
+		if let Some((lsb, msb)) = result.lsb_msb {
+			result.elab_sig.read_bits(lsb as u32, msb as u32);
+		} else {
+			result.elab_sig.read();
+		}
+
+		Ok(())
+	}
+
 	/// Analyzes scope contents (non-recursively)
 	fn elab_scope_content(
 		&mut self,
@@ -275,12 +349,42 @@ impl SignalGraphPassCtx {
 		debug!("Analyzing scope {:?} (pass {:?})", scope.id(), pass_id);
 		debug!("Pass info: {:?}", self.pass_info.get(&pass_id));
 
+		// Process all non-generic declarations
 		for sig_id in scope.signals() {
 			let sig = scope.design().get_signal(sig_id).unwrap();
 			if !sig.is_generic() {
 				self.declare_signal(sig_id, assumptions.clone())?;
 			}
 		}
+
+		// Process all non-generic assignments
+		for asmt in scope.assignments() {
+			let driven_bits = asmt.lhs.try_drive_bits().ok_or(ElabMessageKind::NotDrivable)?;
+			let sig_id = driven_bits.signal();
+			let sig = scope.design().get_signal(sig_id).unwrap();
+			if sig.is_generic() {
+				continue;
+			}
+
+			self.drive_signal(&driven_bits, assumptions.clone())?;
+
+			let read = asmt.dependencies_bits();
+			for range in &read {
+				let read_sig_id = range.signal();
+				let read_sig = scope.design().get_signal(read_sig_id).unwrap();
+				if !read_sig.is_generic() {
+					continue;
+				}
+
+				self.read_signal(range, assumptions.clone())?;
+			}
+		}
+
+		// TODO elab register
+		// TODO elab submodules
+		// TODO process submodule binding lists
+		// TODO drive module input sigs
+		// TODO read module output sigs
 		Ok(())
 	}
 
@@ -441,11 +545,11 @@ pub(super) struct SignalGraphPass;
 
 impl ElabPass<FullElabCtx, FullElabCacheHandle> for SignalGraphPass {
 	fn name(&self) -> &'static str {
-		"GenericResolvePass"
+		"SignalGraphPass"
 	}
 
 	fn run(&mut self, mut full_ctx: FullElabCtx) -> Result<FullElabCtx, ElabError> {
-		info!("Running generic resolution pass...");
+		info!("Running signal graph pass...");
 		let mut ctx = SignalGraphPassCtx::new(full_ctx.design().clone(), full_ctx.sig_graph_config.clone());
 		let module = full_ctx.module_handle();
 

@@ -153,14 +153,17 @@ pub enum ElabMessageKind {
 	NotDrivable, // FIXME signal ID
 
 	#[error("Invalid signal width")]
-	InvalidSignalWidth(i64),
+	InvalidSignalWidth(i64), // TODO SignalId
 
 	#[error("Invalid array dimension")]
-	InvalidArrayDimension(i64),
+	InvalidArrayDimension(i64), // TODO SignalId,
 
 	#[error("Invalid array rank")]
-	InvalidArrayRank(u32),
+	InvalidArrayRank(u32), // TODO SignalId
 
 	#[error("Invalid array size")]
-	InvalidArraySize(usize),
+	InvalidArraySize(usize), // TODO SignalID
+
+	#[error("Invalid signal bit range")]
+	InvalidSignalBitRange, // TODO SignalId
 }

@@ -263,6 +263,10 @@ impl ElabSignal {
 	pub fn has_conflicts(&self) -> bool {
 		!self.conflict_mask.is_empty()
 	}
+
+	pub fn width(&self) -> u32 {
+		self.read_mask.width()
+	}
 }
 
 #[cfg(test)]

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 
 use super::expression::NarrowEval;
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
-use super::signal::SignalBuilder;
+use super::signal::{SignalBuilder, SignalSliceRange};
 use super::{
 	DesignError, DesignHandle, EvalContext, EvaluatesType, HasComment, HasSensitivity, HasSignedness, ModuleId,
 	RegisterBuilder, ScopeId, SignalId, WidthExpression,
@@ -97,6 +97,16 @@ impl Assignment {
 		let lhs_slice = self.lhs.try_drive().expect("LHS not drivable in assignment");
 		for index in lhs_slice.indices {
 			deps.extend(index.get_variables().iter());
+		}
+		deps
+	}
+
+	pub fn dependencies_bits(&self) -> Vec<SignalSliceRange> {
+		let mut deps = vec![];
+		deps.extend(self.rhs.get_used_slice_ranges());
+		let lhs_slice = self.lhs.try_drive().expect("LHS not drivable in assignment");
+		for index in lhs_slice.indices {
+			deps.extend(index.get_used_slice_ranges());
 		}
 		deps
 	}
