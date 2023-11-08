@@ -1626,6 +1626,32 @@ impl VariableDefinition {
 								location: direct_initializer.declarator.get_location(),
 							},
 						)?;
+						let mut var = local_ctx.scope.get_variable_by_id(id).expect("It was just declared");
+						let mut lhs = var.var.kind.to_signal().expect("This was checked during analysis");
+						debug!("Lhs is {:?}", lhs);
+						let rhs = expr.evaluate_type(
+							ctx,
+							scope_id,
+							local_ctx,
+							lhs.clone(),
+							false,
+							direct_initializer.declarator.get_location(),
+						)?;
+						debug!("Rhs is {:?}", rhs);
+						if rhs.is_array() {
+							return Err(miette::Report::new(
+								SemanticError::ArrayInExpression
+									.to_diagnostic_builder()
+									.label(
+										direct_initializer.get_location(),
+										"Array cannot be initialized with expression",
+									)
+									.build(),
+							));
+						}
+						lhs.evaluate_as_lhs(true, ctx, rhs, direct_initializer.declarator.get_location())?;
+						var.var.kind = VariableKind::Signal(lhs);
+						local_ctx.scope.redeclare_variable(var);
 						let entries = expr.get_sensitivity_entry(ctx, local_ctx, scope_id);
 						local_ctx
 							.sensitivity_graph
