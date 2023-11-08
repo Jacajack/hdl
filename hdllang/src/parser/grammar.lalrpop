@@ -1,6 +1,5 @@
 use crate::parser::ast::*;
 use crate::lexer::*;
-use crate::parser::*;
 use crate::core::CompilerError;
 use crate::SourceSpan;
 grammar<'source>(source: Option<&'source String>);

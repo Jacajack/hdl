@@ -111,7 +111,7 @@ pub fn combine<'a>(
 		}
 	}
 	debug!("Modules: {:?}", modules_declared.len());
-	let mut diagnostic_buffer = crate::core::DiagnosticBuffer::new();
+	let diagnostic_buffer = crate::core::DiagnosticBuffer::new();
 	// prepare for next stage of analysis
 	let ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext {
 		id_table,
@@ -705,7 +705,7 @@ impl ModuleImplementationStatement {
 				for stmt in &inst.port_bind {
 					let mut interface_variable = scope
 						.get_var(0, &stmt.get_id())
-						.map_err(|mut err| {
+						.map_err(|err| {
 							err.label(
 								stmt.location(),
 								format!(
@@ -784,7 +784,7 @@ impl ModuleImplementationStatement {
 										Variable::new(new_name, stmt.location(), interface_variable.var.kind.clone());
 									scope.redeclare_variable(interface_variable);
 									let id = local_ctx.scope.define_intermidiate_signal(new_var)?;
-									module_instance.add_variable(stmt.get_id(), id).map_err(|mut err| {
+									module_instance.add_variable(stmt.get_id(), id).map_err(|err| {
 										err.label(stmt.location(), "Variable declared here").build()
 									})?;
 								},

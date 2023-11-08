@@ -1576,7 +1576,7 @@ impl Expression {
 											.build(),
 									));
 								}
-								let expr_type = expr.evaluate_type(
+								let _ = expr.evaluate_type( //FIXME
 									global_ctx,
 									scope_id,
 									local_ctx,
@@ -1624,7 +1624,7 @@ impl Expression {
 							location: _,
 						} => {
 							for expr in expressions {
-								let expr_type = expr.evaluate_type(
+								let _ = expr.evaluate_type(
 									global_ctx,
 									scope_id,
 									local_ctx,
@@ -1933,7 +1933,7 @@ impl Expression {
 									.build(),
 							));
 						}
-						let mut expr = Signal::new_bus(
+						let expr = Signal::new_bus(
 							Some(BusWidth::Evaluated(expr)),
 							SignalSignedness::Unsigned(self.get_location()),
 							self.get_location(),
@@ -2019,7 +2019,7 @@ impl Expression {
 									.build(),
 							));
 						}
-						let mut expr = function.argument_list[0].evaluate_type(
+						let expr = function.argument_list[0].evaluate_type(
 							global_ctx,
 							scope_id,
 							local_ctx,

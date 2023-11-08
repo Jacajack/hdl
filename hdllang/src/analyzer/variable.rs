@@ -140,7 +140,7 @@ impl BusWidth {
 	pub fn eval(
 		&mut self,
 		nc_table: &crate::lexer::NumericConstantTable,
-		id_table: &IdTable,
+		_id_table: &IdTable,
 		scope: &ModuleImplementationScope,
 	) -> miette::Result<()> {
 		// FIXME
@@ -281,7 +281,7 @@ impl Signal {
 	pub fn translate_clocks(&mut self, clocks: &HashMap<InternalVariableId, InternalVariableId>) {
 		use SignalSensitivity::*;
 		match &mut self.sensitivity {
-			Comb(list, id) => {
+			Comb(list, _) => {
 				for edge in &mut list.list {
 					if let Some(new_id) = clocks.get(&edge.clock_signal) {
 						edge.clock_signal = *new_id;
@@ -314,8 +314,8 @@ impl Signal {
 	}
 	pub fn evaluate_as_lhs(
 		&mut self,
-		is_lhs: bool,
-		global_ctx: &GlobalAnalyzerContext,
+		_is_lhs: bool,
+		_global_ctx: &GlobalAnalyzerContext,
 		coupling_type: Signal,
 		location: SourceSpan,
 	) -> miette::Result<()> {
