@@ -3,7 +3,7 @@ pub mod grammar_parser;
 pub mod parser_context;
 pub mod pretty_printer;
 pub use grammar_parser::grammar::*;
-pub use parser_context::ParserContext;
+//pub use parser_context::ParserContext;
 pub use pretty_printer::PrettyPrinterContext;
 extern crate itertools;
 use crate::core::compiler_diagnostic::*;
@@ -117,13 +117,13 @@ mod tests {
 	use super::*;
 	use crate::core::DiagnosticBuffer;
 	use crate::lexer::{Lexer, LogosLexer};
-	use crate::parser::ParserContext;
+	//use crate::parser::ParserContext;
 	fn parse_expr(s: &str) -> ast::Expression {
 		let lexer = LogosLexer::new(s);
 		let buf = Box::new(DiagnosticBuffer::new());
-		let mut ctx = ParserContext { diagnostic_buffer: buf };
+		//let mut ctx = ParserContext { diagnostic_buffer: buf };
 		ExprParser::new()
-			.parse(&mut ctx, Some(&String::from(s)), lexer)
+			.parse(Some(&String::from(s)), lexer)
 			.expect("parsing failed")
 	}
 

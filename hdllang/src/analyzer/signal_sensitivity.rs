@@ -389,6 +389,7 @@ mod tests {
 			modules_declared: HashMap::new(),
 			generic_modules: HashMap::new(),
 			design: hirn::design::DesignHandle::new(),
+    		diagnostic_buffer: crate::core::DiagnosticBuffer::new(),
 		}
 	}
 	fn span() -> SourceSpan {

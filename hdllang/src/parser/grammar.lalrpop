@@ -1,9 +1,8 @@
 use crate::parser::ast::*;
 use crate::lexer::*;
-use crate::parser::*;
 use crate::core::CompilerError;
 use crate::SourceSpan;
-grammar<'source>(ctx: & mut ParserContext<'source>, source: Option<&'source String>);
+grammar<'source>(source: Option<&'source String>);
 MetadataComments = NonEmptySpace<"MC">;
 pub Izulu: Root={
 	<start: @L> <definitions:Space<TopDefinition>> <end: @R> =>
