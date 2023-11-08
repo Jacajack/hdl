@@ -1437,14 +1437,14 @@ impl Expression {
 				let mut sig = Signal::new_from_constant(&constant, num.location);
 				match (width, sig.width()) {
 					(None, None) => {
-						if !is_lhs{
+						if !is_lhs {
 							return Err(miette::Report::new(
 								SemanticError::WidthNotKnown
 									.to_diagnostic_builder()
 									.label(num.location, "Width of this expression is not known, but it should be")
 									.label(location, "Because of this operation")
 									.build(),
-							))
+							));
 						}
 					},
 					(None, Some(_)) => (),
@@ -1567,16 +1567,20 @@ impl Expression {
 						} => {
 							for expr in expressions {
 								let value = expr.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?.unwrap();
-								if let Some(prev) =  present_already.insert(value.value.clone(), expr.get_location()) {
+								if let Some(prev) = present_already.insert(value.value.clone(), expr.get_location()) {
 									return Err(miette::Report::new(
 										SemanticError::DuplicateMatchValue
 											.to_diagnostic_builder()
 											.label(prev, "Value is already present here in this match expression")
-											.label(expr.get_location(), "This value is already present in this match expression")
+											.label(
+												expr.get_location(),
+												"This value is already present in this match expression",
+											)
 											.build(),
 									));
 								}
-								let _ = expr.evaluate_type( //FIXME
+								let _ = expr.evaluate_type(
+									//FIXME
 									global_ctx,
 									scope_id,
 									local_ctx,
@@ -2558,23 +2562,39 @@ impl Expression {
 					Division => type_first.width().clone().unwrap(),
 					Addition | Subtraction => {
 						use SignalSignedness::*;
-						match(&type_first.get_signedness(), &type_second.get_signedness()){
-        					(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_))=> (),
-        					(Signed(loc1), Unsigned(loc2)) |(Unsigned(loc2), Signed(loc1)) => {
-								return Err(miette::Report::new(SemanticError::SignednessMismatch.to_diagnostic_builder()
-								.label(*loc1, "This signal is signed")
-								.label(*loc2, "This signal is unsigned")
-								.build()
-							));
+						match (&type_first.get_signedness(), &type_second.get_signedness()) {
+							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
+							(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
+								return Err(miette::Report::new(
+									SemanticError::SignednessMismatch
+										.to_diagnostic_builder()
+										.label(*loc1, "This signal is signed")
+										.label(*loc2, "This signal is unsigned")
+										.build(),
+								));
 							},
-        					(_, NoSignedness) => {
-								binop.rhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_bus(None, type_first.get_signedness(), self.get_location()), is_lhs, location)?;
-							}, 
-        					(NoSignedness, _) => {
-								binop.lhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_bus(None, type_second.get_signedness(), self.get_location()), is_lhs, location)?;
+							(_, NoSignedness) => {
+								binop.rhs.evaluate_type(
+									global_ctx,
+									scope_id,
+									local_ctx,
+									Signal::new_bus(None, type_first.get_signedness(), self.get_location()),
+									is_lhs,
+									location,
+								)?;
+							},
+							(NoSignedness, _) => {
+								binop.lhs.evaluate_type(
+									global_ctx,
+									scope_id,
+									local_ctx,
+									Signal::new_bus(None, type_second.get_signedness(), self.get_location()),
+									is_lhs,
+									location,
+								)?;
 								type_first.set_signedness(type_second.get_signedness(), self.get_location());
 							},
-    					}
+						}
 						use SignalType::*;
 						match (&type_first.signal_type, &type_second.signal_type) {
 							(Bus(bus1), Bus(bus2)) => BusWidth::Evaluated(NumericConstant::new_from_value(

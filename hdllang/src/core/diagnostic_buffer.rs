@@ -13,4 +13,3 @@ impl DiagnosticBuffer {
 		Self { buffer: vec![] }
 	}
 }
-

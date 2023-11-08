@@ -146,7 +146,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 			passes: Vec::new(),
 		}
 	}
-	pub fn buffer(&self) -> crate::core::DiagnosticBuffer{
+	pub fn buffer(&self) -> crate::core::DiagnosticBuffer {
 		self.ctx.diagnostic_buffer.clone()
 	}
 	pub fn semantical_analysis(&mut self) -> miette::Result<()> {
@@ -604,9 +604,9 @@ impl ModuleImplementationStatement {
 								))),
 								is_wire: false,
 								direction: crate::analyzer::Direction::None,
-        						width: Some(BusWidth::Evaluated(NumericConstant::new_from_value(64.into()))),
-        						signedness: crate::analyzer::SignalSignedness::Unsigned(iteration.location),
-								location:iteration.location,
+								width: Some(BusWidth::Evaluated(NumericConstant::new_from_value(64.into()))),
+								signedness: crate::analyzer::SignalSignedness::Unsigned(iteration.location),
+								location: iteration.location,
 							}),
 						),
 					)?;
@@ -784,9 +784,9 @@ impl ModuleImplementationStatement {
 										Variable::new(new_name, stmt.location(), interface_variable.var.kind.clone());
 									scope.redeclare_variable(interface_variable);
 									let id = local_ctx.scope.define_intermidiate_signal(new_var)?;
-									module_instance.add_variable(stmt.get_id(), id).map_err(|err| {
-										err.label(stmt.location(), "Variable declared here").build()
-									})?;
+									module_instance
+										.add_variable(stmt.get_id(), id)
+										.map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
 								},
 								(..) => unreachable!(),
 							}
@@ -1563,11 +1563,20 @@ impl VariableDefinition {
 				));
 			}
 			let mut dimensions = Vec::new();
-			if spec_kind.is_generic() && direct_initializer.declarator.array_declarators.len()>0{
+			if spec_kind.is_generic() && direct_initializer.declarator.array_declarators.len() > 0 {
 				return Err(miette::Report::new(
-					SemanticError::GenericArray.to_diagnostic_builder()
-					.label(*&direct_initializer.declarator.array_declarators.first().unwrap().get_location(), "There was an attempt to declare an array of generic variables")
-					.build()
+					SemanticError::GenericArray
+						.to_diagnostic_builder()
+						.label(
+							*&direct_initializer
+								.declarator
+								.array_declarators
+								.first()
+								.unwrap()
+								.get_location(),
+							"There was an attempt to declare an array of generic variables",
+						)
+						.build(),
 				));
 			}
 			for array_declarator in &direct_initializer.declarator.array_declarators {

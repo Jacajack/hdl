@@ -65,13 +65,11 @@ fn compile(mut code: String, file_name: String, output: &mut dyn Write, elab: bo
 fn pretty_print(code: String, output: &mut dyn Write) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
 	let buf = Box::new(DiagnosticBuffer::new());
-	let ast = parser::IzuluParser::new()
-		.parse( Some(&code), &mut lexer)
-		.map_err(|e| {
-			ParserError::new_form_lalrpop_error(e)
-				.to_miette_report()
-				.with_source_code(code.clone())
-		})?;
+	let ast = parser::IzuluParser::new().parse(Some(&code), &mut lexer).map_err(|e| {
+		ParserError::new_form_lalrpop_error(e)
+			.to_miette_report()
+			.with_source_code(code.clone())
+	})?;
 	let mut printer = parser::pretty_printer::PrettyPrinterContext::new(
 		lexer.id_table(),
 		lexer.comment_table(),

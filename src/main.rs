@@ -66,7 +66,7 @@ fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
 	let parser = parser::IzuluParser::new();
 	let ast = parser
-		.parse( Some(&code), lexer)
+		.parse(Some(&code), lexer)
 		.map_err(|e| ParserError::new_form_lalrpop_error(e).to_diagnostic())?;
 	write!(&mut output, "{:?}", ast).map_err(|e| CompilerError::IoError(e).to_miette_report())?;
 	Ok(())
@@ -79,7 +79,7 @@ fn parse_file_recover_tables(
 	let mut lexer = LogosLexer::new_with_context(&code, ctx);
 	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
 	let parser = parser::IzuluParser::new();
-	let ast = parser.parse( Some(&code), &mut lexer).map_err(|e| {
+	let ast = parser.parse(Some(&code), &mut lexer).map_err(|e| {
 		ParserError::new_form_lalrpop_error(e)
 			.to_miette_report()
 			.with_source_code(code.clone())
@@ -91,7 +91,7 @@ fn serialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
 	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
 	let parser = parser::IzuluParser::new();
-	let ast = parser.parse( Some(&code), &mut lexer).map_err(|e| {
+	let ast = parser.parse(Some(&code), &mut lexer).map_err(|e| {
 		ParserError::new_form_lalrpop_error(e)
 			.to_miette_report()
 			.with_source_code(code.clone())
@@ -121,13 +121,11 @@ fn deserialize(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 fn pretty_print(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
 	let buf = Box::new(DiagnosticBuffer::new());
-	let ast = parser::IzuluParser::new()
-		.parse( Some(&code), &mut lexer)
-		.map_err(|e| {
-			ParserError::new_form_lalrpop_error(e)
-				.to_miette_report()
-				.with_source_code(code.clone())
-		})?;
+	let ast = parser::IzuluParser::new().parse(Some(&code), &mut lexer).map_err(|e| {
+		ParserError::new_form_lalrpop_error(e)
+			.to_miette_report()
+			.with_source_code(code.clone())
+	})?;
 	let mut printer = parser::pretty_printer::PrettyPrinterContext::new(
 		lexer.id_table(),
 		lexer.comment_table(),
@@ -222,11 +220,14 @@ fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) -> m
 	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
 	// analyse semantically
 	let mut analyzer = hdllang::analyzer::SemanticalAnalyzer::new(global_ctx, &modules);
-		analyzer.compile(&mut *output)
+	analyzer
+		.compile(&mut *output)
 		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
-	for diag in analyzer.buffer().buffer{
-		println!("{:?}",
-		miette::Report::new(diag).with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))
+	for diag in analyzer.buffer().buffer {
+		println!(
+			"{:?}",
+			miette::Report::new(diag).with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))
+		)
 	}
 	//hdllang::analyzer::analyze_semantically(&mut global_ctx, &modules)?;
 	info!("File {} compiled succesfully", file_name);

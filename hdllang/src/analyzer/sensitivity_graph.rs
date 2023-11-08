@@ -11,7 +11,8 @@ use petgraph::prelude::{DiGraph, UnGraph};
 use crate::{
 	analyzer::{ModuleInstanceKind, VariableKind},
 	core::CompilerDiagnosticBuilder,
-	parser::ast::SourceLocation, SourceSpan,
+	parser::ast::SourceLocation,
+	SourceSpan,
 };
 
 use super::module_implementation_scope::InternalVariableId;

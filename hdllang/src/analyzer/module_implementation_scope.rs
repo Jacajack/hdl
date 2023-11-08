@@ -197,8 +197,8 @@ impl ModuleImplementationScope {
 		let mut prev = self.variables.get(&var.id).unwrap().clone();
 		let prev_copy = prev.clone();
 		use VariableKind::*;
-		match(&mut var.var.kind, &mut prev.var.kind){
-		    (Signal(_), Signal(_)) => {
+		match (&mut var.var.kind, &mut prev.var.kind) {
+			(Signal(_), Signal(_)) => {
 				info!("Redeclared variable {:?} to {:?}", prev, var);
 				self.variables.insert(var.id, var);
 			},
@@ -207,14 +207,13 @@ impl ModuleImplementationScope {
 				info!("Redeclared variable {:?} to {:?}", prev, var);
 				self.variables.insert(var.id, var);
 			},
-		    (Signal(sig), Generic(gen)) => {
+			(Signal(sig), Generic(gen)) => {
 				gen.width = sig.width();
 				info!("Redeclared generic variable {:?} to {:?}", prev_copy, prev);
 				self.variables.insert(var.id, prev.clone());
 			},
-		    (_, ModuleInstance(_)) | (ModuleInstance(_), _) | (Generic(_), Signal(_)) => panic!(),
+			(_, ModuleInstance(_)) | (ModuleInstance(_), _) | (Generic(_), Signal(_)) => panic!(),
 		}
-
 	}
 	pub fn get_variable_in_scope(&self, scope_id: usize, key: &IdTableKey) -> Option<&VariableDefined> {
 		let scope = &self.scopes[scope_id];
@@ -373,11 +372,14 @@ impl ModuleImplementationScope {
 				}
 			}
 			// we do not have to check for module instances, because their members are checked in previous pass
-			if let VariableKind::Generic(gen) = &v.var.kind{
-				if gen.value.is_none(){
+			if let VariableKind::Generic(gen) = &v.var.kind {
+				if gen.value.is_none() {
 					// emit warning
-					let report = crate::core::CompilerDiagnosticBuilder::new_warning("This generic variable is unitialized, it will not be emitted in the output file")
-						.label(v.location(), "This variable has no value").build();
+					let report = crate::core::CompilerDiagnosticBuilder::new_warning(
+						"This generic variable is unitialized, it will not be emitted in the output file",
+					)
+					.label(v.location(), "This variable has no value")
+					.build();
 					ctx.diagnostic_buffer.push_diagnostic(report);
 				}
 			}

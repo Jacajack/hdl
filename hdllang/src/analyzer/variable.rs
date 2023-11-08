@@ -377,10 +377,10 @@ impl Signal {
 				SignalType::Bus(new)
 			},
 			(Bus(bus), Wire(wire)) | (Wire(wire), Bus(bus)) => {
-				if bus.width.is_none(){
+				if bus.width.is_none() {
 					SignalType::Wire(*wire)
 				}
-				else{
+				else {
 					debug!("Bus width is {:?}", bus.width.clone().unwrap().get_value().unwrap());
 					if bus.width.clone().unwrap().get_value().unwrap() != 1.into() {
 						return Err(miette::Report::new(
@@ -601,7 +601,8 @@ impl Signal {
 				}
 			},
 		};
-		if width.clone().unwrap().get_value().unwrap() == 1.into() && ! matches!(signedness, SignalSignedness::Signed(_)){
+		if width.clone().unwrap().get_value().unwrap() == 1.into() && !matches!(signedness, SignalSignedness::Signed(_))
+		{
 			Self {
 				signal_type: SignalType::Wire(location),
 				dimensions: Vec::new(),
@@ -778,53 +779,41 @@ impl Variable {
 			VariableKind::Generic(generic) => {
 				use BusWidth::*;
 				let width = match &generic.width {
-					Some(width) => match width{
-					Evaluated(value) => {
-						Expression::Constant(hirn::design::NumericConstant::new_signed(value.clone().value))
-					},
-					EvaluatedLocated(_, location) => {
-						let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-						expr_ast.expression.codegen(
-							nc_table,
-							id_table,
-							expr_ast.scope_id,
-							scope,
-							additional_ctx,
-						)?
-					},
-					Evaluable(location) => {
-						let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-						expr_ast.expression.codegen(
-							nc_table,
-							id_table,
-							expr_ast.scope_id,
-							scope,
-							additional_ctx,
-						)?
-					},
-					WidthOf(location) => {
-						let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-						expr_ast.expression.codegen(
-							nc_table,
-							id_table,
-							expr_ast.scope_id,
-							scope,
-							additional_ctx,
-						)?
-					}, 
+					Some(width) => match width {
+						Evaluated(value) => {
+							Expression::Constant(hirn::design::NumericConstant::new_signed(value.clone().value))
+						},
+						EvaluatedLocated(_, location) => {
+							let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+							expr_ast
+								.expression
+								.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
+						},
+						Evaluable(location) => {
+							let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+							expr_ast
+								.expression
+								.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
+						},
+						WidthOf(location) => {
+							let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+							expr_ast
+								.expression
+								.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
+						},
 					},
 					None => Expression::Constant(hirn::design::NumericConstant::new_signed(64.into())),
 				};
 				if generic.is_wire {
 					builder = builder.wire();
 				}
-				else{
+				else {
 					match generic.signedness {
 						SignalSignedness::Signed(_) => builder = builder.signed(width),
 						SignalSignedness::Unsigned(_) => builder = builder.unsigned(width),
-						SignalSignedness::NoSignedness => unreachable!(), 
+						SignalSignedness::NoSignedness => unreachable!(),
 					}
-				}	
+				}
 				builder = builder.generic();
 				id = builder.build().unwrap();
 			},
@@ -1017,7 +1006,7 @@ impl VariableKind {
 			VariableKind::Generic(gen) => match &gen.value {
 				None => Err(SemanticError::GenericUsedWithoutValue.to_diagnostic_builder()),
 				Some(_) => {
-					let t= SignalType::Bus(BusType {
+					let t = SignalType::Bus(BusType {
 						width: gen.width.clone(),
 						signedness: gen.signedness.clone(),
 						location: gen.location,
@@ -1028,7 +1017,7 @@ impl VariableKind {
 						sensitivity: SignalSensitivity::Const(gen.location),
 						direction: gen.direction.clone(),
 					})
-				}
+				},
 			},
 			VariableKind::ModuleInstance(_) => Err(SemanticError::ModuleInstantionUsedAsSignal.to_diagnostic_builder()),
 		}

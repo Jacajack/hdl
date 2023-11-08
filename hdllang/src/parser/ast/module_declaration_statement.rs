@@ -104,7 +104,7 @@ impl VariableDeclarationStatement {
 					VariableKind::Signal(sig)
 				},
 				VariableKind::Generic(gen) => {
-					if dimensions.len() >0 {
+					if dimensions.len() > 0 {
 						panic!("Generic variable cannot have dimensions");
 					}
 					VariableKind::Generic(gen)
@@ -161,7 +161,7 @@ impl VariableKind {
 					direction: already_created.direction,
 				}))
 			},
-			Int { location } =>{
+			Int { location } => {
 				already_created = analyze_qualifiers(
 					&type_declarator.qualifiers,
 					already_created,
@@ -169,17 +169,17 @@ impl VariableKind {
 					current_scope,
 					id_table,
 				)?;
-				if already_created.signedness == SignalSignedness::NoSignedness{
+				if already_created.signedness == SignalSignedness::NoSignedness {
 					already_created.signedness = SignalSignedness::Signed(*location);
-				} 
+				}
 				Ok(VariableKind::Generic(GenericVariable {
-				value: None,
-				width: None,
-				is_wire:false,
-				signedness: already_created.signedness,
-				direction: already_created.direction,
-				location:*location,
-			}))
+					value: None,
+					width: None,
+					is_wire: false,
+					signedness: already_created.signedness,
+					direction: already_created.direction,
+					location: *location,
+				}))
 			},
 			Wire { location } => {
 				already_created = analyze_qualifiers(
@@ -207,16 +207,14 @@ impl VariableKind {
 					dimensions: Vec::new(),
 				}))
 			},
-			Bool { location } => {
-				Ok(VariableKind::Generic(GenericVariable {
-					value: None,
-					width: Some(BusWidth::Evaluated(NumericConstant::new_true())),
-					is_wire: true,
-					signedness: SignalSignedness::Unsigned(*location),
-					direction: already_created.direction,
-					location:*location,
-				}))
-			},
+			Bool { location } => Ok(VariableKind::Generic(GenericVariable {
+				value: None,
+				width: Some(BusWidth::Evaluated(NumericConstant::new_true())),
+				is_wire: true,
+				signedness: SignalSignedness::Unsigned(*location),
+				direction: already_created.direction,
+				location: *location,
+			})),
 			Bus(bus) => {
 				already_created = analyze_qualifiers(
 					&type_declarator.qualifiers,

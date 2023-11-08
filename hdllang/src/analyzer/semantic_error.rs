@@ -295,11 +295,10 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 			MultipleAssignment => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all generic variables are assigned only once")
 				.build(),
-    		DuplicateMatchValue => CompilerDiagnosticBuilder::from_error(&self)
+			DuplicateMatchValue => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all match expressions are unique")
 				.build(),
-    		GenericArray => CompilerDiagnosticBuilder::from_error(&self)
-				.build(),
+			GenericArray => CompilerDiagnosticBuilder::from_error(&self).build(),
 		}
 	}
 }
