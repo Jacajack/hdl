@@ -219,6 +219,87 @@ impl SignalMask {
 		}
 	}
 
+	pub fn count_ones(&self) -> u32 {
+		use SignalMask::*;
+		match self {
+			Full{set, ..} => if *set { self.width() } else { 0 },
+			Sparse(m) => m.mask.count_ones() as u32,
+		}
+	}
+
+	pub fn zeros_summary(&self) -> SignalMaskSummary {
+		SignalMaskSummary::new_zero_summary(self)
+	}
+
+	pub fn ones_summary(&self) -> SignalMaskSummary {
+		SignalMaskSummary::new_one_summary(self)
+	}
+
+}
+
+#[derive(Clone, Debug)]
+pub enum SignalMaskSummary {
+	Empty,
+	Full,
+	Single(u32),
+	Ranges(Vec<(u32, u32)>),
+}
+
+impl SignalMaskSummary {
+	fn new_zero_summary(mask: &SignalMask) -> Self {
+		if mask.is_empty() {
+			Self::Full
+		}
+		else if mask.is_full() {
+			Self::Empty
+		}
+		else {
+			Self::generic_summary(mask, false)
+		}
+	}
+
+	fn new_one_summary(mask: &SignalMask) -> Self {
+		if mask.is_empty() {
+			Self::Empty
+		}
+		else if mask.is_full() {
+			Self::Full
+		}
+		else {
+			Self::generic_summary(mask, true)
+		}
+	}
+
+	fn generic_summary(mask: &SignalMask, desired: bool) -> Self {
+		let mut ranges = vec![];
+
+		let mut group_start = None;
+		for i in 0..mask.width() {
+			let bit = mask.get_bit(i);
+			if bit == desired {
+				if group_start.is_none() {
+					group_start = Some(i);
+				}
+			}
+
+			if bit != desired && group_start.is_some() {
+				ranges.push((group_start.unwrap(), i - 1));
+				group_start = None;
+			}
+		}
+
+		if group_start.is_some() {
+			ranges.push((group_start.unwrap(), mask.width() - 1));
+		}
+
+		// One bit - degenerate case
+		if ranges.len() == 1 && ranges[0].0 == ranges[0].1 {
+			Self::Single(ranges[0].0)
+		}
+		else {
+			Self::Ranges(ranges)
+		}
+	}
 }
 
 pub struct ElabSignal {
@@ -270,6 +351,18 @@ impl ElabSignal {
 
 	pub fn width(&self) -> u32 {
 		self.read_mask.width()
+	}
+
+	pub fn conflict_summary(&self) -> SignalMaskSummary {
+		self.conflict_mask.ones_summary()
+	}
+
+	pub fn undriven_summary(&self) -> SignalMaskSummary {
+		self.driven_mask.zeros_summary()
+	}
+
+	pub fn unread_summary(&self) -> SignalMaskSummary {
+		self.read_mask.zeros_summary()
 	}
 }
 

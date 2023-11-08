@@ -38,11 +38,39 @@ pub struct GeneratedSignalId {
 	pass_id: ScopePassId,
 }
 
+impl GeneratedSignalId {
+	pub fn signal(&self) -> SignalId {
+		self.id
+	}
+
+	pub fn pass_id(&self) -> ScopePassId {
+		self.pass_id
+	}
+}
+
 /// References specific field of a generated signal
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct GeneratedSignalRef {
 	id: GeneratedSignalId,
 	index: Option<u32>,	
+}
+
+impl GeneratedSignalRef {
+	pub fn gen_id(&self) -> GeneratedSignalId {
+		self.id
+	}
+
+	pub fn signal(&self) -> SignalId {
+		self.id.signal()
+	}
+
+	pub fn pass_id(&self) -> ScopePassId {
+		self.id.pass_id()
+	}
+
+	pub fn index(&self) -> Option<u32> {
+		self.index
+	}
 }
 
 /// Represents a generated signal (width + dimensions evaluated)
