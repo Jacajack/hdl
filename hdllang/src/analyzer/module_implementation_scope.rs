@@ -379,7 +379,6 @@ impl ModuleImplementationScope {
 					let report = crate::core::CompilerDiagnosticBuilder::new_warning("This generic variable is unitialized, it will not be emitted in the output file")
 						.label(v.location(), "This variable has no value").build();
 					ctx.diagnostic_buffer.push_diagnostic(report);
-					// FIXME this needs to be pushed into diagnostic buffer
 				}
 			}
 		}
@@ -405,7 +404,7 @@ impl VariableDefined {
 		match &self.var.kind {
 			VariableKind::Signal(sig) => sig.sensitivity.clone(),
 			VariableKind::Generic(gen) => SignalSensitivity::Const(gen.location),
-			_ => unreachable!(), //probably unsafe
+			_ => unreachable!(),
 		}
 	}
 	pub fn location(&self) -> SourceSpan {
