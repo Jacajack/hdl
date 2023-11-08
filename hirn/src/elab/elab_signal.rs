@@ -129,7 +129,11 @@ impl SignalMask {
 		use SignalMask::*;
 		match self {
 			Full{width, set: true} => Self::new_set(*width),
-			Full{width, set: false} => Self::new(*width),
+			Full{width, set: false} => {
+				let w = *width;
+				*self = Full{width: w, set: true};
+				Self::new(w)
+			}
 			Sparse(m) => {
 				let conflict = m.clone();
 				*self = Self::Full{width: conflict.width(), set: true};
