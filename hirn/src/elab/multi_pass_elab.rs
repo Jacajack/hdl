@@ -1,6 +1,6 @@
 mod full_elab;
 mod signal_graph_pass;
-mod test_pass;
+mod signal_usage_pass;
 
 pub use full_elab::FullElaborator;
 use log::info;

@@ -299,6 +299,16 @@ pub struct SignalSliceRange {
 	msb: Option<Expression>,
 }
 
+impl From<SignalId> for SignalSliceRange {
+	fn from(signal: SignalId) -> Self {
+		Self {
+			slice: SignalSlice::from(signal),
+			lsb: None,
+			msb: None,
+		}
+	}
+}
+
 impl SignalSliceRange {
 	pub fn new_full(slice: SignalSlice) -> Self {
 		Self { slice, lsb: None, msb: None }

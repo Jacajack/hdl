@@ -22,6 +22,20 @@ pub struct InterfaceSignal {
 	pub direction: SignalDirection,
 }
 
+impl InterfaceSignal {
+	pub fn is_input(&self) -> bool {
+		matches!(self.direction, SignalDirection::Input)
+	}
+
+	pub fn is_output(&self) -> bool {
+		matches!(self.direction, SignalDirection::Output)
+	}
+
+	pub fn signal(&self) -> SignalId {
+		self.signal
+	}
+}
+
 /// Represents a hardware module
 #[derive(Debug)]
 pub struct Module {

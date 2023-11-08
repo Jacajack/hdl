@@ -4,7 +4,7 @@ use log::{info, error, debug};
 use petgraph::Directed;
 use petgraph::prelude::{DiGraphMap, GraphMap};
 
-use crate::design::{ScopeHandle, ConditionalScope, RangeScope, Evaluates, DesignHandle, HasSensitivity, SignalSlice, SignalSliceRange};
+use crate::design::{ScopeHandle, ConditionalScope, RangeScope, Evaluates, DesignHandle, HasSensitivity, SignalSlice, SignalSliceRange, ModuleHandle};
 use crate::elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal};
 use crate::{elab::{ElabError, ElabAssumptions}, design::{ScopeId, SignalId}};
 
@@ -73,14 +73,21 @@ pub enum ScopePassInfo {
 	}
 }
 pub struct SignalGraphPassResult {
-	// signals: HashMap<GeneratedSignalId, ElabSignal>,
-	// comb_graph: GraphMap<GeneratedSignalId, (), Directed>,
-	// clock_graph: GraphMap<GeneratedSignalId, (), Undirected>,
-	// clock_groups: HashMap<GeneratedSignalId, usize>,
-	// pass_info: HashMap<usize, ScopePassInfo>,
+	/// All generated signals
+	signals: HashMap<GeneratedSignalId, GeneratedSignal>,
+
+	/// Elaborated signals
+	elab_signals: HashMap<GeneratedSignalRef, ElabSignal>,
 }
 
 impl SignalGraphPassResult {
+	pub fn signals(&self) -> &HashMap<GeneratedSignalId, GeneratedSignal> {
+		&self.signals
+	}
+
+	pub fn elab_signals(&self) -> &HashMap<GeneratedSignalRef, ElabSignal> {
+		&self.elab_signals
+	}
 }
 
 struct SignalSliceRangeEvalResult<'a> {
@@ -339,6 +346,25 @@ impl SignalGraphPassCtx {
 		Ok(())
 	}
 
+	fn elab_module_interface(&mut self, module: ModuleHandle, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
+		for interface_sig in module.interface() {
+			let sig_id = interface_sig.signal;
+			let sig = module.design().get_signal(sig_id).unwrap();
+			if sig.is_generic() {
+				continue;
+			}
+
+			if interface_sig.is_input() {
+				self.drive_signal(&sig_id.into(), assumptions.clone())?;
+			}
+			else {
+				self.read_signal(&sig_id.into(), assumptions.clone())?;
+			}
+		}
+
+		Ok(())
+	}
+
 	/// Analyzes scope contents (non-recursively)
 	fn elab_scope_content(
 		&mut self,
@@ -372,7 +398,7 @@ impl SignalGraphPassCtx {
 			for range in &read {
 				let read_sig_id = range.signal();
 				let read_sig = scope.design().get_signal(read_sig_id).unwrap();
-				if !read_sig.is_generic() {
+				if read_sig.is_generic() {
 					continue;
 				}
 
@@ -539,6 +565,13 @@ impl SignalGraphPassCtx {
 		self.elab_scope(scope.clone(), assumptions)?;
 		Ok(())
 	}
+
+	fn elab_module(&mut self, module: ModuleHandle, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
+		self.elab_unconditional_scope(&module.scope(), assumptions.clone())?;
+		self.elab_module_interface(module, assumptions.clone())?;
+		Ok(())
+	}
+
 }
 
 pub(super) struct SignalGraphPass;
@@ -553,7 +586,7 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for SignalGraphPass {
 		let mut ctx = SignalGraphPassCtx::new(full_ctx.design().clone(), full_ctx.sig_graph_config.clone());
 		let module = full_ctx.module_handle();
 
-		let result = ctx.elab_unconditional_scope(&module.scope(), full_ctx.assumptions());
+		let result = ctx.elab_module(module.clone(), full_ctx.assumptions());
 		if let Err(err) = result {
 			error!("Module {:?} contains errors ({:?})", module.id(), err);
 			full_ctx.add_message(err.into());
@@ -565,7 +598,10 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for SignalGraphPass {
 		info!("Signal graph edge count: {}", ctx.comb_graph.edge_count());
 		info!("Elab signals registered: {}", ctx.elab_signals.len());
 
-		full_ctx.sig_graph_result = Some(SignalGraphPassResult{}); // FIXME
+		full_ctx.sig_graph_result = Some(SignalGraphPassResult{
+			signals: ctx.signals,
+			elab_signals: ctx.elab_signals,
+		}); 
 		Ok(full_ctx)
 	}
 }

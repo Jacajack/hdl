@@ -5,7 +5,7 @@ use crate::{
 	elab::{ElabAssumptionsBase, ElabError, ElabReport, Elaborator, ElabMessage, ElabMessageKind, SeverityPolicy, DefaultSeverityPolicy},
 };
 
-use super::{test_pass::TestPass, ElabPassContext, ElabQueueItem, MultiPassElaborator, signal_graph_pass::{SignalGraphPass, SignalGraphPassResult, SignalGraphPassConfig}};
+use super::{ElabPassContext, ElabQueueItem, MultiPassElaborator, signal_graph_pass::{SignalGraphPass, SignalGraphPassResult, SignalGraphPassConfig}, signal_usage_pass::SignalUsagePass};
 
 pub(super) struct FullElabCtx {
 	design: DesignHandle,
@@ -83,8 +83,8 @@ impl FullElaborator {
 	/// Create a new FullElaborator and add all passes
 	pub fn new(design: DesignHandle) -> Self {
 		let mut elaborator = MultiPassElaborator::new(design);
-		elaborator.add_pass(Box::new(TestPass {}));
 		elaborator.add_pass(Box::new(SignalGraphPass {}));
+		elaborator.add_pass(Box::new(SignalUsagePass {}));
 		Self { elaborator }
 	}
 }
