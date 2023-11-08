@@ -2562,14 +2562,17 @@ impl Expression {
         					(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_))=> (),
         					(Signed(loc1), Unsigned(loc2)) |(Unsigned(loc2), Signed(loc1)) => {
 								return Err(miette::Report::new(SemanticError::SignednessMismatch.to_diagnostic_builder()
+								.label(*loc1, "This signal is signed")
+								.label(*loc2, "This signal is unsigned")
 								.build()
 							));
 							},
-							_=> (),
-        					(Signed(_), NoSignedness) => todo!(),
-        					(NoSignedness, Signed(_)) => todo!(),
-        					(NoSignedness, Unsigned(_)) => todo!(),
-        					(NoSignedness, NoSignedness) => todo!(),
+        					(_, NoSignedness) => {
+								binop.rhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_bus(None, type_first.get_signedness(), self.get_location()), is_lhs, location)?;
+							}, 
+        					(NoSignedness, _) => {
+								binop.lhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_bus(None, type_second.get_signedness(), self.get_location()), is_lhs, location)?;
+							},
     					}
 						use SignalType::*;
 						match (&type_first.signal_type, &type_second.signal_type) {
