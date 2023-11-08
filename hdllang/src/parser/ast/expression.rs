@@ -2572,6 +2572,7 @@ impl Expression {
 							}, 
         					(NoSignedness, _) => {
 								binop.lhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_bus(None, type_second.get_signedness(), self.get_location()), is_lhs, location)?;
+								type_first.set_signedness(type_second.get_signedness(), self.get_location());
 							},
     					}
 						use SignalType::*;

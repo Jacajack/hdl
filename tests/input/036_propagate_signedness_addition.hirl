@@ -1,6 +1,7 @@
 module m {}
 impl m {
 	{
+		ubus<4> a;
 		const bus<3> b;
 		a = b + 1u1;
 	}
