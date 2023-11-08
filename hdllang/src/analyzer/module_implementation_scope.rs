@@ -4,7 +4,6 @@ use hirn::design::{ModuleHandle, SignalId};
 use log::*;
 
 use crate::{
-	analyzer::{ClockSensitivityList, InstanceError},
 	lexer::{IdTable, IdTableKey},
 	parser::ast::Scope,
 	ProvidesCompilerDiagnostic, SourceSpan,
@@ -194,12 +193,17 @@ impl ModuleImplementationScope {
 			}
 		}
 	}
-	pub fn redeclare_variable(&mut self, var: VariableDefined) {
+	pub fn redeclare_variable(&mut self, mut var: VariableDefined) {
 		let mut prev = self.variables.get(&var.id).unwrap().clone();
 		let prev_copy = prev.clone();
 		use VariableKind::*;
-		match(&var.var.kind, &mut prev.var.kind){
-		    (Signal(_), Signal(_)) | (Generic(_), Generic(_)) => {
+		match(&mut var.var.kind, &mut prev.var.kind){
+		    (Signal(_), Signal(_)) => {
+				info!("Redeclared variable {:?} to {:?}", prev, var);
+				self.variables.insert(var.id, var);
+			},
+			(Generic(gen), Generic(gen1)) => {
+				gen.is_wire = gen1.is_wire;
 				info!("Redeclared variable {:?} to {:?}", prev, var);
 				self.variables.insert(var.id, var);
 			},
@@ -337,7 +341,7 @@ impl ModuleImplementationScope {
 		self.variables.insert(defined.id, defined);
 		Ok(())
 	}
-	pub fn second_pass(&self, ctx: &GlobalAnalyzerContext) -> miette::Result<()> {
+	pub fn second_pass(&self, ctx: &mut GlobalAnalyzerContext) -> miette::Result<()> {
 		for v in self.variables.values() {
 			if let VariableKind::Signal(sig) = &v.var.kind {
 				if !sig.is_sensititivity_specified() {
@@ -369,7 +373,15 @@ impl ModuleImplementationScope {
 				}
 			}
 			// we do not have to check for module instances, because their members are checked in previous pass
-			// we also do not have to check for generics
+			if let VariableKind::Generic(gen) = &v.var.kind{
+				if gen.value.is_none(){
+					// emit warning
+					let report = crate::core::CompilerDiagnosticBuilder::new_warning("This generic variable is unitialized, it will not be emitted in the output file")
+						.label(v.location(), "This variable has no value").build();
+					ctx.diagnostic_buffer.push_diagnostic(report);
+					// FIXME this needs to be pushed into diagnostic buffer
+				}
+			}
 		}
 		Ok(())
 	}

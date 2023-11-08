@@ -20,9 +20,8 @@ fn parse_file_recover_tables(
 ) -> miette::Result<(Root, LogosLexerContext, String)> {
 	let mut lexer = LogosLexer::new_with_context(&code, ctx);
 	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
-	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
 	let parser = parser::IzuluParser::new();
-	let ast = parser.parse(&mut ctx, Some(&code), &mut lexer).map_err(|e| {
+	let ast = parser.parse(Some(&code), &mut lexer).map_err(|e| {
 		ParserError::new_form_lalrpop_error(e)
 			.to_miette_report()
 			.with_source_code(code.clone())
@@ -66,16 +65,13 @@ fn compile(mut code: String, file_name: String, output: &mut dyn Write, elab: bo
 fn pretty_print(code: String, output: &mut dyn Write) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
 	let buf = Box::new(DiagnosticBuffer::new());
-	let mut ctx = parser::ParserContext { diagnostic_buffer: buf };
 	let ast = parser::IzuluParser::new()
-		.parse(&mut ctx, Some(&code), &mut lexer)
+		.parse( Some(&code), &mut lexer)
 		.map_err(|e| {
 			ParserError::new_form_lalrpop_error(e)
 				.to_miette_report()
 				.with_source_code(code.clone())
 		})?;
-	let buffer = ctx.diagnostic_buffer;
-	println!("{}", buffer);
 	let mut printer = parser::pretty_printer::PrettyPrinterContext::new(
 		lexer.id_table(),
 		lexer.comment_table(),

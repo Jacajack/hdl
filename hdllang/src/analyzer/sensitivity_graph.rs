@@ -6,16 +6,12 @@ use std::{
 use super::{GlobalAnalyzerContext, LocalAnalyzerContext, ModuleImplementationScope, SignalSensitivity};
 use bimap::BiHashMap;
 use itertools::Itertools;
-use petgraph::{
-	algo::is_cyclic_directed,
-	prelude::{DiGraph, UnGraph},
-};
+use petgraph::prelude::{DiGraph, UnGraph};
 
 use crate::{
-	analyzer::{ModuleInstanceKind, SemanticError, VariableKind},
+	analyzer::{ModuleInstanceKind, VariableKind},
 	core::CompilerDiagnosticBuilder,
-	parser::ast::SourceLocation,
-	ProvidesCompilerDiagnostic, SourceSpan,
+	parser::ast::SourceLocation, SourceSpan,
 };
 
 use super::module_implementation_scope::InternalVariableId;

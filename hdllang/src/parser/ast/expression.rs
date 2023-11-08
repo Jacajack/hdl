@@ -40,7 +40,7 @@ pub use postfix_with_id::PostfixWithId;
 pub use postfix_with_index::PostfixWithIndex;
 pub use postfix_with_range::PostfixWithRange;
 use std::cmp::max;
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
 use std::vec;
 pub use ternary_expression::TernaryExpression;
@@ -804,7 +804,7 @@ impl Expression {
 									},
 									None => hirn::design::SignalSignedness::Unsigned,
 								},
-								nc.width.unwrap().into(),
+								nc.width.unwrap_or(64).into(),
 							)
 							.unwrap(),
 						));
@@ -1437,13 +1437,15 @@ impl Expression {
 				let mut sig = Signal::new_from_constant(&constant, num.location);
 				match (width, sig.width()) {
 					(None, None) => {
-						return Err(miette::Report::new(
-							SemanticError::WidthNotKnown
-								.to_diagnostic_builder()
-								.label(num.location, "Width of this expression is not known, but it should be")
-								.label(location, "Because of this operation")
-								.build(),
-						))
+						if !is_lhs{
+							return Err(miette::Report::new(
+								SemanticError::WidthNotKnown
+									.to_diagnostic_builder()
+									.label(num.location, "Width of this expression is not known, but it should be")
+									.label(location, "Because of this operation")
+									.build(),
+							))
+						}
 					},
 					(None, Some(_)) => (),
 					(Some(val), None) => {
@@ -1662,7 +1664,7 @@ impl Expression {
 				))
 			},
 			TernaryExpression(ternary) => {
-				let mut type_first = ternary.true_branch.evaluate_type(
+				let type_first = ternary.true_branch.evaluate_type(
 					global_ctx,
 					scope_id,
 					local_ctx,
@@ -2507,6 +2509,7 @@ impl Expression {
 						binop.location,
 					)?,
 				};
+				debug!("type_second: {:?}", type_second);
 				if !type_second.is_width_specified() {
 					return Err(miette::Report::new(
 						SemanticError::WidthNotKnown
@@ -2554,6 +2557,20 @@ impl Expression {
 					},
 					Division => type_first.width().clone().unwrap(),
 					Addition | Subtraction => {
+						use SignalSignedness::*;
+						match(&type_first.get_signedness(), &type_second.get_signedness()){
+        					(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_))=> (),
+        					(Signed(loc1), Unsigned(loc2)) |(Unsigned(loc2), Signed(loc1)) => {
+								return Err(miette::Report::new(SemanticError::SignednessMismatch.to_diagnostic_builder()
+								.build()
+							));
+							},
+							_=> (),
+        					(Signed(_), NoSignedness) => todo!(),
+        					(NoSignedness, Signed(_)) => todo!(),
+        					(NoSignedness, Unsigned(_)) => todo!(),
+        					(NoSignedness, NoSignedness) => todo!(),
+    					}
 						use SignalType::*;
 						match (&type_first.signal_type, &type_second.signal_type) {
 							(Bus(bus1), Bus(bus2)) => BusWidth::Evaluated(NumericConstant::new_from_value(

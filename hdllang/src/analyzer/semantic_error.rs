@@ -134,6 +134,8 @@ pub enum SemanticError {
 	MultipleAssignment,
 	#[error("Each match expression must be unique")]
 	DuplicateMatchValue,
+	#[error("It is not allowed to declare an array of generic variables")]
+	GenericArray,
 	#[error(transparent)]
 	InstanceError(InstanceError),
 }
@@ -295,6 +297,8 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
     		DuplicateMatchValue => CompilerDiagnosticBuilder::from_error(&self)
 				.help("Please make sure that all match expressions are unique")
+				.build(),
+    		GenericArray => CompilerDiagnosticBuilder::from_error(&self)
 				.build(),
 		}
 	}

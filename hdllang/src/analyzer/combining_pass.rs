@@ -111,7 +111,7 @@ pub fn combine<'a>(
 		}
 	}
 	debug!("Modules: {:?}", modules_declared.len());
-
+	let mut diagnostic_buffer = crate::core::DiagnosticBuffer::new();
 	// prepare for next stage of analysis
 	let ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext {
 		id_table,
@@ -119,6 +119,7 @@ pub fn combine<'a>(
 		modules_declared,
 		generic_modules,
 		design,
+		diagnostic_buffer,
 	};
 
 	Ok((packaged_paths, ctx, modules_implemented))
@@ -144,6 +145,9 @@ impl<'a> SemanticalAnalyzer<'a> {
 			modules_implemented,
 			passes: Vec::new(),
 		}
+	}
+	pub fn buffer(&self) -> crate::core::DiagnosticBuffer{
+		self.ctx.diagnostic_buffer.clone()
 	}
 	pub fn semantical_analysis(&mut self) -> miette::Result<()> {
 		self.passes.push(first_pass);
@@ -332,6 +336,8 @@ pub struct GlobalAnalyzerContext<'a> {
 	/// represents all implemented generic modules
 	pub generic_modules: HashMap<IdTableKey, &'a ModuleImplementation>,
 	pub design: hirn::design::DesignHandle,
+
+	pub diagnostic_buffer: crate::core::DiagnosticBuffer,
 }
 pub struct AdditionalContext {
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
@@ -379,7 +385,7 @@ impl LocalAnalyzerContext {
 			array_or_bus: HashMap::new(),
 		}
 	}
-	pub fn second_pass(&mut self, ctx: &GlobalAnalyzerContext) -> miette::Result<()> {
+	pub fn second_pass(&mut self, ctx: &mut GlobalAnalyzerContext) -> miette::Result<()> {
 		debug!("Second pass");
 		self.sensitivity_graph.verify(&mut self.scope, ctx)?;
 		self.scope.second_pass(ctx)?;
@@ -495,7 +501,7 @@ impl ModuleImplementationStatement {
 						),
 					}
 					.map_err(|e| e.label(self.get_location(), "This assignment is invalid").build())?;
-					return Ok(());
+					//return Ok(());
 				}
 				let lhs_type = assignment.lhs.evaluate_type(
 					ctx,
@@ -517,7 +523,7 @@ impl ModuleImplementationStatement {
 				let rhs_type =
 					assignment
 						.rhs
-						.evaluate_type(ctx, scope_id, local_ctx, lhs_type, false, assignment.location)?;
+						.evaluate_type(ctx, scope_id, local_ctx, lhs_type, true, assignment.location)?;
 				if rhs_type.is_array() {
 					return Err(miette::Report::new(
 						SemanticError::ArrayInExpression
@@ -596,6 +602,7 @@ impl ModuleImplementationStatement {
 								value: Some(BusWidth::Evaluated(NumericConstant::new_from_value(
 									initial_val.clone(),
 								))),
+								is_wire: false,
 								direction: crate::analyzer::Direction::None,
         						width: Some(BusWidth::Evaluated(NumericConstant::new_from_value(64.into()))),
         						signedness: crate::analyzer::SignalSignedness::Unsigned(iteration.location),
@@ -1556,6 +1563,13 @@ impl VariableDefinition {
 				));
 			}
 			let mut dimensions = Vec::new();
+			if spec_kind.is_generic() && direct_initializer.declarator.array_declarators.len()>0{
+				return Err(miette::Report::new(
+					SemanticError::GenericArray.to_diagnostic_builder()
+					.label(*&direct_initializer.declarator.array_declarators.first().unwrap().get_location(), "There was an attempt to declare an array of generic variables")
+					.build()
+				));
+			}
 			for array_declarator in &direct_initializer.declarator.array_declarators {
 				let size = array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
 				local_ctx.scope.evaluated_expressions.insert(

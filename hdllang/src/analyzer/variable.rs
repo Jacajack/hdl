@@ -377,19 +377,24 @@ impl Signal {
 				SignalType::Bus(new)
 			},
 			(Bus(bus), Wire(wire)) | (Wire(wire), Bus(bus)) => {
-				debug!("Bus width is {:?}", bus.width.clone().unwrap().get_value().unwrap());
-				if bus.width.clone().unwrap().get_value().unwrap() != 1.into() {
-					return Err(miette::Report::new(
-						SemanticError::BoundingWireWithBus
-							.to_diagnostic_builder()
-							.label(location, "Cannot assign bus to a wire and vice versa")
-							.label(*wire, "Signal specified as wire here")
-							.label(bus.location, "Signal specified as a bus here")
-							.build(),
-					));
+				if bus.width.is_none(){
+					SignalType::Wire(*wire)
 				}
-				else {
-					self.signal_type.clone()
+				else{
+					debug!("Bus width is {:?}", bus.width.clone().unwrap().get_value().unwrap());
+					if bus.width.clone().unwrap().get_value().unwrap() != 1.into() {
+						return Err(miette::Report::new(
+							SemanticError::BoundingWireWithBus
+								.to_diagnostic_builder()
+								.label(location, "Cannot assign bus to a wire and vice versa")
+								.label(*wire, "Signal specified as wire here")
+								.label(bus.location, "Signal specified as a bus here")
+								.build(),
+						));
+					}
+					else {
+						self.signal_type.clone()
+					}
 				}
 			},
 			(Bus(_), Auto(_)) => self.signal_type.clone(),
@@ -596,7 +601,7 @@ impl Signal {
 				}
 			},
 		};
-		if width.clone().unwrap().get_value().unwrap() == 1.into() {
+		if width.clone().unwrap().get_value().unwrap() == 1.into() && ! matches!(signedness, SignalSignedness::Signed(_)){
 			Self {
 				signal_type: SignalType::Wire(location),
 				dimensions: Vec::new(),
@@ -809,12 +814,17 @@ impl Variable {
 					}, 
 					},
 					None => Expression::Constant(hirn::design::NumericConstant::new_signed(64.into())),
-				};	
-				match generic.signedness {
-					SignalSignedness::Signed(_) => builder = builder.signed(width),
-					SignalSignedness::Unsigned(_) => builder = builder.unsigned(width),
-					SignalSignedness::NoSignedness => unreachable!(), 
+				};
+				if generic.is_wire {
+					builder = builder.wire();
 				}
+				else{
+					match generic.signedness {
+						SignalSignedness::Signed(_) => builder = builder.signed(width),
+						SignalSignedness::Unsigned(_) => builder = builder.unsigned(width),
+						SignalSignedness::NoSignedness => unreachable!(), 
+					}
+				}	
 				builder = builder.generic();
 				id = builder.build().unwrap();
 			},
@@ -841,6 +851,7 @@ impl GenericVariableKind {
 pub struct GenericVariable {
 	pub value: Option<BusWidth>,
 	pub width: Option<BusWidth>,
+	pub is_wire: bool,
 	pub signedness: SignalSignedness,
 	pub direction: Direction,
 	pub location: SourceSpan,

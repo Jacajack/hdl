@@ -175,6 +175,7 @@ impl VariableKind {
 				Ok(VariableKind::Generic(GenericVariable {
 				value: None,
 				width: None,
+				is_wire:false,
 				signedness: already_created.signedness,
 				direction: already_created.direction,
 				location:*location,
@@ -210,6 +211,7 @@ impl VariableKind {
 				Ok(VariableKind::Generic(GenericVariable {
 					value: None,
 					width: Some(BusWidth::Evaluated(NumericConstant::new_true())),
+					is_wire: true,
 					signedness: SignalSignedness::Unsigned(*location),
 					direction: already_created.direction,
 					location:*location,
