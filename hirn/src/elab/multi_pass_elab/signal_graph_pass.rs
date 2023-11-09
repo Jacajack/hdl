@@ -77,6 +77,7 @@ impl GeneratedSignalRef {
 pub struct GeneratedSignal {
 	width: u32,
 	dimensions: Vec<usize>,
+	total_fields: usize,
 }
 
 impl GeneratedSignal {
@@ -90,13 +91,18 @@ pub struct ScopePassId(usize);
 /// Auxiliary information about a scope pass 
 #[derive(Clone, Copy, Debug)]
 pub enum ScopePassInfo {
-	Unconditional(ScopeId),
+	Unconditional{
+		id: ScopeId,
+		parent_id: Option<ScopeId>,
+	},
 	Conditional {
 		id: ScopeId,
+		parent_id: ScopeId,
 		was_true: bool,
 	},
 	Range {
 		id: ScopeId,
+		parent_id: ScopeId,
 		iter_number: i64,
 	}
 }
@@ -172,19 +178,25 @@ impl SignalGraphPassCtx {
 
 	/// Records that an unconditional scope has been visited
 	fn record_scope_pass(&mut self, id: ScopeId) -> ScopePassId {
+		let handle = self.design.get_scope_handle(id).expect("scope not in design");
 		let pass_id = ScopePassId(self.scope_pass_counter);
 		self.scope_pass_counter += 1;
-		self.pass_info.insert(pass_id, ScopePassInfo::Unconditional(id));
+		self.pass_info.insert(pass_id, ScopePassInfo::Unconditional{
+			id,
+			parent_id: handle.parent()
+		});
 		self.current_pass.insert(id, pass_id);
 		pass_id
 	}
 
 	/// Records that a conditional scope has been visited
 	fn record_conditional_scope_pass(&mut self, id: ScopeId, cond_true: bool) -> ScopePassId {
+		let handle = self.design.get_scope_handle(id).expect("scope not in design");
 		let pass_id = ScopePassId(self.scope_pass_counter);
 		self.scope_pass_counter += 1;
 		self.pass_info.insert(pass_id, ScopePassInfo::Conditional {
 			id,
+			parent_id: handle.parent().expect("conditional scope has no parent"),
 			was_true: cond_true,
 		});
 		self.current_pass.insert(id, pass_id);
@@ -193,10 +205,12 @@ impl SignalGraphPassCtx {
 
 	/// Recrods a pass through a range scope
 	fn record_range_scope_pass(&mut self, id: ScopeId, iter: i64) -> ScopePassId {
+		let handle = self.design.get_scope_handle(id).expect("scope not in design");
 		let pass_id = ScopePassId(self.scope_pass_counter);
 		self.scope_pass_counter += 1;
 		self.pass_info.insert(pass_id, ScopePassInfo::Range {
 			id,
+			parent_id: handle.parent().expect("range scope has no parent"),
 			iter_number: iter,
 		});
 		self.current_pass.insert(id, pass_id);
@@ -206,6 +220,10 @@ impl SignalGraphPassCtx {
 	/// Returns current pass ID for a scope
 	fn get_scope_pass_id(&self, id: ScopeId) -> ScopePassId {
 		self.current_pass.get(&id).copied().expect("scope pass not recorded!")
+	}
+
+	fn get_generated_signal(&self, id: &GeneratedSignalId) -> &GeneratedSignal{
+		self.signals.get(&id).expect("Generated signal not registered")
 	}
 
 	/// Returns a generated signal ID based on design signal ID and scope pass ID
@@ -218,21 +236,42 @@ impl SignalGraphPassCtx {
 		}
 	}
 
-	fn get_generated_signal_ref(&self, slice: &SignalSlice, assumptions: Arc<dyn ElabAssumptionsBase>) -> GeneratedSignalRef {
+	fn get_generated_signal_ref(&self, slice: &SignalSlice, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<GeneratedSignalRef, ElabMessageKind> {
 		let gen_id = self.get_generated_signal_id(slice.signal);
 		if slice.indices.is_empty() {
-			GeneratedSignalRef {
+			Ok(GeneratedSignalRef {
 				id: gen_id,
 				index: None,
-			}
+			})
 		}
 		else {
-			todo!("Driving array signals not implemented yet");
+			let gen_sig = self.get_generated_signal(&gen_id);
+			assert_eq!(slice.indices.len(), gen_sig.dimensions.len(), "Slice/signal rank mismatch");
 
-			// GeneratedSignalRef {
-			// 	id: gen_id,
-			// 	index: None
-			// }
+			// Eval indices
+			let index_vals: Result<Vec<_>, _> = slice.indices.iter()
+				.map(|expr| {
+					expr.eval(&assumptions)?.try_into_i64().into()
+				}).collect();
+			let index_vals = index_vals?;
+
+			// Check for invalid array indices
+			for (index, size) in index_vals.iter().zip(gen_sig.dimensions.iter()) {
+				if *index < 0 || *index >= (*size as i64) {
+					error!("Signal {:?} is accessed with invalid index {}", slice.signal, index);
+					return Err(ElabMessageKind::InvalidArrayIndex);
+				}
+			}
+
+			let gen_sig = self.signals.get(&gen_id).expect("Generated signal not registered");
+			let index = index_vals.iter().zip(gen_sig.dimensions.iter()).fold(0, |acc, (index, size)| -> u32 {
+				acc * (*size as u32) + (*index as u32)
+			});
+
+			Ok(GeneratedSignalRef {
+				id: gen_id,
+				index: Some(index),
+			})
 		}
 	}
 
@@ -310,6 +349,7 @@ impl SignalGraphPassCtx {
 		let gen_sig = GeneratedSignal {
 			width: width as u32,
 			dimensions,
+			total_fields,
 		};
 
 		let sig_exists = self.signals.insert(gen_id.clone(), gen_sig).is_some();
@@ -320,7 +360,7 @@ impl SignalGraphPassCtx {
 	}
 
 	fn eval_slice_range(&mut self, range: SignalSliceRange, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<SignalSliceRangeEvalResult, ElabMessageKind> {
-		let sig_ref = self.get_generated_signal_ref(range.slice(), assumptions.clone());
+		let sig_ref = self.get_generated_signal_ref(range.slice(), assumptions.clone())?;
 		let elab_sig = self.elab_signals.get_mut(&sig_ref).expect("Sliced signal not registered in elab");
 		
 		if range.is_full() {
@@ -374,6 +414,42 @@ impl SignalGraphPassCtx {
 		Ok(())
 	}
 
+	fn drive_array(&mut self, id: SignalId) -> Result<(), ElabMessageKind> {
+		debug!("Driving full array signal {:?}", id);
+		let gen_id = self.get_generated_signal_id(id);
+		let gen_sig = self.get_generated_signal(&gen_id);
+
+		for i in 0..gen_sig.total_fields {
+			let sig_ref = GeneratedSignalRef {
+				id: gen_id,
+				index: Some(i as u32),
+			};
+
+			let elab_sig = self.elab_signals.get_mut(&sig_ref).expect("Sliced signal not registered in elab");
+			elab_sig.drive();
+		}
+
+		Ok(())
+	}
+
+	fn read_array(&mut self, id: SignalId) -> Result<(), ElabMessageKind> {
+		debug!("Driving full array signal {:?}", id);
+		let gen_id = self.get_generated_signal_id(id);
+		let gen_sig = self.get_generated_signal(&gen_id);
+
+		for i in 0..gen_sig.total_fields {
+			let sig_ref = GeneratedSignalRef {
+				id: gen_id,
+				index: Some(i as u32),
+			};
+
+			let elab_sig = self.elab_signals.get_mut(&sig_ref).expect("Sliced signal not registered in elab");
+			elab_sig.read();
+		}
+
+		Ok(())
+	}
+
 	fn elab_module_interface(&mut self, module: ModuleHandle, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
 		for interface_sig in module.interface() {
 			let sig_id = interface_sig.signal;
@@ -382,12 +458,12 @@ impl SignalGraphPassCtx {
 				continue;
 			}
 
-			if interface_sig.is_input() {
-				self.drive_signal(&sig_id.into(), assumptions.clone())?;
-			}
-			else {
-				self.read_signal(&sig_id.into(), assumptions.clone())?;
-			}
+			match (interface_sig.is_input(), sig.is_array()) {
+				(true, true) => self.drive_array(sig_id),
+				(false, true) => self.read_array(sig_id),
+				(true, false) => self.drive_signal(&sig_id.into(), assumptions.clone()),
+				(false, false) => self.read_signal(&sig_id.into(), assumptions.clone()),
+			}?;
 		}
 
 		Ok(())
@@ -417,6 +493,17 @@ impl SignalGraphPassCtx {
 			let sig_id = driven_bits.signal();
 			let sig = scope.design().get_signal(sig_id).unwrap();
 			if sig.is_generic() {
+				continue;
+			}
+
+			// Special case - array assignment
+			if sig.rank() > 0 && driven_bits.slice().rank() == 0 {
+				self.drive_array(sig_id)?;
+				// TODO validate matching array dimensions
+				let rhs_depends = asmt.dependencies_bits();
+				if let Some(rhs_array) = rhs_depends.first() {
+					self.read_array(rhs_array.signal())?;
+				}
 				continue;
 			}
 

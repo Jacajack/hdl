@@ -166,4 +166,7 @@ pub enum ElabMessageKind {
 
 	#[error("Invalid signal bit range")]
 	InvalidSignalBitRange, // TODO SignalId
+
+	#[error("Invalid array index")]
+	InvalidArrayIndex, // TODO SignalId
 }
