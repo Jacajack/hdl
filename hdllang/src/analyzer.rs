@@ -10,7 +10,11 @@ mod analyze_qualifiers;
 mod semantical_analyzer;
 mod global_analyzer_context;
 mod local_analyzer_context;
+mod already_created;
+mod variable_kind;
 
+pub use variable_kind::*;
+pub use already_created::*;
 pub use local_analyzer_context::*;
 pub use global_analyzer_context::*;
 pub use semantical_analyzer::*;

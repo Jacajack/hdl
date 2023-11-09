@@ -142,22 +142,4 @@ pub fn report_qualifier_contradicting_specifier(
 			.build(),
 	))
 }
-pub fn report_duplicated_qualifier(
-	location: &SourceSpan,
-	first_occurence: &SourceSpan,
-	name: &str,
-) -> miette::Result<()> {
-	Err(miette::Report::new(
-		SemanticError::DuplicateQualifier
-			.to_diagnostic_builder()
-			.label(
-				*location,
-				format!("Duplicate occurance of \"{}\"the same type", name).as_str(),
-			)
-			.label(
-				*first_occurence,
-				format!("First occurrence of \"{}\" qualifier", name).as_str(),
-			)
-			.build(),
-	))
-}
+
