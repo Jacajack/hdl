@@ -6,13 +6,13 @@ use log::debug;
 use num_bigint::BigInt;
 
 use crate::{
-	analyzer::report_duplicated_qualifier,
+	analyzer::{report_duplicated_qualifier, module_implementation_scope::EvaluatedEntry},
 	core::{
 		id_table::{self, IdTable},
 		CompilerDiagnosticBuilder,
 	},
 	lexer::IdTableKey,
-	ProvidesCompilerDiagnostic, SourceSpan,
+	ProvidesCompilerDiagnostic, SourceSpan, parser::ast::SourceLocation,
 };
 
 use super::{module_implementation_scope::InternalVariableId, *};
@@ -1058,4 +1058,152 @@ pub fn report_contradicting_qualifier(
 			)
 			.build(),
 	))
+}
+impl VariableKind {
+	pub fn from_type_declarator(
+		type_declarator: &crate::parser::ast::TypeDeclarator,
+		current_scope: usize,
+		mut already_created: AlreadyCreated,
+		nc_table: &crate::core::NumericConstantTable,
+		id_table: &IdTable,
+		scope: &mut ModuleImplementationScope,
+	) -> miette::Result<Self> {
+		use crate::parser::ast::TypeSpecifier::*;
+		match &type_declarator.specifier {
+			Auto { location } => {
+				already_created = crate::analyzer::analyze_qualifiers(
+					&type_declarator.qualifiers,
+					already_created,
+					scope,
+					current_scope,
+					id_table,
+				)?;
+				if already_created.signedness != SignalSignedness::NoSignedness {
+					return Ok(VariableKind::Signal(Signal {
+						signal_type: SignalType::Bus(BusType {
+							width: None,
+							signedness: already_created.signedness,
+							location: *location,
+						}),
+						dimensions: Vec::new(),
+						sensitivity: already_created.sensitivity,
+						direction: already_created.direction,
+					}));
+				}
+				Ok(VariableKind::Signal(Signal {
+					signal_type: SignalType::Auto(location.clone()),
+					dimensions: Vec::new(),
+					sensitivity: already_created.sensitivity,
+					direction: already_created.direction,
+				}))
+			},
+			Int { location } => {
+				already_created = analyze_qualifiers(
+					&type_declarator.qualifiers,
+					already_created,
+					scope,
+					current_scope,
+					id_table,
+				)?;
+				if already_created.signedness == SignalSignedness::NoSignedness {
+					already_created.signedness = SignalSignedness::Signed(*location);
+				}
+				Ok(VariableKind::Generic(GenericVariable {
+					value: None,
+					width: None,
+					is_wire: false,
+					signedness: already_created.signedness,
+					direction: already_created.direction,
+					location: *location,
+				}))
+			},
+			Wire { location } => {
+				already_created = analyze_qualifiers(
+					&type_declarator.qualifiers,
+					already_created,
+					scope,
+					current_scope,
+					id_table,
+				)?;
+				match already_created.signedness {
+					SignalSignedness::NoSignedness => (),
+					_ => {
+						return Err(miette::Report::new(
+							SemanticError::ContradictingSpecifier
+								.to_diagnostic_builder()
+								.label(*location, "Wire cannot be signed or unsigned")
+								.build(),
+						))
+					},
+				}
+				Ok(VariableKind::Signal(Signal {
+					signal_type: SignalType::Wire(*location),
+					sensitivity: already_created.sensitivity,
+					direction: already_created.direction,
+					dimensions: Vec::new(),
+				}))
+			},
+			Bool { location } => Ok(VariableKind::Generic(GenericVariable {
+				value: None,
+				width: Some(BusWidth::Evaluated(crate::core::NumericConstant::new_true())),
+				is_wire: true,
+				signedness: SignalSignedness::Unsigned(*location),
+				direction: already_created.direction,
+				location: *location,
+			})),
+			Bus(bus) => {
+				already_created = analyze_qualifiers(
+					&type_declarator.qualifiers,
+					already_created,
+					scope,
+					current_scope,
+					id_table,
+				)?;
+				scope.evaluated_expressions.insert(
+					bus.width.get_location(),
+					EvaluatedEntry::new(*bus.width.clone(), current_scope),
+				);
+				let width = bus.width.evaluate(nc_table, current_scope, scope)?;
+				let w = if scope.is_generic() {
+					match &width {
+						Some(val) => {
+							if val.value <= num_bigint::BigInt::from(0) {
+								return Err(miette::Report::new(
+									SemanticError::NegativeBusWidth
+										.to_diagnostic_builder()
+										.label(bus.width.get_location(), "Array size must be positive")
+										.build(),
+								));
+							}
+							BusWidth::Evaluable(bus.width.get_location())
+						},
+						None => BusWidth::Evaluable(bus.width.get_location()),
+					}
+				}
+				else {
+					let value = width.unwrap();
+					if &value.value <= &num_bigint::BigInt::from(0) {
+						return Err(miette::Report::new(
+							SemanticError::NegativeBusWidth
+								.to_diagnostic_builder()
+								.label(bus.width.get_location(), "Array size must be positive")
+								.build(),
+						));
+					}
+					BusWidth::EvaluatedLocated(value, bus.width.get_location())
+				};
+
+				Ok(VariableKind::Signal(Signal {
+					signal_type: SignalType::Bus(BusType {
+						width: Some(w),
+						signedness: already_created.signedness,
+						location: bus.location,
+					}),
+					dimensions: Vec::new(),
+					sensitivity: already_created.sensitivity,
+					direction: already_created.direction,
+				}))
+			},
+		}
+	}
 }

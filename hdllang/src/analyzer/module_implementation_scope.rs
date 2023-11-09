@@ -5,7 +5,6 @@ use log::*;
 
 use crate::{
 	lexer::{IdTable, IdTableKey},
-	parser::ast::Scope,
 	ProvidesCompilerDiagnostic, SourceSpan,
 };
 
@@ -385,11 +384,6 @@ impl ModuleImplementationScope {
 			}
 		}
 		Ok(())
-	}
-}
-impl Scope for ModuleImplementationScope {
-	fn get_variable(&self, name: &IdTableKey) -> Option<Variable> {
-		self.get_variable(0, name).map(|x| x.var.clone())
 	}
 }
 #[derive(Debug, Clone, Eq, PartialEq)]
