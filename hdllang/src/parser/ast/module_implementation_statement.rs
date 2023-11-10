@@ -1,25 +1,22 @@
-mod pretty_printable;
-mod if_else_statement;
 mod assignment_statement;
-mod module_implementation_block_statement;
-mod iteration_statement;
+mod if_else_statement;
 mod instantiation_statement;
+mod iteration_statement;
+mod module_implementation_block_statement;
+mod pretty_printable;
 
-use hirn::design::ScopeHandle;
-pub use instantiation_statement::*;
-pub use iteration_statement::*;
-pub use module_implementation_block_statement::*;
-pub use assignment_statement::*;
-pub use if_else_statement::*;
 use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
 use crate::parser::ast::{
 	AssignmentOpcode, Expression, ImportPath, PortBindStatement, RangeExpression, SourceLocation, VariableBlock,
 	VariableDefinition,
 };
 use crate::SourceSpan;
-
-
-
+pub use assignment_statement::*;
+use hirn::design::ScopeHandle;
+pub use if_else_statement::*;
+pub use instantiation_statement::*;
+pub use iteration_statement::*;
+pub use module_implementation_block_statement::*;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub enum ModuleImplementationStatement {
@@ -59,7 +56,9 @@ impl ModuleImplementationStatement {
 		use ModuleImplementationStatement::*;
 		match self {
 			VariableBlock(block) => block.analyze(ctx, local_ctx, crate::analyzer::AlreadyCreated::new(), scope_id),
-			VariableDefinition(definition) => definition.analyze(crate::analyzer::AlreadyCreated::new(), ctx, local_ctx, scope_id),
+			VariableDefinition(definition) => {
+				definition.analyze(crate::analyzer::AlreadyCreated::new(), ctx, local_ctx, scope_id)
+			},
 			AssignmentStatement(assignment) => assignment.first_pass(scope_id, ctx, local_ctx),
 			IfElseStatement(conditional) => conditional.first_pass(scope_id, ctx, local_ctx),
 			IterationStatement(iteration) => iteration.first_pass(scope_id, ctx, local_ctx),

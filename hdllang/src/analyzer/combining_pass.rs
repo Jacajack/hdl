@@ -3,11 +3,7 @@ use crate::analyzer::GlobalAnalyzerContext;
 use log::{debug, info};
 use std::collections::HashMap;
 
-use crate::{
-	core::*,
-	parser::ast::*,
-	ProvidesCompilerDiagnostic, SourceSpan,
-};
+use crate::{core::*, parser::ast::*, ProvidesCompilerDiagnostic, SourceSpan};
 
 pub fn combine<'a>(
 	id_table: &'a mut IdTable,
@@ -116,8 +112,6 @@ pub fn combine<'a>(
 	Ok((packaged_paths, ctx, modules_implemented))
 }
 
-
-
 pub fn report_qualifier_contradicting_specifier(
 	qualifier_location: &SourceSpan,
 	specifier_location: &SourceSpan,
@@ -142,4 +136,3 @@ pub fn report_qualifier_contradicting_specifier(
 			.build(),
 	))
 }
-

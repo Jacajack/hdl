@@ -1,7 +1,7 @@
-use crate::ProvidesCompilerDiagnostic;
-use crate::analyzer::SemanticError;
-use crate::core::{IdTableKey, SourceSpan, CompilerDiagnosticBuilder};
 use crate::analyzer::variable::InternalVariableId;
+use crate::analyzer::SemanticError;
+use crate::core::{CompilerDiagnosticBuilder, IdTableKey, SourceSpan};
+use crate::ProvidesCompilerDiagnostic;
 use std::collections::HashMap;
 #[derive(Clone, Debug, PartialEq, Eq)]
 /// To be deleted and replaced by unique module instance

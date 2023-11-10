@@ -23,13 +23,7 @@ impl ModuleDeclarationVariableBlock {
 		declaration_scope: &mut ModuleImplementationScope,
 		handle: &mut ModuleHandle,
 	) -> miette::Result<()> {
-		already_created = analyze_qualifiers(
-			&self.types,
-			already_created,
-			declaration_scope,
-			0,
-			id_table,
-		)?;
+		already_created = analyze_qualifiers(&self.types, already_created, declaration_scope, 0, id_table)?;
 		for statement in &self.statements {
 			statement.create_variable_declaration(
 				already_created.clone(),

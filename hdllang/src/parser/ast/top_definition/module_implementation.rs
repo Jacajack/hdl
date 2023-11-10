@@ -1,6 +1,6 @@
+use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
 use crate::core::{CommentTableKey, IdTableKey, SourceSpan};
 use crate::parser::ast::ModuleImplementationStatement;
-use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ModuleImplementation {
@@ -41,7 +41,7 @@ impl ModuleImplementation {
 		);
 		Ok(())
 	}
-	
+
 	pub fn second_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,

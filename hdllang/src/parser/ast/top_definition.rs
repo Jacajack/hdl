@@ -1,10 +1,10 @@
-mod pretty_printable;
 mod module_declaration;
-mod package_declaration;
 mod module_implementation;
+mod package_declaration;
+mod pretty_printable;
 
-pub use module_implementation::ModuleImplementation;
 pub use module_declaration::ModuleDeclaration;
+pub use module_implementation::ModuleImplementation;
 pub use package_declaration::PackageDeclaration;
 
 use crate::parser::ast::{ImportPath, SourceLocation};

@@ -1,18 +1,18 @@
-mod signal_signedness;
-mod signal_sensitivity;
-mod variable_kind;
 mod direction;
-mod signal;
 mod module_instance;
+mod signal;
+mod signal_sensitivity;
+mod signal_signedness;
+mod variable_kind;
 
+use core::panic;
+pub use direction::*;
 pub use module_instance::*;
 pub use signal::*;
-pub use direction::*;
-pub use variable_kind::*;
 pub use signal_sensitivity::*;
 pub use signal_signedness::*;
-use core::panic;
 use std::hash::Hash;
+pub use variable_kind::*;
 
 use hirn::design::{Expression, NumericConstant, SignalBuilder, SignalId};
 use log::debug;
@@ -37,8 +37,8 @@ impl Variable {
 		Self { name, location, kind }
 	}
 	pub fn is_clock(&self) -> bool {
-		use VariableKind::*;
 		use SignalSensitivity::*;
+		use VariableKind::*;
 		match &self.kind {
 			Signal(signal) => match &signal.sensitivity {
 				Clock(..) => true,
@@ -56,7 +56,7 @@ impl Variable {
 			ModuleInstance(_) => panic!("This variable is not a signal"),
 		}
 	}
-	/// To be done by VariableDefined struct as it has internal variable id 
+	/// To be done by VariableDefined struct as it has internal variable id
 	/// and can insert it into scope automatically
 	pub fn register(
 		&self,
@@ -230,7 +230,6 @@ impl Variable {
 	}
 }
 
-
 #[derive(Debug, Clone, Hash, Eq)]
 pub enum BusWidth {
 	Evaluated(crate::core::NumericConstant), // in non generic modules
@@ -333,8 +332,6 @@ impl BusWidth {
 	}
 }
 
-
-
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GenericVariable {
 	pub value: Option<BusWidth>,
@@ -355,4 +352,3 @@ impl GenericVariable {
 		}
 	}
 }
-

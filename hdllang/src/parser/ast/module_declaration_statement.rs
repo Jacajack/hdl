@@ -13,7 +13,6 @@ use crate::SourceSpan;
 
 use super::{DirectDeclarator, TypeDeclarator, TypeQualifier};
 
-
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub enum ModuleDeclarationStatement {
 	VariableDeclarationStatement(VariableDeclarationStatement),

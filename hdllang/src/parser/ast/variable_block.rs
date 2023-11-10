@@ -2,11 +2,10 @@ mod pretty_printable;
 
 use hirn::design::ScopeHandle;
 
+use crate::analyzer::{AlreadyCreated, GlobalAnalyzerContext, LocalAnalyzerContext};
 use crate::lexer::CommentTableKey;
 use crate::parser::ast::{SourceLocation, TypeQualifier, VariableDefinition};
 use crate::SourceSpan;
-use crate::analyzer::{AlreadyCreated, GlobalAnalyzerContext, LocalAnalyzerContext};
-
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub enum VariableBlockStatement {
@@ -81,7 +80,13 @@ impl VariableBlock {
 		mut already_created: AlreadyCreated,
 		scope_id: usize,
 	) -> miette::Result<()> {
-		already_created = crate::analyzer::analyze_qualifiers(&self.types, already_created, &local_ctx.scope, scope_id, ctx.id_table)?;
+		already_created = crate::analyzer::analyze_qualifiers(
+			&self.types,
+			already_created,
+			&local_ctx.scope,
+			scope_id,
+			ctx.id_table,
+		)?;
 		for statement in &self.statements {
 			statement.analyze(already_created.clone(), ctx, local_ctx, scope_id)?;
 		}

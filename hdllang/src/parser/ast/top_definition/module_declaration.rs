@@ -1,7 +1,7 @@
-use crate::ProvidesCompilerDiagnostic;
-use crate::core::{CommentTableKey, IdTableKey, SourceSpan, IdTable};
+use crate::analyzer::{AlreadyCreated, ModuleDeclared, ModuleImplementationScope, SemanticError};
+use crate::core::{CommentTableKey, IdTable, IdTableKey, SourceSpan};
 use crate::parser::ast::ModuleDeclarationStatement;
-use crate::analyzer::{SemanticError, ModuleDeclared, AlreadyCreated, ModuleImplementationScope};
+use crate::ProvidesCompilerDiagnostic;
 
 use hirn::design::DesignHandle;
 use std::collections::HashMap;
@@ -61,9 +61,9 @@ impl ModuleDeclaration {
 		if new_scope.is_generic() {
 			info!("Module {:?} is generic", id_table.get_by_key(&self.id).unwrap());
 		}
-		
+
 		let is_generic = new_scope.is_generic();
-		
+
 		let new_module = ModuleDeclared {
 			name: self.id,
 			scope: new_scope,

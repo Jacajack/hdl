@@ -1,19 +1,19 @@
 use hirn::design::ScopeHandle;
 
-use crate::CompilerError;
-use crate::ProvidesCompilerDiagnostic;
-use crate::SourceSpan;
+use super::ModuleImplementationStatement;
+use super::RangeExpression;
 use crate::analyzer::BusWidth;
 use crate::analyzer::GenericVariable;
 use crate::analyzer::Variable;
 use crate::analyzer::VariableKind;
+use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
 use crate::core::IdTableKey;
 use crate::core::NumericConstant;
 use crate::parser::ast::RangeOpcode;
 use crate::parser::ast::SourceLocation;
-use super::ModuleImplementationStatement;
-use super::RangeExpression;
-use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
+use crate::CompilerError;
+use crate::ProvidesCompilerDiagnostic;
+use crate::SourceSpan;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct IterationStatement {
@@ -24,7 +24,12 @@ pub struct IterationStatement {
 }
 
 impl IterationStatement {
-	pub fn first_pass(&self, scope_id: usize, ctx: &mut GlobalAnalyzerContext,local_ctx: &mut LocalAnalyzerContext)-> miette::Result<()> {
+	pub fn first_pass(
+		&self,
+		scope_id: usize,
+		ctx: &mut GlobalAnalyzerContext,
+		local_ctx: &mut LocalAnalyzerContext,
+	) -> miette::Result<()> {
 		let id = local_ctx.scope.new_scope(Some(scope_id));
 		let mut initial_val = self
 			.range

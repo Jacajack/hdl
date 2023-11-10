@@ -2,10 +2,13 @@ mod pretty_printable;
 
 use hirn::design::ScopeHandle;
 
-use crate::analyzer::{AlreadyCreated, VariableKind, GlobalAnalyzerContext, LocalAnalyzerContext, SemanticError, BusWidth, GenericVariable, Variable, AdditionalContext};
+use crate::analyzer::{
+	AdditionalContext, AlreadyCreated, BusWidth, GenericVariable, GlobalAnalyzerContext, LocalAnalyzerContext,
+	SemanticError, Variable, VariableKind,
+};
 use crate::lexer::CommentTableKey;
 use crate::parser::ast::{DirectInitializer, SourceLocation, TypeDeclarator};
-use crate::{SourceSpan, ProvidesCompilerDiagnostic};
+use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct VariableDefinition {

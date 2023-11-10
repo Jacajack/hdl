@@ -1,9 +1,9 @@
 use hirn::design::ScopeHandle;
 
-use crate::SourceSpan;
 use super::ModuleImplementationStatement;
 use crate::analyzer::GlobalAnalyzerContext;
 use crate::analyzer::LocalAnalyzerContext;
+use crate::SourceSpan;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ModuleImplementationBlockStatement {

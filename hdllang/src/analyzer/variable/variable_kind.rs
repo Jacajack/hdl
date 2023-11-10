@@ -26,7 +26,7 @@ impl VariableKind {
 		use VariableKind::*;
 		match self {
 			Signal(sig) => match &mut sig.sensitivity {
-				SignalSensitivity::Clock(location,_) => {
+				SignalSensitivity::Clock(location, _) => {
 					sig.sensitivity = SignalSensitivity::Clock(location.clone(), Some(id))
 				},
 				_ => (),
@@ -248,7 +248,8 @@ impl VariableKind {
 						},
 						None => BusWidth::Evaluable(bus.width.get_location()),
 					}
-				} else {
+				}
+				else {
 					let value = width.unwrap();
 					if &value.value <= &num_bigint::BigInt::from(0) {
 						return Err(miette::Report::new(

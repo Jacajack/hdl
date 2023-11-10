@@ -1,14 +1,8 @@
-/// Per module context for semantic analysis
-use crate::{
-	core::*,
-	parser::ast::*,
-	SourceSpan,
-};
-use crate::analyzer::{
-		BusWidth, ModuleImplementationScope,
-	};
-use std::collections::HashMap;
 use crate::analyzer::GlobalAnalyzerContext;
+use crate::analyzer::{BusWidth, ModuleImplementationScope};
+/// Per module context for semantic analysis
+use crate::{core::*, parser::ast::*, SourceSpan};
+use std::collections::HashMap;
 pub struct LocalAnalyzerContext {
 	pub scope: ModuleImplementationScope,
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,

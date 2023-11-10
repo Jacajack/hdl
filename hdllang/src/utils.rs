@@ -19,7 +19,10 @@ pub fn lexer_example() -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&source);
 	match lexer.process() {
 		Ok(tokens) => {
-			println!("{} tokens have been succesfully extracted from the source code", tokens.len());
+			println!(
+				"{} tokens have been succesfully extracted from the source code",
+				tokens.len()
+			);
 			for t in &tokens {
 				println!("Token {:?} - '{}'", t.kind, &source[t.range.start()..t.range.end()]);
 			}
@@ -131,7 +134,6 @@ pub fn pretty_print(code: String, mut output: Box<dyn Write>) -> miette::Result<
 	ast.pretty_print(&mut printer)?;
 	Ok(())
 }
-
 
 pub fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 	use std::path::Path;

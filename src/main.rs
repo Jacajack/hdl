@@ -1,12 +1,12 @@
 extern crate hdllang;
 extern crate sha256;
 
-use std::fs;
-use std::io;
-use std::io::Write;
 use clap::{arg, command, Arg, ArgGroup};
 use hdllang::CompilerError;
 use hdllang::ProvidesCompilerDiagnostic;
+use std::fs;
+use std::io;
+use std::io::Write;
 
 fn init_logging() {
 	use log::*;
@@ -28,7 +28,7 @@ fn init_logging() {
 
 fn main() -> miette::Result<()> {
 	init_logging();
-	
+
 	use hdllang::utils::*;
 
 	let matches = command!()

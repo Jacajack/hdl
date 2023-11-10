@@ -1,7 +1,7 @@
 use super::{GlobalAnalyzerContext, LocalAnalyzerContext, SemanticError};
-use hirn::elab::{ElabMessageSeverity, ElabToplevelAssumptions, Elaborator, FullElaborator};
-use crate::{core::IdTableKey, ProvidesCompilerDiagnostic};
 use crate::parser::ast::ModuleImplementation;
+use crate::{core::IdTableKey, ProvidesCompilerDiagnostic};
+use hirn::elab::{ElabMessageSeverity, ElabToplevelAssumptions, Elaborator, FullElaborator};
 use log::{debug, error, info, warn};
 use std::io::Write;
 use std::{collections::HashMap, sync::Arc};

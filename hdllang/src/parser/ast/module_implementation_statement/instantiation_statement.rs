@@ -2,11 +2,19 @@ use std::collections::HashMap;
 
 use hirn::design::ScopeHandle;
 
-use crate::{lexer::{CommentTableKey, IdTableKey}, analyzer::{SemanticError, Variable, ModuleInstance, InstanceError, NonRegister, VariableKind, RegisterInstance, SensitivityGraphEntry, SignalSensitivity, BusWidth, module_implementation_scope::InternalVariableId, Signal, ClockSensitivityList, AdditionalContext, ModuleInstanceKind}, ProvidesCompilerDiagnostic, CompilerError};
 use super::ImportPath;
-use crate::SourceSpan;
 use super::PortBindStatement;
 use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
+use crate::SourceSpan;
+use crate::{
+	analyzer::{
+		module_implementation_scope::InternalVariableId, AdditionalContext, BusWidth, ClockSensitivityList,
+		InstanceError, ModuleInstance, ModuleInstanceKind, NonRegister, RegisterInstance, SemanticError,
+		SensitivityGraphEntry, Signal, SignalSensitivity, Variable, VariableKind,
+	},
+	lexer::{CommentTableKey, IdTableKey},
+	CompilerError, ProvidesCompilerDiagnostic,
+};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct InstantiationStatement {
@@ -18,7 +26,12 @@ pub struct InstantiationStatement {
 }
 
 impl InstantiationStatement {
-	pub fn first_pass(&self, scope_id: usize, ctx: &mut GlobalAnalyzerContext,local_ctx: &mut LocalAnalyzerContext)-> miette::Result<()> {
+	pub fn first_pass(
+		&self,
+		scope_id: usize,
+		ctx: &mut GlobalAnalyzerContext,
+		local_ctx: &mut LocalAnalyzerContext,
+	) -> miette::Result<()> {
 		use log::*;
 		let name = self.module_name.get_last_module();
 		match local_ctx.scope.is_declared(scope_id, &self.instance_name) {
@@ -67,8 +80,7 @@ impl InstantiationStatement {
 					.to_diagnostic_builder()
 					.label(
 						self.module_name.location,
-						format!("Module \"{}\" is not declared", ctx.id_table.get_by_key(&name).unwrap())
-							.as_str(),
+						format!("Module \"{}\" is not declared", ctx.id_table.get_by_key(&name).unwrap()).as_str(),
 					)
 					.build(),
 			));
@@ -169,14 +181,19 @@ impl InstantiationStatement {
 						},
 						(Generic(gen1), Generic(gen2)) => {
 							if gen1.value.is_none() {
-								return Err(miette::Report::new(InstanceError::GenericArgumentWithoutValue.to_diagnostic_builder()
-								.label(local_sig.var.location, "This variable does not have a value")
-								.label(stmt.location(), "Here there was an attempt to bind generic variable without a value")
-								.build()));
+								return Err(miette::Report::new(
+									InstanceError::GenericArgumentWithoutValue
+										.to_diagnostic_builder()
+										.label(local_sig.var.location, "This variable does not have a value")
+										.label(
+											stmt.location(),
+											"Here there was an attempt to bind generic variable without a value",
+										)
+										.build(),
+								));
 							}
 							gen2.value = gen1.value.clone();
-							let new_var =
-								Variable::new(new_name, stmt.location(), interface_variable.var.kind.clone());
+							let new_var = Variable::new(new_name, stmt.location(), interface_variable.var.kind.clone());
 							scope.redeclare_variable(interface_variable);
 							let id = local_ctx.scope.define_intermidiate_signal(new_var)?;
 							module_instance
@@ -227,8 +244,7 @@ impl InstantiationStatement {
 			let sig_name = ctx.id_table.get_value(&stmt.get_id()).clone();
 			let new_name_str = format!("{instance_str}_{sig_name}_clk");
 			let new_name = ctx.id_table.insert_or_get(new_name_str.as_str());
-			let mut interface_variable =
-				scope.get_variable(0, &stmt.get_id()).expect("This was checked").clone();
+			let mut interface_variable = scope.get_variable(0, &stmt.get_id()).expect("This was checked").clone();
 			if !interface_variable.var.is_clock() || interface_variable.var.kind.is_generic() {
 				continue;
 			}
@@ -304,8 +320,7 @@ impl InstantiationStatement {
 			let sig_name = ctx.id_table.get_value(&stmt.get_id()).clone();
 			let new_name_str = format!("{instance_str}_{sig_name}");
 			let new_name = ctx.id_table.insert_or_get(new_name_str.as_str());
-			let mut interface_variable =
-				scope.get_variable(0, &stmt.get_id()).expect("This was checked").clone();
+			let mut interface_variable = scope.get_variable(0, &stmt.get_id()).expect("This was checked").clone();
 			if interface_variable.var.is_clock() || interface_variable.var.kind.is_generic() {
 				continue;
 			}
@@ -364,9 +379,7 @@ impl InstantiationStatement {
 		if name == local_ctx.module_id {
 			local_ctx.number_of_recursive_calls += 1;
 			recursive_calls = local_ctx.number_of_recursive_calls;
-			if local_ctx.number_of_recursive_calls > 2048
-				&& local_ctx.are_we_in_true_branch.last().unwrap().clone()
-			{
+			if local_ctx.number_of_recursive_calls > 2048 && local_ctx.are_we_in_true_branch.last().unwrap().clone() {
 				return Err(miette::Report::new(
 					SemanticError::RecursiveModuleInstantiation
 						.to_diagnostic_builder()
@@ -418,9 +431,9 @@ impl InstantiationStatement {
 			local_ctx.array_or_bus.clone(),
 			local_ctx.casts.clone(),
 		);
-		
+
 		if ctx.id_table.get_value(&self.module_name.get_last_module()).as_str() == "reg" {
-			let r = local_ctx.scope.get_variable(scope_id, &self.instance_name).unwrap(); 
+			let r = local_ctx.scope.get_variable(scope_id, &self.instance_name).unwrap();
 			if let VariableKind::ModuleInstance(m) = &r.var.kind {
 				if let ModuleInstanceKind::Register(reg) = &m.kind {
 					let builder = hirn::design::RegisterBuilder::new(
@@ -740,22 +753,18 @@ impl InstantiationStatement {
 				.expect("This was checked during analysis of a module")
 				.direction
 			{
-				crate::analyzer::Direction::Input(_) => {
-					api_scope.assign(var_id.into(), rhs).map_err(|err| {
-						CompilerError::HirnApiError(err)
-							.to_diagnostic_builder()
-							.label(var.var.location, "Error occured here")
-							.build()
-					})?
-				},
-				crate::analyzer::Direction::Output(_) => {
-					api_scope.assign(rhs, var_id.into()).map_err(|err| {
-						CompilerError::HirnApiError(err)
-							.to_diagnostic_builder()
-							.label(var.var.location, "Error occured here")
-							.build()
-					})?
-				},
+				crate::analyzer::Direction::Input(_) => api_scope.assign(var_id.into(), rhs).map_err(|err| {
+					CompilerError::HirnApiError(err)
+						.to_diagnostic_builder()
+						.label(var.var.location, "Error occured here")
+						.build()
+				})?,
+				crate::analyzer::Direction::Output(_) => api_scope.assign(rhs, var_id.into()).map_err(|err| {
+					CompilerError::HirnApiError(err)
+						.to_diagnostic_builder()
+						.label(var.var.location, "Error occured here")
+						.build()
+				})?,
 				_ => unreachable!(),
 			}
 			debug!("Assigned succesfuly");

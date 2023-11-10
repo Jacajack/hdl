@@ -2,8 +2,8 @@ use hirn::design::ScopeHandle;
 
 use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
 use crate::parser::ast::Expression;
-use crate::{SourceSpan, ProvidesCompilerDiagnostic};
 use crate::parser::ast::ModuleImplementationStatement;
+use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct IfElseStatement {
@@ -14,10 +14,13 @@ pub struct IfElseStatement {
 }
 
 impl IfElseStatement {
-	pub fn first_pass(&self, scope_id: usize, ctx: &mut GlobalAnalyzerContext,local_ctx: &mut LocalAnalyzerContext,)-> miette::Result<()> {
-		let condition_type = self
-					.condition
-					.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?;
+	pub fn first_pass(
+		&self,
+		scope_id: usize,
+		ctx: &mut GlobalAnalyzerContext,
+		local_ctx: &mut LocalAnalyzerContext,
+	) -> miette::Result<()> {
+		let condition_type = self.condition.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?;
 		let if_scope = local_ctx.scope.new_scope(Some(scope_id));
 		log::debug!("Condition is {:?}", condition_type);
 		let cond = condition_type.unwrap().value != num_bigint::BigInt::from(0);
@@ -43,8 +46,8 @@ impl IfElseStatement {
 		scope_id: usize,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
-		use crate::parser::ast::ModuleImplementationStatement::*;
 		use crate::core::CompilerError;
+		use crate::parser::ast::ModuleImplementationStatement::*;
 
 		let additional_ctx = crate::analyzer::AdditionalContext::new(
 			local_ctx.nc_widths.clone(),
@@ -100,7 +103,7 @@ impl IfElseStatement {
 						.label(self.location, "Error occured here")
 						.build()
 				})?;
-				
+
 				match self.if_statement.as_ref() {
 					ModuleImplementationBlockStatement(block) => {
 						log::debug!("Codegen for single if block");

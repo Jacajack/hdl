@@ -1,6 +1,6 @@
-use crate::{SourceSpan, ProvidesCompilerDiagnostic};
+use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 
-use super::{SignalSignedness, Direction, SignalSensitivity, SemanticError};
+use super::{Direction, SemanticError, SignalSensitivity, SignalSignedness};
 
 #[derive(Clone, Debug)]
 pub struct AlreadyCreated {
@@ -71,11 +71,7 @@ impl AlreadyCreated {
 		Ok(())
 	}
 }
-fn report_duplicated_qualifier(
-	location: &SourceSpan,
-	first_occurence: &SourceSpan,
-	name: &str,
-) -> miette::Result<()> {
+fn report_duplicated_qualifier(location: &SourceSpan, first_occurence: &SourceSpan, name: &str) -> miette::Result<()> {
 	Err(miette::Report::new(
 		SemanticError::DuplicateQualifier
 			.to_diagnostic_builder()

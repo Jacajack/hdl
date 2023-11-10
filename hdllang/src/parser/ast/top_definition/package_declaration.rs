@@ -1,7 +1,7 @@
-use crate::ProvidesCompilerDiagnostic;
-use crate::core::{CommentTableKey, SourceSpan, IdTable};
-use crate::parser::ast::ImportPath;
 use crate::analyzer::SemanticError;
+use crate::core::{CommentTableKey, IdTable, SourceSpan};
+use crate::parser::ast::ImportPath;
+use crate::ProvidesCompilerDiagnostic;
 
 use std::collections::HashMap;
 
@@ -76,7 +76,6 @@ impl PackageDeclaration {
 		}
 	}
 }
-
 
 fn create_label_message(file_name: &String) -> String {
 	match file_name.as_str() {

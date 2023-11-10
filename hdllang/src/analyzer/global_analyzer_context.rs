@@ -1,6 +1,6 @@
-use crate::core::{NumericConstantTable, IdTable, IdTableKey,DiagnosticBuffer};
-use crate::parser::ast::ModuleImplementation;
 use crate::analyzer::ModuleDeclared;
+use crate::core::{DiagnosticBuffer, IdTable, IdTableKey, NumericConstantTable};
+use crate::parser::ast::ModuleImplementation;
 use std::collections::HashMap;
 
 /// Global shared context for semantic analysis

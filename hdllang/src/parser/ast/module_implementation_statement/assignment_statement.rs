@@ -2,17 +2,17 @@ use hirn::design::ScopeHandle;
 
 use super::AssignmentOpcode;
 use super::Expression;
-use crate::CompilerError;
-use crate::ProvidesCompilerDiagnostic;
-use crate::SourceSpan;
 use crate::analyzer::AdditionalContext;
+use crate::analyzer::BusWidth;
 use crate::analyzer::GlobalAnalyzerContext;
 use crate::analyzer::LocalAnalyzerContext;
 use crate::analyzer::RegisterInstance;
 use crate::analyzer::SemanticError;
 use crate::analyzer::Signal;
-use crate::analyzer::BusWidth;
 use crate::parser::ast::SourceLocation;
+use crate::CompilerError;
+use crate::ProvidesCompilerDiagnostic;
+use crate::SourceSpan;
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct AssignmentStatement {
@@ -22,8 +22,13 @@ pub struct AssignmentStatement {
 	pub location: SourceSpan,
 }
 
-impl AssignmentStatement{
-	pub fn first_pass(&self, scope_id: usize, ctx: &mut GlobalAnalyzerContext,local_ctx: &mut LocalAnalyzerContext)->miette::Result<()>{
+impl AssignmentStatement {
+	pub fn first_pass(
+		&self,
+		scope_id: usize,
+		ctx: &mut GlobalAnalyzerContext,
+		local_ctx: &mut LocalAnalyzerContext,
+	) -> miette::Result<()> {
 		use log::*;
 		debug!("Assignment takes place in {:?} scope", scope_id);
 		if !self.lhs.is_lvalue() {
@@ -37,23 +42,16 @@ impl AssignmentStatement{
 					local_ctx,
 					scope_id,
 				),
-				None => self.lhs.assign(
-					BusWidth::Evaluable(self.rhs.get_location()),
-					local_ctx,
-					scope_id,
-				),
+				None => self
+					.lhs
+					.assign(BusWidth::Evaluable(self.rhs.get_location()), local_ctx, scope_id),
 			}
 			.map_err(|e| e.label(self.location, "This self is invalid").build())?;
 			//return Ok(());
 		}
-		let lhs_type = self.lhs.evaluate_type(
-			ctx,
-			scope_id,
-			local_ctx,
-			Signal::new_empty(),
-			true,
-			self.location,
-		)?;
+		let lhs_type = self
+			.lhs
+			.evaluate_type(ctx, scope_id, local_ctx, Signal::new_empty(), true, self.location)?;
 		info!("Lhs type at the beginning: {:?}", lhs_type);
 		if lhs_type.is_array() {
 			return Err(miette::Report::new(
@@ -63,10 +61,9 @@ impl AssignmentStatement{
 					.build(),
 			));
 		}
-		let rhs_type =
-			self
-				.rhs
-				.evaluate_type(ctx, scope_id, local_ctx, lhs_type, true, self.location)?;
+		let rhs_type = self
+			.rhs
+			.evaluate_type(ctx, scope_id, local_ctx, lhs_type, true, self.location)?;
 		if rhs_type.is_array() {
 			return Err(miette::Report::new(
 				SemanticError::ArrayInExpression
@@ -77,10 +74,9 @@ impl AssignmentStatement{
 			));
 		}
 		info!("Rhs type at the end: {:?}", rhs_type);
-		let new_lhs =
-			self
-				.lhs
-				.evaluate_type(ctx, scope_id, local_ctx, rhs_type, true, self.location)?;
+		let new_lhs = self
+			.lhs
+			.evaluate_type(ctx, scope_id, local_ctx, rhs_type, true, self.location)?;
 		let (left_id, loc) = self.lhs.get_internal_id(&local_ctx.scope, scope_id);
 		let entries = self.rhs.get_sensitivity_entry(ctx, local_ctx, scope_id);
 		debug!("Adding edges {:?} to {:?}", entries, left_id);
@@ -93,7 +89,7 @@ impl AssignmentStatement{
 			)
 			.map_err(|e| e.build())?;
 		info!("Lhs type at the and: {:?}", new_lhs);
-			Ok(())
+		Ok(())
 	}
 
 	pub fn codegen_pass(

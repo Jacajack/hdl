@@ -1,13 +1,12 @@
-
-use crate::ProvidesCompilerDiagnostic;
 use crate::analyzer::{
-	SignalSignedness, SignalSensitivity, Direction, BusWidth, variable::InternalVariableId, SemanticError,
-	GlobalAnalyzerContext
+	variable::InternalVariableId, BusWidth, Direction, GlobalAnalyzerContext, SemanticError, SignalSensitivity,
+	SignalSignedness,
 };
 use crate::core::SourceSpan;
-use std::collections::HashMap;
+use crate::ProvidesCompilerDiagnostic;
 use log::*;
 use num_bigint::BigInt;
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct BusType {
