@@ -75,7 +75,7 @@ impl ModuleImplementationStatement {
 	) -> miette::Result<()> {
 		log::info!("Reading scope id for {:?}", self.get_location());
 		let scope_id = local_ctx.scope_map.get(&self.get_location()).unwrap().to_owned();
-		let additional_ctx = crate::analyzer::AdditionalContext::new(
+		let _additional_ctx = crate::analyzer::AdditionalContext::new(
 			local_ctx.nc_widths.clone(),
 			local_ctx.array_or_bus.clone(),
 			local_ctx.casts.clone(),

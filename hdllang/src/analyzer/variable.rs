@@ -162,8 +162,8 @@ impl BusWidth {
 				}
 				*self = BusWidth::Evaluated(nc)
 			},
-			WidthOf(location) => {
-				//let expr = scope.evaluated_expressions.get(location).unwrap().evaluate_type(&nc_table, 0, scope)?.unwrap();
+			WidthOf(_) => {
+				todo!()
 			},
 		}
 		Ok(())

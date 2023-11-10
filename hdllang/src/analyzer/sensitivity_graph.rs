@@ -460,7 +460,6 @@ impl crate::parser::ast::Expression {
 			ParenthesizedExpression(expr) => expr.expression.get_internal_id(ctx, scope_id),
 			PostfixWithIndex(expr) => expr.expression.get_internal_id(ctx, scope_id),
 			PostfixWithRange(expr) => expr.expression.get_internal_id(ctx, scope_id),
-			PostfixWithId(expr) => todo!(),
 			_ => unreachable!(),
 		}
 	}
