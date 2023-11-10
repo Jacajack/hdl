@@ -26,8 +26,8 @@ impl VariableKind {
 		use VariableKind::*;
 		match self {
 			Signal(sig) => match &mut sig.sensitivity {
-				SignalSensitivity::Clock(..) => {
-					sig.sensitivity = SignalSensitivity::Clock(sig.sensitivity.location().unwrap().clone(), Some(id))
+				SignalSensitivity::Clock(location,_) => {
+					sig.sensitivity = SignalSensitivity::Clock(location.clone(), Some(id))
 				},
 				_ => (),
 			},

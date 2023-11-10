@@ -1,560 +1,30 @@
+mod signal_signedness;
+mod signal_sensitivity;
+mod variable_kind;
+mod direction;
+mod signal;
+mod module_instance;
+
+pub use module_instance::*;
+pub use signal::*;
+pub use direction::*;
+pub use variable_kind::*;
+pub use signal_sensitivity::*;
+pub use signal_signedness::*;
 use core::panic;
-use std::{collections::HashMap, hash::Hash};
+use std::hash::Hash;
 
 use hirn::design::{Expression, NumericConstant, SignalBuilder, SignalId};
 use log::debug;
 use num_bigint::BigInt;
 
 use crate::{
-	core::{
-		id_table::{self, IdTable},
-		CompilerDiagnosticBuilder,
-	},
+	core::id_table::{self, IdTable},
 	lexer::IdTableKey,
 	ProvidesCompilerDiagnostic, SourceSpan,
 };
 
 use super::{module_implementation_scope::InternalVariableId, *};
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum SignalSignedness {
-	Signed(SourceSpan),
-	Unsigned(SourceSpan),
-	NoSignedness,
-}
-impl SignalSignedness {
-	pub fn is_none(&self) -> bool {
-		use SignalSignedness::*;
-		match self {
-			NoSignedness => true,
-			_ => false,
-		}
-	}
-	pub fn is_signed(&self) -> bool {
-		use SignalSignedness::*;
-		match self {
-			Signed(_) => true,
-			_ => false,
-		}
-	}
-	pub fn is_unsigned(&self) -> bool {
-		use SignalSignedness::*;
-		match self {
-			Unsigned(_) => true,
-			_ => false,
-		}
-	}
-	pub fn name(&self) -> &'static str {
-		use SignalSignedness::*;
-		match self {
-			Signed(_) => "signed",
-			Unsigned(_) => "unsigned",
-			NoSignedness => "none",
-		}
-	}
-	pub fn location(&self) -> Option<&SourceSpan> {
-		use SignalSignedness::*;
-		match self {
-			Signed(x) => Some(x),
-			Unsigned(x) => Some(x),
-			NoSignedness => None,
-		}
-	}
-}
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum Direction {
-	Input(SourceSpan),
-	Output(SourceSpan),
-	Tristate(SourceSpan),
-	None,
-}
-impl Direction {
-	pub fn name(&self) -> &'static str {
-		use Direction::*;
-		match self {
-			Input(_) => "input",
-			Output(_) => "output",
-			Tristate(_) => "tristate",
-			None => "none",
-		}
-	}
-	pub fn location(&self) -> Option<&SourceSpan> {
-		match self {
-			Direction::Input(x) => Some(x),
-			Direction::Output(x) => Some(x),
-			Direction::Tristate(x) => Some(x),
-			Direction::None => None,
-		}
-	}
-}
-#[derive(Debug, Clone, Hash, Eq)] // FIXME
-pub enum BusWidth {
-	Evaluated(crate::core::NumericConstant), // in non generic modules
-	EvaluatedLocated(crate::core::NumericConstant, SourceSpan), // in non generic modules
-	Evaluable(SourceSpan),                   // in generic modules
-	WidthOf(SourceSpan),                     // in generic modules
-}
-impl PartialEq for BusWidth {
-	fn eq(&self, other: &Self) -> bool {
-		use BusWidth::*;
-		match (self, other) {
-			(Evaluated(l0), Evaluated(r0)) => l0 == r0,
-			(EvaluatedLocated(l0, _), EvaluatedLocated(r0, _)) => l0 == r0,
-			(WidthOf(_), _) => true,
-			(BusWidth::Evaluated(l0), BusWidth::EvaluatedLocated(r0, _)) => l0 == r0,
-			(_, BusWidth::Evaluable(_)) => true,
-			(_, BusWidth::WidthOf(_)) => true,
-			(BusWidth::EvaluatedLocated(l0, _), BusWidth::Evaluated(r0)) => l0 == r0,
-			(BusWidth::Evaluable(_), _) => true,
-		}
-	}
-}
-impl BusWidth {
-	pub fn is_located(&self) -> bool {
-		use BusWidth::*;
-		match self {
-			EvaluatedLocated(..) => true,
-			Evaluated(_) => false,
-			Evaluable(_) => true,
-			WidthOf(_) => true,
-		}
-	}
-	pub fn to_generic(&mut self) {
-		use BusWidth::*;
-		match self {
-			EvaluatedLocated(_, location) => *self = Evaluable(*location),
-			Evaluated(_) => (),
-			Evaluable(_) => (),
-			WidthOf(_) => (),
-		}
-	}
-	pub fn get_location(&self) -> Option<SourceSpan> {
-		use BusWidth::*;
-		match self {
-			EvaluatedLocated(_, location) => Some(*location),
-			Evaluated(_) => None,
-			Evaluable(location) => Some(*location),
-			WidthOf(location) => Some(*location),
-		}
-	}
-	pub fn eval(
-		&mut self,
-		nc_table: &crate::lexer::NumericConstantTable,
-		_id_table: &IdTable,
-		scope: &ModuleImplementationScope,
-	) -> miette::Result<()> {
-		// FIXME
-		use BusWidth::*;
-		match self {
-			Evaluated(_) => (),
-			EvaluatedLocated(nc, _) => *self = BusWidth::Evaluated(nc.clone()),
-			Evaluable(location) => {
-				let expr = scope.evaluated_expressions.get(location).unwrap();
-				debug!("Expr is known!");
-				let nc = expr.expression.evaluate(&nc_table, expr.scope_id, scope)?.unwrap(); // FIXME
-				if nc.value < 0.into() {
-					return Err(miette::Report::new(
-						SemanticError::NegativeBusWidth
-							.to_diagnostic_builder()
-							.label(*location, "Bus width must be positive")
-							.label(*location, format!("Actual width: {:?}", nc.value).as_str())
-							.build(),
-					));
-				}
-				*self = BusWidth::Evaluated(nc)
-			},
-			WidthOf(_) => {
-				todo!()
-			},
-		}
-		Ok(())
-	}
-	pub fn get_value(&self) -> Option<BigInt> {
-		use BusWidth::*;
-		match self {
-			Evaluated(value) => Some(value.clone().value),
-			EvaluatedLocated(value, _) => Some(value.clone().value),
-			Evaluable(_) => None,
-			WidthOf(_) => None,
-		}
-	}
-	pub fn get_nc(&self) -> crate::core::NumericConstant {
-		use BusWidth::*;
-		match self {
-			Evaluated(value) => value.clone(),
-			EvaluatedLocated(value, _) => value.clone(),
-			Evaluable(_) => panic!("Cannot get numeric constant from an unevaluated expression"),
-			WidthOf(_) => panic!("Cannot get numeric constant from an unevaluated expression"),
-		}
-	}
-}
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct BusType {
-	pub width: Option<BusWidth>,
-	pub signedness: SignalSignedness,
-	pub location: SourceSpan,
-}
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub enum SignalType {
-	Bus(BusType),
-	Wire(SourceSpan),
-	Auto(SourceSpan),
-}
-
-
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct Signal {
-	pub signal_type: SignalType,
-	pub dimensions: Vec<BusWidth>,
-	pub sensitivity: SignalSensitivity,
-	pub direction: Direction,
-}
-impl Signal {
-	pub fn translate_clocks(&mut self, clocks: &HashMap<InternalVariableId, InternalVariableId>) {
-		use SignalSensitivity::*;
-		match &mut self.sensitivity {
-			Comb(list, _) => {
-				for edge in &mut list.list {
-					if let Some(new_id) = clocks.get(&edge.clock_signal) {
-						edge.clock_signal = *new_id;
-					}
-				}
-			},
-			Sync(list, _) => {
-				for edge in &mut list.list {
-					if let Some(new_id) = clocks.get(&edge.clock_signal) {
-						edge.clock_signal = *new_id;
-					}
-				}
-			},
-			_ => (),
-		}
-	}
-	pub fn is_clock(&self) -> bool {
-		use SignalSensitivity::*;
-		match &self.sensitivity {
-			Clock(..) => true,
-			_ => false,
-		}
-	}
-	pub fn get_clock_name(&self) -> InternalVariableId {
-		use SignalSensitivity::*;
-		match &self.sensitivity {
-			Clock(_, Some(name)) => *name,
-			_ => panic!("This signal is not a clock"),
-		}
-	}
-	pub fn evaluate_as_lhs(
-		&mut self,
-		_is_lhs: bool,
-		_global_ctx: &GlobalAnalyzerContext,
-		coupling_type: Signal,
-		location: SourceSpan,
-	) -> miette::Result<()> {
-		//if is_lhs {
-		//	self.sensitivity
-		//		.can_drive(&coupling_type.sensitivity, location, global_ctx)?;
-		//}
-		use crate::analyzer::SignalType::*;
-		self.signal_type = match (&self.signal_type, &coupling_type.signal_type) {
-			(Auto(_), Auto(_)) => self.signal_type.clone(),
-			(Auto(_), _) => coupling_type.signal_type.clone(),
-			(Bus(bus), Bus(bus1)) => {
-				use crate::analyzer::SignalSignedness::*;
-				let mut new: crate::analyzer::BusType = bus1.clone();
-				new.signedness = match (&bus.signedness, &bus1.signedness) {
-					(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => bus.signedness.clone(),
-					(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc1), Signed(loc2)) => {
-						return Err(miette::Report::new(
-							SemanticError::SignednessMismatch
-								.to_diagnostic_builder()
-								.label(location, "Cannot assign signals - signedness mismatch")
-								.label(*loc2, "Signedness of this signal")
-								.label(*loc1, "Signedness of this expression")
-								.build(),
-						))
-					},
-					(_, NoSignedness) => bus.signedness.clone(),
-					(NoSignedness, _) => bus1.signedness.clone(),
-				};
-				new.width = match (&bus.width, &bus1.width) {
-					(_, None) => bus.width.clone(),
-					(None, Some(_)) => bus1.width.clone(),
-					(Some(coming), Some(original)) => {
-						match (&coming.get_value(), &original.get_value()) {
-							(Some(val1), Some(val2)) => {
-								if val1 != val2 {
-									return Err(miette::Report::new(
-										SemanticError::DifferingBusWidths
-											.to_diagnostic_builder()
-											.label(
-												location,
-												format!(
-													"Cannot assign signals - width mismatch. {} bits vs {} bits",
-													val2, val1
-												)
-												.as_str(),
-											)
-											.label(bus1.location, "First width specified here")
-											.label(bus.location, "Second width specified here")
-											.build(),
-									));
-								}
-							},
-							_ => (),
-						}
-						bus.width.clone()
-					},
-				};
-				SignalType::Bus(new)
-			},
-			(Bus(bus), Wire(wire)) | (Wire(wire), Bus(bus)) => {
-				if bus.width.is_none() {
-					SignalType::Wire(*wire)
-				}
-				else {
-					debug!("Bus width is {:?}", bus.width.clone().unwrap().get_value().unwrap());
-					if bus.width.clone().unwrap().get_value().unwrap() != 1.into() {
-						return Err(miette::Report::new(
-							SemanticError::BoundingWireWithBus
-								.to_diagnostic_builder()
-								.label(location, "Cannot assign bus to a wire and vice versa")
-								.label(*wire, "Signal specified as wire here")
-								.label(bus.location, "Signal specified as a bus here")
-								.build(),
-						));
-					}
-					else {
-						self.signal_type.clone()
-					}
-				}
-			},
-			(Bus(_), Auto(_)) => self.signal_type.clone(),
-			(Wire(_), _) => self.signal_type.clone(),
-		};
-		Ok(())
-	}
-	pub fn new_empty_with_sensitivity(sensitivity: SignalSensitivity) -> Self {
-		Self {
-			signal_type: SignalType::Auto(SourceSpan::new_between(0, 0)),
-			dimensions: Vec::new(),
-			sensitivity,
-			direction: Direction::None,
-		}
-	}
-	pub fn new_bus(width: Option<BusWidth>, signedness: SignalSignedness, location: SourceSpan) -> Self {
-		Self {
-			signal_type: SignalType::Bus(BusType {
-				width,
-				signedness,
-				location,
-			}),
-			dimensions: Vec::new(),
-			sensitivity: SignalSensitivity::NoSensitivity,
-			direction: Direction::None,
-		}
-	}
-	pub fn new_bus_with_sensitivity(
-		width: BusWidth,
-		signedness: SignalSignedness,
-		sensitivity: SignalSensitivity,
-		location: SourceSpan,
-	) -> Self {
-		Self {
-			signal_type: SignalType::Bus(BusType {
-				width: Some(width),
-				signedness,
-				location,
-			}),
-			dimensions: Vec::new(),
-			sensitivity,
-			direction: Direction::None,
-		}
-	}
-	pub fn is_wire(&self) -> bool {
-		use SignalType::*;
-		match &self.signal_type {
-			Wire(_) => true,
-			_ => false,
-		}
-	}
-	pub fn is_array(&self) -> bool {
-		self.dimensions.len() > 0
-	}
-	pub fn is_bus(&self) -> bool {
-		use SignalType::*;
-		match &self.signal_type {
-			Bus(_) => true,
-			_ => false,
-		}
-	}
-	pub fn is_auto(&self) -> bool {
-		use SignalType::*;
-		match &self.signal_type {
-			Auto(_) => true,
-			_ => false,
-		}
-	}
-	pub fn new_empty() -> Self {
-		Self {
-			signal_type: SignalType::Auto(SourceSpan::new_between(0, 0)),
-			dimensions: Vec::new(),
-			sensitivity: SignalSensitivity::NoSensitivity,
-			direction: Direction::None,
-		}
-	}
-	pub fn width(&self) -> Option<BusWidth> {
-		use SignalType::*;
-		match &self.signal_type {
-			Bus(bus) => bus.width.clone(),
-			Auto(_) => None,
-			Wire(_) => Some(BusWidth::Evaluated(crate::core::NumericConstant::new_true())),
-		}
-	}
-	pub fn set_width(&mut self, width: BusWidth, signedness: SignalSignedness, location: SourceSpan) {
-		use SignalType::*;
-		match &mut self.signal_type {
-			Bus(bus) => bus.width = Some(width),
-			Auto(_) => {
-				self.signal_type = SignalType::Bus(BusType {
-					width: Some(width),
-					signedness,
-					location,
-				})
-			},
-			Wire(_) => (),
-		}
-	}
-	pub fn get_width_location(&self) -> Option<SourceSpan> {
-		use SignalType::*;
-		match &self.signal_type {
-			Bus(bus) => Some(bus.location),
-			Auto(_) => None,
-			Wire(location) => Some(*location),
-		}
-	}
-	pub fn new_wire(location: SourceSpan) -> Self {
-		Self {
-			signal_type: SignalType::Wire(location),
-			dimensions: Vec::new(),
-			sensitivity: SignalSensitivity::NoSensitivity,
-			direction: Direction::None,
-		}
-	}
-	pub fn is_sensititivity_specified(&self) -> bool {
-		match &self.sensitivity {
-			SignalSensitivity::NoSensitivity => false,
-			_ => true,
-		}
-	}
-	pub fn is_direction_specified(&self) -> bool {
-		match &self.direction {
-			Direction::None => false,
-			_ => true,
-		}
-	}
-	pub fn get_signedness(&self) -> SignalSignedness {
-		use SignalType::*;
-		match &self.signal_type {
-			Bus(bus) => bus.signedness.clone(),
-			Auto(_) => panic!("Auto type has no signedness"),
-			Wire(loc) => SignalSignedness::Unsigned(*loc),
-		}
-	}
-	pub fn is_width_specified(&self) -> bool {
-		use SignalType::*;
-		match &self.signal_type {
-			Bus(bus) => match &bus.width {
-				Some(_) => true,
-				None => false,
-			},
-			Auto(_) => false,
-			Wire(_) => true,
-		}
-	}
-	/// only if needed
-	pub fn is_signedness_specified(&self) -> bool {
-		use SignalType::*;
-		match &self.signal_type {
-			Bus(bus) => {
-				use SignalSignedness::*;
-				match bus.signedness {
-					NoSignedness => false,
-					_ => true,
-				}
-			},
-			Auto(_) => false,
-			Wire(_) => true,
-		}
-	}
-	pub fn set_signedness(&mut self, signedness: SignalSignedness, location: SourceSpan) {
-		use SignalType::*;
-		match &mut self.signal_type {
-			Bus(bus) => bus.signedness = signedness,
-			Wire(_) => (),
-			Auto(_) => {
-				self.signal_type = SignalType::Bus(BusType {
-					width: None,
-					signedness,
-					location,
-				})
-			},
-		}
-	}
-	pub fn new_from_constant(constant: &crate::core::NumericConstant, location: SourceSpan) -> Self {
-		let signedness = match constant.signed {
-			Some(value) => {
-				if value {
-					SignalSignedness::Signed(location)
-				}
-				else {
-					SignalSignedness::Unsigned(location)
-				}
-			},
-			None => SignalSignedness::NoSignedness,
-		};
-		let width = match constant.width {
-			Some(value) => Some(BusWidth::Evaluated(crate::core::NumericConstant::new(
-				BigInt::from(value),
-				None,
-				None,
-				None,
-			))),
-			None => {
-				return Self {
-					signal_type: SignalType::Bus(BusType {
-						width: None,
-						signedness,
-						location,
-					}),
-					dimensions: Vec::new(),
-					sensitivity: SignalSensitivity::Const(location),
-					direction: Direction::None,
-				}
-			},
-		};
-		if width.clone().unwrap().get_value().unwrap() == 1.into() && !matches!(signedness, SignalSignedness::Signed(_))
-		{
-			Self {
-				signal_type: SignalType::Wire(location),
-				dimensions: Vec::new(),
-				sensitivity: SignalSensitivity::Const(location),
-				direction: Direction::None,
-			}
-		}
-		else {
-			Self {
-				signal_type: SignalType::Bus(BusType {
-					width,
-					signedness,
-					location,
-				}),
-				dimensions: Vec::new(),
-				sensitivity: SignalSensitivity::Const(location),
-				direction: Direction::None,
-			}
-		}
-	}
-}
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Variable {
 	pub name: IdTableKey,
@@ -567,22 +37,27 @@ impl Variable {
 		Self { name, location, kind }
 	}
 	pub fn is_clock(&self) -> bool {
+		use VariableKind::*;
+		use SignalSensitivity::*;
 		match &self.kind {
-			VariableKind::Signal(signal) => match &signal.sensitivity {
-				SignalSensitivity::Clock(..) => true,
+			Signal(signal) => match &signal.sensitivity {
+				Clock(..) => true,
 				_ => false,
 			},
-			VariableKind::Generic(_) => false,
-			VariableKind::ModuleInstance(_) => false,
+			Generic(_) => false,
+			ModuleInstance(_) => false,
 		}
 	}
 	pub fn get_clock_name(&self) -> InternalVariableId {
+		use VariableKind::*;
 		match &self.kind {
-			VariableKind::Signal(signal) => signal.get_clock_name(),
-			VariableKind::Generic(_) => panic!("This variable is not a signal"),
-			VariableKind::ModuleInstance(_) => panic!("This variable is not a signal"),
+			Signal(signal) => signal.get_clock_name(),
+			Generic(_) => panic!("This variable is not a signal"),
+			ModuleInstance(_) => panic!("This variable is not a signal"),
 		}
 	}
+	/// To be done by VariableDefined struct as it has internal variable id 
+	/// and can insert it into scope automatically
 	pub fn register(
 		&self,
 		nc_table: &crate::lexer::NumericConstantTable,
@@ -598,8 +73,9 @@ impl Variable {
 			self
 		);
 		let id: SignalId;
+		use VariableKind::*;
 		match &self.kind {
-			VariableKind::Signal(signal) => {
+			Signal(signal) => {
 				use SignalSensitivity::*;
 				match &signal.sensitivity {
 					Async(_) => builder = builder.asynchronous(),
@@ -707,7 +183,7 @@ impl Variable {
 				}
 				id = builder.build().unwrap();
 			},
-			VariableKind::Generic(generic) => {
+			Generic(generic) => {
 				use BusWidth::*;
 				let width = match &generic.width {
 					Some(width) => match width {
@@ -748,11 +224,116 @@ impl Variable {
 				builder = builder.generic();
 				id = builder.build().unwrap();
 			},
-			VariableKind::ModuleInstance(_) => unreachable!("Module instantion should not be possible here"),
+			ModuleInstance(_) => unreachable!("Module instantion should not be possible here"),
 		}
 		Ok(id)
 	}
 }
+
+
+#[derive(Debug, Clone, Hash, Eq)]
+pub enum BusWidth {
+	Evaluated(crate::core::NumericConstant), // in non generic modules
+	EvaluatedLocated(crate::core::NumericConstant, SourceSpan), // in non generic modules
+	Evaluable(SourceSpan),                   // in generic modules
+	WidthOf(SourceSpan),                     // in generic modules
+}
+impl PartialEq for BusWidth {
+	fn eq(&self, other: &Self) -> bool {
+		use BusWidth::*;
+		match (self, other) {
+			(Evaluated(l0), Evaluated(r0)) => l0 == r0,
+			(EvaluatedLocated(l0, _), EvaluatedLocated(r0, _)) => l0 == r0,
+			(WidthOf(_), _) => true,
+			(BusWidth::Evaluated(l0), BusWidth::EvaluatedLocated(r0, _)) => l0 == r0,
+			(_, BusWidth::Evaluable(_)) => true,
+			(_, BusWidth::WidthOf(_)) => true,
+			(BusWidth::EvaluatedLocated(l0, _), BusWidth::Evaluated(r0)) => l0 == r0,
+			(BusWidth::Evaluable(_), _) => true,
+		}
+	}
+}
+impl BusWidth {
+	pub fn is_located(&self) -> bool {
+		use BusWidth::*;
+		match self {
+			EvaluatedLocated(..) => true,
+			Evaluated(_) => false,
+			Evaluable(_) => true,
+			WidthOf(_) => true,
+		}
+	}
+	pub fn to_generic(&mut self) {
+		use BusWidth::*;
+		match self {
+			EvaluatedLocated(_, location) => *self = Evaluable(*location),
+			Evaluated(_) => (),
+			Evaluable(_) => (),
+			WidthOf(_) => (),
+		}
+	}
+	pub fn get_location(&self) -> Option<SourceSpan> {
+		use BusWidth::*;
+		match self {
+			EvaluatedLocated(_, location) => Some(*location),
+			Evaluated(_) => None,
+			Evaluable(location) => Some(*location),
+			WidthOf(location) => Some(*location),
+		}
+	}
+	pub fn eval(
+		&mut self,
+		nc_table: &crate::lexer::NumericConstantTable,
+		_id_table: &IdTable,
+		scope: &ModuleImplementationScope,
+	) -> miette::Result<()> {
+		// FIXME
+		use BusWidth::*;
+		match self {
+			Evaluated(_) => (),
+			EvaluatedLocated(nc, _) => *self = BusWidth::Evaluated(nc.clone()),
+			Evaluable(location) => {
+				let expr = scope.evaluated_expressions.get(location).unwrap();
+				debug!("Expr is known!");
+				let nc = expr.expression.evaluate(&nc_table, expr.scope_id, scope)?.unwrap(); // FIXME
+				if nc.value < 0.into() {
+					return Err(miette::Report::new(
+						SemanticError::NegativeBusWidth
+							.to_diagnostic_builder()
+							.label(*location, "Bus width must be positive")
+							.label(*location, format!("Actual width: {:?}", nc.value).as_str())
+							.build(),
+					));
+				}
+				*self = BusWidth::Evaluated(nc)
+			},
+			WidthOf(_) => {
+				todo!()
+			},
+		}
+		Ok(())
+	}
+	pub fn get_value(&self) -> Option<BigInt> {
+		use BusWidth::*;
+		match self {
+			Evaluated(value) => Some(value.clone().value),
+			EvaluatedLocated(value, _) => Some(value.clone().value),
+			Evaluable(_) => None,
+			WidthOf(_) => None,
+		}
+	}
+	pub fn get_nc(&self) -> crate::core::NumericConstant {
+		use BusWidth::*;
+		match self {
+			Evaluated(value) => value.clone(),
+			EvaluatedLocated(value, _) => value.clone(),
+			Evaluable(_) => panic!("Cannot get numeric constant from an unevaluated expression"),
+			WidthOf(_) => panic!("Cannot get numeric constant from an unevaluated expression"),
+		}
+	}
+}
+
+
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct GenericVariable {
@@ -774,57 +355,4 @@ impl GenericVariable {
 		}
 	}
 }
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct RegisterInstance {
-	pub name: IdTableKey,
-	pub location: SourceSpan,
-	pub next: InternalVariableId,
-	pub clk: InternalVariableId,
-	pub nreset: InternalVariableId,
-	pub data: InternalVariableId,
-	pub enable: InternalVariableId,
-}
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct NonRegister {
-	pub interface: HashMap<IdTableKey, InternalVariableId>,
-	pub clocks: Vec<InternalVariableId>,
-}
 
-impl NonRegister {
-	pub fn new() -> Self {
-		Self {
-			interface: HashMap::new(),
-			clocks: Vec::new(),
-		}
-	}
-	pub fn add_variable(&mut self, name: IdTableKey, var: InternalVariableId) -> Result<(), CompilerDiagnosticBuilder> {
-		match self.interface.insert(name, var) {
-			Some(_) => Err(SemanticError::DuplicateVariableDeclaration.to_diagnostic_builder()),
-			None => Ok(()),
-		}
-	}
-	pub fn add_clock(&mut self, name: IdTableKey, var: InternalVariableId) -> Result<(), CompilerDiagnosticBuilder> {
-		self.clocks.push(var);
-		self.add_variable(name, var)
-	}
-}
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ModuleInstanceKind {
-	Module(NonRegister),
-	Register(RegisterInstance),
-}
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ModuleInstance {
-	pub module_name: IdTableKey,
-	pub location: SourceSpan,
-	pub kind: ModuleInstanceKind,
-}
-impl ModuleInstance {
-	pub fn new(module_name: IdTableKey, location: SourceSpan) -> Self {
-		Self {
-			module_name,
-			location,
-			kind: ModuleInstanceKind::Module(NonRegister::new()),
-		}
-	}
-}
