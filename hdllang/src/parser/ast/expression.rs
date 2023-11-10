@@ -405,26 +405,7 @@ impl Expression {
 			},
 			Expression::PostfixWithIndex(expr) => report_not_allowed_expression(expr.location, "index"),
 			Expression::PostfixWithRange(expr) => report_not_allowed_expression(expr.location, "range"), // nie bedzie
-			Expression::PostfixWithArgs(function) => {
-				//let name: String = todo!("get name from id table key");
-				//if name != String::from("sizeof"){
-				//	return report_not_allowed_expression(function.location, "postfix with id");
-				//}
-				//if function.argument_list.len() != 1 {
-				//	return Err(miette::Report::new(
-				//		SemanticError::InvalidNumberOfArguments
-				//			.to_diagnostic_builder()
-				//			.label(
-				//				function.location,
-				//				"sizeof function takes exactly one argument",
-				//			)
-				//			.build(),
-				//	));
-				//}
-				let arg = function.argument_list.first().unwrap();
-				todo!()
-				//let type_eval = arg.evaluate_type(global_ctx, scope_id, local_ctx, coupling_type, is_lhs, location)?;
-			}, // szerokość busa
+			Expression::PostfixWithArgs(_) => todo!(),
 			Expression::PostfixWithId(expr) => report_not_allowed_expression(expr.location, "postfix with id"), // nie bedzie
 			Expression::UnaryOperatorExpression(unary) => {
 				use crate::core::numeric_constant::*;
