@@ -125,20 +125,22 @@ impl Variable {
 							},
 							WidthOf(location) => {
 								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-								expr_ast.expression.codegen(
+								let expr = expr_ast.expression.codegen(
 									nc_table,
 									id_table,
 									expr_ast.scope_id,
 									scope,
 									additional_ctx,
-								)?
-							}, //FIXME coming soon
+								)?;
+								log::debug!("Width of is {:?}", expr);
+								hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Width(Box::new(expr)))
+							}, 
 						};
 						debug!("Width is {:?}", width);
 						match bus.signedness {
 							SignalSignedness::Signed(_) => builder = builder.signed(width),
 							SignalSignedness::Unsigned(_) => builder = builder.unsigned(width),
-							SignalSignedness::NoSignedness => unreachable!(), // report an error
+							SignalSignedness::NoSignedness => unreachable!(),
 						}
 					},
 					SignalType::Wire(_) => builder = builder.wire(),
@@ -170,14 +172,15 @@ impl Variable {
 							builder = builder.array(expr).unwrap();
 						},
 						WidthOf(location) => {
-							let expr = scope.evaluated_expressions.get(location).unwrap().expression.codegen(
+							let mut expr = scope.evaluated_expressions.get(location).unwrap().expression.codegen(
 								nc_table,
 								id_table,
 								scope_id,
 								scope,
 								additional_ctx,
 							)?;
-							builder = builder.array(expr).unwrap(); // FIXME it should be width of
+							expr = hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Width(Box::new(expr)));
+							builder = builder.array(expr).unwrap();
 						},
 					}
 				}
@@ -204,9 +207,10 @@ impl Variable {
 						},
 						WidthOf(location) => {
 							let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-							expr_ast
+							let expr = expr_ast
 								.expression
-								.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
+								.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?;
+							hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Width(Box::new(expr)))
 						},
 					},
 					None => Expression::Constant(hirn::design::NumericConstant::new_signed(64.into())),
@@ -243,12 +247,9 @@ impl PartialEq for BusWidth {
 		match (self, other) {
 			(Evaluated(l0), Evaluated(r0)) => l0 == r0,
 			(EvaluatedLocated(l0, _), EvaluatedLocated(r0, _)) => l0 == r0,
-			(WidthOf(_), _) => true,
-			(BusWidth::Evaluated(l0), BusWidth::EvaluatedLocated(r0, _)) => l0 == r0,
-			(_, BusWidth::Evaluable(_)) => true,
-			(_, BusWidth::WidthOf(_)) => true,
-			(BusWidth::EvaluatedLocated(l0, _), BusWidth::Evaluated(r0)) => l0 == r0,
-			(BusWidth::Evaluable(_), _) => true,
+			(Evaluated(l0), EvaluatedLocated(r0, _)) => l0 == r0,
+			(EvaluatedLocated(l0, _), Evaluated(r0)) => l0 == r0,
+			_=> true,
 		}
 	}
 }

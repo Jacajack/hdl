@@ -1445,13 +1445,15 @@ impl Expression {
 						local_ctx.nc_widths.insert(self.get_location(), constant.clone());
 					},
 					(Some(coming), Some(original)) => {
+						log::debug!("Coming: {:?}", coming);
+						log::debug!("Original: {:?}", original);
 						if coming != original {
 							return Err(miette::Report::new(
 								SemanticError::WidthMismatch
 									.to_diagnostic_builder()
-									.label(num.location, "Width of this expression does not match")
+									.label(num.location, format!("Width of this expression is {}", original.get_value().unwrap()).as_str())
 									.label(location, "Width mismach in this expression")
-									.label(coupling_type.get_width_location().unwrap(), "Width of this signal")
+									.label(coupling_type.get_width_location().unwrap(), format!("Width of this expression is {}", coming.get_value().unwrap()).as_str())
 									.build(),
 							));
 						}
@@ -2524,6 +2526,12 @@ impl Expression {
 				}
 				let w = match &binop.code {
 					Multiplication => {
+						//match (&type_first.width().unwrap().get_value(), &type_second.width().unwrap().get_value()){
+    					//    (None, None) => todo!(),
+    					//    (None, Some(_)) => todo!(),
+    					//    (Some(_), None) => todo!(),
+    					//    (Some(_), Some(_)) => todo!(),
+    					//}
 						use SignalType::*;
 						match (&type_first.signal_type, &type_second.signal_type) {
 							(Bus(bus1), Bus(bus2)) => BusWidth::Evaluated(NumericConstant::new_from_value(
@@ -2576,23 +2584,17 @@ impl Expression {
 								type_first.set_signedness(type_second.get_signedness(), self.get_location());
 							},
 						}
-						use SignalType::*;
-						match (&type_first.signal_type, &type_second.signal_type) {
-							(Bus(bus1), Bus(bus2)) => BusWidth::Evaluated(NumericConstant::new_from_value(
+						local_ctx.scope.add_expression(self.get_location(), scope_id, self.clone());
+						match (&type_first.width().unwrap().get_value(), &type_second.width().unwrap().get_value()){
+        					(None, None) => BusWidth::WidthOf(self.get_location()),
+        					(None, Some(_)) =>  BusWidth::WidthOf(self.get_location()),
+        					(Some(_), None) =>  BusWidth::WidthOf(self.get_location()),
+        					(Some(v1), Some(v2)) => BusWidth::Evaluated(NumericConstant::new_from_value(
 								max(
-									bus2.width.clone().unwrap().get_value().unwrap(),
-									bus1.width.clone().unwrap().get_value().unwrap(),
+									v1, v2
 								) + BigInt::from(1),
 							)),
-							(Bus(bus), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(
-								BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap(),
-							)),
-							(Wire(_), Bus(bus)) => BusWidth::Evaluated(NumericConstant::new_from_value(
-								BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap(),
-							)),
-							(Wire(_), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(2))),
-							(..) => unreachable!(),
-						}
+    					}
 					},
 					Modulo => type_second.width().clone().unwrap(),
 					LShift | RShift => type_first.width().clone().unwrap(),

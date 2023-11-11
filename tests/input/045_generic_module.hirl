@@ -1,0 +1,4 @@
+module m {uint c;}
+impl m {
+	const ubus<c> b;
+}

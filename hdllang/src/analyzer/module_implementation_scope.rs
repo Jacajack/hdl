@@ -109,6 +109,9 @@ impl ModuleImplementationScope {
 			}
 		}
 	}
+	pub fn add_expression(&mut self, span:SourceSpan, scope_id: usize, expr: crate::parser::ast::Expression) {
+		self.evaluated_expressions.insert(span, EvaluatedEntry::new(expr, scope_id));
+	}
 	pub fn transorm_to_generic(&mut self) {
 		debug!("Transforming scope to generic");
 		for scope in self.scopes.iter_mut() {

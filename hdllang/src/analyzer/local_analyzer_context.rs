@@ -11,7 +11,7 @@ pub struct LocalAnalyzerContext {
 	pub scope_map: HashMap<SourceSpan, usize>,
 	pub module_id: IdTableKey,
 	pub sensitivity_graph: super::SensitivityGraph,
-	pub are_we_in_true_branch: Vec<bool>,
+	are_we_in_true_branch: Vec<bool>,
 	pub number_of_recursive_calls: usize,
 	pub casts: HashMap<SourceSpan, Cast>,
 }
@@ -29,6 +29,20 @@ impl LocalAnalyzerContext {
 			number_of_recursive_calls: 0,
 			array_or_bus: HashMap::new(),
 		}
+	}
+	pub fn add_branch(&mut self, branch: bool) {
+		self.are_we_in_true_branch.push(branch);
+	}
+	pub fn pop_branch(&mut self) {
+		self.are_we_in_true_branch.pop();
+	}
+	pub fn are_we_in_true_branch(&self) -> bool {
+		for branch in self.are_we_in_true_branch.iter().rev() {
+			if !*branch {
+				return false;
+			}
+		}
+		true
 	}
 	pub fn second_pass(&mut self, ctx: &mut GlobalAnalyzerContext) -> miette::Result<()> {
 		log::debug!("Second pass");

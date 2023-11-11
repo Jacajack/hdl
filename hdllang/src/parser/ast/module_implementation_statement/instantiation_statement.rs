@@ -4,8 +4,10 @@ use hirn::design::ScopeHandle;
 
 use super::ImportPath;
 use super::PortBindStatement;
+use crate::analyzer::module_implementation_scope::EvaluatedEntry;
 use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
 use crate::SourceSpan;
+use crate::parser::ast::SourceLocation;
 use crate::{
 	analyzer::{
 		module_implementation_scope::InternalVariableId, AdditionalContext, BusWidth, ClockSensitivityList,
@@ -207,13 +209,20 @@ impl InstantiationStatement {
 					debug!("Id with expression");
 
 					let new_sig = id_expr.expression.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
-					if new_sig.is_none() {
-						todo!() //FIXME
-					}
 					use VariableKind::*;
 					match &mut interface_variable.var.kind {
 						Generic(gen) => {
-							gen.value = Some(BusWidth::Evaluated(new_sig.unwrap()));
+							gen.value = match new_sig{
+								Some(sig) => Some(BusWidth::Evaluated(sig)),
+								None => {
+									let entry = EvaluatedEntry{
+        							    expression: id_expr.expression.clone(),
+        							    scope_id,
+        							};
+									local_ctx.scope.evaluated_expressions.insert(id_expr.expression.get_location(), entry);
+									Some(BusWidth::Evaluable(id_expr.expression.get_location()))
+								}
+							}
 						},
 						_ => unreachable!(),
 					}
@@ -379,7 +388,7 @@ impl InstantiationStatement {
 		if name == local_ctx.module_id {
 			local_ctx.number_of_recursive_calls += 1;
 			recursive_calls = local_ctx.number_of_recursive_calls;
-			if local_ctx.number_of_recursive_calls > 2048 && local_ctx.are_we_in_true_branch.last().unwrap().clone() {
+			if local_ctx.number_of_recursive_calls > 2048 && local_ctx.are_we_in_true_branch() {
 				return Err(miette::Report::new(
 					SemanticError::RecursiveModuleInstantiation
 						.to_diagnostic_builder()
@@ -397,7 +406,7 @@ impl InstantiationStatement {
 		}
 		debug!("Defining module instance {:?}", module_instance);
 
-		if scope.is_generic() && local_ctx.are_we_in_true_branch.last().unwrap().clone() {
+		if !local_ctx.scope.is_generic() && scope.is_generic() && local_ctx.are_we_in_true_branch() {
 			scope.unmark_as_generic();
 			let implementation = ctx.generic_modules.get(&name).unwrap().clone();
 			let mut new_local_ctx = LocalAnalyzerContext::new(implementation.id, scope);

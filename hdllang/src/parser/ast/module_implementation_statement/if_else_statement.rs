@@ -23,16 +23,16 @@ impl IfElseStatement {
 		let condition_type = self.condition.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?;
 		let if_scope = local_ctx.scope.new_scope(Some(scope_id));
 		log::debug!("Condition is {:?}", condition_type);
-		let cond = condition_type.unwrap().value != num_bigint::BigInt::from(0);
-		local_ctx.are_we_in_true_branch.push(cond);
+		let cond = condition_type.map_or_else(|| true, |val| val.value != 0.into());
+		local_ctx.add_branch(cond);
 		self.if_statement.first_pass(ctx, local_ctx, if_scope)?;
-		local_ctx.are_we_in_true_branch.pop();
+		local_ctx.pop_branch();
 		match &self.else_statement {
 			Some(stmt) => {
 				let else_scope = local_ctx.scope.new_scope(Some(scope_id));
-				local_ctx.are_we_in_true_branch.push(!cond);
+				local_ctx.add_branch(!cond);
 				stmt.first_pass(ctx, local_ctx, else_scope)?;
-				local_ctx.are_we_in_true_branch.pop();
+				local_ctx.pop_branch();
 			},
 			None => (),
 		}
