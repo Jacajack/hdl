@@ -25,4 +25,11 @@ impl Direction {
 			Direction::None => None,
 		}
 	}
+	pub fn is_input(&self)->bool{
+		use Direction::*;
+		match self {
+			Input(_) => true,
+			_ => false,
+		}
+	}
 }

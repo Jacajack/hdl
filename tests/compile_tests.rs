@@ -1,6 +1,5 @@
 extern crate hdllang;
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
-use hdllang::core::DiagnosticBuffer;
 use hdllang::lexer::{IdTable, Lexer, LogosLexer, LogosLexerContext};
 use hdllang::parser;
 use hdllang::parser::ast::Root;
@@ -19,7 +18,6 @@ fn parse_file_recover_tables(
 	ctx: LogosLexerContext,
 ) -> miette::Result<(Root, LogosLexerContext, String)> {
 	let mut lexer = LogosLexer::new_with_context(&code, ctx);
-	let buf = Box::new(hdllang::core::DiagnosticBuffer::new());
 	let parser = parser::IzuluParser::new();
 	let ast = parser.parse(Some(&code), &mut lexer).map_err(|e| {
 		ParserError::new_form_lalrpop_error(e)
@@ -64,7 +62,6 @@ fn compile(mut code: String, file_name: String, output: &mut dyn Write, elab: bo
 
 fn pretty_print(code: String, output: &mut dyn Write) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
-	let buf = Box::new(DiagnosticBuffer::new());
 	let ast = parser::IzuluParser::new().parse(Some(&code), &mut lexer).map_err(|e| {
 		ParserError::new_form_lalrpop_error(e)
 			.to_miette_report()

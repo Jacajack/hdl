@@ -372,7 +372,7 @@ impl ModuleImplementationScope {
 			}
 			// we do not have to check for module instances, because their members are checked in previous pass
 			if let VariableKind::Generic(gen) = &v.var.kind {
-				if gen.value.is_none() {
+				if gen.value.is_none() && !gen.direction.is_input(){
 					// emit warning
 					let report = crate::core::CompilerDiagnosticBuilder::new_warning(
 						"This generic variable is unitialized, it will not be emitted in the output file",
