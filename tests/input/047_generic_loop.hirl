@@ -1,0 +1,9 @@
+module x{
+	int a;
+}
+
+impl x{
+	for (i in [2+:a]){
+		wire c=1u1;
+	}
+}

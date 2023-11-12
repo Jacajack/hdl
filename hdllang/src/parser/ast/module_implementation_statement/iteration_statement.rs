@@ -31,56 +31,81 @@ impl IterationStatement {
 		local_ctx: &mut LocalAnalyzerContext,
 	) -> miette::Result<()> {
 		let id = local_ctx.scope.new_scope(Some(scope_id));
-		let mut initial_val = self
-			.range
-			.lhs
-			.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?
-			.unwrap()
-			.value;
-		let mut end_val = self
-			.range
-			.rhs
-			.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?
-			.unwrap()
-			.value;
-		use crate::parser::ast::RangeOpcode::*;
-		match &self.range.code {
-			Colon => (),
-			PlusColon => end_val += initial_val.clone(),
-			ColonLessThan => end_val -= 1,
-		}
-		local_ctx.scope_map.insert(self.statement.get_location(), id);
-		while initial_val <= end_val {
-			local_ctx.scope.define_variable(
-				id,
-				Variable::new(
-					self.id,
-					self.location,
-					VariableKind::Generic(GenericVariable {
-						value: Some(BusWidth::Evaluated(NumericConstant::new_from_value(
-							initial_val.clone(),
-						))),
-						is_wire: false,
-						direction: crate::analyzer::Direction::None,
-						width: Some(BusWidth::Evaluated(NumericConstant::new_from_value(64.into()))),
-						signedness: crate::analyzer::SignalSignedness::Unsigned(self.location),
-						location: self.location,
-					}),
-				),
-			)?;
-			match self.statement.as_ref() {
-				ModuleImplementationStatement::ModuleImplementationBlockStatement(block) => {
-					for statement in &block.statements {
-						statement.first_pass(ctx, local_ctx, id)?;
+		match (
+			self.range.lhs.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?,
+			self.range.rhs.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?,
+		) {
+			(Some(lhs), Some(rhs)) => {
+				let mut initial_val = lhs.value;
+				let mut end_val = rhs.value;
+				use crate::parser::ast::RangeOpcode::*;
+				match &self.range.code {
+					Colon => (),
+					PlusColon => end_val += initial_val.clone(),
+					ColonLessThan => end_val -= 1,
+				}
+				local_ctx.scope_map.insert(self.statement.get_location(), id);
+				while initial_val <= end_val {
+					local_ctx.scope.define_variable(
+						id,
+						Variable::new(
+							self.id,
+							self.location,
+							VariableKind::Generic(GenericVariable {
+								value: Some(BusWidth::Evaluated(NumericConstant::new_from_value(
+									initial_val.clone(),
+								))),
+								is_wire: false,
+								direction: crate::analyzer::Direction::None,
+								width: Some(BusWidth::Evaluated(NumericConstant::new_from_value(64.into()))),
+								signedness: crate::analyzer::SignalSignedness::Unsigned(self.location),
+								location: self.location,
+							}),
+						),
+					)?;
+					match self.statement.as_ref() {
+						ModuleImplementationStatement::ModuleImplementationBlockStatement(block) => {
+							for statement in &block.statements {
+								statement.first_pass(ctx, local_ctx, id)?;
+							}
+						},
+						_ => unreachable!(),
+					};
+					if initial_val != end_val {
+						local_ctx.scope.clear_scope(id);
 					}
-				},
-				_ => unreachable!(),
-			};
-			if initial_val != end_val {
-				local_ctx.scope.clear_scope(id);
-			}
-			initial_val += 1;
+					initial_val += 1;
+				}
+			},
+			_ => {
+				local_ctx.scope_map.insert(self.statement.get_location(), id);
+				local_ctx.scope.add_expression(self.range.rhs.get_location(), scope_id, *self.range.rhs.clone());
+				local_ctx.scope.define_variable(
+					id,
+					Variable::new(
+						self.id,
+						self.location,
+						VariableKind::Generic(GenericVariable {
+							value: Some(BusWidth::Evaluable(self.range.rhs.get_location())),
+							is_wire: false,
+							direction: crate::analyzer::Direction::None,
+							width: Some(BusWidth::Evaluated(NumericConstant::new_from_value(64.into()))),
+							signedness: crate::analyzer::SignalSignedness::Unsigned(self.location),
+							location: self.location,
+						}),
+					),
+				)?;
+				match self.statement.as_ref() {
+					ModuleImplementationStatement::ModuleImplementationBlockStatement(block) => {
+						for statement in &block.statements {
+							statement.first_pass(ctx, local_ctx, id)?;
+						}
+					},
+					_ => unreachable!(),
+				};
+			},
 		}
+		
 		Ok(())
 	}
 
