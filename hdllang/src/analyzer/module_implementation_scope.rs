@@ -113,44 +113,46 @@ impl ModuleImplementationScope {
 		self.evaluated_expressions.insert(span, EvaluatedEntry::new(expr, scope_id));
 	}
 	pub fn transorm_to_generic(&mut self) {
-		debug!("Transforming scope to generic");
-		for scope in self.scopes.iter_mut() {
-			for variable in scope.variables.values() {
-				let var = self.variables.get_mut(variable).unwrap();
-				match &mut var.var.kind {
-					VariableKind::Signal(sig) => {
-						sig.dimensions.iter_mut().for_each(|dim| {
-							debug!("Transforming dimension {:?} to generic", dim);
-							dim.to_generic();
-							debug!("Transformed dimension {:?} to generic", dim);
-						});
-						use crate::analyzer::SignalType::*;
-						match &mut sig.signal_type {
-							Bus(bus) => match &mut bus.width {
-								Some(w) => w.to_generic(),
-								None => (),
-							},
-							Wire(_) => (),
-							Auto(_) => unreachable!(),
-						}
-					},
-					VariableKind::Generic(gen) => {
-						match &mut gen.value {
-							// unreachable!(),
-							Some(val) => {
-								debug!("Transforming value {:?} to generic", val);
-								val.to_generic();
-								debug!("Transformed value {:?} to generic", val);
-							},
-							None => (),
-						}
-					},
-					VariableKind::ModuleInstance(_) => {
-						unreachable!("Module instantion can't be declared in module implementation scope")
-					},
-				}
-			}
-		}
+		return;
+		// To be honest, I have no idea what was the true purpose of this method, I do not see any usecases now
+		//debug!("Transforming scope to generic");
+		//for scope in self.scopes.iter_mut() {
+		//	for variable in scope.variables.values() {
+		//		let var = self.variables.get_mut(variable).unwrap();
+		//		match &mut var.var.kind {
+		//			VariableKind::Signal(sig) => {
+		//				sig.dimensions.iter_mut().for_each(|dim| {
+		//					debug!("Transforming dimension {:?} to generic", dim);
+		//					dim.to_generic();
+		//					debug!("Transformed dimension {:?} to generic", dim);
+		//				});
+		//				use crate::analyzer::SignalType::*;
+		//				match &mut sig.signal_type {
+		//					Bus(bus) => match &mut bus.width {
+		//						Some(w) => w.to_generic(),
+		//						None => (),
+		//					},
+		//					Wire(_) => (),
+		//					Auto(_) => unreachable!(),
+		//				}
+		//			},
+		//			VariableKind::Generic(gen) => {
+		//				match &mut gen.value {
+		//					// unreachable!(),
+		//					Some(val) => {
+		//						debug!("Transforming value {:?} to generic", val);
+		//						val.to_generic();
+		//						debug!("Transformed value {:?} to generic", val);
+		//					},
+		//					None => (),
+		//				}
+		//			},
+		//			VariableKind::ModuleInstance(_) => {
+		//				unreachable!("Module instantion can't be declared in module implementation scope")
+		//			},
+		//		}
+		//	}
+		//}
 	}
 	pub fn unmark_as_generic(&mut self) {
 		self.is_generic = false;

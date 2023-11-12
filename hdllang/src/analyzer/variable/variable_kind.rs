@@ -233,33 +233,20 @@ impl VariableKind {
 					EvaluatedEntry::new(*bus.width.clone(), current_scope),
 				);
 				let width = bus.width.evaluate(nc_table, current_scope, scope)?;
-				let w = if scope.is_generic() {
-					match &width {
-						Some(val) => {
-							if val.value <= num_bigint::BigInt::from(0) {
-								return Err(miette::Report::new(
-									SemanticError::NegativeBusWidth
-										.to_diagnostic_builder()
-										.label(bus.width.get_location(), "Array size must be positive")
-										.build(),
-								));
-							}
-							BusWidth::Evaluable(bus.width.get_location())
-						},
-						None => BusWidth::Evaluable(bus.width.get_location()),
-					}
-				}
-				else {
-					let value = width.unwrap();
-					if &value.value <= &num_bigint::BigInt::from(0) {
-						return Err(miette::Report::new(
-							SemanticError::NegativeBusWidth
-								.to_diagnostic_builder()
-								.label(bus.width.get_location(), "Array size must be positive")
-								.build(),
-						));
-					}
-					BusWidth::EvaluatedLocated(value, bus.width.get_location())
+				// I do not know why I wanted to do it differently before
+				let w = match &width {
+					Some(val) => {
+						if val.value <= num_bigint::BigInt::from(0) {
+							return Err(miette::Report::new(
+								SemanticError::NegativeBusWidth
+									.to_diagnostic_builder()
+									.label(bus.width.get_location(), "Array size must be positive")
+									.build(),
+							));
+						}
+						BusWidth::EvaluatedLocated(val.clone(), bus.width.get_location())
+					},
+					None => BusWidth::Evaluable(bus.width.get_location()),
 				};
 
 				Ok(VariableKind::Signal(Signal {
