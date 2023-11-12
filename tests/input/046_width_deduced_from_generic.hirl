@@ -1,0 +1,12 @@
+module x{
+	int x;
+	input const ubus<x> b;
+}
+impl x{}
+module y{}
+impl y{
+	x a{
+		x: 5,
+		b: const auto dd
+	}
+}
