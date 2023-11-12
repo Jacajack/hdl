@@ -783,7 +783,7 @@ impl Expression {
 											hirn::design::SignalSignedness::Unsigned
 										}
 									},
-									None => hirn::design::SignalSignedness::Unsigned,
+									None => hirn::design::SignalSignedness::Signed,
 								},
 								nc.width.unwrap_or(64).into(),
 							)
@@ -791,7 +791,7 @@ impl Expression {
 						));
 					}
 				}
-				let constant = nc_table.get_by_key(&num.key).unwrap(); //FIXME read additional information from local_ctx
+				let constant = nc_table.get_by_key(&num.key).unwrap();
 				let signed = match constant.signed {
 					Some(s) => s,
 					None => true,
