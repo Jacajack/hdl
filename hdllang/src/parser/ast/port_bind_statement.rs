@@ -86,7 +86,7 @@ impl PortBindStatement {
 			IdWithDeclaration(id_with_declaration) => {
 				let var = local_ctx
 					.scope
-					.get_variable(scope_id, &id_with_declaration.id)
+					.get_variable(scope_id, &id_with_declaration.declaration.direct_declarators.first().unwrap().name)
 					.unwrap()
 					.clone();
 				vec![SensitivityGraphEntry::Signal(var.id, var.var.location)]
