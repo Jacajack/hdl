@@ -45,3 +45,46 @@ impl SignalSignedness {
 		}
 	}
 }
+
+#[cfg(test)]
+mod test{
+	use super::*;
+
+	fn span() -> SourceSpan {
+		SourceSpan::new_between(0, 0)
+	}
+
+	#[test]
+	fn test_names() {
+		assert_eq!(SignalSignedness::Signed(span()).name(), "signed");
+		assert_eq!(SignalSignedness::Unsigned(span()).name(), "unsigned");
+	}
+
+	#[test]
+	fn test_location() {
+		assert_eq!(SignalSignedness::Signed(span()).location(), Some(&span()));
+		assert_eq!(SignalSignedness::Unsigned(span()).location(), Some(&span()));
+		assert_eq!(SignalSignedness::NoSignedness.location(), None);
+	}
+
+	#[test]
+	fn test_is_none() {
+		assert!(SignalSignedness::NoSignedness.is_none());
+		assert!(!SignalSignedness::Signed(span()).is_none());
+		assert!(!SignalSignedness::Unsigned(span()).is_none());
+	}
+
+	#[test]
+	fn test_is_signed() {
+		assert!(SignalSignedness::Signed(span()).is_signed());
+		assert!(!SignalSignedness::Unsigned(span()).is_signed());
+		assert!(!SignalSignedness::NoSignedness.is_signed());
+	}
+
+	#[test]
+	fn test_is_unsigned() {
+		assert!(!SignalSignedness::Signed(span()).is_unsigned());
+		assert!(SignalSignedness::Unsigned(span()).is_unsigned());
+		assert!(!SignalSignedness::NoSignedness.is_unsigned());
+	}
+}
