@@ -257,8 +257,8 @@ impl<'a> SVCodegen<'a> {
 
 		emit!(self, " {}", instance.instance_name())?;
 
+		emitln!(self, " (")?;
 		if !electric_bindings.is_empty() {
-			emitln!(self, " (")?;
 			self.begin_indent();
 
 			for (index, (name, signal_id)) in electric_bindings.iter().enumerate() {
@@ -273,8 +273,8 @@ impl<'a> SVCodegen<'a> {
 			}
 
 			self.end_indent();
-			emit!(self, ")")?;
 		}
+		emit!(self, ")")?;
 
 		emitln!(self, ";")?;
 		emitln!(self, "")?;
