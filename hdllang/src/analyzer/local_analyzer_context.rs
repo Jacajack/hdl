@@ -44,6 +44,9 @@ impl LocalAnalyzerContext {
 		}
 		true
 	}
+	pub fn always_true_branch(&self) -> bool {
+		self.are_we_in_true_branch.len() == 1
+	}
 	pub fn second_pass(&mut self, ctx: &mut GlobalAnalyzerContext) -> miette::Result<()> {
 		log::debug!("Second pass");
 		self.sensitivity_graph.verify(&mut self.scope, ctx)?;

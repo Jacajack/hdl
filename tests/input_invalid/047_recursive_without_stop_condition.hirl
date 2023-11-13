@@ -1,0 +1,8 @@
+module x{
+	int x;
+}
+impl x{
+	x a{
+		x:2
+	}
+}

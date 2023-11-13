@@ -405,6 +405,21 @@ impl InstantiationStatement {
 		}
 		let mut recursive_calls = 0;
 		if name == local_ctx.module_id {
+			if local_ctx.always_true_branch(){
+				return Err(miette::Report::new(
+					SemanticError::RecursiveModuleInstantiation
+						.to_diagnostic_builder()
+						.label(
+							self.module_name.location,
+							format!(
+								"Module \"{}\" is instantiated recursively without stop condition",
+								ctx.id_table.get_by_key(&name).unwrap()
+							)
+							.as_str(),
+						)
+						.build(),
+				));
+			}
 			local_ctx.number_of_recursive_calls += 1;
 			recursive_calls = local_ctx.number_of_recursive_calls;
 			if local_ctx.number_of_recursive_calls > 2048 && local_ctx.are_we_in_true_branch() {
