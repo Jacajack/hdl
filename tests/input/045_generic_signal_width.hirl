@@ -1,0 +1,10 @@
+module X {
+	int x_w;
+	int y_w;
+	input const ubus<x_w> x;
+	input const ubus<y_w> y;
+}
+
+impl X {
+	auto result = x + y;
+}
