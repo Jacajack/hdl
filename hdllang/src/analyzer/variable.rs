@@ -295,17 +295,22 @@ impl BusWidth {
 			Evaluable(location) => {
 				let expr = scope.evaluated_expressions.get(location).unwrap();
 				debug!("Expr is known!");
-				let nc = expr.expression.evaluate(&nc_table, expr.scope_id, scope)?.unwrap(); // FIXME
-				if nc.value < 0.into() {
-					return Err(miette::Report::new(
-						SemanticError::NegativeBusWidth
-							.to_diagnostic_builder()
-							.label(*location, "Bus width must be positive")
-							.label(*location, format!("Actual width: {:?}", nc.value).as_str())
-							.build(),
-					));
-				}
-				*self = BusWidth::Evaluated(nc)
+				match expr.expression.evaluate(&nc_table, expr.scope_id, scope)?{
+        			Some(nc) =>{
+						if nc.value < 0.into() {
+							return Err(miette::Report::new(
+								SemanticError::NegativeBusWidth
+									.to_diagnostic_builder()
+									.label(*location, "Bus width must be positive")
+									.label(*location, format!("Actual width: {:?}", nc.value).as_str())
+									.build(),
+							));
+						}
+						*self = BusWidth::Evaluated(nc)
+					},
+        			None => (),
+    			}
+				
 			},
 			WidthOf(_) => {
 				todo!()

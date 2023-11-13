@@ -142,7 +142,7 @@ impl SourceLocation for Expression {
 
 impl Expression {
 	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
-		f(self)?;
+		log::debug!("Transforming expression {:?}", self);
 		use self::Expression::*;
 		match self {
 			Number(_) => (),
@@ -211,6 +211,7 @@ impl Expression {
 				binop.rhs.transform(f)?;
 			},
 		};
+		f(self)?;
 		Ok(())
 	}
 	/// deprecated, not used

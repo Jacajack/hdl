@@ -110,6 +110,7 @@ impl InstantiationStatement {
 					.build(),
 			));
 		}
+		let mut expressions_to_translate: HashMap<IdTableKey, crate::parser::ast::Expression> = HashMap::new();
 		debug!("Binding generic variables!");
 		for stmt in &self.port_bind {
 			let mut interface_variable = scope
@@ -182,7 +183,7 @@ impl InstantiationStatement {
 							))
 						},
 						(Generic(gen1), Generic(gen2)) => {
-							if gen1.value.is_none() {
+							if gen1.value.is_none()  && !gen1.direction.is_input(){
 								return Err(miette::Report::new(
 									InstanceError::GenericArgumentWithoutValue
 										.to_diagnostic_builder()
@@ -207,7 +208,7 @@ impl InstantiationStatement {
 				},
 				IdWithExpression(id_expr) => {
 					debug!("Id with expression");
-
+					expressions_to_translate.insert(id_expr.id, id_expr.expression.clone());
 					let new_sig = id_expr.expression.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
 					use VariableKind::*;
 					match &mut interface_variable.var.kind {
@@ -248,6 +249,22 @@ impl InstantiationStatement {
 			}
 		}
 		debug!("Scope is {:?}", scope);
+		let f: &dyn Fn(&mut crate::parser::ast::Expression) -> Result<(), ()> = &|expr| {
+			use crate::parser::ast::Expression::*;
+			if let Identifier(id) = expr {
+				match expressions_to_translate.get(&id.id){
+    			    Some(expr2) => {
+						expr.clone_from(expr2);
+					},
+    			    None => (),
+    			}
+			}
+			Ok(())
+		};
+		for entry in scope.evaluated_expressions.values_mut(){
+			entry.expression.transform(f).unwrap();
+			local_ctx.scope.evaluated_expressions.insert(entry.expression.get_location(), entry.clone());
+		}
 		debug!("Binding clocks!");
 		for stmt in &self.port_bind {
 			let sig_name = ctx.id_table.get_value(&stmt.get_id()).clone();

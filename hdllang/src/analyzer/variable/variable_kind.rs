@@ -34,6 +34,7 @@ impl VariableKind {
 			_ => (),
 		}
 	}
+	/// FIXME This method should be not used, but idk why, when it is not, something breaks
 	pub fn evaluate_bus_width(
 		&mut self,
 		scope: &ModuleImplementationScope,
