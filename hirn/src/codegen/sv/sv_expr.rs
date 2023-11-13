@@ -166,7 +166,7 @@ impl SVExpressionCodegen {
 
 					// Expand width() non-trivial expressions
 					_ => {
-						*e = e.width()?;
+						*e = width_arg.width()?;
 					},
 				},
 
