@@ -116,11 +116,12 @@ impl<'a> SVCodegen<'a> {
 		match sig.sensitivity() {
 			Generic => Ok(format!(
 				"{}",
-				self.format_localparam_declaration_impl(
+				self.format_param_declaration_impl(
 					sig.name().into(),
 					&sig.class(),
 					&[],
-					&Some(sig.value().clone())
+					&Some(sig.value().clone()),
+					true
 				)?,
 			)),
 			_ => Ok(format!(
@@ -131,12 +132,13 @@ impl<'a> SVCodegen<'a> {
 		}
 	}
 
-	fn format_localparam_declaration_impl(
+	fn format_param_declaration_impl(
 		&mut self,
 		name: &str,
 		class: &SignalClass,
 		dimensions: &[Expression],
 		value: &Option<Expression>,
+		is_local: bool,
 	) -> Result<String, CodegenError> {
 		let bus_msb_str =
 			self.translate_expression_try_eval(&expr_sub_one(self.design.clone(), class.width()), false)?;
@@ -154,19 +156,38 @@ impl<'a> SVCodegen<'a> {
 			);
 		}
 
-		Ok(format!(
-			"localparam logic{} {}{} = {}",
-			bus_width_str,
-			name,
-			array_size_str,
-			match value {
-				Some(expr) => self.translate_expression(expr, true)?,
-				None => {
-					warn!("No value assigned for localparam definition!");
-					"'x".into() // This is evil
-				},
-			}
-		))
+		use SignalSignedness::*;
+		let sign_str = match (class.is_wire(), class.signedness()) {
+			(true, _) => "",
+			(false, Signed) => " signed",
+			(false, Unsigned) => " unsigned",
+		};
+
+		if is_local {
+			Ok(format!(
+				"localparam logic{}{} {}{} = {}",
+				sign_str,
+				bus_width_str,
+				name,
+				array_size_str,
+				match value {
+					Some(expr) => self.translate_expression(expr, true)?,
+					None => {
+						warn!("No value assigned for localparam definition!");
+						"'x".into() // This is evil
+					},
+				}
+			))
+		}
+		else {
+			Ok(format!(
+				"parameter logic{}{} {}{}",
+				sign_str,
+				bus_width_str,
+				name,
+				array_size_str,
+			))
+		}
 	}
 
 	fn format_localparam_declaration(
@@ -175,7 +196,7 @@ impl<'a> SVCodegen<'a> {
 		value: &Option<Expression>,
 	) -> Result<String, CodegenError> {
 		let sig = self.design.get_signal(sig_id).unwrap();
-		self.format_localparam_declaration_impl(sig.name().into(), &sig.class, &sig.dimensions, value)
+		self.format_param_declaration_impl(sig.name().into(), &sig.class, &sig.dimensions, value, true)
 	}
 
 	fn module_interface_definition(&mut self, _m: ModuleHandle, s: InterfaceSignal) -> Result<String, CodegenError> {
@@ -193,11 +214,9 @@ impl<'a> SVCodegen<'a> {
 		))
 	}
 
-	fn module_parameter_definition(&mut self, s: InterfaceSignal) -> Result<String, CodegenError> {
-		Ok(format!(
-			"parameter {} = 'x",
-			self.translate_expression(&s.signal.into(), false)?
-		))
+	fn format_module_parameter_declaration(&mut self, s: InterfaceSignal) -> Result<String, CodegenError> {
+		let sig = self.design.get_signal(s.signal).unwrap();
+		self.format_param_declaration_impl(sig.name(), &sig.class, &sig.dimensions, &None, false)
 	}
 
 	fn emit_assignment(&mut self, lhs: &Expression, rhs: &Expression) -> Result<(), CodegenError> {
@@ -606,7 +625,7 @@ impl<'a> Codegen for SVCodegen<'a> {
 					self.design.get_signal(sig.signal).unwrap().sensitivity,
 					SignalSensitivity::Generic
 				) {
-					let param_def_str = self.module_parameter_definition(sig)?;
+					let param_def_str = self.format_module_parameter_declaration(sig)?;
 					emitln!(
 						self,
 						"{}{}",
