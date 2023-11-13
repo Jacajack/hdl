@@ -1,11 +1,13 @@
-module x{
+module ASDA{
 	int x;
+	input const a;
 }
-impl x{
+impl ASDA{
 	if (x==1)
 	{
-		x a{
-			x:2
+		ASDA asdas{
+			x:2,
+			a: const auto a
 		}
 	}
 }
