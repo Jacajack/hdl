@@ -215,8 +215,15 @@ impl<'a> SVCodegen<'a> {
 	}
 
 	fn format_module_parameter_declaration(&mut self, s: InterfaceSignal) -> Result<String, CodegenError> {
-		let sig = self.design.get_signal(s.signal).unwrap();
-		self.format_param_declaration_impl(sig.name(), &sig.class, &sig.dimensions, &None, false)
+		Ok(format!(
+			"parameter {}",
+			self.translate_expression(&s.signal.into(), false)?
+		))
+		
+		// FIXME this code should be in use! However our CI is running old iverilog version
+		// and it needs to be updated, because it doesn't support this syntax
+		// let sig = self.design.get_signal(s.signal).unwrap();
+		// self.format_param_declaration_impl(sig.name(), &sig.class, &sig.dimensions, &None, false)
 	}
 
 	fn emit_assignment(&mut self, lhs: &Expression, rhs: &Expression) -> Result<(), CodegenError> {
