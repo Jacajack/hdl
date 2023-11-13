@@ -703,7 +703,7 @@ impl InstantiationStatement {
 							.to_diagnostic_builder()
 							.label(var.var.location, "Error occured here")
 							.build()
-					})?,
+					})?.generated(),
 			)?;
 			local_ctx.scope.insert_api_id(var.id, var_id);
 			builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
@@ -743,7 +743,7 @@ impl InstantiationStatement {
 							.to_diagnostic_builder()
 							.label(var.var.location, "Error occured here")
 							.build()
-					})?,
+					})?.generated(),
 			)?;
 			local_ctx.scope.insert_api_id(var.id, var_id);
 			builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
