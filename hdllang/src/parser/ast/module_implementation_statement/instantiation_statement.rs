@@ -262,8 +262,10 @@ impl InstantiationStatement {
 			Ok(())
 		};
 		for entry in scope.evaluated_expressions.values_mut(){
+			let prev_loc = entry.expression.get_location();
 			entry.expression.transform(f).unwrap();
-			local_ctx.scope.evaluated_expressions.insert(entry.expression.get_location(), entry.clone());
+			local_ctx.scope.evaluated_expressions.insert(prev_loc, entry.clone());
+			log::debug!("Inserted entry at {:?}", prev_loc);
 		}
 		debug!("Binding clocks!");
 		for stmt in &self.port_bind {

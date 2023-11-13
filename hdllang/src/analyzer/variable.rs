@@ -114,6 +114,7 @@ impl Variable {
 								)?
 							},
 							Evaluable(location) => {
+								log::debug!("Looking for expression at {:?}", location);
 								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
 								expr_ast.expression.codegen(
 									nc_table,

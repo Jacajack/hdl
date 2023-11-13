@@ -34,33 +34,33 @@ impl VariableKind {
 			_ => (),
 		}
 	}
-	/// FIXME This method should be not used, but idk why, when it is not, something breaks
 	pub fn evaluate_bus_width(
 		&mut self,
-		scope: &ModuleImplementationScope,
-		id_table: &IdTable,
-		nc_table: &crate::lexer::NumericConstantTable,
+		_scope: &ModuleImplementationScope,
+		_id_table: &IdTable,
+		_nc_table: &crate::lexer::NumericConstantTable,
 	) -> miette::Result<()> {
-		use VariableKind::*;
-		match self {
-			Signal(sig) => {
-				use SignalType::*;
-				match &mut sig.signal_type {
-					Bus(bus) => match &mut bus.width {
-						Some(b) => {
-							b.eval(nc_table, id_table, scope)?;
-						},
-						None => (),
-					},
-					_ => (),
-				}
-				for dim in &mut sig.dimensions {
-					dim.eval(nc_table, id_table, scope)?;
-				}
-			},
-			_ => unreachable!(),
-		}
-		Ok(())
+		return Ok(());
+		//use VariableKind::*;
+		//match self {
+		//	Signal(sig) => {
+		//		use SignalType::*;
+		//		match &mut sig.signal_type {
+		//			Bus(bus) => match &mut bus.width {
+		//				Some(b) => {
+		//					b.eval(nc_table, id_table, scope)?;
+		//				},
+		//				None => (),
+		//			},
+		//			_ => (),
+		//		}
+		//		for dim in &mut sig.dimensions {
+		//			dim.eval(nc_table, id_table, scope)?;
+		//		}
+		//	},
+		//	_ => unreachable!(),
+		//}
+		//Ok(())
 	}
 	pub fn is_generic(&self) -> bool {
 		use VariableKind::*;
