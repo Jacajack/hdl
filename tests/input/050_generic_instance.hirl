@@ -1,0 +1,11 @@
+module X{
+    int x;
+}
+impl X{}
+
+module Y{}
+impl Y{
+    X X_instance {
+        x: 7,
+    };
+}
