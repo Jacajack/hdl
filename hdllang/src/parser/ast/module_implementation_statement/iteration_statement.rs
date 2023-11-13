@@ -28,7 +28,7 @@ impl IterationStatement {
 		&self,
 		scope_id: usize,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<()> {
 		let id = local_ctx.scope.new_scope(Some(scope_id));
 		match (
@@ -112,7 +112,7 @@ impl IterationStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		scope_id: usize,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {

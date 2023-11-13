@@ -15,7 +15,7 @@ impl ModuleImplementationBlockStatement {
 	pub fn analyze(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		scope_id: usize,
 	) -> miette::Result<()> {
 		let new_id = local_ctx.scope.new_scope(Some(scope_id));
@@ -28,7 +28,7 @@ impl ModuleImplementationBlockStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
 		let mut subscope = api_scope.new_subscope().unwrap();

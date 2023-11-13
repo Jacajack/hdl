@@ -27,7 +27,7 @@ impl AssignmentStatement {
 		&self,
 		scope_id: usize,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<()> {
 		use log::*;
 		debug!("Assignment takes place in {:?} scope", scope_id);
@@ -95,7 +95,7 @@ impl AssignmentStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		scope_id: usize,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {

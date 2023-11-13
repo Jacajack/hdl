@@ -32,7 +32,7 @@ impl InstantiationStatement {
 		&self,
 		scope_id: usize,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<()> {
 		use log::*;
 		let name = self.module_name.get_last_module();
@@ -464,7 +464,7 @@ impl InstantiationStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		scope_id: usize,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
@@ -825,7 +825,7 @@ fn create_register(
 	inst_stmt: &InstantiationStatement,
 	scope_id: usize,
 	ctx: &mut GlobalAnalyzerContext,
-	local_ctx: &mut LocalAnalyzerContext,
+	local_ctx: &mut Box<LocalAnalyzerContext>,
 ) -> miette::Result<RegisterInstance> {
 	use log::*;
 	if inst_stmt.port_bind.len() != 5 {

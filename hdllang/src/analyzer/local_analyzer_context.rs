@@ -16,8 +16,8 @@ pub struct LocalAnalyzerContext {
 	pub casts: HashMap<SourceSpan, Cast>,
 }
 impl LocalAnalyzerContext {
-	pub fn new(module_id: IdTableKey, scope: ModuleImplementationScope) -> Self {
-		LocalAnalyzerContext {
+	pub fn new(module_id: IdTableKey, scope: ModuleImplementationScope) -> Box<Self> {
+		Box::new(LocalAnalyzerContext {
 			scope,
 			scope_map: HashMap::new(),
 			module_id,
@@ -28,7 +28,7 @@ impl LocalAnalyzerContext {
 			are_we_in_true_branch: vec![true], // initial value is true :)
 			number_of_recursive_calls: 0,
 			array_or_bus: HashMap::new(),
-		}
+		})
 	}
 	pub fn add_branch(&mut self, branch: bool) {
 		self.are_we_in_true_branch.push(branch);

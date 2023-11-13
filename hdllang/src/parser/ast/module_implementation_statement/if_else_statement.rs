@@ -18,7 +18,7 @@ impl IfElseStatement {
 		&self,
 		scope_id: usize,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<()> {
 		let condition_type = self.condition.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?;
 		let if_scope = local_ctx.scope.new_scope(Some(scope_id));
@@ -42,7 +42,7 @@ impl IfElseStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		scope_id: usize,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {

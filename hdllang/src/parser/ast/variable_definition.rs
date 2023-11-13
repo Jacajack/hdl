@@ -29,7 +29,7 @@ impl VariableDefinition {
 		&self,
 		already_created: AlreadyCreated,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		scope_id: usize,
 	) -> miette::Result<()> {
 		use log::*;
@@ -267,7 +267,7 @@ impl VariableDefinition {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
 		use log::*;

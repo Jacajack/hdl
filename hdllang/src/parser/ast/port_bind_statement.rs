@@ -119,7 +119,7 @@ impl PortBindStatement {
 	pub fn get_type(
 		&self,
 		ctx: &GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		scope_id: usize,
 		interface_signal: Signal,
 		is_output: bool,
@@ -217,7 +217,7 @@ impl PortBindStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		api_scope: &mut ScopeHandle,
 		current_scope: usize,
 	) -> miette::Result<hirn::design::Expression> {

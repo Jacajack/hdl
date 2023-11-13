@@ -15,7 +15,7 @@ impl ModuleImplementation {
 	pub fn first_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<()> {
 		use log::*;
 
@@ -45,7 +45,7 @@ impl ModuleImplementation {
 	pub fn second_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<()> {
 		local_ctx.second_pass(ctx)?;
 		Ok(())
@@ -54,7 +54,7 @@ impl ModuleImplementation {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<()> {
 		use log::*;
 		debug!(

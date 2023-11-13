@@ -27,7 +27,7 @@ impl VariableBlockStatement {
 		&self,
 		already_created: AlreadyCreated,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		scope_id: usize,
 	) -> miette::Result<()> {
 		match self {
@@ -43,7 +43,7 @@ impl VariableBlockStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
 		match self {
@@ -76,7 +76,7 @@ impl VariableBlock {
 	pub fn analyze(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		mut already_created: AlreadyCreated,
 		scope_id: usize,
 	) -> miette::Result<()> {
@@ -95,7 +95,7 @@ impl VariableBlock {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
 		for statement in &self.statements {

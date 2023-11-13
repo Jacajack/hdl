@@ -338,7 +338,7 @@ impl Expression {
 	pub fn assign(
 		&self,
 		value: BusWidth,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		scope_id: usize,
 	) -> Result<(), CompilerDiagnosticBuilder> {
 		use Expression::*;
@@ -1438,7 +1438,7 @@ impl Expression {
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
 		scope_id: usize,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		coupling_type: Signal,
 		is_lhs: bool,
 		location: SourceSpan,
