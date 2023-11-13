@@ -145,39 +145,73 @@ impl Expression {
 		f(self)?;
 		use self::Expression::*;
 		match self {
-			Number(_) => f(self),
-			Identifier(_) => f(self),
+			Number(_) => (),
+			Identifier(_) => (),
 			ParenthesizedExpression(expr) => {
-				f(expr.expression.as_mut())?;
-				expr.expression.transform(f)
+				expr.expression.transform(f)?;
 			},
-			MatchExpression(_) => f(self),
-			ConditionalExpression(_) => f(self),
+			MatchExpression(expr) => {
+				expr.value.transform(f)?;
+				for statement in &mut expr.statements {
+					use MatchExpressionAntecendent::*;
+					match  &mut statement.antecedent{
+        				Expression { expressions, location:_ } => {
+							for expr in expressions {
+								expr.transform(f)?;
+							}
+						},
+        				Default { .. } => (),
+    				}
+					statement.expression.transform(f)?;
+				}
+			},
+			ConditionalExpression(expr) => {
+				for statement in &mut expr.statements {
+					use MatchExpressionAntecendent::*;
+					match  &mut statement.antecedent{
+        				Expression { expressions, location:_ } => {
+							for expr in expressions {
+								expr.transform(f)?;
+							}
+						},
+        				Default { .. } => (),
+    				}
+					statement.expression.transform(f)?;
+				}
+			},
 			Tuple(_) => unreachable!(),
 			TernaryExpression(tern) => {
-				f(tern.condition.as_mut())?;
 				tern.condition.transform(f)?;
-				f(tern.true_branch.as_mut())?;
 				tern.true_branch.transform(f)?;
-				f(tern.false_branch.as_mut())?;
-				tern.false_branch.transform(f)
+				tern.false_branch.transform(f)?;
 			},
-			PostfixWithIndex(_) => f(self),
-			PostfixWithRange(_) => f(self),
-			PostfixWithArgs(_) => f(self),
-			PostfixWithId(_) => f(self),
+			PostfixWithIndex(postfix) => {
+				postfix.expression.transform(f)?;
+				postfix.index.transform(f)?;
+			},
+			PostfixWithRange(expr) => {
+				expr.expression.transform(f)?;
+				expr.range.lhs.transform(f)?;
+				expr.range.rhs.transform(f)?;
+			},
+			PostfixWithArgs(expr) => {
+				for arg in expr.argument_list.iter_mut() {
+					arg.transform(f)?;
+				}
+			},
+			PostfixWithId(_) => (),
 			UnaryOperatorExpression(un) => {
-				f(un.expression.as_mut())?;
-				un.expression.transform(f)
+				un.expression.transform(f)?;
 			},
-			UnaryCastExpression(_) => todo!(),
+			UnaryCastExpression(expr) => {
+				expr.expression.transform(f)?;
+			},
 			BinaryExpression(binop) => {
-				f(binop.lhs.as_mut())?;
 				binop.lhs.transform(f)?;
-				f(binop.rhs.as_mut())?;
-				binop.rhs.transform(f)
+				binop.rhs.transform(f)?;
 			},
-		}
+		};
+		Ok(())
 	}
 	/// deprecated, not used
 	pub fn get_name_sync_or_comb(&self) -> miette::Result<IdTableKey> {
