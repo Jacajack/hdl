@@ -40,7 +40,7 @@ impl SignalGraphPassCtx {
 		}
 	}
 
-	pub fn drive_signal(&mut self, range: &SignalSliceRange, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
+	pub fn drive_signal_slice(&mut self, range: &SignalSliceRange, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
 		debug!("Driving signal {:?}", range);
 		
 		let result = self.eval_slice_range(range.clone(), assumptions)?;		
@@ -53,7 +53,7 @@ impl SignalGraphPassCtx {
 		Ok(())
 	}
 
-	pub fn read_signal(&mut self, range: &SignalSliceRange, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
+	pub fn read_signal_slice(&mut self, range: &SignalSliceRange, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
 		debug!("Marking signal as read {:?}", range);
 		
 		let result = self.eval_slice_range(range.clone(), assumptions)?;		
@@ -92,5 +92,25 @@ impl SignalGraphPassCtx {
 		}
 
 		Ok(())
+	}
+
+	pub fn drive_signal(&mut self, id: SignalId, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
+		let gen_id = self.get_generated_signal_id(id);
+		let gen_sig = self.get_generated_signal(&gen_id);
+		if gen_sig.is_array() {
+			self.drive_array(id)
+		} else {
+			self.drive_signal_slice(&id.into(), assumptions)
+		}
+	}
+
+	pub fn read_signal(&mut self, id: SignalId, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
+		let gen_id = self.get_generated_signal_id(id);
+		let gen_sig = self.get_generated_signal(&gen_id);
+		if gen_sig.is_array() {
+			self.read_array(id)
+		} else {
+			self.read_signal_slice(&id.into(), assumptions)
+		}
 	}
 }

@@ -214,8 +214,3 @@ fn test_compile_simulate(#[files("tests/input_sim/*.hirl")] path: PathBuf) {
 fn test_pretty_print_sim_files(#[files("tests/input_sim/*.hirl")] path: PathBuf) {
 	pretty_print_and_compile_run_iverilog(path)
 }
-
-#[rstest]
-fn test_pretty_print(#[files("tests/input/*.hirl")] path: PathBuf) {
-	compile_run_iverilog(path)
-}

@@ -2,6 +2,7 @@ mod gen_signal;
 mod scope_elab;
 mod scope_pass;
 mod signal_drive;
+mod instance_elab;
 
 use log::{error, info};
 use petgraph::Directed;
@@ -134,11 +135,9 @@ impl SignalGraphPassCtx {
 				continue;
 			}
 
-			match (interface_sig.is_input(), sig.is_array()) {
-				(true, true) => self.drive_array(sig_id),
-				(false, true) => self.read_array(sig_id),
-				(true, false) => self.drive_signal(&sig_id.into(), assumptions.clone()),
-				(false, false) => self.read_signal(&sig_id.into(), assumptions.clone()),
+			match interface_sig.is_input() {
+				true  => self.drive_signal(sig_id, assumptions.clone()),
+				false => self.read_signal(sig_id, assumptions.clone()),
 			}?;
 		}
 

@@ -63,11 +63,14 @@ impl GeneratedSignal {
 	pub fn width(&self) -> u32 {
 		self.width
 	}
-	
+
 	pub fn total_fields(&self) -> usize {
 		self.total_fields
 	}
 
+	pub fn is_array(&self) -> bool {
+		self.dimensions.len() > 0
+	}
 }
 
 impl SignalGraphPassCtx {

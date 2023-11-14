@@ -46,7 +46,7 @@ impl SignalGraphPassCtx {
 				continue;
 			}
 
-			self.drive_signal(&driven_bits, assumptions.clone())?;
+			self.drive_signal_slice(&driven_bits, assumptions.clone())?;
 
 			let read = asmt.dependencies_bits();
 			for range in &read {
@@ -56,15 +56,18 @@ impl SignalGraphPassCtx {
 					continue;
 				}
 
-				self.read_signal(range, assumptions.clone())?;
+				self.read_signal_slice(range, assumptions.clone())?;
 			}
+
+			// TODO actually check the binding (I need to write an assignment checker)
+			// this is gonna be fun
 		}
 
-		// TODO elab register
-		// TODO elab submodules
+		for block in scope.blocks() {
+			self.elab_block(&block, assumptions.clone())?;
+		}
+
 		// TODO process submodule binding lists
-		// TODO drive module input sigs
-		// TODO read module output sigs
 		Ok(())
 	}
 
