@@ -61,6 +61,12 @@ mod test{
 	}
 
 	#[test]
+	#[should_panic]
+	fn test_name_no_signedness(){
+		SignalSignedness::NoSignedness.name();
+	}
+
+	#[test]
 	fn test_location() {
 		assert_eq!(SignalSignedness::Signed(span()).location(), Some(&span()));
 		assert_eq!(SignalSignedness::Unsigned(span()).location(), Some(&span()));

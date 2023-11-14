@@ -50,6 +50,12 @@ mod test{
 	}
 
 	#[test]
+	#[should_panic]
+	fn test_name_no_direction(){
+		Direction::None.name();
+	}
+
+	#[test]
 	fn test_location() {
 		assert_eq!(Direction::Input(span()).location(), Some(&span()));
 		assert_eq!(Direction::Output(span()).location(), Some(&span()));
