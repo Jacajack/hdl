@@ -48,7 +48,7 @@ impl ModuleImplementationStatement {
 	pub fn first_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		scope_id: usize,
 	) -> miette::Result<()> {
 		local_ctx.scope_map.insert(self.get_location(), scope_id);
@@ -69,7 +69,7 @@ impl ModuleImplementationStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
 		log::info!("Reading scope id for {:?}", self.get_location());

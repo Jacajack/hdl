@@ -1,0 +1,10 @@
+module x{int a;}
+impl x{
+	const auto ss = a;
+}
+module m{}
+impl m{
+	x xx{
+		a:1,
+	}
+}

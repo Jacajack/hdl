@@ -4,8 +4,10 @@ use hirn::design::ScopeHandle;
 
 use super::ImportPath;
 use super::PortBindStatement;
+use crate::analyzer::module_implementation_scope::EvaluatedEntry;
 use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
 use crate::SourceSpan;
+use crate::parser::ast::SourceLocation;
 use crate::{
 	analyzer::{
 		module_implementation_scope::InternalVariableId, AdditionalContext, BusWidth, ClockSensitivityList,
@@ -30,7 +32,7 @@ impl InstantiationStatement {
 		&self,
 		scope_id: usize,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<()> {
 		use log::*;
 		let name = self.module_name.get_last_module();
@@ -108,6 +110,7 @@ impl InstantiationStatement {
 					.build(),
 			));
 		}
+		let mut expressions_to_translate: HashMap<IdTableKey, crate::parser::ast::Expression> = HashMap::new();
 		debug!("Binding generic variables!");
 		for stmt in &self.port_bind {
 			let mut interface_variable = scope
@@ -180,7 +183,7 @@ impl InstantiationStatement {
 							))
 						},
 						(Generic(gen1), Generic(gen2)) => {
-							if gen1.value.is_none() {
+							if gen1.value.is_none()  && !gen1.direction.is_input(){
 								return Err(miette::Report::new(
 									InstanceError::GenericArgumentWithoutValue
 										.to_diagnostic_builder()
@@ -205,15 +208,22 @@ impl InstantiationStatement {
 				},
 				IdWithExpression(id_expr) => {
 					debug!("Id with expression");
-
+					expressions_to_translate.insert(id_expr.id, id_expr.expression.clone());
 					let new_sig = id_expr.expression.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
-					if new_sig.is_none() {
-						todo!() //FIXME
-					}
 					use VariableKind::*;
 					match &mut interface_variable.var.kind {
 						Generic(gen) => {
-							gen.value = Some(BusWidth::Evaluated(new_sig.unwrap()));
+							gen.value = match new_sig{
+								Some(sig) => Some(BusWidth::Evaluated(sig)),
+								None => {
+									let entry = EvaluatedEntry{
+        							    expression: id_expr.expression.clone(),
+        							    scope_id,
+        							};
+									local_ctx.scope.evaluated_expressions.insert(id_expr.expression.get_location(), entry);
+									Some(BusWidth::Evaluable(id_expr.expression.get_location()))
+								}
+							}
 						},
 						_ => unreachable!(),
 					}
@@ -239,6 +249,24 @@ impl InstantiationStatement {
 			}
 		}
 		debug!("Scope is {:?}", scope);
+		let f: &dyn Fn(&mut crate::parser::ast::Expression) -> Result<(), ()> = &|expr| {
+			use crate::parser::ast::Expression::*;
+			if let Identifier(id) = expr {
+				match expressions_to_translate.get(&id.id){
+    			    Some(expr2) => {
+						expr.clone_from(expr2);
+					},
+    			    None => (),
+    			}
+			}
+			Ok(())
+		};
+		for entry in scope.evaluated_expressions.values_mut(){
+			let prev_loc = entry.expression.get_location();
+			entry.expression.transform(f).unwrap();
+			local_ctx.scope.evaluated_expressions.insert(prev_loc, entry.clone());
+			log::debug!("Inserted entry at {:?}", prev_loc);
+		}
 		debug!("Binding clocks!");
 		for stmt in &self.port_bind {
 			let sig_name = ctx.id_table.get_value(&stmt.get_id()).clone();
@@ -377,9 +405,24 @@ impl InstantiationStatement {
 		}
 		let mut recursive_calls = 0;
 		if name == local_ctx.module_id {
+			if local_ctx.always_true_branch(){
+				return Err(miette::Report::new(
+					SemanticError::RecursiveModuleInstantiation
+						.to_diagnostic_builder()
+						.label(
+							self.module_name.location,
+							format!(
+								"Module \"{}\" is instantiated recursively without stop condition",
+								ctx.id_table.get_by_key(&name).unwrap()
+							)
+							.as_str(),
+						)
+						.build(),
+				));
+			}
 			local_ctx.number_of_recursive_calls += 1;
 			recursive_calls = local_ctx.number_of_recursive_calls;
-			if local_ctx.number_of_recursive_calls > 2048 && local_ctx.are_we_in_true_branch.last().unwrap().clone() {
+			if local_ctx.number_of_recursive_calls > 2048 && local_ctx.are_we_in_true_branch() {
 				return Err(miette::Report::new(
 					SemanticError::RecursiveModuleInstantiation
 						.to_diagnostic_builder()
@@ -397,7 +440,7 @@ impl InstantiationStatement {
 		}
 		debug!("Defining module instance {:?}", module_instance);
 
-		if scope.is_generic() && local_ctx.are_we_in_true_branch.last().unwrap().clone() {
+		if !local_ctx.scope.is_generic() && scope.is_generic() && local_ctx.are_we_in_true_branch() {
 			scope.unmark_as_generic();
 			let implementation = ctx.generic_modules.get(&name).unwrap().clone();
 			let mut new_local_ctx = LocalAnalyzerContext::new(implementation.id, scope);
@@ -421,7 +464,7 @@ impl InstantiationStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		scope_id: usize,
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
@@ -660,7 +703,7 @@ impl InstantiationStatement {
 							.to_diagnostic_builder()
 							.label(var.var.location, "Error occured here")
 							.build()
-					})?,
+					})?.generated(),
 			)?;
 			local_ctx.scope.insert_api_id(var.id, var_id);
 			builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
@@ -700,7 +743,7 @@ impl InstantiationStatement {
 							.to_diagnostic_builder()
 							.label(var.var.location, "Error occured here")
 							.build()
-					})?,
+					})?.generated(),
 			)?;
 			local_ctx.scope.insert_api_id(var.id, var_id);
 			builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
@@ -782,7 +825,7 @@ fn create_register(
 	inst_stmt: &InstantiationStatement,
 	scope_id: usize,
 	ctx: &mut GlobalAnalyzerContext,
-	local_ctx: &mut LocalAnalyzerContext,
+	local_ctx: &mut Box<LocalAnalyzerContext>,
 ) -> miette::Result<RegisterInstance> {
 	use log::*;
 	if inst_stmt.port_bind.len() != 5 {

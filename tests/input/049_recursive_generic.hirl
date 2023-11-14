@@ -1,0 +1,17 @@
+module ASDA{
+	int x;
+	input const a;
+	output const b;
+}
+impl ASDA{
+	if (x==1)
+	{
+		ASDA asdas{
+			x:x-1,
+			a: const auto a,
+			b: auto b,
+		}
+	}
+}
+module x{}
+impl x{}

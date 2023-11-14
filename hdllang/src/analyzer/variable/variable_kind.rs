@@ -36,30 +36,31 @@ impl VariableKind {
 	}
 	pub fn evaluate_bus_width(
 		&mut self,
-		scope: &ModuleImplementationScope,
-		id_table: &IdTable,
-		nc_table: &crate::lexer::NumericConstantTable,
+		_scope: &ModuleImplementationScope,
+		_id_table: &IdTable,
+		_nc_table: &crate::lexer::NumericConstantTable,
 	) -> miette::Result<()> {
-		use VariableKind::*;
-		match self {
-			Signal(sig) => {
-				use SignalType::*;
-				match &mut sig.signal_type {
-					Bus(bus) => match &mut bus.width {
-						Some(b) => {
-							b.eval(nc_table, id_table, scope)?;
-						},
-						None => (),
-					},
-					_ => (),
-				}
-				for dim in &mut sig.dimensions {
-					dim.eval(nc_table, id_table, scope)?;
-				}
-			},
-			_ => unreachable!(),
-		}
-		Ok(())
+		return Ok(());
+		//use VariableKind::*;
+		//match self {
+		//	Signal(sig) => {
+		//		use SignalType::*;
+		//		match &mut sig.signal_type {
+		//			Bus(bus) => match &mut bus.width {
+		//				Some(b) => {
+		//					b.eval(nc_table, id_table, scope)?;
+		//				},
+		//				None => (),
+		//			},
+		//			_ => (),
+		//		}
+		//		for dim in &mut sig.dimensions {
+		//			dim.eval(nc_table, id_table, scope)?;
+		//		}
+		//	},
+		//	_ => unreachable!(),
+		//}
+		//Ok(())
 	}
 	pub fn is_generic(&self) -> bool {
 		use VariableKind::*;
@@ -100,8 +101,25 @@ impl VariableKind {
 	pub fn to_signal(&self) -> Result<Signal, CompilerDiagnosticBuilder> {
 		match self {
 			VariableKind::Signal(signal) => Ok(signal.clone()),
-			VariableKind::Generic(gen) => match &gen.value {
-				None => Err(SemanticError::GenericUsedWithoutValue.to_diagnostic_builder()),
+			VariableKind::Generic(gen) =>{
+				if gen.value.is_none() && !gen.direction.is_input(){
+					return Err(SemanticError::GenericUsedWithoutValue.to_diagnostic_builder());
+				}
+				match &gen.value {
+				None => {
+					log::debug!("Generic without value - interface parameter");
+					let t = SignalType::Bus(BusType {
+						width: Some(BusWidth::Evaluated(crate::core::NumericConstant::new_from_value(64.into()))),
+						signedness: gen.signedness.clone(),
+						location: gen.location,
+					});
+					Ok(Signal {
+						signal_type: t,
+						dimensions: Vec::new(),
+						sensitivity: SignalSensitivity::Const(gen.location),
+						direction: gen.direction.clone(),
+					})
+				},
 				Some(_) => {
 					let t = SignalType::Bus(BusType {
 						width: gen.width.clone(),
@@ -115,7 +133,7 @@ impl VariableKind {
 						direction: gen.direction.clone(),
 					})
 				},
-			},
+			}},
 			VariableKind::ModuleInstance(_) => Err(SemanticError::ModuleInstantionUsedAsSignal.to_diagnostic_builder()),
 		}
 	}
@@ -233,33 +251,20 @@ impl VariableKind {
 					EvaluatedEntry::new(*bus.width.clone(), current_scope),
 				);
 				let width = bus.width.evaluate(nc_table, current_scope, scope)?;
-				let w = if scope.is_generic() {
-					match &width {
-						Some(val) => {
-							if val.value <= num_bigint::BigInt::from(0) {
-								return Err(miette::Report::new(
-									SemanticError::NegativeBusWidth
-										.to_diagnostic_builder()
-										.label(bus.width.get_location(), "Array size must be positive")
-										.build(),
-								));
-							}
-							BusWidth::Evaluable(bus.width.get_location())
-						},
-						None => BusWidth::Evaluable(bus.width.get_location()),
-					}
-				}
-				else {
-					let value = width.unwrap();
-					if &value.value <= &num_bigint::BigInt::from(0) {
-						return Err(miette::Report::new(
-							SemanticError::NegativeBusWidth
-								.to_diagnostic_builder()
-								.label(bus.width.get_location(), "Array size must be positive")
-								.build(),
-						));
-					}
-					BusWidth::EvaluatedLocated(value, bus.width.get_location())
+				// I do not know why I wanted to do it differently before
+				let w = match &width {
+					Some(val) => {
+						if val.value <= num_bigint::BigInt::from(0) {
+							return Err(miette::Report::new(
+								SemanticError::NegativeBusWidth
+									.to_diagnostic_builder()
+									.label(bus.width.get_location(), "Array size must be positive")
+									.build(),
+							));
+						}
+						BusWidth::EvaluatedLocated(val.clone(), bus.width.get_location())
+					},
+					None => BusWidth::Evaluable(bus.width.get_location()),
 				};
 
 				Ok(VariableKind::Signal(Signal {

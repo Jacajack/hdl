@@ -525,7 +525,7 @@ impl crate::parser::ast::Expression {
 			PostfixWithArgs(function) => {
 				let func_name = global_ctx.id_table.get_value(&function.id);
 				match func_name.as_str() {
-					"zeroes" | "ones" => vec![SensitivityGraphEntry::new_sens(SignalSensitivity::Const(
+					"zeros" | "ones" => vec![SensitivityGraphEntry::new_sens(SignalSensitivity::Const(
 						self.get_location(),
 					))],
 					"rep" | "trunc" | "zext" | "ext" | "sext" | "fold_or" | "fold_xor" | "fold_and" => function

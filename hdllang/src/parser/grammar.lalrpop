@@ -322,7 +322,7 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 	
 }
 VarBlock: VariableBlock ={
-	<start: @L> <mc: MetadataComments ?> <mut types:NonEmptySpace<Qualifier>> "{" <statements:Space<VarBlockStmt>> "}" ";"? <end: @R> =>
+	<start: @L> <mc: MetadataComments ?> <types:NonEmptySpace<Qualifier>> "{" <statements:Space<VarBlockStmt>> "}" ";"? <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,

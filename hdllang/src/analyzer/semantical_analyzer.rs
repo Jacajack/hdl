@@ -11,7 +11,7 @@ pub struct SemanticalAnalyzer<'a> {
 	passes: Vec<
 		for<'b> fn(
 			&mut GlobalAnalyzerContext<'a>,
-			&mut LocalAnalyzerContext,
+			&mut Box<LocalAnalyzerContext>,
 			&ModuleImplementation,
 		) -> miette::Result<()>,
 	>,
@@ -177,7 +177,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 /// This pass collects all variables
 pub fn first_pass(
 	ctx: &mut GlobalAnalyzerContext,
-	local_ctx: &mut LocalAnalyzerContext,
+	local_ctx: &mut Box<LocalAnalyzerContext>,
 	module: &ModuleImplementation,
 ) -> miette::Result<()> {
 	// all passes are performed per module
@@ -189,7 +189,7 @@ pub fn first_pass(
 /// This pass checks if all variables have specified sensitivity and width if needed
 pub fn second_pass(
 	ctx: &mut GlobalAnalyzerContext,
-	local_ctx: &mut LocalAnalyzerContext,
+	local_ctx: &mut Box<LocalAnalyzerContext>,
 	module: &ModuleImplementation,
 ) -> miette::Result<()> {
 	// all passes are performed per module
@@ -201,9 +201,12 @@ pub fn second_pass(
 /// This pass invokes HIRN API and creates proper module
 pub fn codegen_pass(
 	ctx: &mut GlobalAnalyzerContext,
-	local_ctx: &mut LocalAnalyzerContext,
+	local_ctx: &mut Box<LocalAnalyzerContext>,
 	module: &ModuleImplementation,
 ) -> miette::Result<()> {
+	// first, generic codegen pass needs to be conducted
+	// FIXME when intermidiate signal insertion is implemented
+	// then other statements and blocks can be codegened
 	module.codegen_pass(ctx, local_ctx)?;
 	Ok(())
 }

@@ -36,10 +36,10 @@ pub enum BinaryOpcode {
 }
 
 impl BinaryOpcode {
-	pub fn is_relational(&self) -> bool {
+	pub fn do_widths_have_to_match(&self) -> bool {
 		use self::BinaryOpcode::*;
 		match *self {
-			Less | Greater | LessEqual | GreaterEqual | Equal | NotEqual => true,
+			Less | Greater | LessEqual | GreaterEqual | Equal | NotEqual | BitwiseAnd | BitwiseOr |BitwiseXor => true,
 			_ => false,
 		}
 	}

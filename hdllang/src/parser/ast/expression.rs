@@ -142,42 +142,77 @@ impl SourceLocation for Expression {
 
 impl Expression {
 	pub fn transform<T>(&mut self, f: &dyn Fn(&mut Expression) -> Result<(), T>) -> Result<(), T> {
-		f(self)?;
+		log::debug!("Transforming expression {:?}", self);
 		use self::Expression::*;
 		match self {
-			Number(_) => f(self),
-			Identifier(_) => f(self),
+			Number(_) => (),
+			Identifier(_) => (),
 			ParenthesizedExpression(expr) => {
-				f(expr.expression.as_mut())?;
-				expr.expression.transform(f)
+				expr.expression.transform(f)?;
 			},
-			MatchExpression(_) => f(self),
-			ConditionalExpression(_) => f(self),
+			MatchExpression(expr) => {
+				expr.value.transform(f)?;
+				for statement in &mut expr.statements {
+					use MatchExpressionAntecendent::*;
+					match  &mut statement.antecedent{
+        				Expression { expressions, location:_ } => {
+							for expr in expressions {
+								expr.transform(f)?;
+							}
+						},
+        				Default { .. } => (),
+    				}
+					statement.expression.transform(f)?;
+				}
+			},
+			ConditionalExpression(expr) => {
+				for statement in &mut expr.statements {
+					use MatchExpressionAntecendent::*;
+					match  &mut statement.antecedent{
+        				Expression { expressions, location:_ } => {
+							for expr in expressions {
+								expr.transform(f)?;
+							}
+						},
+        				Default { .. } => (),
+    				}
+					statement.expression.transform(f)?;
+				}
+			},
 			Tuple(_) => unreachable!(),
 			TernaryExpression(tern) => {
-				f(tern.condition.as_mut())?;
 				tern.condition.transform(f)?;
-				f(tern.true_branch.as_mut())?;
 				tern.true_branch.transform(f)?;
-				f(tern.false_branch.as_mut())?;
-				tern.false_branch.transform(f)
+				tern.false_branch.transform(f)?;
 			},
-			PostfixWithIndex(_) => f(self),
-			PostfixWithRange(_) => f(self),
-			PostfixWithArgs(_) => f(self),
-			PostfixWithId(_) => f(self),
+			PostfixWithIndex(postfix) => {
+				postfix.expression.transform(f)?;
+				postfix.index.transform(f)?;
+			},
+			PostfixWithRange(expr) => {
+				expr.expression.transform(f)?;
+				expr.range.lhs.transform(f)?;
+				expr.range.rhs.transform(f)?;
+			},
+			PostfixWithArgs(expr) => {
+				for arg in expr.argument_list.iter_mut() {
+					arg.transform(f)?;
+				}
+			},
+			PostfixWithId(_) => (),
 			UnaryOperatorExpression(un) => {
-				f(un.expression.as_mut())?;
-				un.expression.transform(f)
+				un.expression.transform(f)?;
 			},
-			UnaryCastExpression(_) => todo!(),
+			UnaryCastExpression(expr) => {
+				expr.expression.transform(f)?;
+			},
 			BinaryExpression(binop) => {
-				f(binop.lhs.as_mut())?;
 				binop.lhs.transform(f)?;
-				f(binop.rhs.as_mut())?;
-				binop.rhs.transform(f)
+				binop.rhs.transform(f)?;
 			},
-		}
+		};
+		f(self)?;
+		Ok(())
 	}
 	/// deprecated, not used
 	pub fn get_name_sync_or_comb(&self) -> miette::Result<IdTableKey> {
@@ -303,7 +338,7 @@ impl Expression {
 	pub fn assign(
 		&self,
 		value: BusWidth,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		scope_id: usize,
 	) -> Result<(), CompilerDiagnosticBuilder> {
 		use Expression::*;
@@ -783,7 +818,7 @@ impl Expression {
 											hirn::design::SignalSignedness::Unsigned
 										}
 									},
-									None => hirn::design::SignalSignedness::Unsigned,
+									None => hirn::design::SignalSignedness::Signed,
 								},
 								nc.width.unwrap_or(64).into(),
 							)
@@ -791,7 +826,7 @@ impl Expression {
 						));
 					}
 				}
-				let constant = nc_table.get_by_key(&num.key).unwrap(); //FIXME read additional information from local_ctx
+				let constant = nc_table.get_by_key(&num.key).unwrap();
 				let signed = match constant.signed {
 					Some(s) => s,
 					None => true,
@@ -1007,7 +1042,7 @@ impl Expression {
 						}
 						unreachable!()
 					},
-					"zeroes" => {
+					"zeros" => {
 						let expr = hirn::design::NumericConstant::from_bigint(
 							0.into(),
 							hirn::design::SignalSignedness::Unsigned,
@@ -1403,7 +1438,7 @@ impl Expression {
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
 		scope_id: usize,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		coupling_type: Signal,
 		is_lhs: bool,
 		location: SourceSpan,
@@ -1445,13 +1480,15 @@ impl Expression {
 						local_ctx.nc_widths.insert(self.get_location(), constant.clone());
 					},
 					(Some(coming), Some(original)) => {
+						log::debug!("Coming: {:?}", coming);
+						log::debug!("Original: {:?}", original);
 						if coming != original {
 							return Err(miette::Report::new(
 								SemanticError::WidthMismatch
 									.to_diagnostic_builder()
-									.label(num.location, "Width of this expression does not match")
+									.label(num.location, format!("Width of this expression is {}", original.get_value().unwrap()).as_str())
 									.label(location, "Width mismach in this expression")
-									.label(coupling_type.get_width_location().unwrap(), "Width of this signal")
+									.label(coupling_type.get_width_location().unwrap(), format!("Width of this expression is {}", coming.get_value().unwrap()).as_str())
 									.build(),
 							));
 						}
@@ -1895,35 +1932,41 @@ impl Expression {
 			PostfixWithArgs(function) => {
 				let func_name = global_ctx.id_table.get_value(&function.id);
 				match func_name.as_str() {
-					"zeroes" | "ones" => {
-						if function.argument_list.len() > 1 {
-							return Err(miette::Report::new(
+					"zeros" | "ones" => {
+						match function.argument_list.len() {
+							//0 => { // FIXME
+							//	Ok(coupling_type.clone())
+							//},
+							1=> {
+								let expr = function.argument_list[0]
+									.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?
+									.expect("This panics in generic modules implementatation"); // FIXME
+								if expr.value < 0.into() {
+									return Err(miette::Report::new(
+										SemanticError::NegativeBusWidth // FIXME this error name
+											.to_diagnostic_builder()
+											.label(
+												function.argument_list[0].get_location(),
+												"This argument cannot be negative",
+											)
+											.build(),
+									));
+								}
+								let expr = Signal::new_bus(
+									Some(BusWidth::Evaluated(expr)),
+									SignalSignedness::Unsigned(self.get_location()),
+									self.get_location(),
+								);
+								Ok(expr)
+							},
+							_ =>
+							Err(miette::Report::new(
 								SemanticError::BadFunctionArguments
 									.to_diagnostic_builder()
 									.label(function.location, "This function should have only one argument")
 									.build(),
-							));
+							)),
 						}
-						let expr = function.argument_list[0]
-							.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?
-							.expect("This panics in generic modules implementatation"); // FIXME
-						if expr.value < 0.into() {
-							return Err(miette::Report::new(
-								SemanticError::NegativeBusWidth // FIXME this error name
-									.to_diagnostic_builder()
-									.label(
-										function.argument_list[0].get_location(),
-										"This argument cannot be negative",
-									)
-									.build(),
-							));
-						}
-						let expr = Signal::new_bus(
-							Some(BusWidth::Evaluated(expr)),
-							SignalSignedness::Unsigned(self.get_location()),
-							self.get_location(),
-						);
-						Ok(expr)
 					},
 					"trunc" => {
 						if function.argument_list.len() > 1 {
@@ -2042,7 +2085,7 @@ impl Expression {
 							.insert(function.location, coupling_type.width().unwrap());
 						let signedness = match func_name.as_str() {
 							"zext" => SignalSignedness::Unsigned(self.get_location()),
-							"ext" => coupling_type.get_signedness(),
+							"ext" => expr.get_signedness(),
 							"sext" => SignalSignedness::Signed(self.get_location()),
 							_ => unreachable!(),
 						};
@@ -2476,7 +2519,7 @@ impl Expression {
 					));
 				}
 				debug!("type_first: {:?}", type_first);
-				let type_second = match binop.code.is_relational() {
+				let type_second = match binop.code.do_widths_have_to_match() {
 					true => binop.rhs.evaluate_type(
 						global_ctx,
 						scope_id,
@@ -2524,21 +2567,49 @@ impl Expression {
 				}
 				let w = match &binop.code {
 					Multiplication => {
-						use SignalType::*;
-						match (&type_first.signal_type, &type_second.signal_type) {
-							(Bus(bus1), Bus(bus2)) => BusWidth::Evaluated(NumericConstant::new_from_value(
-								bus2.width.clone().unwrap().get_value().unwrap()
-									+ bus1.width.clone().unwrap().get_value().unwrap(),
-							)),
-							(Bus(bus), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(
-								BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap(),
-							)),
-							(Wire(_), Bus(bus)) => BusWidth::Evaluated(NumericConstant::new_from_value(
-								BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap(),
-							)),
-							(Wire(_), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(2))),
-							(..) => unreachable!(),
+						use SignalSignedness::*;
+						match (&type_first.get_signedness(), &type_second.get_signedness()) {
+							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
+							(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
+								return Err(miette::Report::new(
+									SemanticError::SignednessMismatch
+										.to_diagnostic_builder()
+										.label(*loc1, "This signal is signed")
+										.label(*loc2, "This signal is unsigned")
+										.build(),
+								));
+							},
+							(_, NoSignedness) => {
+								binop.rhs.evaluate_type(
+									global_ctx,
+									scope_id,
+									local_ctx,
+									Signal::new_bus(None, type_first.get_signedness(), self.get_location()),
+									is_lhs,
+									location,
+								)?;
+							},
+							(NoSignedness, _) => {
+								binop.lhs.evaluate_type(
+									global_ctx,
+									scope_id,
+									local_ctx,
+									Signal::new_bus(None, type_second.get_signedness(), self.get_location()),
+									is_lhs,
+									location,
+								)?;
+								type_first.set_signedness(type_second.get_signedness(), self.get_location());
+							},
 						}
+						local_ctx.scope.add_expression(self.get_location(), scope_id, self.clone());
+						match (&type_first.width().unwrap().get_value(), &type_second.width().unwrap().get_value()){
+        					(None, None) => BusWidth::WidthOf(self.get_location()),
+        					(None, Some(_)) =>  BusWidth::WidthOf(self.get_location()),
+        					(Some(_), None) =>  BusWidth::WidthOf(self.get_location()),
+        					(Some(v1), Some(v2)) => BusWidth::Evaluated(NumericConstant::new_from_value(
+								v1+v2
+							)),
+    					}
 					},
 					Division => type_first.width().clone().unwrap(),
 					Addition | Subtraction => {
@@ -2576,23 +2647,17 @@ impl Expression {
 								type_first.set_signedness(type_second.get_signedness(), self.get_location());
 							},
 						}
-						use SignalType::*;
-						match (&type_first.signal_type, &type_second.signal_type) {
-							(Bus(bus1), Bus(bus2)) => BusWidth::Evaluated(NumericConstant::new_from_value(
+						local_ctx.scope.add_expression(self.get_location(), scope_id, self.clone());
+						match (&type_first.width().unwrap().get_value(), &type_second.width().unwrap().get_value()){
+        					(None, None) => BusWidth::WidthOf(self.get_location()),
+        					(None, Some(_)) =>  BusWidth::WidthOf(self.get_location()),
+        					(Some(_), None) =>  BusWidth::WidthOf(self.get_location()),
+        					(Some(v1), Some(v2)) => BusWidth::Evaluated(NumericConstant::new_from_value(
 								max(
-									bus2.width.clone().unwrap().get_value().unwrap(),
-									bus1.width.clone().unwrap().get_value().unwrap(),
+									v1, v2
 								) + BigInt::from(1),
 							)),
-							(Bus(bus), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(
-								BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap(),
-							)),
-							(Wire(_), Bus(bus)) => BusWidth::Evaluated(NumericConstant::new_from_value(
-								BigInt::from(1) + bus.width.clone().unwrap().get_value().unwrap(),
-							)),
-							(Wire(_), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(2))),
-							(..) => unreachable!(),
-						}
+    					}
 					},
 					Modulo => type_second.width().clone().unwrap(),
 					LShift | RShift => type_first.width().clone().unwrap(),

@@ -1,0 +1,10 @@
+module X {}
+
+impl X {
+    wire x = true;
+    bus<10> y = zext(x);    
+    bus<10> z = sext(x);
+    ubus<10> w = ext(x);
+    
+    ubus<10> v = w & ext(x);
+}

@@ -19,9 +19,8 @@ use log::debug;
 use num_bigint::BigInt;
 
 use crate::{
-	core::id_table::{self, IdTable},
-	lexer::IdTableKey,
-	ProvidesCompilerDiagnostic, SourceSpan,
+	core::id_table::{self},
+	lexer::IdTableKey, SourceSpan,
 };
 
 use super::{module_implementation_scope::InternalVariableId, *};
@@ -114,6 +113,7 @@ impl Variable {
 								)?
 							},
 							Evaluable(location) => {
+								log::debug!("Looking for expression at {:?}", location);
 								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
 								expr_ast.expression.codegen(
 									nc_table,
@@ -125,20 +125,22 @@ impl Variable {
 							},
 							WidthOf(location) => {
 								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-								expr_ast.expression.codegen(
+								let expr = expr_ast.expression.codegen(
 									nc_table,
 									id_table,
 									expr_ast.scope_id,
 									scope,
 									additional_ctx,
-								)?
-							}, //FIXME coming soon
+								)?;
+								log::debug!("Width of is {:?}", expr);
+								hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Width(Box::new(expr)))
+							}, 
 						};
 						debug!("Width is {:?}", width);
 						match bus.signedness {
 							SignalSignedness::Signed(_) => builder = builder.signed(width),
 							SignalSignedness::Unsigned(_) => builder = builder.unsigned(width),
-							SignalSignedness::NoSignedness => unreachable!(), // report an error
+							SignalSignedness::NoSignedness => unreachable!(),
 						}
 					},
 					SignalType::Wire(_) => builder = builder.wire(),
@@ -170,14 +172,15 @@ impl Variable {
 							builder = builder.array(expr).unwrap();
 						},
 						WidthOf(location) => {
-							let expr = scope.evaluated_expressions.get(location).unwrap().expression.codegen(
+							let mut expr = scope.evaluated_expressions.get(location).unwrap().expression.codegen(
 								nc_table,
 								id_table,
 								scope_id,
 								scope,
 								additional_ctx,
 							)?;
-							builder = builder.array(expr).unwrap(); // FIXME it should be width of
+							expr = hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Width(Box::new(expr)));
+							builder = builder.array(expr).unwrap();
 						},
 					}
 				}
@@ -204,9 +207,10 @@ impl Variable {
 						},
 						WidthOf(location) => {
 							let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-							expr_ast
+							let expr = expr_ast
 								.expression
-								.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
+								.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?;
+							hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Width(Box::new(expr)))
 						},
 					},
 					None => Expression::Constant(hirn::design::NumericConstant::new_signed(64.into())),
@@ -243,34 +247,13 @@ impl PartialEq for BusWidth {
 		match (self, other) {
 			(Evaluated(l0), Evaluated(r0)) => l0 == r0,
 			(EvaluatedLocated(l0, _), EvaluatedLocated(r0, _)) => l0 == r0,
-			(WidthOf(_), _) => true,
-			(BusWidth::Evaluated(l0), BusWidth::EvaluatedLocated(r0, _)) => l0 == r0,
-			(_, BusWidth::Evaluable(_)) => true,
-			(_, BusWidth::WidthOf(_)) => true,
-			(BusWidth::EvaluatedLocated(l0, _), BusWidth::Evaluated(r0)) => l0 == r0,
-			(BusWidth::Evaluable(_), _) => true,
+			(Evaluated(l0), EvaluatedLocated(r0, _)) => l0 == r0,
+			(EvaluatedLocated(l0, _), Evaluated(r0)) => l0 == r0,
+			_=> true,
 		}
 	}
 }
 impl BusWidth {
-	pub fn is_located(&self) -> bool {
-		use BusWidth::*;
-		match self {
-			EvaluatedLocated(..) => true,
-			Evaluated(_) => false,
-			Evaluable(_) => true,
-			WidthOf(_) => true,
-		}
-	}
-	pub fn to_generic(&mut self) {
-		use BusWidth::*;
-		match self {
-			EvaluatedLocated(_, location) => *self = Evaluable(*location),
-			Evaluated(_) => (),
-			Evaluable(_) => (),
-			WidthOf(_) => (),
-		}
-	}
 	pub fn get_location(&self) -> Option<SourceSpan> {
 		use BusWidth::*;
 		match self {
@@ -280,38 +263,6 @@ impl BusWidth {
 			WidthOf(location) => Some(*location),
 		}
 	}
-	pub fn eval(
-		&mut self,
-		nc_table: &crate::lexer::NumericConstantTable,
-		_id_table: &IdTable,
-		scope: &ModuleImplementationScope,
-	) -> miette::Result<()> {
-		// FIXME
-		use BusWidth::*;
-		match self {
-			Evaluated(_) => (),
-			EvaluatedLocated(nc, _) => *self = BusWidth::Evaluated(nc.clone()),
-			Evaluable(location) => {
-				let expr = scope.evaluated_expressions.get(location).unwrap();
-				debug!("Expr is known!");
-				let nc = expr.expression.evaluate(&nc_table, expr.scope_id, scope)?.unwrap(); // FIXME
-				if nc.value < 0.into() {
-					return Err(miette::Report::new(
-						SemanticError::NegativeBusWidth
-							.to_diagnostic_builder()
-							.label(*location, "Bus width must be positive")
-							.label(*location, format!("Actual width: {:?}", nc.value).as_str())
-							.build(),
-					));
-				}
-				*self = BusWidth::Evaluated(nc)
-			},
-			WidthOf(_) => {
-				todo!()
-			},
-		}
-		Ok(())
-	}
 	pub fn get_value(&self) -> Option<BigInt> {
 		use BusWidth::*;
 		match self {
@@ -319,15 +270,6 @@ impl BusWidth {
 			EvaluatedLocated(value, _) => Some(value.clone().value),
 			Evaluable(_) => None,
 			WidthOf(_) => None,
-		}
-	}
-	pub fn get_nc(&self) -> crate::core::NumericConstant {
-		use BusWidth::*;
-		match self {
-			Evaluated(value) => value.clone(),
-			EvaluatedLocated(value, _) => value.clone(),
-			Evaluable(_) => panic!("Cannot get numeric constant from an unevaluated expression"),
-			WidthOf(_) => panic!("Cannot get numeric constant from an unevaluated expression"),
 		}
 	}
 }

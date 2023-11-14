@@ -86,7 +86,7 @@ impl PortBindStatement {
 			IdWithDeclaration(id_with_declaration) => {
 				let var = local_ctx
 					.scope
-					.get_variable(scope_id, &id_with_declaration.id)
+					.get_variable(scope_id, &id_with_declaration.declaration.direct_declarators.first().unwrap().name)
 					.unwrap()
 					.clone();
 				vec![SensitivityGraphEntry::Signal(var.id, var.var.location)]
@@ -119,7 +119,7 @@ impl PortBindStatement {
 	pub fn get_type(
 		&self,
 		ctx: &GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		scope_id: usize,
 		interface_signal: Signal,
 		is_output: bool,
@@ -217,7 +217,7 @@ impl PortBindStatement {
 	pub fn codegen_pass(
 		&self,
 		ctx: &GlobalAnalyzerContext,
-		local_ctx: &mut LocalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
 		api_scope: &mut ScopeHandle,
 		current_scope: usize,
 	) -> miette::Result<hirn::design::Expression> {

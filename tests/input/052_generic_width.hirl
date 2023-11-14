@@ -1,0 +1,23 @@
+module X {
+	int x_w;
+	int y_w;
+	input const ubus<x_w> x;
+	input const ubus<y_w> y;
+}
+
+impl X {
+	auto result = x + y;
+	auto result1 = x * y;
+	auto result2 = x - y;
+	auto result3 = x / y;
+}
+
+module m{}
+impl m{
+	X xx{
+		x_w : 8,
+		y_w : 8,
+		x : const auto x,
+		y : const auto y
+	}
+}
