@@ -22,7 +22,7 @@ use super::{
 	ElabPass,
 };
 
-pub use scope_pass::ScopePassId;
+pub use scope_pass::{ScopePassId, ScopePassInfo};
 pub use gen_signal::{GeneratedSignal, GeneratedSignalId, GeneratedSignalRef};
 
 #[derive(Clone, Debug, Copy)]
@@ -46,30 +46,15 @@ impl Default for SignalGraphPassConfig {
 	}
 }
 
-/// Auxiliary information about a scope pass
-#[derive(Clone, Copy, Debug)]
-pub enum ScopePassInfo {
-	Unconditional{
-		id: ScopeId,
-		parent_id: Option<ScopeId>,
-	},
-	Conditional {
-		id: ScopeId,
-		parent_id: ScopeId,
-		was_true: bool,
-	},
-	Range {
-		id: ScopeId,
-		parent_id: ScopeId,
-		iter_number: i64,
-	}
-}
 pub struct SignalGraphPassResult {
 	/// All generated signals
 	signals: HashMap<GeneratedSignalId, GeneratedSignal>,
 
 	/// Elaborated signals
 	elab_signals: HashMap<GeneratedSignalRef, ElabSignal>,
+
+	/// Scope pass info
+	pass_info: HashMap<ScopePassId, ScopePassInfo>,
 }
 
 impl SignalGraphPassResult {
@@ -79,6 +64,10 @@ impl SignalGraphPassResult {
 
 	pub fn elab_signals(&self) -> &HashMap<GeneratedSignalRef, ElabSignal> {
 		&self.elab_signals
+	}
+
+	pub fn pass_info(&self) -> &HashMap<ScopePassId, ScopePassInfo> {
+		&self.pass_info
 	}
 }
 
@@ -179,6 +168,7 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for SignalGraphPass {
 		full_ctx.sig_graph_result = Some(SignalGraphPassResult{
 			signals: ctx.signals,
 			elab_signals: ctx.elab_signals,
+			pass_info: ctx.pass_info,
 		}); 
 		Ok(full_ctx)
 	}

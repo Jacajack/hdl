@@ -317,6 +317,7 @@ impl SignalMaskSummary {
 	}
 }
 
+#[derive(Clone, Debug)]
 pub struct ElabSignal {
 	conflict_mask: SignalMask,
 	driven_mask: SignalMask,
@@ -366,6 +367,18 @@ impl ElabSignal {
 
 	pub fn width(&self) -> u32 {
 		self.read_mask.width()
+	}
+
+	pub fn conflict_mask(&self) -> &SignalMask {
+		&self.conflict_mask
+	}
+
+	pub fn driven_mask(&self) -> &SignalMask {
+		&self.driven_mask
+	}
+
+	pub fn read_mask(&self) -> &SignalMask {
+		&self.read_mask
 	}
 
 	pub fn conflict_summary(&self) -> SignalMaskSummary {

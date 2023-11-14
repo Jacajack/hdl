@@ -1,10 +1,29 @@
 use crate::design::ScopeId;
 
-use super::{SignalGraphPassCtx, ScopePassInfo};
+use super::SignalGraphPassCtx;
 
 /// IDs generated each time a scope is visited
 #[derive(Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
 pub struct ScopePassId(usize);
+
+/// Auxiliary information about a scope pass
+#[derive(Clone, Copy, Debug)]
+pub enum ScopePassInfo {
+	Unconditional{
+		id: ScopeId,
+		parent_id: Option<ScopeId>,
+	},
+	Conditional {
+		id: ScopeId,
+		parent_id: ScopeId,
+		was_true: bool,
+	},
+	Range {
+		id: ScopeId,
+		parent_id: ScopeId,
+		iter_number: i64,
+	}
+}
 
 impl SignalGraphPassCtx {
 	/// Records that an unconditional scope has been visited

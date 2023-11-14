@@ -28,7 +28,6 @@ impl FullElabCtx {
 			kind,
 			self.module_id,
 			self.assumptions.clone(),
-			Some(&*self.severity_policy),
 		));
 	}
 
