@@ -1932,35 +1932,41 @@ impl Expression {
 			PostfixWithArgs(function) => {
 				let func_name = global_ctx.id_table.get_value(&function.id);
 				match func_name.as_str() {
-					"zeroes" | "ones" => {
-						if function.argument_list.len() > 1 {
-							return Err(miette::Report::new(
+					"zeros" | "ones" => {
+						match function.argument_list.len() {
+							//0 => { // FIXME
+							//	Ok(coupling_type.clone())
+							//},
+							1=> {
+								let expr = function.argument_list[0]
+									.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?
+									.expect("This panics in generic modules implementatation"); // FIXME
+								if expr.value < 0.into() {
+									return Err(miette::Report::new(
+										SemanticError::NegativeBusWidth // FIXME this error name
+											.to_diagnostic_builder()
+											.label(
+												function.argument_list[0].get_location(),
+												"This argument cannot be negative",
+											)
+											.build(),
+									));
+								}
+								let expr = Signal::new_bus(
+									Some(BusWidth::Evaluated(expr)),
+									SignalSignedness::Unsigned(self.get_location()),
+									self.get_location(),
+								);
+								Ok(expr)
+							},
+							_ =>
+							Err(miette::Report::new(
 								SemanticError::BadFunctionArguments
 									.to_diagnostic_builder()
 									.label(function.location, "This function should have only one argument")
 									.build(),
-							));
+							)),
 						}
-						let expr = function.argument_list[0]
-							.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?
-							.expect("This panics in generic modules implementatation"); // FIXME
-						if expr.value < 0.into() {
-							return Err(miette::Report::new(
-								SemanticError::NegativeBusWidth // FIXME this error name
-									.to_diagnostic_builder()
-									.label(
-										function.argument_list[0].get_location(),
-										"This argument cannot be negative",
-									)
-									.build(),
-							));
-						}
-						let expr = Signal::new_bus(
-							Some(BusWidth::Evaluated(expr)),
-							SignalSignedness::Unsigned(self.get_location()),
-							self.get_location(),
-						);
-						Ok(expr)
 					},
 					"trunc" => {
 						if function.argument_list.len() > 1 {
@@ -2513,7 +2519,7 @@ impl Expression {
 					));
 				}
 				debug!("type_first: {:?}", type_first);
-				let type_second = match binop.code.is_relational() {
+				let type_second = match binop.code.do_widths_have_to_match() {
 					true => binop.rhs.evaluate_type(
 						global_ctx,
 						scope_id,
