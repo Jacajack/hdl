@@ -26,7 +26,7 @@ impl stupid_multiply {
 	wire output_transaction_c = output_valid && output_ready;
 
 	/// Internal FSM states
-	auto
+	uint
 		STATE_IDLE = 0u2,
 		STATE_INIT = 1u2,
 		STATE_BUSY = 2u2,

@@ -1,0 +1,4 @@
+module m {}
+impl m {
+	bool k = 1u2 & 1u2;
+}

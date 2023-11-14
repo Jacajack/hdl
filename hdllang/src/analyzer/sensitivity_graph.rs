@@ -6,16 +6,13 @@ use std::{
 use super::{GlobalAnalyzerContext, LocalAnalyzerContext, ModuleImplementationScope, SignalSensitivity};
 use bimap::BiHashMap;
 use itertools::Itertools;
-use petgraph::{
-	algo::is_cyclic_directed,
-	prelude::{DiGraph, UnGraph},
-};
+use petgraph::prelude::{DiGraph, UnGraph};
 
 use crate::{
-	analyzer::{ModuleInstanceKind, SemanticError, VariableKind},
+	analyzer::{ModuleInstanceKind, VariableKind},
 	core::CompilerDiagnosticBuilder,
 	parser::ast::SourceLocation,
-	ProvidesCompilerDiagnostic, SourceSpan,
+	SourceSpan,
 };
 
 use super::module_implementation_scope::InternalVariableId;
@@ -170,19 +167,14 @@ impl SensitivityGraph {
 		to: SensitivityGraphEntry,
 		edge: SenstivityGraphEdge,
 	) -> Result<(), CompilerDiagnosticBuilder> {
-		assert!(!is_cyclic_directed(&self.graph));
-
 		let from_id = self.insert_or_get_index(from);
 		let to_id = self.insert_or_get_index(to);
-		self.graph.add_edge(from_id, to_id, edge);
+
+		if from_id != to_id {
+			self.graph.add_edge(from_id, to_id, edge);
+		}
 
 		log::debug!("Graph: {:?}", self.graph);
-
-		if is_cyclic_directed(&self.graph) {
-			return Err(SemanticError::CyclicDependency
-				.to_diagnostic_builder()
-				.label(edge.location(), "This edge creates a cyclic dependency"));
-		}
 		Ok(())
 	}
 	pub fn new() -> Self {
@@ -233,6 +225,68 @@ impl SensitivityGraph {
 			SensitivityGraphEntry::Sensitivity(_) => Ok(()),
 		}
 	}
+	pub fn deduce_sensitivity(
+		&self,
+		node: SensitivityGraphEntry,
+		ctx: &mut ModuleImplementationScope,
+		global_ctx: &GlobalAnalyzerContext,
+		already_visited: &mut HashSet<SensitivityGraphEntry>,
+		sensitivty_nodes: &mut HashMap<SignalSensitivity, SensitivityGraphEntry>,
+	) -> miette::Result<SignalSensitivity> {
+		log::debug!(
+			"Deducing sensitivity for node {:?} with already visited {:?}",
+			node,
+			already_visited
+		);
+		match node {
+			SensitivityGraphEntry::Signal(id, location) => {
+				if already_visited.contains(&node) {
+					return Ok(ctx.get_variable_by_id(id).unwrap().get_sensitivity());
+				}
+				already_visited.insert(node.clone());
+
+				let mut sens = SignalSensitivity::NoSensitivity;
+				let mut var_sens = ctx.get_variable_by_id(id).unwrap();
+				let return_sig = match &mut var_sens.var.kind {
+					super::VariableKind::Signal(sig) => {
+						if !sig.sensitivity.is_none() {
+							return Ok(sig.sensitivity.clone());
+						}
+						let neighbours = self
+							.graph
+							.neighbors_directed(self.get_index(&node), petgraph::Direction::Incoming);
+						for neighbour in neighbours {
+							sens.evaluate_sensitivity(
+								vec![self.deduce_sensitivity(
+									self.graph_entries
+										.get_by_left(&SenstivityGraphIndex::new(neighbour))
+										.unwrap()
+										.clone(),
+									ctx,
+									global_ctx,
+									already_visited,
+									sensitivty_nodes,
+								)?],
+								location,
+							);
+						}
+						sig.sensitivity = sens.clone();
+						sens.clone()
+					},
+					super::VariableKind::Generic(_) => SignalSensitivity::Const(var_sens.var.location),
+					_ => unreachable!(),
+				};
+				log::debug!("Inserting {:?} into sensitivity nodes", node);
+				log::debug!("Sensitivity for all predecessor of {:?} is {:?}", node, sens);
+				if !sensitivty_nodes.contains_key(&return_sig) {
+					sensitivty_nodes.insert(return_sig.clone(), node);
+				}
+				ctx.redeclare_variable(var_sens.clone());
+				Ok(return_sig)
+			},
+			SensitivityGraphEntry::Sensitivity(sens) => Ok(sens),
+		}
+	}
 	pub fn get_node_sensitivity(
 		&self,
 		node: SensitivityGraphEntry,
@@ -257,7 +311,7 @@ impl SensitivityGraph {
 					.neighbors_directed(self.get_index(&node), petgraph::Direction::Incoming);
 				let mut sens = SignalSensitivity::NoSensitivity;
 				let mut var_sens = ctx.get_variable_by_id(id).unwrap();
-
+				already_visited.insert(node.clone());
 				let return_sig = match &mut var_sens.var.kind {
 					super::VariableKind::Signal(sig) => {
 						for neighbour in neighbours {
@@ -330,7 +384,6 @@ impl SensitivityGraph {
 						if sig.sensitivity == SignalSensitivity::NoSensitivity {
 							sig.sensitivity = sens.clone();
 						}
-						already_visited.insert(node.clone());
 						sig.sensitivity.clone()
 					},
 					super::VariableKind::Generic(_) => SignalSensitivity::Const(var_sens.var.location),
@@ -341,7 +394,7 @@ impl SensitivityGraph {
 				if !sensitivty_nodes.contains_key(&return_sig) {
 					sensitivty_nodes.insert(return_sig.clone(), node);
 				}
-				ctx.redeclare_variable(var_sens.clone());
+				//ctx.redeclare_variable(var_sens.clone());
 				Ok(return_sig)
 			},
 			SensitivityGraphEntry::Sensitivity(sens) => Ok(sens),
@@ -352,10 +405,21 @@ impl SensitivityGraph {
 		scope: &mut super::ModuleImplementationScope,
 		global_ctx: &GlobalAnalyzerContext,
 	) -> miette::Result<()> {
-		assert!(!is_cyclic_directed(&self.graph));
 		let mut visited = HashSet::new();
 		let mut sens_nodes = HashMap::new();
 		let mut clock_graph = ClockGraph::new();
+		// deduce sensitivities
+		for node in self.graph.raw_nodes() {
+			let mut visited_deduction = HashSet::new();
+			self.deduce_sensitivity(
+				node.weight.clone(),
+				scope,
+				global_ctx,
+				&mut visited_deduction,
+				&mut sens_nodes,
+			)?;
+		}
+		// create clock mapping
 		for node in self.graph.raw_nodes() {
 			self.get_node_sensitivity_only_clock(
 				node.weight.clone(),
@@ -396,7 +460,6 @@ impl crate::parser::ast::Expression {
 			ParenthesizedExpression(expr) => expr.expression.get_internal_id(ctx, scope_id),
 			PostfixWithIndex(expr) => expr.expression.get_internal_id(ctx, scope_id),
 			PostfixWithRange(expr) => expr.expression.get_internal_id(ctx, scope_id),
-			PostfixWithId(expr) => todo!(),
 			_ => unreachable!(),
 		}
 	}

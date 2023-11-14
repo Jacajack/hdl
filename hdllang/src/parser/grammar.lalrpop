@@ -1,9 +1,8 @@
 use crate::parser::ast::*;
 use crate::lexer::*;
-use crate::parser::*;
 use crate::core::CompilerError;
 use crate::SourceSpan;
-grammar<'source>(ctx: & mut ParserContext<'source>, source: Option<&'source String>);
+grammar<'source>(source: Option<&'source String>);
 MetadataComments = NonEmptySpace<"MC">;
 pub Izulu: Root={
 	<start: @L> <definitions:Space<TopDefinition>> <end: @R> =>
@@ -323,14 +322,11 @@ ModuleDeclStmt: ModuleDeclarationStatement={
 	
 }
 VarBlock: VariableBlock ={
-	<start: @L> <mc: MetadataComments ?> <dir:Direction?> <mut types:NonEmptySpace<Qualifier>> "{" <statements:Space<VarBlockStmt>> "}" ";"? <end: @R> =>
+	<start: @L> <mc: MetadataComments ?> <mut types:NonEmptySpace<Qualifier>> "{" <statements:Space<VarBlockStmt>> "}" ";"? <end: @R> =>
 		{
 			let metadata = match mc{
 			Some(mc) => mc,
 			None => vec![],
-		};	
-		if let Some(d)=dir{
-			types.splice(0..0, [d]);
 		};
 		VariableBlock{
 			metadata,
@@ -339,40 +335,12 @@ VarBlock: VariableBlock ={
 			location:SourceSpan::new_between(start,end),
 		}
 	},
-	<start: @L> <mc: MetadataComments ?> <dir:Direction>  "{" <statements:Space<VarBlockStmt>> "}" ";"? <end: @R> =>
-	{
-		let metadata = match mc{
-		Some(mc) => mc,
-		None => vec![],
-	};
-	VariableBlock{
-		metadata,
-		types: vec![dir],
-		statements,
-		location:SourceSpan::new_between(start,end),
-	}
-	},
 }
 VarBlockStmt: VariableBlockStatement={
 	<block:VarBlock> =>	VariableBlockStatement::VariableBlock(block),
 	<definition:VarDef> => VariableBlockStatement::VariableDefinition(definition),
 }
 
-//VarDecl: VariableDeclaration = {
-//	<start: @L> <mc: MetadataComments?> <type_declarator:TypeDeclarator> <direct_declarators:NonEmptyComma<DirectDecl>> <end: @R>=>
-//	{
-//		let metadata = match mc{
-//		Some(mc) => mc,
-//		None => vec![],
-//		};		
-//		VariableDeclaration{
-//			metadata,
-//			type_declarator,
-//			direct_declarators,
-//			location:SourceSpan::new_between(start,end),
-//		}
-//	},
-//}
 SingleVarDecl: VariableDeclaration = {
 	<start: @L>  <type_declarator:TypeDeclarator> <direct_declarator:DirectDecl> <end: @R>=>
 		VariableDeclaration{
@@ -755,12 +723,24 @@ TypeDeclarator: TypeDeclarator ={
 		location:SourceSpan::new_between(start,end),
 		}
 	},
-	<start:@L> "unsigned" <specifier:CompType> <end:@R> =>{
+	<start:@L> "unsigned" <start1:@L> "int"  <end:@R> =>{
 		let qualifiers = vec![TypeQualifier::Unsigned{
-			location:SourceSpan::new_between(start,end),
+			location:SourceSpan::new_between(start,start1),
 		}];
 		TypeDeclarator{
-		specifier,
+		specifier:TypeSpecifier::Int{
+			location:SourceSpan::new_between(start1,end),
+		},
+		qualifiers,
+		location:SourceSpan::new_between(start,end),
+		}
+	},
+	<start:@L> "signed" <start1:@L> "int" <end:@R> =>{
+		let qualifiers = vec![];
+		TypeDeclarator{
+		specifier:TypeSpecifier::Int{
+			location:SourceSpan::new_between(start1,end),
+		},
 		qualifiers,
 		location:SourceSpan::new_between(start,end),
 		}

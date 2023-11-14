@@ -1,0 +1,7 @@
+module m {}
+impl m {
+	bus<4> a;
+	const wire c;
+	const bus<3> b;
+	a = b + c;
+}

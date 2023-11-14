@@ -1,6 +1,6 @@
 use log::debug;
 use num_bigint::BigInt;
-use serde::{de::value, Deserialize, Serialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum NumericConstantBase {

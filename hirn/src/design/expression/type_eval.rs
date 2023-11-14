@@ -1,6 +1,6 @@
 use super::{
-	BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalContext, EvalError, EvalType,
-	EvaluatesType, NumericConstant, UnaryExpression, eval::EvalAssumptions,
+	eval::EvalAssumptions, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalContext, EvalError,
+	EvalType, EvaluatesType, NumericConstant, UnaryExpression,
 };
 use crate::design::{BinaryOp, Expression, SignalId, SignalSensitivity, SignalSignedness, SignalSlice};
 

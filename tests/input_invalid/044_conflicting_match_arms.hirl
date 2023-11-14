@@ -1,0 +1,8 @@
+module X {}
+impl X {
+	const wire x = match (true) {
+		true => false,
+		true => true,
+		default => false,
+	};
+}

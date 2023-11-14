@@ -84,7 +84,7 @@ impl PortBindStatement {
 				.expression
 				.get_sensitivity_entry(global_ctx, local_ctx, scope_id),
 			IdWithDeclaration(id_with_declaration) => {
-				let mut var = local_ctx
+				let var = local_ctx
 					.scope
 					.get_variable(scope_id, &id_with_declaration.id)
 					.unwrap()
@@ -106,7 +106,7 @@ impl PortBindStatement {
 			},
 			IdWithExpression(id_with_expression) => id_with_expression.expression.get_internal_id(scope, scope_id),
 			IdWithDeclaration(id_with_decl) => {
-				let mut var = scope
+				let var = scope
 					.get_variable(
 						scope_id,
 						&id_with_decl.declaration.direct_declarators.first().unwrap().name,
@@ -130,7 +130,7 @@ impl PortBindStatement {
 				let mut var = local_ctx
 					.scope
 					.get_var(scope_id, &id.id)
-					.map_err(|mut err| err.label(self.location(), "This variable was not declared").build())?
+					.map_err(|err| err.label(self.location(), "This variable was not declared").build())?
 					.clone();
 				let mut sig = var.var.kind.to_signal().map_err(|err| {
 					err.label(self.location(), "This identifier cannot represent a signal")

@@ -122,10 +122,7 @@ where
 	Cache: Default + Clone,
 {
 	fn elaborate(&mut self, id: ModuleId, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<ElabReport, ElabError> {
-		self.queue.push_back(ElabQueueItem::new(
-			id,
-			assumptions,
-		));
+		self.queue.push_back(ElabQueueItem::new(id, assumptions));
 
 		self.run_queue()
 	}

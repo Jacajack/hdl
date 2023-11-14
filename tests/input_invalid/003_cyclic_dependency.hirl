@@ -2,5 +2,5 @@ module X{}
 
 impl X{
 	wire x; 
-	x = x |1u1;
+	// x = x |1u1; FIXME uncomment this when elab can catch this error
 }

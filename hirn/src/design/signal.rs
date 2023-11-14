@@ -325,7 +325,11 @@ impl From<SignalId> for SignalSliceRange {
 
 impl SignalSliceRange {
 	pub fn new_full(slice: SignalSlice) -> Self {
-		Self { slice, lsb: None, msb: None }
+		Self {
+			slice,
+			lsb: None,
+			msb: None,
+		}
 	}
 
 	pub fn new(slice: SignalSlice, lsb: Expression, msb: Expression) -> Self {

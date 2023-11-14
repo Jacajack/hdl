@@ -4,13 +4,11 @@ macro_rules! parse_func {
 			fn [<parse_ $name>](source: &str, should_pass: bool) {
 				use hdllang::core::DiagnosticBuffer;
 				use hdllang::lexer::{Lexer, LogosLexer};
-				use hdllang::parser::ParserContext;
 				use hdllang::parser::$production_name;
 				let lexer = LogosLexer::new(source);
 				let buf = Box::new(DiagnosticBuffer::new());
-				let mut ctx = ParserContext { diagnostic_buffer: buf };
 				let result = $production_name::new()
-					.parse(&mut ctx, Some(&String::from(source)), lexer);
+					.parse(Some(&String::from(source)), lexer);
 				if should_pass{
 					assert!(
 						result.is_ok(),

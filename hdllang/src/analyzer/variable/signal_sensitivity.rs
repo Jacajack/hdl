@@ -172,7 +172,7 @@ impl SignalSensitivity {
 		&mut self,
 		rhs: &SignalSensitivity,
 		location: SourceSpan,
-		global_ctx: &GlobalAnalyzerContext,
+		_global_ctx: &GlobalAnalyzerContext,
 	) -> miette::Result<()> {
 		use SignalSensitivity::*;
 		log::debug!("Self {:?}", self);
@@ -184,7 +184,7 @@ impl SignalSensitivity {
 			| (Const(_), Const(_))
 			| (Clock(..), Clock(..)) => (),
 			(NoSensitivity, _) => *self = rhs.clone(),
-			(Comb(curent, lhs_location), Comb(incoming, _)) => {
+			(Comb(curent, _), Comb(incoming, _)) => {
 				for value in &incoming.list {
 					if !curent.contains_clock(value.clock_signal) {
 						return Err(miette::Report::new(
@@ -389,6 +389,7 @@ mod tests {
 			modules_declared: HashMap::new(),
 			generic_modules: HashMap::new(),
 			design: hirn::design::DesignHandle::new(),
+			diagnostic_buffer: crate::core::DiagnosticBuffer::new(),
 		}
 	}
 	fn span() -> SourceSpan {

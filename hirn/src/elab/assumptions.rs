@@ -1,15 +1,17 @@
-use std::{rc::Rc, collections::HashMap, sync::Arc};
+use std::{collections::HashMap, rc::Rc, sync::Arc};
 
 use dyn_clone::DynClone;
 
-use crate::design::{SignalId, EvalAssumptions, DesignHandle, NumericConstant, self};
+use crate::design::{self, DesignHandle, EvalAssumptions, NumericConstant, SignalId};
 
 use super::GenericVar;
 
 /// Trait which must be implemented by all elaboration assumption
 pub trait ElabAssumptionsBase: DynClone + core::fmt::Debug {
-	fn design(&self) -> Option<DesignHandle> {None}
-	
+	fn design(&self) -> Option<DesignHandle> {
+		None
+	}
+
 	fn get_indexed(&self, id: SignalId, indices: &Vec<GenericVar>) -> Option<&NumericConstant>;
 
 	fn get(&self, id: SignalId) -> Option<&NumericConstant> {
@@ -116,7 +118,7 @@ impl ElabAssumptionsBase for ElabAssumptions {
 			None => match self.parent {
 				Some(ref p) => p.get_indexed(id, indices),
 				None => None,
-			}
+			},
 		}
 	}
 
@@ -126,11 +128,7 @@ impl ElabAssumptionsBase for ElabAssumptions {
 			None => match self.parent {
 				Some(ref p) => p.get(id),
 				None => None,
-			}
+			},
 		}
 	}
 }
-
-
-
-
