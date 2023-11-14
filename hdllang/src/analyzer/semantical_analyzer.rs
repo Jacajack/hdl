@@ -101,7 +101,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 			match elab_result {
 				Ok(elab_report) => {
 					for msg in elab_report.messages() {
-						match msg.severity() {
+						match msg.default_severity() {
 							ElabMessageSeverity::Error => {
 								error!("elab: {}", msg);
 							},

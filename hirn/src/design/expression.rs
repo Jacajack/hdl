@@ -565,6 +565,21 @@ impl Expression {
 				// after the bit select. Doing so would result in a duplicate
 				// 'signal' references.
 				slices.push(slice);
+
+				// If the expression is a bit/bus select we DO care about
+				// the index and lsb:msb expressions though
+				use Expression::*;
+				match expr {
+					Builtin(BuiltinOp::BitSelect { index, .. }) => {
+						slices.extend(index.get_used_slice_ranges())
+					}
+
+					Builtin(BuiltinOp::BusSelect { msb, lsb, .. }) => {
+						slices.extend(msb.get_used_slice_ranges());
+						slices.extend(lsb.get_used_slice_ranges());
+					}
+					_ => {},
+				}
 				Ok(false)
 			}
 			else {

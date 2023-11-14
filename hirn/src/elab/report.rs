@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::design::{ModuleId, SignalId};
 
-use super::ElabAssumptionsBase;
+use super::{ElabAssumptionsBase, SignalMask, GeneratedSignalRef, ElabSignal};
 
 pub trait SeverityPolicy {
 	fn severity(&self, kind: &ElabMessageKind) -> ElabMessageSeverity;
@@ -17,10 +17,8 @@ impl SeverityPolicy for DefaultSeverityPolicy {
 		use ElabMessageKind::*;
 		use ElabMessageSeverity::*;
 		match kind {
-			SignalUnused(_) => Warning,
-			SignalPartiallyUnused => Warning,
-			SignalNotDriven(_) => Error,
-			SignalPartiallyDriven => Error,
+			SignalUnused{..} => Warning,
+			SignalNotDriven{..} => Error,
 			CombLoop => Error,
 			WidthMismatch => Error,
 			Notice(_) => Info,
@@ -56,7 +54,6 @@ impl ElabReport {
 
 #[derive(Clone, Debug)]
 pub struct ElabMessage {
-	severity: ElabMessageSeverity,
 	kind: ElabMessageKind,
 	module: ModuleId,
 	assumptions: Arc<dyn ElabAssumptionsBase>,
@@ -67,12 +64,8 @@ impl ElabMessage {
 		kind: ElabMessageKind,
 		module: ModuleId,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
-		policy: Option<&dyn SeverityPolicy>,
 	) -> Self {
-		let severity = policy.unwrap_or(&DefaultSeverityPolicy).severity(&kind);
-
 		Self {
-			severity,
 			kind,
 			module,
 			assumptions,
@@ -83,8 +76,12 @@ impl ElabMessage {
 		&self.kind
 	}
 
-	pub fn severity(&self) -> ElabMessageSeverity {
-		self.severity
+	pub fn default_severity(&self) -> ElabMessageSeverity {
+		DefaultSeverityPolicy.severity(&self.kind)
+	}
+
+	pub fn severity(&self, policy: &dyn SeverityPolicy) -> ElabMessageSeverity {
+		policy.severity(&self.kind)
 	}
 
 	pub fn module_id(&self) -> ModuleId {
@@ -98,7 +95,7 @@ impl ElabMessage {
 
 impl Display for ElabMessage {
 	fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-		write!(f, "{:?}: {}", self.severity(), self.kind())
+		write!(f, "{:?}: {}", self.default_severity(), self.kind())
 	}
 }
 
@@ -111,20 +108,26 @@ pub enum ElabMessageSeverity {
 
 #[derive(Clone, Debug, Error)]
 pub enum ElabMessageKind {
-	#[error("Signal has no driver")]
-	SignalNotDriven(SignalId),
-
 	#[error("Expression evaluation failed")]
 	EvalError(#[from] crate::design::EvalError),
 
-	#[error("Some bits in signal are not driven")]
-	SignalPartiallyDriven,
+	#[error("Signal has no driver")]
+	SignalNotDriven{
+		signal: Box<GeneratedSignalRef>,
+		elab: Box<ElabSignal>,
+	},
 
 	#[error("Signal is not being used")]
-	SignalUnused(SignalId),
+	SignalUnused{
+		signal: Box<GeneratedSignalRef>,
+		elab: Box<ElabSignal>,
+	},
 
-	#[error("Some bits in signal are not being used")]
-	SignalPartiallyUnused,
+	#[error("Signal has more that one driver")]
+	SignalConflict{
+		signal: Box<GeneratedSignalRef>,
+		elab: Box<ElabSignal>,
+	},
 
 	#[error("The design contains a combinational loop")]
 	CombLoop,
@@ -151,14 +154,20 @@ pub enum ElabMessageKind {
 	NotDrivable, // FIXME signal ID
 
 	#[error("Invalid signal width")]
-	InvalidSignalWidth(i64),
+	InvalidSignalWidth(i64), // TODO SignalId
 
 	#[error("Invalid array dimension")]
-	InvalidArrayDimension(i64),
+	InvalidArrayDimension(i64), // TODO SignalId,
 
 	#[error("Invalid array rank")]
-	InvalidArrayRank(u32),
+	InvalidArrayRank(u32), // TODO SignalId
 
 	#[error("Invalid array size")]
-	InvalidArraySize(usize),
+	InvalidArraySize(usize), // TODO SignalID
+
+	#[error("Invalid signal bit range")]
+	InvalidSignalBitRange, // TODO SignalId
+
+	#[error("Invalid array index")]
+	InvalidArrayIndex, // TODO SignalId
 }

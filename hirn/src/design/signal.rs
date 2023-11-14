@@ -282,6 +282,20 @@ pub struct SignalSlice {
 	pub indices: Vec<Expression>,
 }
 
+impl SignalSlice {
+	pub fn id(&self) -> SignalId {
+		self.signal
+	}
+
+	pub fn indices(&self) -> &[Expression] {
+		&self.indices
+	}
+
+	pub fn rank(&self) -> usize {
+		self.indices.len()
+	}
+}
+
 impl From<SignalId> for SignalSlice {
 	fn from(signal: SignalId) -> Self {
 		Self {
@@ -297,6 +311,16 @@ pub struct SignalSliceRange {
 	slice: SignalSlice,
 	lsb: Option<Expression>,
 	msb: Option<Expression>,
+}
+
+impl From<SignalId> for SignalSliceRange {
+	fn from(signal: SignalId) -> Self {
+		Self {
+			slice: SignalSlice::from(signal),
+			lsb: None,
+			msb: None,
+		}
+	}
 }
 
 impl SignalSliceRange {

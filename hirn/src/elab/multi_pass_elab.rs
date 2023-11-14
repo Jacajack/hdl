@@ -1,15 +1,16 @@
 mod full_elab;
 mod signal_graph_pass;
-mod test_pass;
+mod signal_usage_pass;
 
 pub use full_elab::FullElaborator;
+pub use signal_graph_pass::{GeneratedSignalRef, GeneratedSignalId, GeneratedSignal, ScopePassId, ScopePassInfo};
 use log::info;
 
 use std::{collections::VecDeque, sync::Arc};
 
 use crate::design::{DesignHandle, ModuleId};
 
-use super::{ElabAssumptionsBase, ElabError, ElabReport, Elaborator};
+use super::{ElabAssumptionsBase, ElabError, ElabReport, Elaborator, ElabMessage};
 
 /// Elaboration pass context (for MultiPassElaborator)
 pub trait ElabPassContext<T> {
