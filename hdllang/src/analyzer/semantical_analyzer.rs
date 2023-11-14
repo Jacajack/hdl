@@ -204,6 +204,9 @@ pub fn codegen_pass(
 	local_ctx: &mut Box<LocalAnalyzerContext>,
 	module: &ModuleImplementation,
 ) -> miette::Result<()> {
+	// first, generic codegen pass needs to be conducted
+	// FIXME when intermidiate signal insertion is implemented
+	// then other statements and blocks can be codegened
 	module.codegen_pass(ctx, local_ctx)?;
 	Ok(())
 }

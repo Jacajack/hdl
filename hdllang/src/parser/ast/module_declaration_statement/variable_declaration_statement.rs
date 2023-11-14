@@ -2,6 +2,7 @@ use hirn::design::ModuleHandle;
 
 use crate::analyzer::module_implementation_scope::EvaluatedEntry;
 use crate::analyzer::*;
+use crate::core::NumericConstant;
 use crate::lexer::CommentTableKey;
 use crate::lexer::IdTable;
 use crate::parser::ast::SourceLocation;
@@ -66,6 +67,7 @@ impl VariableDeclarationStatement {
 			},
 			VariableKind::Generic(gen) => {
 				gen.direction = Direction::Input(self.location);
+				gen.width = Some(BusWidth::Evaluated(NumericConstant::new_from_value(64.into())));
 				scope.mark_as_generic();
 			},
 			VariableKind::ModuleInstance(_) => unreachable!(),
