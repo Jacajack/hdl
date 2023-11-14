@@ -1042,7 +1042,7 @@ impl Expression {
 						}
 						unreachable!()
 					},
-					"zeroes" => {
+					"zeros" => {
 						let expr = hirn::design::NumericConstant::from_bigint(
 							0.into(),
 							hirn::design::SignalSignedness::Unsigned,
