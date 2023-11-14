@@ -342,7 +342,7 @@ impl SVExpressionCodegen {
 			Expression::Signal(slice) => {
 				let sig = self.design.get_signal(slice.signal).unwrap();
 				Ok((self.translate_signal_slice(slice)?, !sig.is_wire()))
-			}
+			},
 			lhs => Ok((self.new_intermediate(lhs)?, true)),
 		}
 	}
