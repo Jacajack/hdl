@@ -332,10 +332,18 @@ impl SVExpressionCodegen {
 		Ok(name)
 	}
 
-	fn translate_suffix_op_lhs(&mut self, lhs: &Expression) -> Result<String, CodegenError> {
+	/// Returns a pair containing translated LHS expression along with a boolean indicating
+	/// whether the suffix index operator should actually be added. This is an ugly corner case:
+	/// we don't ever want [] to be used on wires in SV. Given that only [0] and [0:0] are
+	/// valid on a wire/bus<1> in our lang, we assume that wires are always indexed properly.
+	/// However, this should be verified on expression validation stage.
+	fn translate_suffix_op_lhs(&mut self, lhs: &Expression) -> Result<(String, bool), CodegenError> {
 		match lhs {
-			Expression::Signal(slice) => self.translate_signal_slice(slice),
-			lhs => self.new_intermediate(lhs),
+			Expression::Signal(slice) => {
+				let sig = self.design.get_signal(slice.signal).unwrap();
+				Ok((self.translate_signal_slice(slice)?, !sig.is_wire()))
+			}
+			lhs => Ok((self.new_intermediate(lhs)?, true)),
 		}
 	}
 
@@ -348,20 +356,30 @@ impl SVExpressionCodegen {
 			},
 
 			BitSelect { expr, index } => {
-				let expr_str = self.translate_suffix_op_lhs(&expr)?;
-				self.push_width_casts(false);
-				let index_str = self.translate_expression_try_eval(&index)?;
-				self.pop_width_casts();
-				format!("{}[{}]", expr_str, index_str)
+				let (expr_str, add_suffix) = self.translate_suffix_op_lhs(&expr)?;
+				if add_suffix {
+					self.push_width_casts(false);
+					let index_str = self.translate_expression_try_eval(&index)?;
+					self.pop_width_casts();
+					format!("{}[{}]", expr_str, index_str)
+				}
+				else {
+					expr_str
+				}
 			},
 
 			BusSelect { expr, msb, lsb } => {
-				let expr_str = self.translate_suffix_op_lhs(&expr)?;
-				self.push_width_casts(false);
-				let msb_str = self.translate_expression_try_eval(&msb)?;
-				let lsb_str = self.translate_expression_try_eval(&lsb)?;
-				self.pop_width_casts();
-				format!("{}[{}:{}]", expr_str, msb_str, lsb_str)
+				let (expr_str, add_suffix) = self.translate_suffix_op_lhs(&expr)?;
+				if add_suffix {
+					self.push_width_casts(false);
+					let msb_str = self.translate_expression_try_eval(&msb)?;
+					let lsb_str = self.translate_expression_try_eval(&lsb)?;
+					self.pop_width_casts();
+					format!("{}[{}:{}]", expr_str, msb_str, lsb_str)
+				}
+				else {
+					expr_str
+				}
 			},
 
 			Replicate { expr, count } => {
