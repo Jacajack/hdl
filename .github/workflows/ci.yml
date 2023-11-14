@@ -92,11 +92,17 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v2
-      - name: Install iVerilog
+      # - name: Install iVerilog
+      #   run: |
+      #       apt-get update
+      #       apt-get install -y iverilog
+      - name: Unpack iVerilog
         run: |
-            apt-get update
-            apt-get install -y iverilog
+            tar xf .github/iverilog-12.0-bin.tar.xz
       - name: Run tests & get coverage
+        env:
+          IVERILOG_PATH: ${{ github.workspace }}/iverilog-12.0/bin/iverilog
+          VVP_PATH: ${{ github.workspace }}/iverilog-12.0/bin/vvp
         run: |
           cargo +nightly tarpaulin --verbose --all-features --workspace --timeout 120 --out xml
       - name: Upload to codecov.io
