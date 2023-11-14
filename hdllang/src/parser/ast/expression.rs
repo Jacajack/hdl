@@ -2079,7 +2079,7 @@ impl Expression {
 							.insert(function.location, coupling_type.width().unwrap());
 						let signedness = match func_name.as_str() {
 							"zext" => SignalSignedness::Unsigned(self.get_location()),
-							"ext" => coupling_type.get_signedness(),
+							"ext" => expr.get_signedness(),
 							"sext" => SignalSignedness::Signed(self.get_location()),
 							_ => unreachable!(),
 						};
