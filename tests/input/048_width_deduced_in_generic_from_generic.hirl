@@ -1,14 +1,23 @@
-module x{
-	int a;
-}
 module y{
 	int a;
 	input const ubus<(a*4)> d;
 }
 impl y{}
+
+module x{
+	int a;
+}
+
 impl x{
 	y mm{
 		a: a*2,
 		d: const auto dd
+	}
+}
+
+module m{}
+impl m{
+	x xx{
+		a: 1,
 	}
 }

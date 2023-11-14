@@ -1,9 +1,17 @@
-module x{
+module m{
 	int a;
 }
 
-impl x{
+impl m{
 	for (i in [2+:a]){
 		wire c=1u1;
+	}
+}
+
+
+module x{}
+impl x{
+	m mm{
+		a:4,
 	}
 }
