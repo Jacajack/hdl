@@ -109,8 +109,9 @@ impl ModuleImplementationScope {
 			}
 		}
 	}
-	pub fn add_expression(&mut self, span:SourceSpan, scope_id: usize, expr: crate::parser::ast::Expression) {
-		self.evaluated_expressions.insert(span, EvaluatedEntry::new(expr, scope_id));
+	pub fn add_expression(&mut self, span: SourceSpan, scope_id: usize, expr: crate::parser::ast::Expression) {
+		self.evaluated_expressions
+			.insert(span, EvaluatedEntry::new(expr, scope_id));
 	}
 	pub fn transorm_to_generic(&mut self) {
 		return;
@@ -377,7 +378,7 @@ impl ModuleImplementationScope {
 			}
 			// we do not have to check for module instances, because their members are checked in previous pass
 			if let VariableKind::Generic(gen) = &v.var.kind {
-				if gen.value.is_none() && !gen.direction.is_input(){
+				if gen.value.is_none() && !gen.direction.is_input() {
 					// emit warning
 					let report = crate::core::CompilerDiagnosticBuilder::new_warning(
 						"This generic variable is unitialized, it will not be emitted in the output file",

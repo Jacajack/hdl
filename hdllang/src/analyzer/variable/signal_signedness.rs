@@ -47,7 +47,7 @@ impl SignalSignedness {
 }
 
 #[cfg(test)]
-mod test{
+mod test {
 	use super::*;
 
 	fn span() -> SourceSpan {
@@ -62,7 +62,7 @@ mod test{
 
 	#[test]
 	#[should_panic]
-	fn test_name_no_signedness(){
+	fn test_name_no_signedness() {
 		SignalSignedness::NoSignedness.name();
 	}
 

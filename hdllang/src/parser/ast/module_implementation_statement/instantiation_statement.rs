@@ -6,8 +6,8 @@ use super::ImportPath;
 use super::PortBindStatement;
 use crate::analyzer::module_implementation_scope::EvaluatedEntry;
 use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
-use crate::SourceSpan;
 use crate::parser::ast::SourceLocation;
+use crate::SourceSpan;
 use crate::{
 	analyzer::{
 		module_implementation_scope::InternalVariableId, AdditionalContext, BusWidth, ClockSensitivityList,
@@ -183,7 +183,7 @@ impl InstantiationStatement {
 							))
 						},
 						(Generic(gen1), Generic(gen2)) => {
-							if gen1.value.is_none()  && !gen1.direction.is_input(){
+							if gen1.value.is_none() && !gen1.direction.is_input() {
 								return Err(miette::Report::new(
 									InstanceError::GenericArgumentWithoutValue
 										.to_diagnostic_builder()
@@ -213,16 +213,19 @@ impl InstantiationStatement {
 					use VariableKind::*;
 					match &mut interface_variable.var.kind {
 						Generic(gen) => {
-							gen.value = match new_sig{
+							gen.value = match new_sig {
 								Some(sig) => Some(BusWidth::Evaluated(sig)),
 								None => {
-									let entry = EvaluatedEntry{
-        							    expression: id_expr.expression.clone(),
-        							    scope_id,
-        							};
-									local_ctx.scope.evaluated_expressions.insert(id_expr.expression.get_location(), entry);
+									let entry = EvaluatedEntry {
+										expression: id_expr.expression.clone(),
+										scope_id,
+									};
+									local_ctx
+										.scope
+										.evaluated_expressions
+										.insert(id_expr.expression.get_location(), entry);
 									Some(BusWidth::Evaluable(id_expr.expression.get_location()))
-								}
+								},
 							}
 						},
 						_ => unreachable!(),
@@ -252,16 +255,16 @@ impl InstantiationStatement {
 		let f: &dyn Fn(&mut crate::parser::ast::Expression) -> Result<(), ()> = &|expr| {
 			use crate::parser::ast::Expression::*;
 			if let Identifier(id) = expr {
-				match expressions_to_translate.get(&id.id){
-    			    Some(expr2) => {
+				match expressions_to_translate.get(&id.id) {
+					Some(expr2) => {
 						expr.clone_from(expr2);
 					},
-    			    None => (),
-    			}
+					None => (),
+				}
 			}
 			Ok(())
 		};
-		for entry in scope.evaluated_expressions.values_mut(){
+		for entry in scope.evaluated_expressions.values_mut() {
 			let prev_loc = entry.expression.get_location();
 			entry.expression.transform(f).unwrap();
 			local_ctx.scope.evaluated_expressions.insert(prev_loc, entry.clone());
@@ -405,7 +408,7 @@ impl InstantiationStatement {
 		}
 		let mut recursive_calls = 0;
 		if name == local_ctx.module_id {
-			if local_ctx.always_true_branch(){
+			if local_ctx.always_true_branch() {
 				return Err(miette::Report::new(
 					SemanticError::RecursiveModuleInstantiation
 						.to_diagnostic_builder()
@@ -703,7 +706,8 @@ impl InstantiationStatement {
 							.to_diagnostic_builder()
 							.label(var.var.location, "Error occured here")
 							.build()
-					})?.generated(),
+					})?
+					.generated(),
 			)?;
 			local_ctx.scope.insert_api_id(var.id, var_id);
 			builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
@@ -743,7 +747,8 @@ impl InstantiationStatement {
 							.to_diagnostic_builder()
 							.label(var.var.location, "Error occured here")
 							.build()
-					})?.generated(),
+					})?
+					.generated(),
 			)?;
 			local_ctx.scope.insert_api_id(var.id, var_id);
 			builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);

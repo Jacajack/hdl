@@ -154,28 +154,34 @@ impl Expression {
 				expr.value.transform(f)?;
 				for statement in &mut expr.statements {
 					use MatchExpressionAntecendent::*;
-					match  &mut statement.antecedent{
-        				Expression { expressions, location:_ } => {
+					match &mut statement.antecedent {
+						Expression {
+							expressions,
+							location: _,
+						} => {
 							for expr in expressions {
 								expr.transform(f)?;
 							}
 						},
-        				Default { .. } => (),
-    				}
+						Default { .. } => (),
+					}
 					statement.expression.transform(f)?;
 				}
 			},
 			ConditionalExpression(expr) => {
 				for statement in &mut expr.statements {
 					use MatchExpressionAntecendent::*;
-					match  &mut statement.antecedent{
-        				Expression { expressions, location:_ } => {
+					match &mut statement.antecedent {
+						Expression {
+							expressions,
+							location: _,
+						} => {
 							for expr in expressions {
 								expr.transform(f)?;
 							}
 						},
-        				Default { .. } => (),
-    				}
+						Default { .. } => (),
+					}
 					statement.expression.transform(f)?;
 				}
 			},
@@ -1486,9 +1492,16 @@ impl Expression {
 							return Err(miette::Report::new(
 								SemanticError::WidthMismatch
 									.to_diagnostic_builder()
-									.label(num.location, format!("Width of this expression is {}", original.get_value().unwrap()).as_str())
+									.label(
+										num.location,
+										format!("Width of this expression is {}", original.get_value().unwrap())
+											.as_str(),
+									)
 									.label(location, "Width mismach in this expression")
-									.label(coupling_type.get_width_location().unwrap(), format!("Width of this expression is {}", coming.get_value().unwrap()).as_str())
+									.label(
+										coupling_type.get_width_location().unwrap(),
+										format!("Width of this expression is {}", coming.get_value().unwrap()).as_str(),
+									)
 									.build(),
 							));
 						}
@@ -1937,7 +1950,7 @@ impl Expression {
 							//0 => { // FIXME
 							//	Ok(coupling_type.clone())
 							//},
-							1=> {
+							1 => {
 								let expr = function.argument_list[0]
 									.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?
 									.expect("This panics in generic modules implementatation"); // FIXME
@@ -1959,8 +1972,7 @@ impl Expression {
 								);
 								Ok(expr)
 							},
-							_ =>
-							Err(miette::Report::new(
+							_ => Err(miette::Report::new(
 								SemanticError::BadFunctionArguments
 									.to_diagnostic_builder()
 									.label(function.location, "This function should have only one argument")
@@ -2601,15 +2613,18 @@ impl Expression {
 								type_first.set_signedness(type_second.get_signedness(), self.get_location());
 							},
 						}
-						local_ctx.scope.add_expression(self.get_location(), scope_id, self.clone());
-						match (&type_first.width().unwrap().get_value(), &type_second.width().unwrap().get_value()){
-        					(None, None) => BusWidth::WidthOf(self.get_location()),
-        					(None, Some(_)) =>  BusWidth::WidthOf(self.get_location()),
-        					(Some(_), None) =>  BusWidth::WidthOf(self.get_location()),
-        					(Some(v1), Some(v2)) => BusWidth::Evaluated(NumericConstant::new_from_value(
-								v1+v2
-							)),
-    					}
+						local_ctx
+							.scope
+							.add_expression(self.get_location(), scope_id, self.clone());
+						match (
+							&type_first.width().unwrap().get_value(),
+							&type_second.width().unwrap().get_value(),
+						) {
+							(None, None) => BusWidth::WidthOf(self.get_location()),
+							(None, Some(_)) => BusWidth::WidthOf(self.get_location()),
+							(Some(_), None) => BusWidth::WidthOf(self.get_location()),
+							(Some(v1), Some(v2)) => BusWidth::Evaluated(NumericConstant::new_from_value(v1 + v2)),
+						}
 					},
 					Division => type_first.width().clone().unwrap(),
 					Addition | Subtraction => {
@@ -2647,17 +2662,20 @@ impl Expression {
 								type_first.set_signedness(type_second.get_signedness(), self.get_location());
 							},
 						}
-						local_ctx.scope.add_expression(self.get_location(), scope_id, self.clone());
-						match (&type_first.width().unwrap().get_value(), &type_second.width().unwrap().get_value()){
-        					(None, None) => BusWidth::WidthOf(self.get_location()),
-        					(None, Some(_)) =>  BusWidth::WidthOf(self.get_location()),
-        					(Some(_), None) =>  BusWidth::WidthOf(self.get_location()),
-        					(Some(v1), Some(v2)) => BusWidth::Evaluated(NumericConstant::new_from_value(
-								max(
-									v1, v2
-								) + BigInt::from(1),
-							)),
-    					}
+						local_ctx
+							.scope
+							.add_expression(self.get_location(), scope_id, self.clone());
+						match (
+							&type_first.width().unwrap().get_value(),
+							&type_second.width().unwrap().get_value(),
+						) {
+							(None, None) => BusWidth::WidthOf(self.get_location()),
+							(None, Some(_)) => BusWidth::WidthOf(self.get_location()),
+							(Some(_), None) => BusWidth::WidthOf(self.get_location()),
+							(Some(v1), Some(v2)) => {
+								BusWidth::Evaluated(NumericConstant::new_from_value(max(v1, v2) + BigInt::from(1)))
+							},
+						}
 					},
 					Modulo => type_second.width().clone().unwrap(),
 					LShift | RShift => type_first.width().clone().unwrap(),

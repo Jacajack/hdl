@@ -101,39 +101,42 @@ impl VariableKind {
 	pub fn to_signal(&self) -> Result<Signal, CompilerDiagnosticBuilder> {
 		match self {
 			VariableKind::Signal(signal) => Ok(signal.clone()),
-			VariableKind::Generic(gen) =>{
-				if gen.value.is_none() && !gen.direction.is_input(){
+			VariableKind::Generic(gen) => {
+				if gen.value.is_none() && !gen.direction.is_input() {
 					return Err(SemanticError::GenericUsedWithoutValue.to_diagnostic_builder());
 				}
 				match &gen.value {
-				None => {
-					log::debug!("Generic without value - interface parameter");
-					let t = SignalType::Bus(BusType {
-						width: Some(BusWidth::Evaluated(crate::core::NumericConstant::new_from_value(64.into()))),
-						signedness: gen.signedness.clone(),
-						location: gen.location,
-					});
-					Ok(Signal {
-						signal_type: t,
-						dimensions: Vec::new(),
-						sensitivity: SignalSensitivity::Const(gen.location),
-						direction: gen.direction.clone(),
-					})
-				},
-				Some(_) => {
-					let t = SignalType::Bus(BusType {
-						width: gen.width.clone(),
-						signedness: gen.signedness.clone(),
-						location: gen.location,
-					});
-					Ok(Signal {
-						signal_type: t,
-						dimensions: Vec::new(),
-						sensitivity: SignalSensitivity::Const(gen.location),
-						direction: gen.direction.clone(),
-					})
-				},
-			}},
+					None => {
+						log::debug!("Generic without value - interface parameter");
+						let t = SignalType::Bus(BusType {
+							width: Some(BusWidth::Evaluated(crate::core::NumericConstant::new_from_value(
+								64.into(),
+							))),
+							signedness: gen.signedness.clone(),
+							location: gen.location,
+						});
+						Ok(Signal {
+							signal_type: t,
+							dimensions: Vec::new(),
+							sensitivity: SignalSensitivity::Const(gen.location),
+							direction: gen.direction.clone(),
+						})
+					},
+					Some(_) => {
+						let t = SignalType::Bus(BusType {
+							width: gen.width.clone(),
+							signedness: gen.signedness.clone(),
+							location: gen.location,
+						});
+						Ok(Signal {
+							signal_type: t,
+							dimensions: Vec::new(),
+							sensitivity: SignalSensitivity::Const(gen.location),
+							direction: gen.direction.clone(),
+						})
+					},
+				}
+			},
 			VariableKind::ModuleInstance(_) => Err(SemanticError::ModuleInstantionUsedAsSignal.to_diagnostic_builder()),
 		}
 	}

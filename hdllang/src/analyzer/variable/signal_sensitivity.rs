@@ -422,7 +422,7 @@ mod tests {
 	}
 
 	#[test]
-	fn test_names(){
+	fn test_names() {
 		assert_eq!(async_sensitivity().name(), "async");
 		assert_eq!(clock_sensitivity().name(), "clock");
 		assert_eq!(const_sensitivity().name(), "const");
@@ -432,12 +432,12 @@ mod tests {
 
 	#[test]
 	#[should_panic]
-	fn test_name_no_sensitivity(){
+	fn test_name_no_sensitivity() {
 		SignalSensitivity::NoSensitivity.name();
 	}
 
 	#[test]
-	fn test_location(){
+	fn test_location() {
 		assert_eq!(async_sensitivity().location(), Some(&span()));
 		assert_eq!(clock_sensitivity().location(), Some(&span()));
 		assert_eq!(const_sensitivity().location(), Some(&span()));
@@ -447,7 +447,7 @@ mod tests {
 	}
 
 	#[test]
-	fn is_none(){
+	fn is_none() {
 		assert!(SignalSensitivity::NoSensitivity.is_none());
 		assert!(!async_sensitivity().is_none());
 		assert!(!clock_sensitivity().is_none());

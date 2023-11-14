@@ -182,10 +182,7 @@ impl<'a> SVCodegen<'a> {
 		else {
 			Ok(format!(
 				"parameter logic{}{} {}{}",
-				sign_str,
-				bus_width_str,
-				name,
-				array_size_str,
+				sign_str, bus_width_str, name, array_size_str,
 			))
 		}
 	}

@@ -20,7 +20,8 @@ use num_bigint::BigInt;
 
 use crate::{
 	core::id_table::{self},
-	lexer::IdTableKey, SourceSpan,
+	lexer::IdTableKey,
+	SourceSpan,
 };
 
 use super::{module_implementation_scope::InternalVariableId, *};
@@ -134,7 +135,7 @@ impl Variable {
 								)?;
 								log::debug!("Width of is {:?}", expr);
 								hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Width(Box::new(expr)))
-							}, 
+							},
 						};
 						debug!("Width is {:?}", width);
 						match bus.signedness {
@@ -207,9 +208,13 @@ impl Variable {
 						},
 						WidthOf(location) => {
 							let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
-							let expr = expr_ast
-								.expression
-								.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?;
+							let expr = expr_ast.expression.codegen(
+								nc_table,
+								id_table,
+								expr_ast.scope_id,
+								scope,
+								additional_ctx,
+							)?;
 							hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Width(Box::new(expr)))
 						},
 					},
@@ -249,7 +254,7 @@ impl PartialEq for BusWidth {
 			(EvaluatedLocated(l0, _), EvaluatedLocated(r0, _)) => l0 == r0,
 			(Evaluated(l0), EvaluatedLocated(r0, _)) => l0 == r0,
 			(EvaluatedLocated(l0, _), Evaluated(r0)) => l0 == r0,
-			_=> true,
+			_ => true,
 		}
 	}
 }

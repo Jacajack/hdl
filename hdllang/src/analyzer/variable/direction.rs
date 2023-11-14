@@ -25,7 +25,7 @@ impl Direction {
 			Direction::None => None,
 		}
 	}
-	pub fn is_input(&self)->bool{
+	pub fn is_input(&self) -> bool {
 		use Direction::*;
 		match self {
 			Input(_) => true,
@@ -35,8 +35,8 @@ impl Direction {
 }
 
 #[cfg(test)]
-mod test{
-	
+mod test {
+
 	fn span() -> SourceSpan {
 		SourceSpan::new_between(0, 0)
 	}
@@ -51,7 +51,7 @@ mod test{
 
 	#[test]
 	#[should_panic]
-	fn test_name_no_direction(){
+	fn test_name_no_direction() {
 		Direction::None.name();
 	}
 
