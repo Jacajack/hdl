@@ -1,9 +1,15 @@
-use std::{sync::Arc, collections::{HashSet, HashMap}};
+use std::{
+	collections::{HashMap, HashSet},
+	sync::Arc,
+};
 
-use log::{error, info, debug};
+use log::{debug, error, info};
 use petgraph::graphmap::DiGraphMap;
 
-use crate::{elab::{ElabAssumptions, ElabAssumptionsBase, ElabMessageKind}, design::{ScopeHandle, HasSensitivity, SignalId, Evaluates, ConditionalScope, RangeScope}};
+use crate::{
+	design::{ConditionalScope, Evaluates, HasSensitivity, RangeScope, ScopeHandle, SignalId},
+	elab::{ElabAssumptions, ElabAssumptionsBase, ElabMessageKind},
+};
 
 use super::SignalGraphPassCtx;
 

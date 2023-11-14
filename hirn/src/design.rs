@@ -20,7 +20,7 @@ pub use module::{InterfaceSignal, Module, ModuleHandle, SignalDirection};
 pub use scope::{ConditionalScope, RangeScope, Scope, ScopeHandle};
 pub use signal::{
 	ClockSensitivityList, EdgeSensitivity, HasSensitivity, HasSignedness, Signal, SignalBuilder, SignalClass,
-	SignalSensitivity, SignalSignedness, SignalSlice, SignalSliceRange
+	SignalSensitivity, SignalSignedness, SignalSlice, SignalSliceRange,
 };
 
 use std::cell::RefCell;

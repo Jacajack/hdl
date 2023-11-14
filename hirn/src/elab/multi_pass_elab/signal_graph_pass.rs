@@ -1,29 +1,26 @@
 mod gen_signal;
+mod instance_elab;
 mod scope_elab;
 mod scope_pass;
 mod signal_drive;
-mod instance_elab;
 
 use log::{error, info};
-use petgraph::Directed;
 use petgraph::graphmap::GraphMap;
+use petgraph::Directed;
 use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::design::{DesignHandle, HasSensitivity, ModuleHandle};
 use crate::elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal};
-use crate::{
-	design::ScopeId,
-	elab::ElabError,
-};
+use crate::{design::ScopeId, elab::ElabError};
 
 use super::{
 	full_elab::{FullElabCacheHandle, FullElabCtx},
 	ElabPass,
 };
 
-pub use scope_pass::{ScopePassId, ScopePassInfo};
 pub use gen_signal::{GeneratedSignal, GeneratedSignalId, GeneratedSignalRef};
+pub use scope_pass::{ScopePassId, ScopePassInfo};
 
 #[derive(Clone, Debug, Copy)]
 pub(super) struct SignalGraphPassConfig {
@@ -116,7 +113,11 @@ impl SignalGraphPassCtx {
 		}
 	}
 
-	fn elab_module_interface(&mut self, module: ModuleHandle, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
+	fn elab_module_interface(
+		&mut self,
+		module: ModuleHandle,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
+	) -> Result<(), ElabMessageKind> {
 		for interface_sig in module.interface() {
 			let sig_id = interface_sig.signal;
 			let sig = module.design().get_signal(sig_id).unwrap();
@@ -125,7 +126,7 @@ impl SignalGraphPassCtx {
 			}
 
 			match interface_sig.is_input() {
-				true  => self.drive_signal(sig_id, assumptions.clone()),
+				true => self.drive_signal(sig_id, assumptions.clone()),
 				false => self.read_signal(sig_id, assumptions.clone()),
 			}?;
 		}
@@ -133,12 +134,15 @@ impl SignalGraphPassCtx {
 		Ok(())
 	}
 
-	fn elab_module(&mut self, module: ModuleHandle, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<(), ElabMessageKind> {
+	fn elab_module(
+		&mut self,
+		module: ModuleHandle,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
+	) -> Result<(), ElabMessageKind> {
 		self.elab_unconditional_scope(&module.scope(), assumptions.clone())?;
 		self.elab_module_interface(module, assumptions.clone())?;
 		Ok(())
 	}
-
 }
 
 pub(super) struct SignalGraphPass;
@@ -165,11 +169,11 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for SignalGraphPass {
 		info!("Signal graph edge count: {}", ctx.comb_graph.edge_count());
 		info!("Elab signals registered: {}", ctx.elab_signals.len());
 
-		full_ctx.sig_graph_result = Some(SignalGraphPassResult{
+		full_ctx.sig_graph_result = Some(SignalGraphPassResult {
 			signals: ctx.signals,
 			elab_signals: ctx.elab_signals,
 			pass_info: ctx.pass_info,
-		}); 
+		});
 		Ok(full_ctx)
 	}
 }

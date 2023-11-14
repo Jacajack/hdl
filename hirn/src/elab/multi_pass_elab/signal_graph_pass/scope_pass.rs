@@ -9,7 +9,7 @@ pub struct ScopePassId(usize);
 /// Auxiliary information about a scope pass
 #[derive(Clone, Copy, Debug)]
 pub enum ScopePassInfo {
-	Unconditional{
+	Unconditional {
 		id: ScopeId,
 		parent_id: Option<ScopeId>,
 	},
@@ -22,7 +22,7 @@ pub enum ScopePassInfo {
 		id: ScopeId,
 		parent_id: ScopeId,
 		iter_number: i64,
-	}
+	},
 }
 
 impl SignalGraphPassCtx {
@@ -31,10 +31,13 @@ impl SignalGraphPassCtx {
 		let handle = self.design.get_scope_handle(id).expect("scope not in design");
 		let pass_id = ScopePassId(self.scope_pass_counter);
 		self.scope_pass_counter += 1;
-		self.pass_info.insert(pass_id, ScopePassInfo::Unconditional{
-			id,
-			parent_id: handle.parent()
-		});
+		self.pass_info.insert(
+			pass_id,
+			ScopePassInfo::Unconditional {
+				id,
+				parent_id: handle.parent(),
+			},
+		);
 		self.current_pass.insert(id, pass_id);
 		pass_id
 	}
@@ -44,11 +47,14 @@ impl SignalGraphPassCtx {
 		let handle = self.design.get_scope_handle(id).expect("scope not in design");
 		let pass_id = ScopePassId(self.scope_pass_counter);
 		self.scope_pass_counter += 1;
-		self.pass_info.insert(pass_id, ScopePassInfo::Conditional {
-			id,
-			parent_id: handle.parent().expect("conditional scope has no parent"),
-			was_true: cond_true,
-		});
+		self.pass_info.insert(
+			pass_id,
+			ScopePassInfo::Conditional {
+				id,
+				parent_id: handle.parent().expect("conditional scope has no parent"),
+				was_true: cond_true,
+			},
+		);
 		self.current_pass.insert(id, pass_id);
 		pass_id
 	}
@@ -58,11 +64,14 @@ impl SignalGraphPassCtx {
 		let handle = self.design.get_scope_handle(id).expect("scope not in design");
 		let pass_id = ScopePassId(self.scope_pass_counter);
 		self.scope_pass_counter += 1;
-		self.pass_info.insert(pass_id, ScopePassInfo::Range {
-			id,
-			parent_id: handle.parent().expect("range scope has no parent"),
-			iter_number: iter,
-		});
+		self.pass_info.insert(
+			pass_id,
+			ScopePassInfo::Range {
+				id,
+				parent_id: handle.parent().expect("range scope has no parent"),
+				iter_number: iter,
+			},
+		);
 		self.current_pass.insert(id, pass_id);
 		pass_id
 	}

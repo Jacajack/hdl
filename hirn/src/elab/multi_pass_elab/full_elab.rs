@@ -8,7 +8,11 @@ use crate::{
 	},
 };
 
-use super::{ElabPassContext, ElabQueueItem, MultiPassElaborator, signal_graph_pass::{SignalGraphPass, SignalGraphPassResult, SignalGraphPassConfig}, signal_usage_pass::SignalUsagePass};
+use super::{
+	signal_graph_pass::{SignalGraphPass, SignalGraphPassConfig, SignalGraphPassResult},
+	signal_usage_pass::SignalUsagePass,
+	ElabPassContext, ElabQueueItem, MultiPassElaborator,
+};
 
 pub(super) struct FullElabCtx {
 	design: DesignHandle,
@@ -24,11 +28,8 @@ pub(super) struct FullElabCtx {
 
 impl FullElabCtx {
 	pub(super) fn add_message(&mut self, kind: ElabMessageKind) {
-		self.report.add_message(ElabMessage::new(
-			kind,
-			self.module_id,
-			self.assumptions.clone(),
-		));
+		self.report
+			.add_message(ElabMessage::new(kind, self.module_id, self.assumptions.clone()));
 	}
 
 	pub fn module_handle(&self) -> ModuleHandle {

@@ -3,14 +3,14 @@ mod signal_graph_pass;
 mod signal_usage_pass;
 
 pub use full_elab::FullElaborator;
-pub use signal_graph_pass::{GeneratedSignalRef, GeneratedSignalId, GeneratedSignal, ScopePassId, ScopePassInfo};
 use log::info;
+pub use signal_graph_pass::{GeneratedSignal, GeneratedSignalId, GeneratedSignalRef, ScopePassId, ScopePassInfo};
 
 use std::{collections::VecDeque, sync::Arc};
 
 use crate::design::{DesignHandle, ModuleId};
 
-use super::{ElabAssumptionsBase, ElabError, ElabReport, Elaborator, ElabMessage};
+use super::{ElabAssumptionsBase, ElabError, ElabMessage, ElabReport, Elaborator};
 
 /// Elaboration pass context (for MultiPassElaborator)
 pub trait ElabPassContext<T> {

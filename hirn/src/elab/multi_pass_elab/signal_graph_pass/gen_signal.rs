@@ -2,7 +2,10 @@ use std::sync::Arc;
 
 use log::{debug, error};
 
-use crate::{design::{SignalId, HasSensitivity, Evaluates, SignalSlice}, elab::{ElabMessageKind, ElabAssumptionsBase, ElabSignal}};
+use crate::{
+	design::{Evaluates, HasSensitivity, SignalId, SignalSlice},
+	elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal},
+};
 
 use super::{ScopePassId, SignalGraphPassCtx};
 
@@ -74,7 +77,7 @@ impl GeneratedSignal {
 }
 
 impl SignalGraphPassCtx {
-	pub fn get_generated_signal(&self, id: &GeneratedSignalId) -> &GeneratedSignal{
+	pub fn get_generated_signal(&self, id: &GeneratedSignalId) -> &GeneratedSignal {
 		self.signals.get(&id).expect("Generated signal not registered")
 	}
 
@@ -88,7 +91,11 @@ impl SignalGraphPassCtx {
 		}
 	}
 
-	pub fn get_generated_signal_ref(&self, slice: &SignalSlice, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<GeneratedSignalRef, ElabMessageKind> {
+	pub fn get_generated_signal_ref(
+		&self,
+		slice: &SignalSlice,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
+	) -> Result<GeneratedSignalRef, ElabMessageKind> {
 		let gen_id = self.get_generated_signal_id(slice.signal);
 		if slice.indices.is_empty() {
 			Ok(GeneratedSignalRef {
@@ -98,13 +105,18 @@ impl SignalGraphPassCtx {
 		}
 		else {
 			let gen_sig = self.get_generated_signal(&gen_id);
-			assert_eq!(slice.indices.len(), gen_sig.dimensions.len(), "Slice/signal rank mismatch");
+			assert_eq!(
+				slice.indices.len(),
+				gen_sig.dimensions.len(),
+				"Slice/signal rank mismatch"
+			);
 
 			// Eval indices
-			let index_vals: Result<Vec<_>, _> = slice.indices.iter()
-				.map(|expr| {
-					expr.eval(&assumptions)?.try_into_i64().into()
-				}).collect();
+			let index_vals: Result<Vec<_>, _> = slice
+				.indices
+				.iter()
+				.map(|expr| expr.eval(&assumptions)?.try_into_i64().into())
+				.collect();
 			let index_vals = index_vals?;
 
 			// Check for invalid array indices
@@ -116,9 +128,12 @@ impl SignalGraphPassCtx {
 			}
 
 			let gen_sig = self.signals.get(&gen_id).expect("Generated signal not registered");
-			let index = index_vals.iter().zip(gen_sig.dimensions.iter()).fold(0, |acc, (index, size)| -> u32 {
-				acc * (*size as u32) + (*index as u32)
-			});
+			let index = index_vals
+				.iter()
+				.zip(gen_sig.dimensions.iter())
+				.fold(0, |acc, (index, size)| -> u32 {
+					acc * (*size as u32) + (*index as u32)
+				});
 
 			Ok(GeneratedSignalRef {
 				id: gen_id,

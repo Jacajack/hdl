@@ -7,7 +7,9 @@ mod report;
 pub use assumptions::{ElabAssumptions, ElabAssumptionsBase, ElabToplevelAssumptions};
 pub use elab_signal::{ElabSignal, SignalMask};
 pub use elaborator::Elaborator;
-pub use multi_pass_elab::{FullElaborator, GeneratedSignal, GeneratedSignalId, GeneratedSignalRef, ScopePassId, ScopePassInfo};
+pub use multi_pass_elab::{
+	FullElaborator, GeneratedSignal, GeneratedSignalId, GeneratedSignalRef, ScopePassId, ScopePassInfo,
+};
 pub use report::{
 	DefaultSeverityPolicy, ElabMessage, ElabMessageKind, ElabMessageSeverity, ElabReport, SeverityPolicy,
 };

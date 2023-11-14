@@ -133,12 +133,12 @@ impl SignalMask {
 	pub fn set_all(&mut self) -> SignalMask {
 		use SignalMask::*;
 		match self {
-			Full{width, set: true} => Self::new_set(*width),
-			Full{width, set: false} => {
+			Full { width, set: true } => Self::new_set(*width),
+			Full { width, set: false } => {
 				let w = *width;
-				*self = Full{width: w, set: true};
+				*self = Full { width: w, set: true };
 				Self::new(w)
-			}
+			},
 			Sparse(m) => {
 				let conflict = m.clone();
 				*self = Self::Full {
@@ -237,7 +237,14 @@ impl SignalMask {
 	pub fn count_ones(&self) -> u32 {
 		use SignalMask::*;
 		match self {
-			Full{set, ..} => if *set { self.width() } else { 0 },
+			Full { set, .. } => {
+				if *set {
+					self.width()
+				}
+				else {
+					0
+				}
+			},
 			Sparse(m) => m.mask.count_ones() as u32,
 		}
 	}
@@ -249,7 +256,6 @@ impl SignalMask {
 	pub fn ones_summary(&self) -> SignalMaskSummary {
 		SignalMaskSummary::new_one_summary(self)
 	}
-
 }
 
 #[derive(Clone, Debug)]

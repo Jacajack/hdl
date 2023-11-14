@@ -4,7 +4,7 @@ use thiserror::Error;
 
 use crate::design::{ModuleId, SignalId};
 
-use super::{ElabAssumptionsBase, SignalMask, GeneratedSignalRef, ElabSignal};
+use super::{ElabAssumptionsBase, ElabSignal, GeneratedSignalRef, SignalMask};
 
 pub trait SeverityPolicy {
 	fn severity(&self, kind: &ElabMessageKind) -> ElabMessageSeverity;
@@ -17,8 +17,8 @@ impl SeverityPolicy for DefaultSeverityPolicy {
 		use ElabMessageKind::*;
 		use ElabMessageSeverity::*;
 		match kind {
-			SignalUnused{..} => Warning,
-			SignalNotDriven{..} => Error,
+			SignalUnused { .. } => Warning,
+			SignalNotDriven { .. } => Error,
 			CombLoop => Error,
 			WidthMismatch => Error,
 			Notice(_) => Info,
@@ -60,11 +60,7 @@ pub struct ElabMessage {
 }
 
 impl ElabMessage {
-	pub fn new(
-		kind: ElabMessageKind,
-		module: ModuleId,
-		assumptions: Arc<dyn ElabAssumptionsBase>,
-	) -> Self {
+	pub fn new(kind: ElabMessageKind, module: ModuleId, assumptions: Arc<dyn ElabAssumptionsBase>) -> Self {
 		Self {
 			kind,
 			module,
@@ -112,19 +108,19 @@ pub enum ElabMessageKind {
 	EvalError(#[from] crate::design::EvalError),
 
 	#[error("Signal has no driver")]
-	SignalNotDriven{
+	SignalNotDriven {
 		signal: Box<GeneratedSignalRef>,
 		elab: Box<ElabSignal>,
 	},
 
 	#[error("Signal is not being used")]
-	SignalUnused{
+	SignalUnused {
 		signal: Box<GeneratedSignalRef>,
 		elab: Box<ElabSignal>,
 	},
 
 	#[error("Signal has more that one driver")]
-	SignalConflict{
+	SignalConflict {
 		signal: Box<GeneratedSignalRef>,
 		elab: Box<ElabSignal>,
 	},

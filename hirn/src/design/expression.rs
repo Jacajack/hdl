@@ -570,14 +570,12 @@ impl Expression {
 				// the index and lsb:msb expressions though
 				use Expression::*;
 				match expr {
-					Builtin(BuiltinOp::BitSelect { index, .. }) => {
-						slices.extend(index.get_used_slice_ranges())
-					}
+					Builtin(BuiltinOp::BitSelect { index, .. }) => slices.extend(index.get_used_slice_ranges()),
 
 					Builtin(BuiltinOp::BusSelect { msb, lsb, .. }) => {
 						slices.extend(msb.get_used_slice_ranges());
 						slices.extend(lsb.get_used_slice_ranges());
-					}
+					},
 					_ => {},
 				}
 				Ok(false)
