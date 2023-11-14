@@ -404,6 +404,12 @@ mod tests {
 	fn const_sensitivity() -> SignalSensitivity {
 		SignalSensitivity::Const(span())
 	}
+	fn comb_sensitivity() -> SignalSensitivity {
+		SignalSensitivity::Comb(ClockSensitivityList::new(), span())
+	}
+	fn sync_sensitivity() -> SignalSensitivity {
+		SignalSensitivity::Sync(ClockSensitivityList::new(), span())
+	}
 	macro_rules! sensitivity_test_ok {
 		($name1:ident, $name2:ident) => {
 			paste! {
@@ -414,6 +420,42 @@ mod tests {
 			}
 		};
 	}
+
+	#[test]
+	fn test_names(){
+		assert_eq!(async_sensitivity().name(), "async");
+		assert_eq!(clock_sensitivity().name(), "clock");
+		assert_eq!(const_sensitivity().name(), "const");
+		assert_eq!(comb_sensitivity().name(), "comb");
+		assert_eq!(sync_sensitivity().name(), "sync");
+	}
+
+	#[test]
+	#[should_panic]
+	fn test_name_no_sensitivity(){
+		SignalSensitivity::NoSensitivity.name();
+	}
+
+	#[test]
+	fn test_location(){
+		assert_eq!(async_sensitivity().location(), Some(&span()));
+		assert_eq!(clock_sensitivity().location(), Some(&span()));
+		assert_eq!(const_sensitivity().location(), Some(&span()));
+		assert_eq!(comb_sensitivity().location(), Some(&span()));
+		assert_eq!(sync_sensitivity().location(), Some(&span()));
+		assert_eq!(SignalSensitivity::NoSensitivity.location(), None);
+	}
+
+	#[test]
+	fn is_none(){
+		assert!(SignalSensitivity::NoSensitivity.is_none());
+		assert!(!async_sensitivity().is_none());
+		assert!(!clock_sensitivity().is_none());
+		assert!(!const_sensitivity().is_none());
+		assert!(!comb_sensitivity().is_none());
+		assert!(!sync_sensitivity().is_none());
+	}
+	
 	#[test]
 	fn async_const() {
 		sensitivity_test_ok!(async, const);
