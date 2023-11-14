@@ -69,7 +69,7 @@ impl SignalSensitivity {
 			Sync(..) => "sync",
 			Clock(..) => "clock",
 			Const(_) => "const",
-			NoSensitivity => "none",
+			NoSensitivity => panic!("No sensitivity"),
 		}
 	}
 	pub fn is_none(&self) -> bool {
@@ -455,7 +455,7 @@ mod tests {
 		assert!(!comb_sensitivity().is_none());
 		assert!(!sync_sensitivity().is_none());
 	}
-	
+
 	#[test]
 	fn async_const() {
 		sensitivity_test_ok!(async, const);
