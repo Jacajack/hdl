@@ -235,10 +235,16 @@ pub fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>
 	)
 	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
 	// analyse semantically
-	crate::analyzer::SemanticalAnalyzer::new(global_ctx, &modules)
+	let mut analyzer = crate::analyzer::SemanticalAnalyzer::new(global_ctx, &modules);
+	analyzer
 		.compile_and_elaborate(&mut *output)
-		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code)))?;
-
+		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
+	for diag in analyzer.buffer().buffer {
+		println!(
+			"{:?}",
+			miette::Report::new(diag).with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))
+		)
+	}
 	info!("File {} compiled succesfully", file_name);
 	Ok(())
 }
