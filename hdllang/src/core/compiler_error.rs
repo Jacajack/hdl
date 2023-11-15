@@ -18,6 +18,8 @@ pub enum CompilerError {
 	#[error(transparent)]
 	HirnApiError(#[from] hirn::design::DesignError),
 	#[error(transparent)]
+	ElaborationError(#[from] hirn::elab::ElabError),
+	#[error(transparent)]
 	IoError(#[from] std::io::Error),
 	#[error("File not found")]
 	FileNotFound(String),
@@ -48,6 +50,9 @@ impl ProvidesCompilerDiagnostic for CompilerError {
 				.build(),
 			FeatureNotImplementedYet => CompilerDiagnosticBuilder::from_error(&self)
 				.help("This feature is not implemented yet")
+				.build(),
+    		ElaborationError(err) => CompilerDiagnosticBuilder::from_error(&self)
+				.help(&err.to_string())
 				.build(),
 		}
 	}
