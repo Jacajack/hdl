@@ -126,8 +126,8 @@ impl SignalGraphPassCtx {
 			}
 
 			match interface_sig.is_input() {
-				true => self.drive_signal(sig_id, assumptions.clone()),
-				false => self.read_signal(sig_id, assumptions.clone()),
+				true => self.drive_signal(&sig_id.into(), assumptions.clone()),
+				false => self.read_signal(&sig_id.into(), assumptions.clone()),
 			}?;
 		}
 

@@ -25,10 +25,10 @@ impl SignalGraphPassCtx {
 		}
 
 		if drive {
-			self.drive_signal(sig_id, assumptions)?;
+			self.drive_signal(&sig_id.into(), assumptions)?;
 		}
 		else {
-			self.read_signal(sig_id, assumptions)?;
+			self.read_signal(&sig_id.into(), assumptions)?;
 		}
 
 		Ok(())
