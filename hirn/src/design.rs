@@ -345,7 +345,7 @@ pub enum DesignError {
 	EvalError(#[from] EvalError),
 
 	#[error("Expression cannot be driven - cannot bind to an output or use in assignment LHS")]
-	ExpressionNotDriveable, // TODO more details
+	ExpressionNotDrivable, // TODO more details
 
 	#[error("Signal sensitivity not specified")]
 	SignalSensitivityNotSpecified,

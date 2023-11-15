@@ -3,7 +3,7 @@ use std::sync::Arc;
 use log::{debug, error};
 
 use crate::{
-	design::{Evaluates, SignalId, SignalSliceRange},
+	design::{Evaluates, SignalId, SignalSliceRange, HasSensitivity},
 	elab::{multi_pass_elab::signal_graph_pass::GeneratedSignalRef, ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
 
@@ -57,7 +57,7 @@ impl SignalGraphPassCtx {
 		}
 	}
 
-	pub fn drive_signal_slice(
+	fn drive_signal_slice(
 		&mut self,
 		range: &SignalSliceRange,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
@@ -75,7 +75,7 @@ impl SignalGraphPassCtx {
 		Ok(())
 	}
 
-	pub fn read_signal_slice(
+	fn read_signal_slice(
 		&mut self,
 		range: &SignalSliceRange,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
@@ -93,7 +93,7 @@ impl SignalGraphPassCtx {
 		Ok(())
 	}
 
-	pub fn drive_array(&mut self, id: SignalId) -> Result<(), ElabMessageKind> {
+	fn drive_array(&mut self, id: SignalId) -> Result<(), ElabMessageKind> {
 		debug!("Driving full array signal {:?}", id);
 		let gen_id = self.get_generated_signal_id(id);
 		let gen_sig = self.get_generated_signal(&gen_id);
@@ -110,7 +110,7 @@ impl SignalGraphPassCtx {
 		Ok(())
 	}
 
-	pub fn read_array(&mut self, id: SignalId) -> Result<(), ElabMessageKind> {
+	fn read_array(&mut self, id: SignalId) -> Result<(), ElabMessageKind> {
 		debug!("Driving full array signal {:?}", id);
 		let gen_id = self.get_generated_signal_id(id);
 		let gen_sig = self.get_generated_signal(&gen_id);
@@ -129,31 +129,47 @@ impl SignalGraphPassCtx {
 
 	pub fn drive_signal(
 		&mut self,
-		id: SignalId,
+		range: &SignalSliceRange,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<(), ElabMessageKind> {
-		let gen_id = self.get_generated_signal_id(id);
-		let gen_sig = self.get_generated_signal(&gen_id);
-		if gen_sig.is_array() {
-			self.drive_array(id)
+		let sig = self.design.get_signal(range.signal()).unwrap();
+		
+		// Ignore generic signals
+		if sig.is_generic() {
+			return Ok(());
+		}
+
+		// We don't care about any indices on the slice because they must be generic
+
+		// TODO validate rank
+		if sig.is_array() && range.slice().rank() == 0 {
+			self.drive_array(range.signal())
 		}
 		else {
-			self.drive_signal_slice(&id.into(), assumptions)
+			self.drive_signal_slice(range, assumptions)
 		}
 	}
 
 	pub fn read_signal(
 		&mut self,
-		id: SignalId,
+		range: &SignalSliceRange,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<(), ElabMessageKind> {
-		let gen_id = self.get_generated_signal_id(id);
-		let gen_sig = self.get_generated_signal(&gen_id);
-		if gen_sig.is_array() {
-			self.read_array(id)
+		let sig = self.design.get_signal(range.signal()).unwrap();
+		
+		// Ignore generic signals
+		if sig.is_generic() {
+			return Ok(());
+		}
+
+		// We don't care about any indices on the slice because they must be generic
+
+		// TODO validate rank
+		if sig.is_array() && range.slice().rank() == 0 {
+			self.read_array(range.signal())
 		}
 		else {
-			self.read_signal_slice(&id.into(), assumptions)
+			self.read_signal_slice(range, assumptions)
 		}
 	}
 }

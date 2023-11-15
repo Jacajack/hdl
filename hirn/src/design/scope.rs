@@ -149,6 +149,9 @@ pub struct Scope {
 
 	/// Comment for the entire scope
 	comment: Option<String>,
+
+	/// Unused expressions
+	unused: Vec<Expression>,
 }
 
 impl HasComment for Scope {
@@ -169,6 +172,7 @@ impl Scope {
 			conditionals: vec![],
 			blocks: vec![],
 			comment: None,
+			unused: vec![],
 		}
 	}
 
@@ -382,6 +386,14 @@ impl ScopeHandle {
 		this_scope!(self).comment(comment);
 	}
 
+	/// Marks a drivable expression as intentionally unused
+	pub fn mark_unused(&mut self, expr: Expression) -> Result<(), DesignError> {
+		expr.validate_no_assumptions(self)?;
+		expr.try_drive().ok_or(DesignError::ExpressionNotDrivable)?;
+		this_scope!(self).unused.push(expr);
+		Ok(())
+	}
+
 	pub fn assignments(&self) -> Vec<Assignment> {
 		this_scope!(self).assignments.clone()
 	}
@@ -412,6 +424,10 @@ impl ScopeHandle {
 
 	pub fn blocks(&self) -> Vec<BlockInstance> {
 		this_scope!(self).blocks.clone()
+	}
+
+	pub fn unused_expressions(&self) -> Vec<Expression> {
+		this_scope!(self).unused.clone()
 	}
 
 	/// Returns a set of variables on which the condition of this scope depends

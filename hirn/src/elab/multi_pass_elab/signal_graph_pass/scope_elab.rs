@@ -35,38 +35,21 @@ impl SignalGraphPassCtx {
 		// Process all non-generic assignments
 		for asmt in scope.assignments() {
 			let driven_bits = asmt.lhs.try_drive_bits().ok_or(ElabMessageKind::NotDrivable)?;
-			let sig_id = driven_bits.signal();
-			let sig = scope.design().get_signal(sig_id).unwrap();
-			if sig.is_generic() {
-				continue;
-			}
-
-			// Special case - array assignment
-			if sig.rank() > 0 && driven_bits.slice().rank() == 0 {
-				self.drive_array(sig_id)?;
-				// TODO validate matching array dimensions
-				let rhs_depends = asmt.dependencies_bits();
-				if let Some(rhs_array) = rhs_depends.first() {
-					self.read_array(rhs_array.signal())?;
-				}
-				continue;
-			}
-
-			self.drive_signal_slice(&driven_bits, assumptions.clone())?;
+			self.drive_signal(&driven_bits, assumptions.clone())?;
 
 			let read = asmt.dependencies_bits();
 			for range in &read {
-				let read_sig_id = range.signal();
-				let read_sig = scope.design().get_signal(read_sig_id).unwrap();
-				if read_sig.is_generic() {
-					continue;
-				}
-
-				self.read_signal_slice(range, assumptions.clone())?;
+				self.read_signal(range, assumptions.clone())?;
 			}
 
 			// TODO actually check the binding (I need to write an assignment checker)
 			// this is gonna be fun
+		}
+
+		// Process expressions marked as unused
+		for expr in scope.unused_expressions() {
+			let unused_bits = expr.try_drive_bits().ok_or(ElabMessageKind::NotDrivable)?;
+			self.read_signal(&unused_bits, assumptions.clone())?;
 		}
 
 		for block in scope.blocks() {
