@@ -97,13 +97,13 @@ impl<'a> SemanticalAnalyzer<'a> {
 
 			// FIXME use Miette here
 			let mut elab = FullElaborator::new(self.ctx.design.clone());
-			let elab_result = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::default()));
+			let elab_result = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::new(self.ctx.design.clone())));
 			match elab_result {
 				Ok(elab_report) => {
 					for msg in elab_report.messages() {
 						match msg.default_severity() {
 							ElabMessageSeverity::Error => {
-								error!("elab: {}", msg);
+								panic!("elab: {}", msg);
 							},
 							ElabMessageSeverity::Warning => {
 								warn!("elab: {}", msg);

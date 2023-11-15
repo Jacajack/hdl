@@ -1,7 +1,7 @@
 use std::sync::{Arc, Mutex};
 
 use crate::{
-	design::{DesignHandle, ModuleHandle, ModuleId},
+	design::{DesignHandle, ModuleHandle, ModuleId, EvalError},
 	elab::{
 		DefaultSeverityPolicy, ElabAssumptionsBase, ElabError, ElabMessage, ElabMessageKind, ElabReport, Elaborator,
 		SeverityPolicy,
@@ -58,6 +58,7 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 		_cache: FullElabCacheHandle,
 	) -> Self {
+		assumptions.design().expect("assumptions must have a design");
 		Self {
 			design,
 			module_id,
@@ -100,6 +101,7 @@ impl Elaborator for FullElaborator {
 		id: ModuleId,
 		assumptions: Arc<dyn super::ElabAssumptionsBase>,
 	) -> Result<ElabReport, ElabError> {
+		if assumptions.design().is_none() {return Err(EvalError::NoDesign.into());}
 		self.elaborator.elaborate(id, assumptions)
 	}
 }

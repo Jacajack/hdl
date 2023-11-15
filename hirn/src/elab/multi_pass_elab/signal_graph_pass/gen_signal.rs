@@ -149,6 +149,7 @@ impl SignalGraphPassCtx {
 	) -> Result<GeneratedSignalId, ElabMessageKind> {
 		let sig = self.design.get_signal(id).expect("signal not in design");
 		let pass_id = self.get_scope_pass_id(sig.parent_scope);
+		let scope_handle = self.design.get_scope_handle(sig.parent_scope).unwrap();
 		assert!(!sig.is_generic());
 
 		debug!("Signal '{}' declared in pass {:?}", sig.name(), pass_id);
@@ -160,6 +161,7 @@ impl SignalGraphPassCtx {
 		}
 
 		// Evaluate width & validate range
+		sig.width().validate(&assumptions.clone(), &scope_handle)?;
 		let width = sig.width().eval(&assumptions)?.try_into_i64()?;
 		if width < 0 || width > self.config.max_signal_width {
 			error!("Signal {} has width {} which is out of range", sig.name(), width);
@@ -169,6 +171,7 @@ impl SignalGraphPassCtx {
 		// Evaluate dimensions
 		let mut dimensions = Vec::new();
 		for dim_expr in &sig.dimensions {
+			dim_expr.validate(&assumptions.clone(), &scope_handle)?;
 			let dim = dim_expr.eval(&assumptions)?.try_into_i64()?;
 			if dim < 0 || dim > self.config.max_array_dimension {
 				error!("Signal {} has dimension {} which is out of range", sig.name(), dim);

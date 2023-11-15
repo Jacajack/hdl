@@ -139,6 +139,7 @@ impl SignalGraphPassCtx {
 		module: ModuleHandle,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<(), ElabMessageKind> {
+		assert!(assumptions.design().is_some());
 		self.elab_unconditional_scope(&module.scope(), assumptions.clone())?;
 		self.elab_module_interface(module, assumptions.clone())?;
 		Ok(())

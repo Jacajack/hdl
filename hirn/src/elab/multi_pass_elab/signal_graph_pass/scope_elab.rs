@@ -23,6 +23,7 @@ impl SignalGraphPassCtx {
 		let pass_id = self.get_scope_pass_id(scope.id());
 		debug!("Analyzing scope {:?} (pass {:?})", scope.id(), pass_id);
 		debug!("Pass info: {:?}", self.pass_info.get(&pass_id));
+		assert!(assumptions.design().is_some());
 
 		// Process all non-generic declarations
 		for sig_id in scope.signals() {
@@ -44,10 +45,14 @@ impl SignalGraphPassCtx {
 
 			// TODO actually check the binding (I need to write an assignment checker)
 			// this is gonna be fun
+
+			asmt.lhs.validate(&assumptions.clone(), &scope)?;
+			asmt.rhs.validate(&assumptions.clone(), &scope)?;
 		}
 
 		// Process expressions marked as unused
 		for expr in scope.unused_expressions() {
+			expr.validate(&assumptions.clone(), &scope)?;
 			let unused_bits = expr.try_drive_bits().ok_or(ElabMessageKind::NotDrivable)?;
 			self.read_signal(&unused_bits, assumptions.clone())?;
 		}
@@ -237,6 +242,7 @@ impl SignalGraphPassCtx {
 		scope: &ScopeHandle,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<(), ElabMessageKind> {
+		assert!(assumptions.design().is_some());
 		self.record_scope_pass(scope.id());
 		self.elab_scope(scope.clone(), assumptions)?;
 		Ok(())
