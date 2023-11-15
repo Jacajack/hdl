@@ -1,8 +1,10 @@
 use super::{GlobalAnalyzerContext, LocalAnalyzerContext, SemanticError};
+use crate::core::CompilerDiagnosticBuilder;
+use crate::{CompilerError, CompilerDiagnostic};
 use crate::parser::ast::ModuleImplementation;
 use crate::{core::IdTableKey, ProvidesCompilerDiagnostic};
-use hirn::elab::{ElabMessageSeverity, ElabToplevelAssumptions, Elaborator, FullElaborator};
-use log::{debug, error, info, warn};
+use hirn::elab::{ElabMessageSeverity, ElabToplevelAssumptions, Elaborator, FullElaborator, ElabMessageKind};
+use log::*;
 use std::io::Write;
 use std::{collections::HashMap, sync::Arc};
 pub struct SemanticalAnalyzer<'a> {
@@ -95,30 +97,42 @@ impl<'a> SemanticalAnalyzer<'a> {
 				.handle
 				.id();
 
-			// FIXME use Miette here
-			let mut elab = FullElaborator::new(self.ctx.design.clone());
-			let elab_result = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::default()));
-			match elab_result {
-				Ok(elab_report) => {
-					for msg in elab_report.messages() {
-						match msg.default_severity() {
-							ElabMessageSeverity::Error => {
-								error!("elab: {}", msg);
-							},
-							ElabMessageSeverity::Warning => {
-								warn!("elab: {}", msg);
-							},
-							ElabMessageSeverity::Info => {
-								info!("elab: {}", msg);
-							},
+			if !local_ctx.scope.is_generic(){
+				let mut elab = FullElaborator::new(self.ctx.design.clone());
+				let elab_result = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::default()));
+				match elab_result {
+					Ok(elab_report) => {
+						for msg in elab_report.messages() {
+							match msg.default_severity() {
+								ElabMessageSeverity::Error => {
+									return Err(miette::Report::new(crate::core::CompilerDiagnosticBuilder::new_error(msg.to_string().as_str())
+									.label(module.location, "Elaboration error occured in this module implementation")
+									.build()));
+								},
+								ElabMessageSeverity::Warning => {
+									self.ctx.diagnostic_buffer.push_diagnostic(
+										to_report(
+											&local_ctx, 
+											CompilerDiagnosticBuilder::new_warning(msg.to_string().as_str()),
+											msg.kind()))
+								},
+								ElabMessageSeverity::Info => {
+									self.ctx.diagnostic_buffer.push_diagnostic(
+										to_report(
+											&local_ctx, 
+											CompilerDiagnosticBuilder::new_info(msg.to_string().as_str()),
+											msg.kind()))
+								},
+							}
 						}
-					}
-				},
-
-				Err(err) => {
-					panic!("Fatal elab error: {}", err);
-				},
-			};
+					},
+					Err(err) => {
+						return Err(miette::Report::new(CompilerError::ElaborationError(err).to_diagnostic_builder()
+						.label(module.location, "During elaboration of module this module critical error occured")
+						.build()));
+					},
+				};
+			}
 
 			let mut output_string = String::new();
 			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
@@ -187,7 +201,7 @@ pub fn first_pass(
 	Ok(())
 }
 /// This pass checks if all variables have specified sensitivity and width if needed
-pub fn second_pass(
+fn second_pass(
 	ctx: &mut GlobalAnalyzerContext,
 	local_ctx: &mut Box<LocalAnalyzerContext>,
 	module: &ModuleImplementation,
@@ -199,7 +213,7 @@ pub fn second_pass(
 	Ok(())
 }
 /// This pass invokes HIRN API and creates proper module
-pub fn codegen_pass(
+fn codegen_pass(
 	ctx: &mut GlobalAnalyzerContext,
 	local_ctx: &mut Box<LocalAnalyzerContext>,
 	module: &ModuleImplementation,
@@ -209,4 +223,32 @@ pub fn codegen_pass(
 	// then other statements and blocks can be codegened
 	module.codegen_pass(ctx, local_ctx)?;
 	Ok(())
+}
+
+fn to_report(local_ctx: &LocalAnalyzerContext, report: CompilerDiagnosticBuilder, elab_report_kind: &ElabMessageKind) -> CompilerDiagnostic{
+	use ElabMessageKind::*;
+	match elab_report_kind{
+    	EvalError(_) => todo!(),
+    	SignalNotDriven { signal, elab } => todo!(),
+    	SignalUnused { signal, elab } => {
+			let variable_location = local_ctx.scope.get_variable_location(signal.signal());
+			report.label(variable_location, "This variable is never used in this module implementation")
+				.build()
+		},
+    	SignalConflict { signal, elab } => todo!(),
+    	CombLoop => todo!(),
+    	WidthMismatch => todo!(),
+    	Notice(_) => todo!(),
+    	MaxForIterCount => todo!(),
+    	CyclicGenericDependency => todo!(),
+    	MultipleGenericAssignments => todo!(),
+    	UnassignedGeneric => todo!(),
+    	NotDrivable => todo!(),
+    	InvalidSignalWidth(_) => todo!(),
+    	InvalidArrayDimension(_) => todo!(),
+    	InvalidArrayRank(_) => todo!(),
+    	InvalidArraySize(_) => todo!(),
+    	InvalidSignalBitRange => todo!(),
+    	InvalidArrayIndex => todo!(),
+	}
 }
