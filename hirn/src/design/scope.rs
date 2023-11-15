@@ -389,7 +389,7 @@ impl ScopeHandle {
 	/// Marks a drivable expression as intentionally unused
 	pub fn mark_unused(&mut self, expr: Expression) -> Result<(), DesignError> {
 		expr.validate_no_assumptions(self)?;
-		expr.try_drive().ok_or(DesignError::ExpressionNotDriveable)?;
+		expr.try_drive().ok_or(DesignError::ExpressionNotDrivable)?;
 		this_scope!(self).unused.push(expr);
 		Ok(())
 	}
