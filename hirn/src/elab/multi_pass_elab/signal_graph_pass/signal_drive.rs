@@ -3,7 +3,7 @@ use std::sync::Arc;
 use log::{debug, error};
 
 use crate::{
-	design::{Evaluates, SignalId, SignalSliceRange, HasSensitivity},
+	design::{Evaluates, HasSensitivity, SignalId, SignalSliceRange},
 	elab::{multi_pass_elab::signal_graph_pass::GeneratedSignalRef, ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
 
@@ -133,7 +133,7 @@ impl SignalGraphPassCtx {
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<(), ElabMessageKind> {
 		let sig = self.design.get_signal(range.signal()).unwrap();
-		
+
 		// Ignore generic signals
 		if sig.is_generic() {
 			return Ok(());
@@ -156,7 +156,7 @@ impl SignalGraphPassCtx {
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<(), ElabMessageKind> {
 		let sig = self.design.get_signal(range.signal()).unwrap();
-		
+
 		// Ignore generic signals
 		if sig.is_generic() {
 			return Ok(());
