@@ -243,31 +243,14 @@ fn to_report(
 			let mask = elab.undriven_summary();
 			use hirn::elab::SignalMaskSummary::*;
 			match mask {
-				Empty => report.label(
-					variable_location,
-					"This signal is never driven in this module implementation",
-				),
-				Full => report.label(variable_location, "This signal is not driven within module"), // ?
+				Empty => unreachable!(),
+				Full => report.label(variable_location, "This signal is not driven within module"),
 				Single(bit) => report.label(
 					variable_location,
 					format!("Bit {} of this signal is not driven within module", bit).as_str(),
 				),
 				Ranges(ranges) => {
-					assert!(!ranges.is_empty());
-					let first_range = ranges.first().unwrap();
-					let mut label_msg = if first_range.0 == first_range.1 {
-						format!("Bit {} ", first_range.0)
-					} else {
-						format!("Bits {}-{} ", first_range.0, first_range.1)
-					};
-					for i in 1..ranges.len() {
-						let (begin, end) = ranges[i];
-						if begin == end {
-							label_msg.push_str(format!("and {} ", begin).as_str());
-						} else {
-							label_msg.push_str(format!("and {}-{} ", begin, end).as_str());
-						}
-					}
+					let mut label_msg = from_range_to_string(ranges);
 					label_msg.push_str("of this signal are not driven");
 					report.label(variable_location, label_msg.as_str())
 				},
@@ -279,9 +262,7 @@ fn to_report(
 			let mask = elab.unread_summary();
 			use hirn::elab::SignalMaskSummary::*;
 			match mask {
-				Empty => {
-					unreachable!() // ? 
-				},
+				Empty => unreachable!(),
 				Full => report.label(variable_location, "This signal is never used within module"),
 				Single(bit) => report.label(
 					variable_location,
@@ -300,9 +281,7 @@ fn to_report(
 			let mask = elab.conflict_summary();
 			use hirn::elab::SignalMaskSummary::*;
 			match mask {
-				Empty => {
-					unreachable!() // ?
-				},
+				Empty => unreachable!(),
 				Full => report.label(variable_location, "This signal is driven multiple times"),
 				Single(bit) => report.label(
 					variable_location,
