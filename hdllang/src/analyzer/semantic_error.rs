@@ -30,7 +30,7 @@ impl ProvidesCompilerDiagnostic for InstanceError {
 		}
 	}
 }
-#[derive(Copy, Clone, Error, Debug)]
+#[derive(Clone, Error, Debug)]
 pub enum SemanticError {
 	#[error("Module has more than one `impl` block reffering to it")]
 	MultipleModuleImplementations,
@@ -136,6 +136,8 @@ pub enum SemanticError {
 	DuplicateMatchValue,
 	#[error("It is not allowed to declare an array of generic variables")]
 	GenericArray,
+	#[error("Critical elaboration error")]
+	CriticalElaborationError,
 	#[error(transparent)]
 	InstanceError(InstanceError),
 }
@@ -299,6 +301,7 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.help("Please make sure that all match expressions are unique")
 				.build(),
 			GenericArray => CompilerDiagnosticBuilder::from_error(&self).build(),
+    		CriticalElaborationError => CompilerDiagnosticBuilder::from_error(&self).build(),
 		}
 	}
 }
