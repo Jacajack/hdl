@@ -301,7 +301,7 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.help("Please make sure that all match expressions are unique")
 				.build(),
 			GenericArray => CompilerDiagnosticBuilder::from_error(&self).build(),
-    		CriticalElaborationError => CompilerDiagnosticBuilder::from_error(&self).build(),
+			CriticalElaborationError => CompilerDiagnosticBuilder::from_error(&self).build(),
 		}
 	}
 }

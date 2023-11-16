@@ -296,24 +296,28 @@ fn to_report(
 			.build()
 		},
 		Notice(msg) => report.label(module_location, msg.as_str()).build(),
-		_=> report.label(module_location, "Other elaboration warning/error occured").build(),
+		_ => report
+			.label(module_location, "Other elaboration warning/error occured")
+			.build(),
 	}
 }
 
-fn from_range_to_string(ranges: Vec<(u32,u32)>)->String{
+fn from_range_to_string(ranges: Vec<(u32, u32)>) -> String {
 	assert!(!ranges.is_empty());
 
 	let first_range = ranges.first().unwrap();
 	let mut label_msg = if first_range.0 == first_range.1 {
 		format!("Bit {} ", first_range.0)
-	} else {
+	}
+	else {
 		format!("Bits {}-{} ", first_range.0, first_range.1)
 	};
 	for i in 1..ranges.len() {
 		let (begin, end) = ranges[i];
 		if begin == end {
 			label_msg.push_str(format!("and {} ", begin).as_str());
-		} else {
+		}
+		else {
 			label_msg.push_str(format!("and {}-{} ", begin, end).as_str());
 		}
 	}

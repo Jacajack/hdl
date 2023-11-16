@@ -51,7 +51,7 @@ impl ProvidesCompilerDiagnostic for CompilerError {
 			FeatureNotImplementedYet => CompilerDiagnosticBuilder::from_error(&self)
 				.help("This feature is not implemented yet")
 				.build(),
-    		ElaborationError(err) => CompilerDiagnosticBuilder::from_error(&self)
+			ElaborationError(err) => CompilerDiagnosticBuilder::from_error(&self)
 				.help(&err.to_string())
 				.build(),
 		}
