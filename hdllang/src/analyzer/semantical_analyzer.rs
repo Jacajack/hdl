@@ -1,9 +1,9 @@
 use super::{GlobalAnalyzerContext, LocalAnalyzerContext, SemanticError};
 use crate::core::CompilerDiagnosticBuilder;
-use crate::{CompilerError, CompilerDiagnostic};
 use crate::parser::ast::ModuleImplementation;
 use crate::{core::IdTableKey, ProvidesCompilerDiagnostic};
-use hirn::elab::{ElabMessageSeverity, ElabToplevelAssumptions, Elaborator, FullElaborator, ElabMessageKind};
+use crate::{CompilerDiagnostic, CompilerError};
+use hirn::elab::{ElabMessageKind, ElabMessageSeverity, ElabToplevelAssumptions, Elaborator, FullElaborator};
 use log::*;
 use std::io::Write;
 use std::{collections::HashMap, sync::Arc};
@@ -97,39 +97,44 @@ impl<'a> SemanticalAnalyzer<'a> {
 				.handle
 				.id();
 
-			if !local_ctx.scope.is_generic(){
+			if !local_ctx.scope.is_generic() {
 				let mut elab = FullElaborator::new(self.ctx.design.clone());
 				let elab_result = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::default()));
 				match elab_result {
 					Ok(elab_report) => {
 						for msg in elab_report.messages() {
 							match msg.default_severity() {
-								ElabMessageSeverity::Error => {
-									return Err(miette::Report::new(crate::core::CompilerDiagnosticBuilder::new_error(msg.to_string().as_str())
-									.label(module.location, "Elaboration error occured in this module implementation")
-									.build()));
-								},
-								ElabMessageSeverity::Warning => {
-									self.ctx.diagnostic_buffer.push_diagnostic(
-										to_report(
-											&local_ctx, 
-											CompilerDiagnosticBuilder::new_warning(msg.to_string().as_str()),
-											msg.kind()))
-								},
-								ElabMessageSeverity::Info => {
-									self.ctx.diagnostic_buffer.push_diagnostic(
-										to_report(
-											&local_ctx, 
-											CompilerDiagnosticBuilder::new_info(msg.to_string().as_str()),
-											msg.kind()))
-								},
+								ElabMessageSeverity::Error => self.ctx.diagnostic_buffer.push_diagnostic(to_report(
+									&local_ctx,
+									module.location,
+									CompilerDiagnosticBuilder::new_error(msg.to_string().as_str()),
+									msg.kind(),
+								)),
+								ElabMessageSeverity::Warning => self.ctx.diagnostic_buffer.push_diagnostic(to_report(
+									&local_ctx,
+									module.location,
+									CompilerDiagnosticBuilder::new_warning(msg.to_string().as_str()),
+									msg.kind(),
+								)),
+								ElabMessageSeverity::Info => self.ctx.diagnostic_buffer.push_diagnostic(to_report(
+									&local_ctx,
+									module.location,
+									CompilerDiagnosticBuilder::new_info(msg.to_string().as_str()),
+									msg.kind(),
+								)),
 							}
 						}
 					},
 					Err(err) => {
-						return Err(miette::Report::new(CompilerError::ElaborationError(err).to_diagnostic_builder()
-						.label(module.location, "During elaboration of module this module critical error occured")
-						.build()));
+						return Err(miette::Report::new(
+							CompilerError::ElaborationError(err)
+								.to_diagnostic_builder()
+								.label(
+									module.location,
+									"During elaboration of module this module critical error occured",
+								)
+								.build(),
+						));
 					},
 				};
 			}
@@ -225,30 +230,113 @@ fn codegen_pass(
 	Ok(())
 }
 
-fn to_report(local_ctx: &LocalAnalyzerContext, report: CompilerDiagnosticBuilder, elab_report_kind: &ElabMessageKind) -> CompilerDiagnostic{
+fn to_report(
+	local_ctx: &LocalAnalyzerContext,
+	module_location: crate::SourceSpan,
+	report: CompilerDiagnosticBuilder,
+	elab_report_kind: &ElabMessageKind,
+) -> CompilerDiagnostic {
 	use ElabMessageKind::*;
-	match elab_report_kind{
-    	EvalError(_) => todo!(),
-    	SignalNotDriven { signal, elab } => todo!(),
-    	SignalUnused { signal, elab } => {
+	match elab_report_kind {
+		SignalNotDriven { signal, elab } => {
 			let variable_location = local_ctx.scope.get_variable_location(signal.signal());
-			report.label(variable_location, "This variable is never used in this module implementation")
-				.build()
+			let mask = elab.undriven_summary();
+			use hirn::elab::SignalMaskSummary::*;
+			match mask {
+				Empty => report.label(
+					variable_location,
+					"This signal is never driven in this module implementation",
+				),
+				Full => report.label(variable_location, "This signal is not driven within module"), // ?
+				Single(bit) => report.label(
+					variable_location,
+					format!("Bit {} of this signal is not driven within module", bit).as_str(),
+				),
+				Ranges(ranges) => {
+					assert!(!ranges.is_empty());
+					let first_range = ranges.first().unwrap();
+					let mut label_msg = if first_range.0 == first_range.1 {
+						format!("Bit {} ", first_range.0)
+					} else {
+						format!("Bits {}-{} ", first_range.0, first_range.1)
+					};
+					for i in 1..ranges.len() {
+						let (begin, end) = ranges[i];
+						if begin == end {
+							label_msg.push_str(format!("and {} ", begin).as_str());
+						} else {
+							label_msg.push_str(format!("and {}-{} ", begin, end).as_str());
+						}
+					}
+					label_msg.push_str("of this signal are not driven");
+					report.label(variable_location, label_msg.as_str())
+				},
+			}
+			.build()
 		},
-    	SignalConflict { signal, elab } => todo!(),
-    	CombLoop => todo!(),
-    	WidthMismatch => todo!(),
-    	Notice(_) => todo!(),
-    	MaxForIterCount => todo!(),
-    	CyclicGenericDependency => todo!(),
-    	MultipleGenericAssignments => todo!(),
-    	UnassignedGeneric => todo!(),
-    	NotDrivable => todo!(),
-    	InvalidSignalWidth(_) => todo!(),
-    	InvalidArrayDimension(_) => todo!(),
-    	InvalidArrayRank(_) => todo!(),
-    	InvalidArraySize(_) => todo!(),
-    	InvalidSignalBitRange => todo!(),
-    	InvalidArrayIndex => todo!(),
+		SignalUnused { signal, elab } => {
+			let variable_location = local_ctx.scope.get_variable_location(signal.signal());
+			let mask = elab.unread_summary();
+			use hirn::elab::SignalMaskSummary::*;
+			match mask {
+				Empty => {
+					unreachable!() // ? 
+				},
+				Full => report.label(variable_location, "This signal is never used within module"),
+				Single(bit) => report.label(
+					variable_location,
+					format!("Bit {} of this signal is never being read within module", bit).as_str(),
+				),
+				Ranges(ranges) => {
+					let mut label_msg = from_range_to_string(ranges);
+					label_msg.push_str("of this signal are never being read within module");
+					report.label(variable_location, label_msg.as_str())
+				},
+			}
+			.build()
+		},
+		SignalConflict { signal, elab } => {
+			let variable_location = local_ctx.scope.get_variable_location(signal.signal());
+			let mask = elab.conflict_summary();
+			use hirn::elab::SignalMaskSummary::*;
+			match mask {
+				Empty => {
+					unreachable!() // ?
+				},
+				Full => report.label(variable_location, "This signal is driven multiple times"),
+				Single(bit) => report.label(
+					variable_location,
+					format!("Bit {} of this signal is driven more than once", bit).as_str(),
+				),
+				Ranges(ranges) => {
+					let mut label_msg = from_range_to_string(ranges);
+					label_msg.push_str("are driven more than once");
+					report.label(variable_location, label_msg.as_str())
+				},
+			}
+			.build()
+		},
+		Notice(msg) => report.label(module_location, msg.as_str()).build(),
+		_=> report.label(module_location, "Other elaboration warning/error occured").build(),
 	}
+}
+
+fn from_range_to_string(ranges: Vec<(u32,u32)>)->String{
+	assert!(!ranges.is_empty());
+
+	let first_range = ranges.first().unwrap();
+	let mut label_msg = if first_range.0 == first_range.1 {
+		format!("Bit {} ", first_range.0)
+	} else {
+		format!("Bits {}-{} ", first_range.0, first_range.1)
+	};
+	for i in 1..ranges.len() {
+		let (begin, end) = ranges[i];
+		if begin == end {
+			label_msg.push_str(format!("and {} ", begin).as_str());
+		} else {
+			label_msg.push_str(format!("and {}-{} ", begin, end).as_str());
+		}
+	}
+	label_msg
 }

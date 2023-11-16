@@ -245,7 +245,7 @@ pub fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>
 			miette::Report::new(diag).with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))
 		)
 	}
-	info!("File {} compiled succesfully", file_name);
+	info!("File {} compiled and elaborated succesfully", file_name);
 	Ok(())
 }
 pub fn analyse(mut code: String, file_name: String, mut output: Box<dyn Write>) -> miette::Result<()> {
