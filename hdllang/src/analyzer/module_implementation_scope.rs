@@ -396,6 +396,21 @@ impl ModuleImplementationScope {
 		}
 		Ok(())
 	}
+	pub fn is_child_of(&self, child: usize, parent: usize) -> bool {
+		let mut current = child;
+		while let Some(scope) = self.scopes.get(current) {
+			match scope.parent_scope {
+				Some(parent_scope) => {
+					if parent_scope == parent {
+						return true;
+					}
+					current = parent_scope;
+				},
+				None => return false,
+			}
+		}
+		false
+	}
 }
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct VariableDefined {
