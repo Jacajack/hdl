@@ -1,5 +1,6 @@
 use std::{collections::HashMap, hash::Hash};
 
+use bimap::BiHashMap;
 use hirn::design::{ModuleHandle, SignalId};
 use log::*;
 
@@ -37,7 +38,7 @@ pub struct ModuleImplementationScope {
 	pub enriched_constants: HashMap<SourceSpan, crate::core::NumericConstant>,
 	scopes: Vec<InternalScope>,
 	is_generic: bool,
-	api_ids: HashMap<InternalVariableId, SignalId>,
+	api_ids: BiHashMap<InternalVariableId, SignalId>,
 	internal_ids: HashMap<InternalVariableId, (usize, IdTableKey)>,
 	variable_counter: usize,
 	variables: HashMap<InternalVariableId, VariableDefined>,
@@ -163,7 +164,7 @@ impl ModuleImplementationScope {
 			widths: HashMap::new(),
 			evaluated_expressions: HashMap::new(),
 			scopes: vec![InternalScope::new(None)],
-			api_ids: HashMap::new(),
+			api_ids: BiHashMap::new(),
 			variable_counter: 0,
 			internal_ids: HashMap::new(),
 			is_generic: false,
@@ -236,7 +237,7 @@ impl ModuleImplementationScope {
 	pub fn get_api_id(&self, scope_id: usize, key: &IdTableKey) -> Option<SignalId> {
 		let scope = &self.scopes[scope_id];
 		if let Some(variable) = scope.variables.get(key) {
-			Some(self.api_ids.get(&variable).unwrap().clone())
+			Some(self.api_ids.get_by_left(&variable).unwrap().clone())
 		}
 		else {
 			if let Some(parent_scope) = scope.parent_scope {
@@ -248,7 +249,7 @@ impl ModuleImplementationScope {
 		}
 	}
 	pub fn get_api_id_by_internal_id(&self, id: InternalVariableId) -> Option<SignalId> {
-		self.api_ids.get(&id).map(|x| x.clone())
+		self.api_ids.get_by_left(&id).map(|x| x.clone())
 	}
 	pub fn clear_scope(&mut self, scope_id: usize) {
 		self.scopes[scope_id].variables.clear();
@@ -317,20 +318,20 @@ impl ModuleImplementationScope {
 		match &var.kind {
 			VariableKind::Generic(_) => handle
 				.expose(
-					self.api_ids.get(&id).unwrap().clone(),
+					self.api_ids.get_by_left(&id).unwrap().clone(),
 					hirn::design::SignalDirection::Input,
 				)
 				.unwrap(),
 			VariableKind::Signal(sig) => match &sig.direction {
 				super::Direction::Input(_) => handle
 					.expose(
-						self.api_ids.get(&id).unwrap().clone(),
+						self.api_ids.get_by_left(&id).unwrap().clone(),
 						hirn::design::SignalDirection::Input,
 					)
 					.unwrap(),
 				super::Direction::Output(_) => handle
 					.expose(
-						self.api_ids.get(&id).unwrap().clone(),
+						self.api_ids.get_by_left(&id).unwrap().clone(),
 						hirn::design::SignalDirection::Output,
 					)
 					.unwrap(),
@@ -344,6 +345,10 @@ impl ModuleImplementationScope {
 		self.scopes[0].variables.insert(name, defined.id);
 		self.variables.insert(defined.id, defined);
 		Ok(())
+	}
+	pub fn get_variable_location(&self, api_id: SignalId) -> SourceSpan {
+		let id = self.api_ids.get_by_right(&api_id).unwrap();
+		self.variables.get(id).unwrap().var.location
 	}
 	pub fn second_pass(&self, ctx: &mut GlobalAnalyzerContext) -> miette::Result<()> {
 		for v in self.variables.values() {
