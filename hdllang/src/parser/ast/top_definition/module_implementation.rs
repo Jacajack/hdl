@@ -64,7 +64,7 @@ impl ModuleImplementation {
 
 		let mut api_scope = ctx
 			.modules_declared
-			.get_mut(&local_ctx.module_id)
+			.get_mut(&local_ctx.module_id())
 			.unwrap()
 			.handle
 			.scope();

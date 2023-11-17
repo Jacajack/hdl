@@ -71,7 +71,7 @@ impl InstantiationStatement {
 			return Ok(());
 		}
 		ctx.modules_declared
-			.get_mut(&local_ctx.module_id)
+			.get_mut(&local_ctx.module_id())
 			.unwrap()
 			.instantiates
 			.push(name.clone());
@@ -407,7 +407,7 @@ impl InstantiationStatement {
 				.map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
 		}
 		let mut recursive_calls = 0;
-		if name == local_ctx.module_id {
+		if name == local_ctx.module_id() {
 			if local_ctx.always_true_branch() {
 				return Err(miette::Report::new(
 					SemanticError::RecursiveModuleInstantiation

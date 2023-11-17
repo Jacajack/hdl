@@ -90,7 +90,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 			let module_id = self
 				.ctx
 				.modules_declared
-				.get_mut(&local_ctx.module_id)
+				.get_mut(&local_ctx.module_id())
 				.unwrap()
 				.handle
 				.id();
@@ -163,7 +163,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 				.emit_module(
 					self.ctx
 						.modules_declared
-						.get_mut(&local_ctx.module_id)
+						.get_mut(&local_ctx.module_id())
 						.unwrap()
 						.handle
 						.id(),
@@ -209,4 +209,10 @@ pub fn codegen_pass(
 	// then other statements and blocks can be codegened
 	module.codegen_pass(ctx, local_ctx)?;
 	Ok(())
+}
+#[derive(Debug, Clone, Eq, PartialEq, Hash, Copy)]
+pub enum CodegenPhase{
+	Generic,
+	Clock,
+	Signals
 }
