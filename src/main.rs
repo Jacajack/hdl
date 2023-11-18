@@ -5,7 +5,6 @@ use clap::{arg, command, Arg, ArgGroup};
 use hdllang::CompilerError;
 use hdllang::ProvidesCompilerDiagnostic;
 use std::fs;
-use std::io;
 use std::io::Write;
 
 fn init_logging() {
@@ -77,8 +76,24 @@ fn main() -> miette::Result<()> {
 		},
 		None => (),
 	};
+	let file_name = match matches.get_one::<String>("source") {
+		Some(x) => x,
+		None => "",
+	};
 	let output: Box<dyn Write> = match matches.get_one::<String>("output") {
-		None => Box::new(io::stdout()),
+		None => {
+			let mut path = std::path::PathBuf::from(file_name);
+			path.set_extension("sv");
+			if path.exists(){
+				path.set_extension("out.sv");
+			}
+			match fs::File::create(path.to_str().unwrap()) {
+				Ok(file) => Box::new(file),
+				Err(err) => {
+					return Err(CompilerError::IoError(err).to_miette_report())?;
+				},
+			}
+		},
 		Some(path) => match fs::File::create(path) {
 			Ok(file) => Box::new(file),
 			Err(err) => {
@@ -86,10 +101,7 @@ fn main() -> miette::Result<()> {
 			},
 		},
 	};
-	let file_name = match matches.get_one::<String>("source") {
-		Some(x) => x,
-		None => "",
-	};
+
 	let code = match mode {
 		"clean" | "combine" => "".to_string(),
 		_ => read_input_from_file(&String::from(file_name))?,

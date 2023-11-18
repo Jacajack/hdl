@@ -31,7 +31,7 @@ impl EvaluatedEntry {
 	}
 }
 use crate::analyzer::BusWidth;
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone)]
 pub struct ModuleImplementationScope {
 	pub widths: HashMap<SourceSpan, BusWidth>,
 	pub evaluated_expressions: HashMap<SourceSpan, EvaluatedEntry>,
@@ -42,6 +42,7 @@ pub struct ModuleImplementationScope {
 	internal_ids: HashMap<InternalVariableId, (usize, IdTableKey)>,
 	variable_counter: usize,
 	variables: HashMap<InternalVariableId, VariableDefined>,
+	depenency_graph: crate::analyzer::DependencyGraph,
 }
 pub trait InternalScopeTrait {
 	fn contains_key(&self, key: &IdTableKey) -> bool;
@@ -170,6 +171,7 @@ impl ModuleImplementationScope {
 			is_generic: false,
 			enriched_constants: HashMap::new(),
 			variables: HashMap::new(),
+			depenency_graph: crate::analyzer::DependencyGraph::new(),
 		}
 	}
 	pub fn new_scope(&mut self, parent_scope: Option<usize>) -> usize {
@@ -350,7 +352,7 @@ impl ModuleImplementationScope {
 		let id = self.api_ids.get_by_right(&api_id).unwrap();
 		self.variables.get(id).unwrap().var.location
 	}
-	pub fn second_pass(&self, ctx: &mut GlobalAnalyzerContext) -> miette::Result<()> {
+	pub fn second_pass(&mut self, ctx: &mut GlobalAnalyzerContext) -> miette::Result<()> {
 		for v in self.variables.values() {
 			if let VariableKind::Signal(sig) = &v.var.kind {
 				if !sig.is_sensititivity_specified() {
@@ -392,6 +394,7 @@ impl ModuleImplementationScope {
 					.build();
 					ctx.diagnostic_buffer.push_diagnostic(report);
 				}
+				self.depenency_graph.add_node(v.id);
 			}
 		}
 		Ok(())
@@ -410,6 +413,13 @@ impl ModuleImplementationScope {
 			}
 		}
 		false
+	}
+	pub fn get_all_variables_declared_in_scope(&self, scope_id: usize) -> Vec<VariableDefined>{
+		let mut variables = Vec::new();
+		for var in self.scopes[scope_id].variables.values() {
+			variables.push(self.variables.get(var).unwrap().clone());
+		}
+		variables
 	}
 }
 #[derive(Debug, Clone, Eq, PartialEq)]

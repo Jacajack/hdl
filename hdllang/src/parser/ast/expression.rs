@@ -14,6 +14,7 @@ mod tuple;
 mod unary_cast_expression;
 mod unary_operator_expression;
 
+use crate::analyzer::module_implementation_scope::InternalVariableId;
 use crate::analyzer::{
 	AdditionalContext, AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContext,
 	ModuleImplementationScope, ModuleInstanceKind, SemanticError, Signal, SignalSensitivity, SignalSignedness,
@@ -2745,6 +2746,72 @@ impl Expression {
 			UnaryOperatorExpression(_) => true,
 			UnaryCastExpression(_) => false,
 			BinaryExpression(_) => false,
+		}
+	}
+	pub fn get_dependencies(&self,
+		scope_id: usize,
+		local_ctx: &Box<LocalAnalyzerContext>,) -> Vec<InternalVariableId> {
+		use Expression::*;
+		match self{
+    		Number(_) => vec!(),
+    		Identifier(id) => {
+				vec![local_ctx.scope.get_variable(scope_id, &id.id).unwrap().id]
+			},
+    		ParenthesizedExpression(expr) => expr.expression.get_dependencies(scope_id, local_ctx),
+    		MatchExpression(expr) => {
+				let mut deps = expr.value.get_dependencies(scope_id, local_ctx);
+				for stmt in &expr.statements {
+					if let MatchExpressionAntecendent::Expression { expressions, location:_ } =  &stmt.antecedent{
+						for expr in expressions {
+							deps.append(&mut expr.get_dependencies(scope_id, local_ctx));
+						}
+    				}
+					deps.append(&mut stmt.expression.get_dependencies(scope_id, local_ctx));
+				}
+				deps
+			},
+    		ConditionalExpression(expr) => {
+				let mut deps = Vec::new();
+				for stmt in &expr.statements {
+					if let MatchExpressionAntecendent::Expression { expressions, location:_ } =  &stmt.antecedent{
+						for expr in expressions {
+							deps.append(&mut expr.get_dependencies(scope_id, local_ctx));
+						}
+    				}
+					deps.append(&mut stmt.expression.get_dependencies(scope_id, local_ctx));
+				}
+				deps
+			},
+    		Tuple(_) => unreachable!(),
+    		TernaryExpression(expr) => {
+				let mut deps = expr.condition.get_dependencies(scope_id, local_ctx);
+				deps.append(&mut expr.true_branch.get_dependencies(scope_id, local_ctx));
+				deps.append(&mut expr.false_branch.get_dependencies(scope_id, local_ctx));
+				deps
+			},
+    		PostfixWithIndex(expr) => {
+				let mut deps = expr.expression.get_dependencies(scope_id, local_ctx);
+				deps.append(&mut expr.index.get_dependencies(scope_id, local_ctx));
+				deps
+			},
+    		PostfixWithRange(expr) => {
+				let mut deps = expr.expression.get_dependencies(scope_id, local_ctx);
+				deps.append(&mut expr.range.lhs.get_dependencies(scope_id, local_ctx));
+				deps.append(&mut expr.range.rhs.get_dependencies(scope_id, local_ctx));
+				deps
+			},
+    		PostfixWithArgs(_) => todo!(),
+    		PostfixWithId(expr) => todo!(),
+    		UnaryOperatorExpression(expr) => expr.expression.get_dependencies(scope_id, local_ctx),
+    		UnaryCastExpression(expr) => {
+				let deps = expr.expression.get_dependencies(scope_id, local_ctx);
+				deps // FIXME ID from sync/comb
+			},
+    		BinaryExpression(expr) => {
+				let mut deps = expr.lhs.get_dependencies(scope_id, local_ctx);
+				deps.append(&mut expr.rhs.get_dependencies(scope_id, local_ctx));
+				deps
+			},
 		}
 	}
 }
