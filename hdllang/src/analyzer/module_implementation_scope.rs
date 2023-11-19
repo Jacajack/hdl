@@ -382,6 +382,14 @@ impl ModuleImplementationScope {
 							.build(),
 					));
 				}
+				if sig.is_bus() && sig.is_clock(){
+					return Err(miette::Report::new(
+						SemanticError::ContradictingSpecifier
+							.to_diagnostic_builder()
+							.label(v.var.location, "Buses cannot be marked as clocks")
+							.build(),
+					));
+				}
 			}
 			// we do not have to check for module instances, because their members are checked in previous pass
 			if let VariableKind::Generic(gen) = &v.var.kind {

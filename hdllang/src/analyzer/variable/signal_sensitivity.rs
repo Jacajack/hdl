@@ -79,6 +79,13 @@ impl SignalSensitivity {
 			_ => false,
 		}
 	}
+	pub fn is_clock(&self) -> bool {
+		use SignalSensitivity::*;
+		match self {
+			Clock(..) => true,
+			_ => false,
+		}
+	}
 	pub fn evaluate_sensitivity(&mut self, others: Vec<SignalSensitivity>, location: SourceSpan) {
 		use SignalSensitivity::*;
 		for sens in others {
@@ -454,6 +461,15 @@ mod tests {
 		assert!(!const_sensitivity().is_none());
 		assert!(!comb_sensitivity().is_none());
 		assert!(!sync_sensitivity().is_none());
+	}
+
+	fn is_clock(){
+		assert!(clock_sensitivity().is_clock());
+		assert!(!async_sensitivity().is_clock());
+		assert!(!const_sensitivity().is_clock());
+		assert!(!comb_sensitivity().is_clock());
+		assert!(!sync_sensitivity().is_clock());
+		assert!(!SignalSensitivity::NoSensitivity.is_clock());
 	}
 
 	#[test]
