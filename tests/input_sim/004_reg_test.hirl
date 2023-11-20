@@ -1,0 +1,14 @@
+module reg_wrapper {
+	uint WIDTH;
+	input clock clk;
+	input async nreset;
+	input comb(clk) en;
+	input comb(clk) ubus<WIDTH> next;
+	output sync(clk) ubus<WIDTH> data;
+}
+
+impl reg_wrapper {
+	reg r {
+		clk, nreset, en, next, data
+	}
+}
