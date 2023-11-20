@@ -1,8 +1,8 @@
 module m {}
 impl m {
-	clock clk, clk2;
+	clock clk, clk2 = 0;
 	sync(clk) unsigned bus<8> a;
-	sync(clk2) unsigned bus<8> b;
+	sync(clk2) unsigned bus<8> b = 0;
 	a = b;
 	clk = clk2;
 }

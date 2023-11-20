@@ -1,6 +1,6 @@
 module m{}
 impl m{
 	const signed bus<4> a;
-	const unsigned bus<4> b;
+	const unsigned bus<4> b = 11;
 	a = (signed auto)b;
 }

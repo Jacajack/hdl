@@ -2,12 +2,12 @@ module m {}
 impl m {
 	{
 		ubus<4> a;
-		const bus<3> b;
+		const bus<3> b = 2;
 		a = b + 1u1;
 	}
 	{
 		ubus<4> a;
-		const bus<3> b;
+		const bus<3> b = 2;
 		a = 1u1+b;
 	}
 }

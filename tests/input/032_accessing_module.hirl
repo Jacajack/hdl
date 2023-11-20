@@ -5,14 +5,18 @@ module mod{
 	input comb(clk) unsigned<16> next;
 	output sync(clk) unsigned<16> data;
 }
-impl mod{}
+impl mod{
+	data = 0;
+}
+
+
 module m {}
 impl m {
-	clock wire clk;
-	comb(clk) auto next ;
-	sync(clk) unsigned auto out = 4u16; 
-	async wire nreset;
-	comb(clk) wire en;
+	clock wire clk = 0;
+	comb(clk) auto next = 4u16;
+	sync(clk) unsigned auto out; 
+	async wire nreset = 1;
+	comb(clk) wire en = 1;
 	mod register_like {
 		clk,
 		nreset: nreset,
