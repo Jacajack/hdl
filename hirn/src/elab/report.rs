@@ -18,7 +18,8 @@ impl SeverityPolicy for DefaultSeverityPolicy {
 		use ElabMessageSeverity::*;
 		match kind {
 			SignalUnused { .. } => Warning,
-			SignalNotDriven { .. } => Error,
+			SignalNotDriven { .. } => Warning,
+			SignalNotDrivenAndUsed { .. } => Error,
 			CombLoop => Error,
 			WidthMismatch => Error,
 			Notice(_) => Info,
@@ -121,6 +122,12 @@ pub enum ElabMessageKind {
 
 	#[error("Signal has more that one driver")]
 	SignalConflict {
+		signal: Box<GeneratedSignalRef>,
+		elab: Box<ElabSignal>,
+	},
+
+	#[error("Signal is being used despite not having a driver")]
+	SignalNotDrivenAndUsed {
 		signal: Box<GeneratedSignalRef>,
 		elab: Box<ElabSignal>,
 	},

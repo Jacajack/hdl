@@ -244,14 +244,33 @@ fn to_report(
 			use hirn::elab::SignalMaskSummary::*;
 			match mask {
 				Empty => unreachable!(),
-				Full => report.label(variable_location, "This signal is not driven within module"),
+				Full => report.label(variable_location, "This signal does not have any drivers"),
 				Single(bit) => report.label(
 					variable_location,
-					format!("Bit {} of this signal is not driven within module", bit).as_str(),
+					format!("Bit {} of this signal is not driven", bit).as_str(),
 				),
 				Ranges(ranges) => {
 					let mut label_msg = from_range_to_string(ranges);
 					label_msg.push_str("of this signal are not driven");
+					report.label(variable_location, label_msg.as_str())
+				},
+			}
+			.build()
+		},
+		SignalNotDrivenAndUsed { signal, elab } => {
+			let variable_location = local_ctx.scope.get_variable_location(signal.signal());
+			let mask = elab.undriven_summary();
+			use hirn::elab::SignalMaskSummary::*;
+			match mask {
+				Empty => unreachable!(),
+				Full => report.label(variable_location, "This signal does not have any drivers but is being used"),
+				Single(bit) => report.label(
+					variable_location,
+					format!("Bit {} of this signal is not driven but used", bit).as_str(),
+				),
+				Ranges(ranges) => {
+					let mut label_msg = from_range_to_string(ranges);
+					label_msg.push_str("of this signal are not driven but used");
 					report.label(variable_location, label_msg.as_str())
 				},
 			}
@@ -263,14 +282,14 @@ fn to_report(
 			use hirn::elab::SignalMaskSummary::*;
 			match mask {
 				Empty => unreachable!(),
-				Full => report.label(variable_location, "This signal is never used within module"),
+				Full => report.label(variable_location, "This signal is never being used"),
 				Single(bit) => report.label(
 					variable_location,
-					format!("Bit {} of this signal is never being read within module", bit).as_str(),
+					format!("Bit {} of this signal is never being used", bit).as_str(),
 				),
 				Ranges(ranges) => {
 					let mut label_msg = from_range_to_string(ranges);
-					label_msg.push_str("of this signal are never being read within module");
+					label_msg.push_str("of this signal are never being used");
 					report.label(variable_location, label_msg.as_str())
 				},
 			}
@@ -282,7 +301,7 @@ fn to_report(
 			use hirn::elab::SignalMaskSummary::*;
 			match mask {
 				Empty => unreachable!(),
-				Full => report.label(variable_location, "This signal is driven multiple times"),
+				Full => report.label(variable_location, "This signal has multiple drivers"),
 				Single(bit) => report.label(
 					variable_location,
 					format!("Bit {} of this signal is driven more than once", bit).as_str(),
