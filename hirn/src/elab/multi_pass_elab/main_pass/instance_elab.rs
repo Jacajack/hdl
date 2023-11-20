@@ -8,9 +8,9 @@ use crate::{
 	elab::{assumptions, ElabMessageKind},
 };
 
-use super::SignalGraphPassCtx;
+use super::MainPassCtx;
 
-impl SignalGraphPassCtx {
+impl MainPassCtx {
 	fn elab_instance_port(
 		&mut self,
 		sig_id: SignalId,

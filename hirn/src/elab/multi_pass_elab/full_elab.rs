@@ -9,7 +9,7 @@ use crate::{
 };
 
 use super::{
-	signal_graph_pass::{SignalGraphPass, SignalGraphPassConfig, SignalGraphPassResult},
+	main_pass::{MainPass, MainPassConfig, MainPassResult},
 	signal_usage_pass::SignalUsagePass,
 	ElabPassContext, ElabQueueItem, MultiPassElaborator,
 };
@@ -22,8 +22,8 @@ pub(super) struct FullElabCtx {
 	assumptions: Arc<dyn ElabAssumptionsBase>,
 	severity_policy: Box<dyn SeverityPolicy>,
 
-	pub(super) sig_graph_result: Option<SignalGraphPassResult>,
-	pub(super) sig_graph_config: SignalGraphPassConfig,
+	pub(super) sig_graph_result: Option<MainPassResult>,
+	pub(super) sig_graph_config: MainPassConfig,
 }
 
 impl FullElabCtx {
@@ -66,7 +66,7 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 			queued: Vec::new(),
 			report: ElabReport::default(),
 			severity_policy: Box::new(DefaultSeverityPolicy),
-			sig_graph_config: SignalGraphPassConfig::default(),
+			sig_graph_config: MainPassConfig::default(),
 			sig_graph_result: None,
 		}
 	}
@@ -89,7 +89,7 @@ impl FullElaborator {
 	/// Create a new FullElaborator and add all passes
 	pub fn new(design: DesignHandle) -> Self {
 		let mut elaborator = MultiPassElaborator::new(design);
-		elaborator.add_pass(Box::new(SignalGraphPass {}));
+		elaborator.add_pass(Box::new(MainPass {}));
 		elaborator.add_pass(Box::new(SignalUsagePass {}));
 		Self { elaborator }
 	}

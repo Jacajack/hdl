@@ -11,9 +11,9 @@ use crate::{
 	elab::{ElabAssumptions, ElabAssumptionsBase, ElabMessageKind},
 };
 
-use super::SignalGraphPassCtx;
+use super::MainPassCtx;
 
-impl SignalGraphPassCtx {
+impl MainPassCtx {
 	/// Analyzes scope contents (non-recursively)
 	fn elab_scope_content(
 		&mut self,

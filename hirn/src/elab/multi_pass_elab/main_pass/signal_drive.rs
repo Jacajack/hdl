@@ -4,16 +4,16 @@ use log::{debug, error};
 
 use crate::{
 	design::{Evaluates, HasSensitivity, SignalId, SignalSliceRange},
-	elab::{multi_pass_elab::signal_graph_pass::GeneratedSignalRef, ElabAssumptionsBase, ElabMessageKind, ElabSignal},
+	elab::{multi_pass_elab::main_pass::GeneratedSignalRef, ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
 
-use super::SignalGraphPassCtx;
+use super::MainPassCtx;
 struct SignalSliceRangeEvalResult<'a> {
 	elab_sig: &'a mut ElabSignal,
 	lsb_msb: Option<(i64, i64)>,
 }
 
-impl SignalGraphPassCtx {
+impl MainPassCtx {
 	fn eval_slice_range(
 		&mut self,
 		range: SignalSliceRange,

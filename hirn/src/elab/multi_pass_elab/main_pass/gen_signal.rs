@@ -7,7 +7,7 @@ use crate::{
 	elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
 
-use super::{ScopePassId, SignalGraphPassCtx};
+use super::{ScopePassId, MainPassCtx};
 
 /// Signal ID coupled with scope pass ID to distingush between generated signals
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
@@ -76,7 +76,7 @@ impl GeneratedSignal {
 	}
 }
 
-impl SignalGraphPassCtx {
+impl MainPassCtx {
 	pub fn get_generated_signal(&self, id: &GeneratedSignalId) -> &GeneratedSignal {
 		self.signals.get(&id).expect("Generated signal not registered")
 	}

@@ -23,7 +23,7 @@ pub use gen_signal::{GeneratedSignal, GeneratedSignalId, GeneratedSignalRef};
 pub use scope_pass::{ScopePassId, ScopePassInfo};
 
 #[derive(Clone, Debug, Copy)]
-pub(super) struct SignalGraphPassConfig {
+pub(super) struct MainPassConfig {
 	pub max_for_iters: i64,
 	pub max_signal_width: i64,
 	pub max_array_dimension: i64,
@@ -31,9 +31,9 @@ pub(super) struct SignalGraphPassConfig {
 	pub max_array_size: usize,
 }
 
-impl Default for SignalGraphPassConfig {
+impl Default for MainPassConfig {
 	fn default() -> Self {
-		SignalGraphPassConfig {
+		MainPassConfig {
 			max_for_iters: 65536,
 			max_signal_width: 65536,
 			max_array_dimension: 65536,
@@ -43,7 +43,7 @@ impl Default for SignalGraphPassConfig {
 	}
 }
 
-pub struct SignalGraphPassResult {
+pub struct MainPassResult {
 	/// All generated signals
 	signals: HashMap<GeneratedSignalId, GeneratedSignal>,
 
@@ -54,7 +54,7 @@ pub struct SignalGraphPassResult {
 	pass_info: HashMap<ScopePassId, ScopePassInfo>,
 }
 
-impl SignalGraphPassResult {
+impl MainPassResult {
 	pub fn signals(&self) -> &HashMap<GeneratedSignalId, GeneratedSignal> {
 		&self.signals
 	}
@@ -68,12 +68,12 @@ impl SignalGraphPassResult {
 	}
 }
 
-struct SignalGraphPassCtx {
+struct MainPassCtx {
 	/// Design handle
 	design: DesignHandle,
 
 	/// Configuration for this pass
-	config: SignalGraphPassConfig,
+	config: MainPassConfig,
 
 	/// Counter for scope passes
 	scope_pass_counter: usize,
@@ -95,9 +95,9 @@ struct SignalGraphPassCtx {
 	// clock_groups: HashMap<GeneratedSignalId, usize>,
 }
 
-impl SignalGraphPassCtx {
-	fn new(design: DesignHandle, config: SignalGraphPassConfig) -> Self {
-		SignalGraphPassCtx {
+impl MainPassCtx {
+	fn new(design: DesignHandle, config: MainPassConfig) -> Self {
+		MainPassCtx {
 			config,
 			design,
 			scope_pass_counter: 0,
@@ -146,16 +146,16 @@ impl SignalGraphPassCtx {
 	}
 }
 
-pub(super) struct SignalGraphPass;
+pub(super) struct MainPass;
 
-impl ElabPass<FullElabCtx, FullElabCacheHandle> for SignalGraphPass {
+impl ElabPass<FullElabCtx, FullElabCacheHandle> for MainPass {
 	fn name(&self) -> &'static str {
 		"SignalGraphPass"
 	}
 
 	fn run(&mut self, mut full_ctx: FullElabCtx) -> Result<FullElabCtx, ElabError> {
 		info!("Running signal graph pass...");
-		let mut ctx = SignalGraphPassCtx::new(full_ctx.design().clone(), full_ctx.sig_graph_config.clone());
+		let mut ctx = MainPassCtx::new(full_ctx.design().clone(), full_ctx.sig_graph_config.clone());
 		let module = full_ctx.module_handle();
 
 		let result = ctx.elab_module(module.clone(), full_ctx.assumptions());
@@ -170,7 +170,7 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for SignalGraphPass {
 		info!("Signal graph edge count: {}", ctx.comb_graph.edge_count());
 		info!("Elab signals registered: {}", ctx.elab_signals.len());
 
-		full_ctx.sig_graph_result = Some(SignalGraphPassResult {
+		full_ctx.sig_graph_result = Some(MainPassResult {
 			signals: ctx.signals,
 			elab_signals: ctx.elab_signals,
 			pass_info: ctx.pass_info,
