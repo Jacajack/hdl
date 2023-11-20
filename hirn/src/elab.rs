@@ -5,6 +5,7 @@ mod multi_pass_elab;
 mod report;
 
 pub use assumptions::{ElabAssumptions, ElabAssumptionsBase, ElabToplevelAssumptions};
+pub use elab_signal::SignalMaskSummary;
 pub use elab_signal::{ElabSignal, SignalMask};
 pub use elaborator::Elaborator;
 pub use multi_pass_elab::{

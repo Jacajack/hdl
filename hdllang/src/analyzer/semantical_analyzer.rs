@@ -1,8 +1,10 @@
 use super::{GlobalAnalyzerContext, LocalAnalyzerContext, SemanticError};
+use crate::core::CompilerDiagnosticBuilder;
 use crate::parser::ast::ModuleImplementation;
 use crate::{core::IdTableKey, ProvidesCompilerDiagnostic};
-use hirn::elab::{ElabMessageSeverity, ElabToplevelAssumptions, Elaborator, FullElaborator};
-use log::{debug, error, info, warn};
+use crate::{CompilerDiagnostic, CompilerError};
+use hirn::elab::{ElabMessageKind, ElabMessageSeverity, ElabToplevelAssumptions, Elaborator, FullElaborator};
+use log::*;
 use std::io::Write;
 use std::{collections::HashMap, sync::Arc};
 pub struct SemanticalAnalyzer<'a> {
@@ -95,30 +97,47 @@ impl<'a> SemanticalAnalyzer<'a> {
 				.handle
 				.id();
 
-			// FIXME use Miette here
-			let mut elab = FullElaborator::new(self.ctx.design.clone());
-			let elab_result = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::new(self.ctx.design.clone())));
-			match elab_result {
-				Ok(elab_report) => {
-					for msg in elab_report.messages() {
-						match msg.default_severity() {
-							ElabMessageSeverity::Error => {
-								panic!("elab: {}", msg);
-							},
-							ElabMessageSeverity::Warning => {
-								warn!("elab: {}", msg);
-							},
-							ElabMessageSeverity::Info => {
-								info!("elab: {}", msg);
-							},
+			if !local_ctx.scope.is_generic() {
+				let mut elab = FullElaborator::new(self.ctx.design.clone());
+				let elab_result = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::new(self.ctx.design.clone())));
+				match elab_result {
+					Ok(elab_report) => {
+						for msg in elab_report.messages() {
+							match msg.default_severity() {
+								ElabMessageSeverity::Error => self.ctx.diagnostic_buffer.push_diagnostic(to_report(
+									&local_ctx,
+									module.location,
+									CompilerDiagnosticBuilder::new_error(msg.to_string().as_str()),
+									msg.kind(),
+								)),
+								ElabMessageSeverity::Warning => self.ctx.diagnostic_buffer.push_diagnostic(to_report(
+									&local_ctx,
+									module.location,
+									CompilerDiagnosticBuilder::new_warning(msg.to_string().as_str()),
+									msg.kind(),
+								)),
+								ElabMessageSeverity::Info => self.ctx.diagnostic_buffer.push_diagnostic(to_report(
+									&local_ctx,
+									module.location,
+									CompilerDiagnosticBuilder::new_info(msg.to_string().as_str()),
+									msg.kind(),
+								)),
+							}
 						}
-					}
-				},
-
-				Err(err) => {
-					panic!("Fatal elab error: {}", err);
-				},
-			};
+					},
+					Err(err) => {
+						return Err(miette::Report::new(
+							CompilerError::ElaborationError(err)
+								.to_diagnostic_builder()
+								.label(
+									module.location,
+									"During elaboration of module this module critical error occured",
+								)
+								.build(),
+						));
+					},
+				};
+			}
 
 			let mut output_string = String::new();
 			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
@@ -187,7 +206,7 @@ pub fn first_pass(
 	Ok(())
 }
 /// This pass checks if all variables have specified sensitivity and width if needed
-pub fn second_pass(
+fn second_pass(
 	ctx: &mut GlobalAnalyzerContext,
 	local_ctx: &mut Box<LocalAnalyzerContext>,
 	module: &ModuleImplementation,
@@ -199,7 +218,7 @@ pub fn second_pass(
 	Ok(())
 }
 /// This pass invokes HIRN API and creates proper module
-pub fn codegen_pass(
+fn codegen_pass(
 	ctx: &mut GlobalAnalyzerContext,
 	local_ctx: &mut Box<LocalAnalyzerContext>,
 	module: &ModuleImplementation,
@@ -209,4 +228,98 @@ pub fn codegen_pass(
 	// then other statements and blocks can be codegened
 	module.codegen_pass(ctx, local_ctx)?;
 	Ok(())
+}
+
+fn to_report(
+	local_ctx: &LocalAnalyzerContext,
+	module_location: crate::SourceSpan,
+	report: CompilerDiagnosticBuilder,
+	elab_report_kind: &ElabMessageKind,
+) -> CompilerDiagnostic {
+	use ElabMessageKind::*;
+	match elab_report_kind {
+		SignalNotDriven { signal, elab } => {
+			let variable_location = local_ctx.scope.get_variable_location(signal.signal());
+			let mask = elab.undriven_summary();
+			use hirn::elab::SignalMaskSummary::*;
+			match mask {
+				Empty => unreachable!(),
+				Full => report.label(variable_location, "This signal is not driven within module"),
+				Single(bit) => report.label(
+					variable_location,
+					format!("Bit {} of this signal is not driven within module", bit).as_str(),
+				),
+				Ranges(ranges) => {
+					let mut label_msg = from_range_to_string(ranges);
+					label_msg.push_str("of this signal are not driven");
+					report.label(variable_location, label_msg.as_str())
+				},
+			}
+			.build()
+		},
+		SignalUnused { signal, elab } => {
+			let variable_location = local_ctx.scope.get_variable_location(signal.signal());
+			let mask = elab.unread_summary();
+			use hirn::elab::SignalMaskSummary::*;
+			match mask {
+				Empty => unreachable!(),
+				Full => report.label(variable_location, "This signal is never used within module"),
+				Single(bit) => report.label(
+					variable_location,
+					format!("Bit {} of this signal is never being read within module", bit).as_str(),
+				),
+				Ranges(ranges) => {
+					let mut label_msg = from_range_to_string(ranges);
+					label_msg.push_str("of this signal are never being read within module");
+					report.label(variable_location, label_msg.as_str())
+				},
+			}
+			.build()
+		},
+		SignalConflict { signal, elab } => {
+			let variable_location = local_ctx.scope.get_variable_location(signal.signal());
+			let mask = elab.conflict_summary();
+			use hirn::elab::SignalMaskSummary::*;
+			match mask {
+				Empty => unreachable!(),
+				Full => report.label(variable_location, "This signal is driven multiple times"),
+				Single(bit) => report.label(
+					variable_location,
+					format!("Bit {} of this signal is driven more than once", bit).as_str(),
+				),
+				Ranges(ranges) => {
+					let mut label_msg = from_range_to_string(ranges);
+					label_msg.push_str("are driven more than once");
+					report.label(variable_location, label_msg.as_str())
+				},
+			}
+			.build()
+		},
+		Notice(msg) => report.label(module_location, msg.as_str()).build(),
+		_ => report
+			.label(module_location, "Other elaboration warning/error occured")
+			.build(),
+	}
+}
+
+fn from_range_to_string(ranges: Vec<(u32, u32)>) -> String {
+	assert!(!ranges.is_empty());
+
+	let first_range = ranges.first().unwrap();
+	let mut label_msg = if first_range.0 == first_range.1 {
+		format!("Bit {} ", first_range.0)
+	}
+	else {
+		format!("Bits {}-{} ", first_range.0, first_range.1)
+	};
+	for i in 1..ranges.len() {
+		let (begin, end) = ranges[i];
+		if begin == end {
+			label_msg.push_str(format!("and {} ", begin).as_str());
+		}
+		else {
+			label_msg.push_str(format!("and {}-{} ", begin, end).as_str());
+		}
+	}
+	label_msg
 }
