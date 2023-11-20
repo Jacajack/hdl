@@ -1,5 +1,5 @@
 # This makefile is intended for test compilation and debugging (not for CI or anything like that)
-VFLAGS = -g2005-sv -Wall
+VFLAGS = -g2005-sv -Wall -I ../include
 IVERILOG = iverilog
 VVP = vvp
 HDLC = cargo run -- 

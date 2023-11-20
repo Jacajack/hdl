@@ -12,3 +12,5 @@ impl reg_wrapper {
 		clk, nreset, en, next, data
 	}
 }
+
+module dummy {} impl dummy {}
