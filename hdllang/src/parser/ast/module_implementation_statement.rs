@@ -82,7 +82,7 @@ impl ModuleImplementationStatement {
 		use ModuleImplementationStatement::*;
 		match self {
 			VariableBlock(block) => block.codegen_pass(ctx, local_ctx, api_scope),
-			VariableDefinition(definition) => definition.codegen_pass(ctx, local_ctx, api_scope),
+			VariableDefinition(definition) => definition.codegen_passv2(ctx, local_ctx, api_scope),
 			AssignmentStatement(assignment) => assignment.codegen_pass(ctx, local_ctx, scope_id, api_scope),
 			IfElseStatement(conditional) => conditional.codegen_pass(ctx, local_ctx, scope_id, api_scope),
 			IterationStatement(for_stmt) => for_stmt.codegen_pass(ctx, local_ctx, scope_id, api_scope),

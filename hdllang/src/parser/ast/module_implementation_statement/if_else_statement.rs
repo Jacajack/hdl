@@ -75,6 +75,15 @@ impl IfElseStatement {
 				match self.if_statement.as_ref() {
 					ModuleImplementationBlockStatement(block) => {
 						log::debug!("Codegen for if block");
+						let scope_id = local_ctx.scope_map.get(&block.location).unwrap().to_owned();
+						local_ctx.scope.register_all_variables_in_scope(
+							&local_ctx.depenency_graph,
+							ctx.nc_table,
+							ctx.id_table,
+							Some(&additional_ctx),
+							scope_id,
+							&mut if_scope,
+						);
 						for statement in &block.statements {
 							statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
 						}
@@ -85,12 +94,30 @@ impl IfElseStatement {
 				match else_stmt.as_ref() {
 					ModuleImplementationBlockStatement(block) => {
 						log::debug!("Codegen for else block");
+						let scope_id = local_ctx.scope_map.get(&block.location).unwrap().to_owned();
+						local_ctx.scope.register_all_variables_in_scope(
+							&local_ctx.depenency_graph,
+							ctx.nc_table,
+							ctx.id_table,
+							Some(&additional_ctx),
+							scope_id,
+							&mut else_scope,
+						);
 						for statement in &block.statements {
 							statement.codegen_pass(ctx, local_ctx, &mut else_scope)?;
 						}
 					},
 					IfElseStatement(conditional) => {
 						log::debug!("Codegen for else-if block");
+						let scope_id = local_ctx.scope_map.get(&conditional.location).unwrap().to_owned();
+						local_ctx.scope.register_all_variables_in_scope(
+							&local_ctx.depenency_graph,
+							ctx.nc_table,
+							ctx.id_table,
+							Some(&additional_ctx),
+							scope_id,
+							&mut else_scope,
+						);
 						conditional.codegen_pass(ctx, local_ctx, scope_id, &mut else_scope)?;
 					},
 					_ => unreachable!(),
@@ -107,6 +134,15 @@ impl IfElseStatement {
 				match self.if_statement.as_ref() {
 					ModuleImplementationBlockStatement(block) => {
 						log::debug!("Codegen for single if block");
+						let scope_id = local_ctx.scope_map.get(&block.location).unwrap().to_owned();
+						local_ctx.scope.register_all_variables_in_scope(
+							&local_ctx.depenency_graph,
+							ctx.nc_table,
+							ctx.id_table,
+							Some(&additional_ctx),
+							scope_id,
+							&mut if_scope,
+						);
 						for statement in &block.statements {
 							statement.codegen_pass(ctx, local_ctx, &mut if_scope)?;
 						}

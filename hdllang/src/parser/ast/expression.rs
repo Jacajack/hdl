@@ -2750,12 +2750,12 @@ impl Expression {
 	}
 	pub fn get_dependencies(&self,
 		scope_id: usize,
-		local_ctx: &Box<LocalAnalyzerContext>,) -> Vec<InternalVariableId> {
+		local_ctx: &ModuleImplementationScope,) -> Vec<InternalVariableId> {
 		use Expression::*;
 		match self{
     		Number(_) => vec!(),
     		Identifier(id) => {
-				vec![local_ctx.scope.get_variable(scope_id, &id.id).unwrap().id]
+				vec![local_ctx.get_variable(scope_id, &id.id).unwrap().id]
 			},
     		ParenthesizedExpression(expr) => expr.expression.get_dependencies(scope_id, local_ctx),
     		MatchExpression(expr) => {

@@ -1,7 +1,7 @@
 use std::{collections::HashMap, hash::Hash};
 
 use bimap::BiHashMap;
-use hirn::design::{ModuleHandle, SignalId};
+use hirn::design::{ModuleHandle, SignalId, ScopeHandle};
 use log::*;
 
 use crate::{
@@ -9,7 +9,7 @@ use crate::{
 	ProvidesCompilerDiagnostic, SourceSpan,
 };
 
-use super::{GlobalAnalyzerContext, SemanticError, SignalSensitivity, Variable, VariableKind};
+use super::{GlobalAnalyzerContext, SemanticError, SignalSensitivity, Variable, VariableKind, DependencyGraph, AdditionalContext};
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
 pub struct InternalVariableId {
 	id: usize,
@@ -42,7 +42,6 @@ pub struct ModuleImplementationScope {
 	internal_ids: HashMap<InternalVariableId, (usize, IdTableKey)>,
 	variable_counter: usize,
 	variables: HashMap<InternalVariableId, VariableDefined>,
-	depenency_graph: crate::analyzer::DependencyGraph,
 }
 pub trait InternalScopeTrait {
 	fn contains_key(&self, key: &IdTableKey) -> bool;
@@ -171,7 +170,6 @@ impl ModuleImplementationScope {
 			is_generic: false,
 			enriched_constants: HashMap::new(),
 			variables: HashMap::new(),
-			depenency_graph: crate::analyzer::DependencyGraph::new(),
 		}
 	}
 	pub fn new_scope(&mut self, parent_scope: Option<usize>) -> usize {
@@ -261,7 +259,7 @@ impl ModuleImplementationScope {
 		var.kind.add_name_to_clock(id);
 		self.variable_counter += 1;
 		let name = var.name.clone();
-		let defined = VariableDefined { var, id };
+		let defined = VariableDefined { var, id, scope_id, is_iterated: false };
 		self.scopes[scope_id].variables.insert(name, id);
 		self.variables.insert(id, defined);
 		self.internal_ids.insert(id, (scope_id, name));
@@ -270,12 +268,12 @@ impl ModuleImplementationScope {
 	pub fn get_intermidiate_signal(&self, id: InternalVariableId) -> &VariableDefined {
 		self.variables.get(&id).unwrap()
 	}
-	pub fn define_intermidiate_signal(&mut self, mut var: Variable) -> miette::Result<InternalVariableId> {
+	pub fn define_intermidiate_signal(&mut self, mut var: Variable, scope_id: usize) -> miette::Result<InternalVariableId> {
 		let id = InternalVariableId::new(self.variable_counter);
 		var.kind.add_name_to_clock(id);
 		log::debug!("Defining intermidiate signal {:?}", var);
 		self.variable_counter += 1;
-		let defined = VariableDefined { var, id };
+		let defined = VariableDefined { var, id, scope_id, is_iterated: false };
 		self.variables.insert(id, defined);
 		Ok(id)
 	}
@@ -343,7 +341,7 @@ impl ModuleImplementationScope {
 				unreachable!("Module instantion can't be declared in module implementation scope")
 			},
 		}
-		let defined = VariableDefined { var, id };
+		let defined = VariableDefined { var, id, scope_id: 0, is_iterated: false };
 		self.scopes[0].variables.insert(name, defined.id);
 		self.variables.insert(defined.id, defined);
 		Ok(())
@@ -352,9 +350,11 @@ impl ModuleImplementationScope {
 		let id = self.api_ids.get_by_right(&api_id).unwrap();
 		self.variables.get(id).unwrap().var.location
 	}
-	pub fn second_pass(&mut self, ctx: &mut GlobalAnalyzerContext) -> miette::Result<()> {
+	pub fn second_pass(&mut self, ctx: &mut GlobalAnalyzerContext, graph: &mut DependencyGraph) -> miette::Result<()> {
 		for v in self.variables.values() {
+			log::debug!("Checking variable {:?}", v.id);
 			if let VariableKind::Signal(sig) = &v.var.kind {
+
 				if !sig.is_sensititivity_specified() {
 					return Err(miette::Report::new(
 						SemanticError::MissingSensitivityQualifier
@@ -390,6 +390,18 @@ impl ModuleImplementationScope {
 							.build(),
 					));
 				}
+
+				let mut deps = sig.sensitivity.get_dependencies();
+				use BusWidth::*;
+				match sig.width().expect("Width not specified") {
+    			    Evaluated(_) => (),
+    			    EvaluatedLocated(_, loc) | Evaluable(loc) | WidthOf(loc) => {
+						let entry = self.evaluated_expressions.get(&loc).unwrap();
+						deps.extend(entry.expression.get_dependencies(entry.scope_id, &self));	
+					},
+    			}
+				graph.add_node(v.id);
+				graph.add_edges(deps, v.id)
 			}
 			// we do not have to check for module instances, because their members are checked in previous pass
 			if let VariableKind::Generic(gen) = &v.var.kind {
@@ -402,7 +414,7 @@ impl ModuleImplementationScope {
 					.build();
 					ctx.diagnostic_buffer.push_diagnostic(report);
 				}
-				self.depenency_graph.add_node(v.id);
+				graph.add_node(v.id);
 			}
 		}
 		Ok(())
@@ -422,18 +434,42 @@ impl ModuleImplementationScope {
 		}
 		false
 	}
-	pub fn get_all_variables_declared_in_scope(&self, scope_id: usize) -> Vec<VariableDefined>{
+	/// This is not efficient, but I dont know how to handle it better for now
+	fn get_all_variables_declared_in_scope(&self, scope_id: usize) -> Vec<InternalVariableId>{
 		let mut variables = Vec::new();
-		for var in self.scopes[scope_id].variables.values() {
-			variables.push(self.variables.get(var).unwrap().clone());
+		for var in self.variables.values() {
+			if var.scope_id == scope_id {
+				variables.push(var.id);
+			}
 		}
 		variables
+	}
+	pub fn register_all_variables_in_scope(&mut self, depedency_graph: &DependencyGraph,
+		nc_table: &crate::core::NumericConstantTable,
+		id_table: &crate::core::IdTable,
+		additional_ctx: Option<&AdditionalContext>,
+		scope_id: usize,
+		scope_handle: &mut ScopeHandle) {
+		log::debug!("Registering all variables in scope {:?}", scope_id);
+		let variables = self.get_all_variables_declared_in_scope(scope_id);
+		for var in variables {
+			depedency_graph.register(nc_table, id_table, additional_ctx, self, scope_id, scope_handle, var);
+		}
+	}
+	pub fn register_variable(&mut self, id: InternalVariableId, scope: &mut ScopeHandle) {
+		let var = self.variables.get(&id).unwrap();
+		todo!("Registering variable {:?}", var);
+	}
+	pub fn is_already_registered(&self, id: InternalVariableId) -> bool {
+		self.api_ids.contains_left(&id)
 	}
 }
 #[derive(Debug, Clone, Eq, PartialEq)]
 pub struct VariableDefined {
 	pub var: Variable,
 	pub id: InternalVariableId,
+	pub scope_id: usize,
+	pub is_iterated: bool,
 }
 
 impl VariableDefined {

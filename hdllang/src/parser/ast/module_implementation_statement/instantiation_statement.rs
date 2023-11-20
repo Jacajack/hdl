@@ -134,7 +134,7 @@ impl InstantiationStatement {
 			let sig_name = ctx.id_table.get_value(&stmt.get_id()).clone();
 			let new_name = ctx
 				.id_table
-				.insert_or_get(format!("{instance_str}_{sig_name}_generic").as_str());
+				.insert_or_get(format!("{instance_str}_instance_{sig_name}_generic").as_str());
 			use crate::parser::ast::PortBindStatement::*;
 			match &stmt {
 				OnlyId(id) => {
@@ -198,7 +198,7 @@ impl InstantiationStatement {
 							gen2.value = gen1.value.clone();
 							let new_var = Variable::new(new_name, stmt.location(), interface_variable.var.kind.clone());
 							scope.redeclare_variable(interface_variable);
-							let id = local_ctx.scope.define_intermidiate_signal(new_var)?;
+							let id = local_ctx.scope.define_intermidiate_signal(new_var, scope_id)?;
 							module_instance
 								.add_variable(stmt.get_id(), id)
 								.map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
@@ -232,7 +232,7 @@ impl InstantiationStatement {
 					}
 					let new_var = Variable::new(new_name, stmt.location(), interface_variable.var.kind.clone());
 					scope.redeclare_variable(interface_variable);
-					let id = local_ctx.scope.define_intermidiate_signal(new_var)?;
+					let id = local_ctx.scope.define_intermidiate_signal(new_var, scope_id)?;
 					module_instance
 						.add_variable(stmt.get_id(), id)
 						.map_err(|err| err.label(stmt.location(), "Variable declared here").build())?;
@@ -273,7 +273,7 @@ impl InstantiationStatement {
 		debug!("Binding clocks!");
 		for stmt in &self.port_bind {
 			let sig_name = ctx.id_table.get_value(&stmt.get_id()).clone();
-			let new_name_str = format!("{instance_str}_{sig_name}_clk");
+			let new_name_str = format!("{instance_str}_instance_{sig_name}_clk");
 			let new_name = ctx.id_table.insert_or_get(new_name_str.as_str());
 			let mut interface_variable = scope.get_variable(0, &stmt.get_id()).expect("This was checked").clone();
 			if !interface_variable.var.is_clock() || interface_variable.var.kind.is_generic() {
@@ -304,7 +304,7 @@ impl InstantiationStatement {
 					new_name,
 					stmt.location(),
 					interface_variable.var.kind,
-				))?;
+				), scope_id)?;
 				debug!(
 					"Inserting clock mapping {:?} -> {:?}",
 					clk_type.get_clock_name(),
@@ -349,7 +349,7 @@ impl InstantiationStatement {
 		debug!("Binding non generic variables!");
 		for stmt in &self.port_bind {
 			let sig_name = ctx.id_table.get_value(&stmt.get_id()).clone();
-			let new_name_str = format!("{instance_str}_{sig_name}");
+			let new_name_str = format!("{instance_str}_instance_{sig_name}");
 			let new_name = ctx.id_table.insert_or_get(new_name_str.as_str());
 			let mut interface_variable = scope.get_variable(0, &stmt.get_id()).expect("This was checked").clone();
 			if interface_variable.var.is_clock() || interface_variable.var.kind.is_generic() {
@@ -379,7 +379,7 @@ impl InstantiationStatement {
 				new_name,
 				stmt.location(),
 				VariableKind::Signal(interface_signal),
-			))?;
+			), scope_id)?;
 			if is_output {
 				let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
 				local_ctx
@@ -486,96 +486,11 @@ impl InstantiationStatement {
 						api_scope.clone(),
 						&ctx.id_table.get_value(&self.instance_name),
 					);
-					let clk_var = local_ctx.scope.get_intermidiate_signal(reg.clk).clone();
-					let data_var = local_ctx.scope.get_intermidiate_signal(reg.data).clone();
-					let next_var = local_ctx.scope.get_intermidiate_signal(reg.next).clone();
-					let en_var = local_ctx.scope.get_intermidiate_signal(reg.enable).clone();
-					let nreset_var = local_ctx.scope.get_intermidiate_signal(reg.nreset).clone();
-					let clk_id = clk_var.var.register(
-						ctx.nc_table,
-						ctx.id_table,
-						scope_id,
-						&local_ctx.scope,
-						Some(&additional_ctx),
-						api_scope
-							.new_signal(ctx.id_table.get_by_key(&clk_var.var.name).unwrap().as_str())
-							.map_err(|err| {
-								CompilerError::HirnApiError(err)
-									.to_diagnostic_builder()
-									.label(clk_var.var.location, "Error occured here")
-									.build()
-							})?
-							.generated(),
-					)?;
-					local_ctx.scope.insert_api_id(clk_var.id, clk_id);
-					let next_id = next_var.var.register(
-						ctx.nc_table,
-						ctx.id_table,
-						scope_id,
-						&local_ctx.scope,
-						Some(&additional_ctx),
-						api_scope
-							.new_signal(ctx.id_table.get_by_key(&next_var.var.name).unwrap().as_str())
-							.map_err(|err| {
-								CompilerError::HirnApiError(err)
-									.to_diagnostic_builder()
-									.label(next_var.var.location, "Error occured here")
-									.build()
-							})?
-							.generated(),
-					)?;
-					local_ctx.scope.insert_api_id(next_var.id, next_id);
-					let enable_id = en_var.var.register(
-						ctx.nc_table,
-						ctx.id_table,
-						scope_id,
-						&local_ctx.scope,
-						Some(&additional_ctx),
-						api_scope
-							.new_signal(ctx.id_table.get_by_key(&en_var.var.name).unwrap().as_str())
-							.map_err(|err| {
-								CompilerError::HirnApiError(err)
-									.to_diagnostic_builder()
-									.label(en_var.var.location, "Error occured here")
-									.build()
-							})?
-							.generated(),
-					)?;
-					local_ctx.scope.insert_api_id(en_var.id, enable_id);
-					let reset_id = nreset_var.var.register(
-						ctx.nc_table,
-						ctx.id_table,
-						scope_id,
-						&local_ctx.scope,
-						Some(&additional_ctx),
-						api_scope
-							.new_signal(ctx.id_table.get_by_key(&nreset_var.var.name).unwrap().as_str())
-							.map_err(|err| {
-								CompilerError::HirnApiError(err)
-									.to_diagnostic_builder()
-									.label(nreset_var.var.location, "Error occured here")
-									.build()
-							})?
-							.generated(),
-					)?;
-					local_ctx.scope.insert_api_id(nreset_var.id, reset_id);
-					let data_id = data_var.var.register(
-						ctx.nc_table,
-						ctx.id_table,
-						scope_id,
-						&local_ctx.scope,
-						Some(&additional_ctx),
-						api_scope
-							.new_signal(ctx.id_table.get_by_key(&data_var.var.name).unwrap().as_str())
-							.map_err(|err| {
-								CompilerError::HirnApiError(err)
-									.to_diagnostic_builder()
-									.label(data_var.var.location, "Error occured here")
-									.build()
-							})?
-							.generated(),
-					)?;
-					local_ctx.scope.insert_api_id(data_var.id, data_id);
+					let clk_id = local_ctx.scope.get_api_id_by_internal_id(reg.clk).unwrap();
+					let next_id = local_ctx.scope.get_api_id_by_internal_id(reg.next).unwrap();
+					let enable_id = local_ctx.scope.get_api_id_by_internal_id(reg.enable).unwrap();
+					let reset_id = local_ctx.scope.get_api_id_by_internal_id(reg.nreset).unwrap();
+					let data_id = local_ctx.scope.get_api_id_by_internal_id(reg.data).unwrap();
 					for stmt in &self.port_bind {
 						let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
 						debug!("Codegen pass for port bind {:?}", stmt);
@@ -586,7 +501,7 @@ impl InstantiationStatement {
 									.map_err(|err| {
 										CompilerError::HirnApiError(err)
 											.to_diagnostic_builder()
-											.label(clk_var.var.location, "Error occured here")
+											.label(stmt.get_location(), "Error occured here")
 											.build()
 									})?;
 							},
@@ -596,7 +511,7 @@ impl InstantiationStatement {
 									.map_err(|err| {
 										CompilerError::HirnApiError(err)
 											.to_diagnostic_builder()
-											.label(next_var.var.location, "Error occured here")
+											.label(stmt.get_location(), "Error occured here")
 											.build()
 									})?;
 							},
@@ -606,7 +521,7 @@ impl InstantiationStatement {
 									.map_err(|err| {
 										CompilerError::HirnApiError(err)
 											.to_diagnostic_builder()
-											.label(en_var.var.location, "Error occured here")
+											.label(stmt.get_location(), "Error occured here")
 											.build()
 									})?;
 							},
@@ -616,7 +531,7 @@ impl InstantiationStatement {
 									.map_err(|err| {
 										CompilerError::HirnApiError(err)
 											.to_diagnostic_builder()
-											.label(nreset_var.var.location, "Error occured here")
+											.label(stmt.get_location(), "Error occured here")
 											.build()
 									})?;
 							},
@@ -626,7 +541,7 @@ impl InstantiationStatement {
 									.map_err(|err| {
 										CompilerError::HirnApiError(err)
 											.to_diagnostic_builder()
-											.label(data_var.var.location, "Error occured here")
+											.label(stmt.get_location(), "Error occured here")
 											.build()
 									})?;
 							},
@@ -678,95 +593,9 @@ impl InstantiationStatement {
 					.label(self.location, "Error occured here")
 					.build()
 			})?;
-		debug!("Codegen for generic variables");
-		for stmt in &self.port_bind {
-			let var = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
-			if !var.var.kind.is_generic() {
-				continue;
-			}
-			let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
-			debug!(
-				"Codegen pass for port bind {:?}",
-				ctx.id_table.get_value(&stmt.get_id())
-			);
-			let var = local_ctx
-				.scope
-				.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap())
-				.clone();
-			let var_id: hirn::design::SignalId = var.var.register(
-				ctx.nc_table,
-				ctx.id_table,
-				scope_id,
-				&local_ctx.scope,
-				Some(&additional_ctx),
-				api_scope
-					.new_signal(ctx.id_table.get_by_key(&var.var.name).unwrap().as_str())
-					.map_err(|err| {
-						CompilerError::HirnApiError(err)
-							.to_diagnostic_builder()
-							.label(var.var.location, "Error occured here")
-							.build()
-					})?
-					.generated(),
-			)?;
-			local_ctx.scope.insert_api_id(var.id, var_id);
-			builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
-			api_scope.assign(var_id.into(), rhs).map_err(|err| {
-				CompilerError::HirnApiError(err)
-					.to_diagnostic_builder()
-					.label(var.var.location, "Error occured here")
-					.build()
-			})?;
-			debug!("Assigned succesfuly");
-		}
-		debug!("Codegen for clocks");
-		for stmt in &self.port_bind {
-			let var = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
-			if !var.var.is_clock() {
-				continue;
-			}
-			let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
-			debug!(
-				"Codegen pass for port bind {:?}",
-				ctx.id_table.get_value(&stmt.get_id())
-			);
-			let var = &local_ctx
-				.scope
-				.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap())
-				.clone();
-			let var_id: hirn::design::SignalId = var.var.register(
-				ctx.nc_table,
-				ctx.id_table,
-				scope_id,
-				&local_ctx.scope,
-				Some(&additional_ctx),
-				api_scope
-					.new_signal(ctx.id_table.get_by_key(&var.var.name).unwrap().as_str())
-					.map_err(|err| {
-						CompilerError::HirnApiError(err)
-							.to_diagnostic_builder()
-							.label(var.var.location, "Error occured here")
-							.build()
-					})?
-					.generated(),
-			)?;
-			local_ctx.scope.insert_api_id(var.id, var_id);
-			builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
-			api_scope.assign(var_id.into(), rhs).map_err(|err| {
-				CompilerError::HirnApiError(err)
-					.to_diagnostic_builder()
-					.label(var.var.location, "Error occured here")
-					.build()
-			})?;
-			debug!("Assigned succesfuly");
-		}
-		debug!("Codegen for other variables");
+		debug!("Codegen for variables");
 		for stmt in &self.port_bind {
 			let interface_variable = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
-			let var = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
-			if var.var.is_clock() || var.var.kind.is_generic() {
-				continue;
-			}
 			let rhs = stmt.codegen_pass(ctx, local_ctx, api_scope, scope_id)?;
 			debug!(
 				"Codegen pass for port bind {:?}",
@@ -776,23 +605,7 @@ impl InstantiationStatement {
 				.scope
 				.get_intermidiate_signal(*m_inst.interface.get(&stmt.get_id()).unwrap())
 				.clone();
-			let var_id: hirn::design::SignalId = var.var.register(
-				ctx.nc_table,
-				ctx.id_table,
-				scope_id,
-				&local_ctx.scope,
-				Some(&additional_ctx),
-				api_scope
-					.new_signal(ctx.id_table.get_by_key(&var.var.name).unwrap().as_str())
-					.map_err(|err| {
-						CompilerError::HirnApiError(err)
-							.to_diagnostic_builder()
-							.label(var.var.location, "Error occured here")
-							.build()
-					})?
-					.generated(),
-			)?;
-			local_ctx.scope.insert_api_id(var.id, var_id);
+			let var_id: hirn::design::SignalId = local_ctx.scope.get_api_id_by_internal_id(var.id).unwrap();
 			builder = builder.bind(&ctx.id_table.get_value(&stmt.get_id()).as_str(), var_id);
 			match interface_variable
 				.var
@@ -945,7 +758,7 @@ fn create_register(
 		clk_name,
 		next_stmt.unwrap().location(),
 		VariableKind::Signal(clk_type),
-	))?;
+	), scope_id)?;
 	let mut data_type = data_stmt
 		.unwrap()
 		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), true)?;
@@ -1068,25 +881,25 @@ fn create_register(
 		en_name,
 		next_stmt.unwrap().location(),
 		VariableKind::Signal(en_type),
-	))?;
+	), scope_id)?;
 	debug!("Nreset type is {:?}", nreset_type);
 	let nreset_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 		nreset_name,
 		next_stmt.unwrap().location(),
 		VariableKind::Signal(nreset_type),
-	))?;
+	), scope_id)?;
 	debug!("Data type is {:?}", data_type);
 	let data_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 		data_name,
 		next_stmt.unwrap().location(),
 		VariableKind::Signal(data_type.clone()),
-	))?;
+	), scope_id)?;
 	debug!("Next type is {:?}", next_type);
 	let next_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
 		next_name,
 		next_stmt.unwrap().location(),
 		VariableKind::Signal(next_type),
-	))?;
+	), scope_id)?;
 	local_ctx
 		.sensitivity_graph
 		.add_edges(

@@ -380,6 +380,13 @@ impl SignalSensitivity {
 		}
 		Ok(())
 	}
+	pub fn get_dependencies(&self) -> Vec<InternalVariableId>{
+		use SignalSensitivity::*;
+		match self {
+			Comb(list, _) | Sync(list, _)=> list.to_ids(),
+			_ => Vec::new(),
+		}
+	}
 }
 
 #[cfg(test)]
@@ -463,6 +470,7 @@ mod tests {
 		assert!(!sync_sensitivity().is_none());
 	}
 
+	#[test]
 	fn is_clock(){
 		assert!(clock_sensitivity().is_clock());
 		assert!(!async_sensitivity().is_clock());

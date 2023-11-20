@@ -14,6 +14,7 @@ pub struct LocalAnalyzerContext {
 	are_we_in_true_branch: Vec<bool>,
 	pub number_of_recursive_calls: usize,
 	pub casts: HashMap<SourceSpan, Cast>,
+	pub depenency_graph: super::DependencyGraph,
 }
 impl LocalAnalyzerContext {
 	pub fn new(module_id: IdTableKey, scope: ModuleImplementationScope) -> Box<Self> {
@@ -28,6 +29,7 @@ impl LocalAnalyzerContext {
 			are_we_in_true_branch: vec![true], // initial value is true :)
 			number_of_recursive_calls: 0,
 			array_or_bus: HashMap::new(),
+			depenency_graph: super::DependencyGraph::new(),
 		})
 	}
 	pub fn module_id(&self) -> IdTableKey {
@@ -53,7 +55,8 @@ impl LocalAnalyzerContext {
 	pub fn second_pass(&mut self, ctx: &mut GlobalAnalyzerContext) -> miette::Result<()> {
 		log::debug!("Second pass");
 		self.sensitivity_graph.verify(&mut self.scope, ctx)?;
-		self.scope.second_pass(ctx)?;
+		self.scope.second_pass(ctx, &mut self.depenency_graph)?;
+		log::debug!("Dependency graph: {:?}", self.depenency_graph);
 		Ok(())
 	}
 }

@@ -147,7 +147,12 @@ impl VariableDefinition {
 					if spec_kind.is_generic() {
 						let rhs_val = expr.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
 						if let VariableKind::Generic(GenericVariable { value, .. }) = &mut spec_kind {
-							value.replace(BusWidth::Evaluated(rhs_val.unwrap()));
+							value.replace(if rhs_val.is_none(){
+								local_ctx.scope.add_expression(expr.get_location(), scope_id, expr.clone());
+								BusWidth::Evaluable(expr.get_location())
+							} else {
+								BusWidth::Evaluated(rhs_val.unwrap())
+							});
 						}
 						else {
 							unreachable!()

@@ -1,4 +1,4 @@
-use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
+use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext, AdditionalContext};
 use crate::core::{CommentTableKey, IdTableKey, SourceSpan};
 use crate::parser::ast::ModuleImplementationStatement;
 
@@ -72,6 +72,14 @@ impl ModuleImplementation {
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		match &self.statement {
 			ModuleImplementationBlockStatement(block) => {
+				let additional_ctx = AdditionalContext::new(
+					local_ctx.nc_widths.clone(),
+					local_ctx.array_or_bus.clone(),
+					local_ctx.casts.clone(),
+				);
+				local_ctx.scope.register_all_variables_in_scope(
+					&local_ctx.depenency_graph,
+					ctx.nc_table, ctx.id_table, Some(&additional_ctx), 0, &mut api_scope,);
 				for statement in &block.statements {
 					statement.codegen_pass(ctx, local_ctx, &mut api_scope)?;
 				}
