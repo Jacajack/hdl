@@ -301,15 +301,16 @@ impl<'a> SVCodegen<'a> {
 	fn emit_register_instance(&mut self, reg: &Register) -> Result<(), CodegenError> {
 		let reg_name = format!("{}_r$", reg.instance_name());
 		let input_signal = &self.design.get_signal(reg.input_next).unwrap();
-		let nreset_expr = Expression::from(reg.input_nreset).logical_not();
+		let reset_cond = Expression::from(reg.input_nreset).logical_not();
 
 		let msb_str =
 			self.translate_expression_try_eval(&expr_sub_one(self.design.clone(), &input_signal.width()), false)?;
 		let output_str = self.translate_expression(&reg.output_data.into(), true)?;
 		let clk_str = self.translate_expression(&reg.input_clk.into(), true)?;
-		let nreset_str = self.translate_expression(&nreset_expr, true)?;
 		let en_str = self.translate_expression(&reg.input_en.into(), true)?;
 		let next_str = self.translate_expression(&reg.input_next.into(), true)?;
+		let nreset_str = self.translate_expression(&reg.input_nreset.into(), true)?;
+		let reset_cond_str = self.translate_expression(&reset_cond, true)?;
 
 		if input_signal.is_wire() {
 			emitln!(self, "reg {} = '0;", reg_name)?;
@@ -329,19 +330,15 @@ impl<'a> SVCodegen<'a> {
 			)?;
 		}
 		emitln!(self, "assign {} = {};", output_str, reg_name)?;
-		emitln!(self, "always @(posedge {})", clk_str)?;
+		emitln!(self, "always @(posedge {} or negedge {})", clk_str, nreset_str)?;
 		self.begin_indent();
-		emitln!(self, "if ({})", nreset_str)?;
+		emitln!(self, "if ({})", reset_cond_str)?;
 		self.begin_indent();
 		emitln!(self, "{} <= '0;", reg_name)?;
 		self.end_indent();
 		emitln!(self, "else if ({})", en_str)?;
 		self.begin_indent();
 		emitln!(self, "{} <= {};", reg_name, next_str,)?;
-		self.end_indent();
-		emitln!(self, "else")?;
-		self.begin_indent();
-		emitln!(self, "{} <= {};", reg_name, reg_name)?;
 		self.end_indent();
 		self.end_indent();
 		emitln!(self, "")?;

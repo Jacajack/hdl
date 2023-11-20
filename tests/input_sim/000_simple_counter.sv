@@ -1,16 +1,4 @@
-`timescale 1ns/1ps
-
-// TODO move this into a shared TB lib
-`define ASSERT(cond) assert(cond) else $fatal(1)
-
-task start_dump();
-	string vcd_path;
-	$value$plusargs("DUMP_PATH=%s", vcd_path);
-	$display("DUMP_PATH=%s", vcd_path);
-	$dumpfile(vcd_path);
-	$dumpvars(0, simple_counter_tb);
-endtask
-
+`include "tb_common.svh"
 
 module simple_counter_ref(
 	input wire clk,
@@ -56,7 +44,7 @@ module simple_counter_tb;
 	);
 
 	initial begin
-		start_dump();
+		`START_DUMP(simple_counter_tb);
 
 		clk = '0;
 		en = '0;

@@ -1,16 +1,4 @@
-`timescale 1ns/1ps
-
-// TODO move this into a shared TB lib
-`define ASSERT(cond) assert(cond) else $fatal(1)
-
-task start_dump();
-	string vcd_path;
-	$value$plusargs("DUMP_PATH=%s", vcd_path);
-	$display("DUMP_PATH=%s", vcd_path);
-	$dumpfile(vcd_path);
-	$dumpvars(0, comb_div_tb);
-endtask
-
+`include "tb_common.svh"
 
 module ref_full_adder(
 	input wire a,
@@ -67,7 +55,7 @@ module comb_div_tb;
 	);
 
 	initial begin
-		start_dump();
+		`START_DUMP(comb_div_tb);
 
 		inputs = 0;
 		#1;

@@ -108,6 +108,8 @@ fn run_iverilog(iverilog_path: &Path, input_paths: &Vec<PathBuf>) -> Result<Name
 		iverilog_path.to_str().unwrap(),
 		"-g2005-sv",
 		"-Wall",
+		"-I",
+		"tests/include",
 		"-o",
 		bin_file.path().to_str().unwrap(),
 	];
