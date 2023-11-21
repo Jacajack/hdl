@@ -9,3 +9,5 @@ impl X{
 	b = d;
 	e=b;
 }
+module x{}
+impl x{}
