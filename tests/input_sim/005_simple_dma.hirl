@@ -1,0 +1,167 @@
+module axi_dma {
+	uint ADDR_WIDTH;
+	uint DATA_WIDTH;
+	uint ID_WIDTH;
+
+	input clock clk;
+	input async nreset;
+
+	// Read address bus
+	output comb(clk) axi_arvalid;
+	input  comb(clk) axi_arready;
+	output comb(clk) {
+		ubus<ID_WIDTH>   axi_arid;
+		ubus<ADDR_WIDTH> axi_araddr;
+		ubus<8>          axi_arlen;
+		ubus<2>          axi_arsize;
+		ubus<2>          axi_arburst;
+		ubus<2>			 axi_arlock;
+		ubus<4>		     axi_arcache;
+		ubus<3>			 axi_arprot;
+		ubus<4>			 axi_arqos;
+	}
+
+	// Read data bus
+	input  comb(clk) axi_rvalid;
+	output comb(clk) axi_rready;
+	input  comb(clk) {
+		ubus<ID_WIDTH>   axi_rid;
+		ubus<DATA_WIDTH> axi_rdata;
+		ubus<2>          axi_rresp;
+		wire             axi_rlast;
+	}
+
+	// Naive interface
+	input  comb(clk) ubus<ADDR_WIDTH> dma_addr;
+	input  comb(clk) wire dma_addr_valid;
+	output sync(clk) ubus<DATA_WIDTH> dma_data;
+	output comb(clk) wire dma_data_valid;
+}
+
+impl axi_dma {
+	axi_arlen = 0;   // 1 beat per transfer
+	axi_arsize = 0;  // 1 byte per transfer
+	axi_arburst = 0; // Fixed burst
+	axi_arlock = 0;  // Normal access
+	axi_arcache = 0; // Non-cacheable
+	axi_arprot = 0;  // Non-secure
+	axi_arqos = 0;   // No QoS
+
+	uint 
+		DMA_IDLE       = 0u2,
+		DMA_REQUEST    = 2u2,
+		DMA_WAIT       = 3u2,
+		DMA_DATA_VALID = 1u2;
+
+	sync(clk) ubus<2> dma_state; // FIXME sync(clk) should not be needed
+
+	
+
+	auto axi_ar_trans = axi_arvalid && axi_arready;
+	auto axi_r_trans = axi_rvalid && axi_rready;
+
+	reg addr_reg {
+		clk, nreset,
+		en: axi_ar_trans,
+		next: axi_araddr,
+		data: ubus<ADDR_WIDTH> dma_data_addr,
+	}
+
+	dma_data_valid = dma_addr_valid && (dma_data_addr == dma_addr);
+	auto needs_update = dma_addr_valid && !dma_data_valid;
+
+
+	axi_arvalid = dma_state == DMA_REQUEST;
+
+	reg dma_state_reg {
+		clk, nreset,
+		en: true,
+		data: dma_state,
+		next: match (dma_state) {
+			DMA_IDLE => needs_update ? DMA_REQUEST : DMA_IDLE,
+			DMA_REQUEST => axi_ar_trans ? DMA_WAIT : DMA_REQUEST,
+			DMA_WAIT => axi_r_trans ? DMA_DATA_VALID : DMA_IDLE,
+			default => DMA_IDLE
+		}
+	}
+
+	
+
+	reg data_reg {
+		clk, nreset,
+		en: axi_r_trans,
+		next: axi_rdata,
+		data: dma_data,
+	}
+
+
+
+}
+
+module axi_dma_addr16_data8_id4 {
+	input clock clk;
+	input async nreset;
+
+	// Read address bus
+	output comb(clk) axi_arvalid;
+	input  comb(clk) axi_arready;
+	output comb(clk) {
+		ubus<4>          axi_arid;
+		ubus<16>         axi_araddr;
+		ubus<8>          axi_arlen;
+		ubus<2>          axi_arsize;
+		ubus<2>          axi_arburst;
+		ubus<2>			 axi_arlock;
+		ubus<4>		     axi_arcache;
+		ubus<3>			 axi_arprot;
+		ubus<4>			 axi_arqos;
+	}
+
+	// Read data bus
+	input  comb(clk) axi_rvalid;
+	output comb(clk) axi_rready;
+	input  comb(clk) {
+		ubus<4>          axi_rid;
+		ubus<8>          axi_rdata;
+		ubus<2>          axi_rresp;
+		wire             axi_rlast;
+	}
+
+	// Naive interface
+	input  comb(clk) ubus<16> dma_addr;
+	input  comb(clk) wire     dma_addr_valid;
+	output sync(clk) ubus<8>  dma_data;
+	output comb(clk) wire     dma_data_valid;
+}
+
+impl axi_dma_addr16_data8_id4 {
+	axi_dma dma{
+		ADDR_WIDTH: 16,
+		DATA_WIDTH: 8,
+		ID_WIDTH: 4,
+
+		clk,
+		nreset,
+		axi_arvalid,
+		axi_arready,
+		axi_arid,
+		axi_araddr,
+		axi_arlen,
+		axi_arsize,
+		axi_arburst,
+		axi_arlock,
+		axi_arcache,
+		axi_arprot,
+		axi_arqos,
+		axi_rvalid,
+		axi_rready,
+		axi_rid,
+		axi_rdata,
+		axi_rresp,
+		axi_rlast,
+		dma_addr,
+		dma_addr_valid,
+		dma_data,
+		dma_data_valid,
+	}
+}
