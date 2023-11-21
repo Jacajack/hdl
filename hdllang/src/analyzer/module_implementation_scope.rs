@@ -42,6 +42,7 @@ pub struct ModuleImplementationScope {
 	internal_ids: HashMap<InternalVariableId, (usize, IdTableKey)>,
 	variable_counter: usize,
 	variables: HashMap<InternalVariableId, VariableDefined>,
+	intermidiate_signals: HashMap<usize, Vec<InternalVariableId>>,
 }
 pub trait InternalScopeTrait {
 	fn contains_key(&self, key: &IdTableKey) -> bool;
@@ -170,6 +171,7 @@ impl ModuleImplementationScope {
 			is_generic: false,
 			enriched_constants: HashMap::new(),
 			variables: HashMap::new(),
+			intermidiate_signals: HashMap::new()
 		}
 	}
 	pub fn new_scope(&mut self, parent_scope: Option<usize>) -> usize {
@@ -275,6 +277,12 @@ impl ModuleImplementationScope {
 		self.variable_counter += 1;
 		let defined = VariableDefined { var, id, scope_id, is_iterated: false };
 		self.variables.insert(id, defined);
+		if let Some(scope) = self.intermidiate_signals.get_mut(&scope_id){
+			scope.push(id);
+		}
+		else {
+			self.intermidiate_signals.insert(scope_id,vec![id]);
+		}
 		Ok(id)
 	}
 	pub fn declare_variable(
@@ -437,11 +445,9 @@ impl ModuleImplementationScope {
 	/// This is not efficient, but I dont know how to handle it better for now
 	fn get_all_variables_declared_in_scope(&self, scope_id: usize) -> Vec<InternalVariableId>{
 		let mut variables = Vec::new();
-		for var in self.variables.values() {
-			if var.scope_id == scope_id {
-				variables.push(var.id);
-			}
-		}
+		let scope = self.scopes.get(scope_id).unwrap();
+		variables.extend(scope.variables.values());
+		variables.extend(self.intermidiate_signals.get(&scope_id).unwrap_or(&Vec::new()));
 		variables
 	}
 	pub fn register_all_variables_in_scope(&mut self, depedency_graph: &DependencyGraph,
