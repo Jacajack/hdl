@@ -1,0 +1,7 @@
+module X {
+	input const ubus<16> x;
+}
+
+impl X {
+	x[9] = false;
+}
