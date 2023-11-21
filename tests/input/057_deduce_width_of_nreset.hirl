@@ -1,0 +1,12 @@
+module X {}
+impl X {
+	clock clk = 0;
+	sync(clk) ubus<3> data;
+	reg data_reg {
+		clk,
+		nreset: 0,
+		en: 0u1,
+		next: 0u3,
+		data: data,
+	}
+}
