@@ -1,0 +1,11 @@
+module X{
+	int a;
+	input const ubus<a> e;
+}
+impl X{
+	auto b;
+	int c = a;
+	const ubus<c> d;
+	b = d;
+	e=b;
+}
