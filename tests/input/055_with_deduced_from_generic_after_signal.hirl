@@ -9,5 +9,12 @@ impl X{
 	b = d;
 	e=b;
 }
-module x{}
-impl x{}
+module x{
+	input const ubus<4> d;
+}
+impl x{
+	X xx{
+		a: 4,
+		e: d,
+	}
+}
