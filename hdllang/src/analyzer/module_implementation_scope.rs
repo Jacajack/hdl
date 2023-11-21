@@ -405,6 +405,9 @@ impl ModuleImplementationScope {
     			    Evaluated(_) => (),
     			    EvaluatedLocated(_, loc) | Evaluable(loc) | WidthOf(loc) => {
 						let entry = self.evaluated_expressions.get(&loc).unwrap();
+						if !self.is_child_of(v.scope_id, entry.scope_id){
+							panic!("Variable redeclaration needed") // FIXME
+						}
 						deps.extend(entry.expression.get_dependencies(entry.scope_id, &self));	
 					},
     			}
@@ -428,6 +431,9 @@ impl ModuleImplementationScope {
 		Ok(())
 	}
 	pub fn is_child_of(&self, child: usize, parent: usize) -> bool {
+		if child == parent {
+			return true;
+		}
 		let mut current = child;
 		while let Some(scope) = self.scopes.get(current) {
 			match scope.parent_scope {
@@ -442,7 +448,6 @@ impl ModuleImplementationScope {
 		}
 		false
 	}
-	/// This is not efficient, but I dont know how to handle it better for now
 	fn get_all_variables_declared_in_scope(&self, scope_id: usize) -> Vec<InternalVariableId>{
 		let mut variables = Vec::new();
 		let scope = self.scopes.get(scope_id).unwrap();
