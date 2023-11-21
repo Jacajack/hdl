@@ -1,6 +1,5 @@
-module X {}
+module X {input clock clk;}
 impl X {
-	clock clk = 0;
 	ubus<3> dma_state;
 	reg dma_state_reg {
 		clk,

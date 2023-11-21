@@ -1,6 +1,5 @@
-module X {}
+module X {input clock clk;}
 impl X {
-	clock clk = 0;
 	sync(clk) ubus<3> data;
 	reg data_reg {
 		clk,

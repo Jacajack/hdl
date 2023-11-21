@@ -278,6 +278,18 @@ impl SignalSensitivity {
 		log::debug!("Other {:?}", rhs);
 		match (&self, rhs) {
 			(_, NoSensitivity) | (Async(_), _) | (Const(_), Const(_)) | (NoSensitivity, _) => (),
+			(Clock(..), Const(_)) => {
+				return Err(
+					SemanticError::DifferingSensitivities
+						.to_diagnostic_builder()
+						.label(
+							location,
+							"Cannot assign signals - sensitivity mismatch. Sensitivty of the destination signal should be a super set of the source signal",
+						)
+						.label(*rhs.location().unwrap(), "This sensitivity const")
+						.label(*self.location().unwrap(), "This is clock sensitivity")
+				);
+			}
 			(Sync(current, lhs_location), Sync(incoming, _)) => {
 				log::debug!("Curent {:?}", current);
 				log::debug!("Incoming {:?}", incoming);
@@ -363,7 +375,6 @@ impl SignalSensitivity {
 				);
 			},
 			(Sync(..), _) => (),
-			(_, Const(_)) => (),
 			(Const(sensitivity_location), _) => {
 				return Err(SemanticError::DifferingSensitivities
 						.to_diagnostic_builder()

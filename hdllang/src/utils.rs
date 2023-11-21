@@ -207,7 +207,7 @@ pub fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) 
 		.compile(&mut *output)
 		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
 	for diag in analyzer.buffer().buffer {
-		println!(
+		eprintln!(
 			"{:?}",
 			miette::Report::new(diag).with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))
 		)
@@ -240,7 +240,7 @@ pub fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>
 		.compile_and_elaborate(&mut *output)
 		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
 	for diag in analyzer.buffer().buffer {
-		println!(
+		eprintln!(
 			"{:?}",
 			miette::Report::new(diag).with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))
 		)
