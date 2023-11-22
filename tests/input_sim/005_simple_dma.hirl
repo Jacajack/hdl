@@ -83,10 +83,11 @@ impl axi_dma {
 		next: match (dma_state) {
 			DMA_IDLE => needs_update ? DMA_LATCH_RQ : DMA_IDLE,
 			DMA_LATCH_RQ => DMA_REQUEST,
-			DMA_REQUEST => 	axi_ar_trans ? DMA_WAIT : DMA_REQUEST,
+			DMA_REQUEST => cond {
+				axi_ar_trans => DMA_WAIT,
+				default => DMA_REQUEST,
+			},	
 			DMA_WAIT => cond {
-				(dma_addr != dma_data_addr) => DMA_IDLE,
-				// needs_update => DMA_IDLE,
 				axi_r_trans  => DMA_IDLE,
 				default => DMA_WAIT,
 			},
@@ -114,9 +115,6 @@ impl axi_dma {
 	}
 
 	dma_data_valid = dma_data_valid_r  && (dma_addr == dma_data_addr);
-
-
-
 }
 
 module axi_dma_addr16_data8_id4 {

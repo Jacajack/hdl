@@ -175,14 +175,19 @@ module simple_dma_tb;
 
 		end
 
-		for (int addr = 4574; addr < 4578; addr++) begin
+		for (int addr = 4574; addr < 4574 + 1000; addr++) begin
+			int delay_addr_change;
+			
 			dma_addr = addr;
 			dma_addr_valid = 1;
 
-			#1;
-			clk = 1;
-			#1;
-			clk = 0;
+			delay_addr_change = $urandom_range(10);
+			for (int i = 0; i < delay_addr_change + 1; i++) begin
+				#1;
+				clk = 1;
+				#1;
+				clk = 0;
+			end
 
 			dma_addr = addr + 1;
 			exp_data = mem_data[addr + 1];
@@ -196,6 +201,14 @@ module simple_dma_tb;
 				
 				cycles++;
 				`ASSERT(cycles < 1000);
+			end
+
+			for (int i = 0; i < 10; i++) begin
+				dma_addr_valid = 0;
+				#1;
+				clk = 1;
+				#1;
+				clk = 0;
 			end
 
 			//`ASSERT(dma_data == exp_data);
