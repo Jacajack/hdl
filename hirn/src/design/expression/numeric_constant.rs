@@ -202,70 +202,70 @@ impl NumericConstant {
 	/// Performs less-than comparison. The result is a boolean NumericConstant
 	pub fn op_lt(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.or(Self::require_width_match(self, rhs))
-			.unwrap_or(Self::new_bool(self < rhs))
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self < rhs))
 	}
 
 	pub fn op_lte(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.or(Self::require_width_match(self, rhs))
-			.unwrap_or(Self::new_bool(self <= rhs))
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self <= rhs))
 	}
 
 	pub fn op_gt(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.or(Self::require_width_match(self, rhs))
-			.unwrap_or(Self::new_bool(self > rhs))
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self > rhs))
 	}
 
 	pub fn op_gte(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.or(Self::require_width_match(self, rhs))
-			.unwrap_or(Self::new_bool(self >= rhs))
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self >= rhs))
 	}
 
 	pub fn op_eq(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.or(Self::require_width_match(self, rhs))
-			.unwrap_or(Self::new_bool(self == rhs))
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self == rhs))
 	}
 
 	pub fn op_ne(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.or(Self::require_width_match(self, rhs))
-			.unwrap_or(Self::new_bool(self != rhs))
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self != rhs))
 	}
 
 	pub fn op_min(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.or(Self::require_width_match(self, rhs))
-			.unwrap_or(if self < rhs { self.clone() } else { rhs.clone() })
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| if self < rhs { self.clone() } else { rhs.clone() })
 	}
 
 	pub fn op_max(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.or(Self::require_width_match(self, rhs))
-			.unwrap_or(if self > rhs { self.clone() } else { rhs.clone() })
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| if self > rhs { self.clone() } else { rhs.clone() })
 	}
 
 	pub fn op_land(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_boolean_operands(self, rhs))
-			.unwrap_or(Self::new_bool(self.is_nonzero() && rhs.is_nonzero()))
+			.or_else(|| Self::require_boolean_operands(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self.is_nonzero() && rhs.is_nonzero()))
 	}
 
 	pub fn op_lor(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_boolean_operands(self, rhs))
-			.unwrap_or(Self::new_bool(self.is_nonzero() || rhs.is_nonzero()))
+			.or_else(|| Self::require_boolean_operands(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self.is_nonzero() || rhs.is_nonzero()))
 	}
 
 	// FIXME as trait
