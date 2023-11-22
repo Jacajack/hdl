@@ -300,11 +300,10 @@ impl InstantiationStatement {
 			if let SignalSensitivity::Clock(..) = coming.sensitivity {
 				coming.evaluate_as_lhs(false, ctx, clk_type.clone(), stmt.location())?;
 				debug!("Adding variable {:?}", new_name_str);
-				let new_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
-					new_name,
-					stmt.location(),
-					interface_variable.var.kind,
-				), scope_id)?;
+				let new_id = local_ctx.scope.define_intermidiate_signal(
+					Variable::new(new_name, stmt.location(), interface_variable.var.kind),
+					scope_id,
+				)?;
 				debug!(
 					"Inserting clock mapping {:?} -> {:?}",
 					clk_type.get_clock_name(),
@@ -375,11 +374,10 @@ impl InstantiationStatement {
 				_ => unreachable!(),
 			};
 			let _ = stmt.get_type(ctx, local_ctx, scope_id, interface_signal.clone(), is_output)?;
-			let new_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
-				new_name,
-				stmt.location(),
-				VariableKind::Signal(interface_signal),
-			), scope_id)?;
+			let new_id = local_ctx.scope.define_intermidiate_signal(
+				Variable::new(new_name, stmt.location(), VariableKind::Signal(interface_signal)),
+				scope_id,
+			)?;
 			if is_output {
 				let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
 				local_ctx
@@ -754,11 +752,10 @@ fn create_register(
 	let data_name = ctx.id_table.insert_or_get(format!("{}_out_r", inst_name).as_str());
 
 	debug!("Clk type is {:?}", clk_type);
-	let clk_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
-		clk_name,
-		next_stmt.unwrap().location(),
-		VariableKind::Signal(clk_type),
-	), scope_id)?;
+	let clk_var_id = local_ctx.scope.define_intermidiate_signal(
+		Variable::new(clk_name, next_stmt.unwrap().location(), VariableKind::Signal(clk_type)),
+		scope_id,
+	)?;
 	let mut data_type = data_stmt
 		.unwrap()
 		.get_type(ctx, local_ctx, scope_id, Signal::new_empty(), true)?;
@@ -865,11 +862,10 @@ fn create_register(
 			))
 		},
 	};
-	let mut nreset_type = Signal::new_wire(nreset_stmt
-		.unwrap().location());
+	let mut nreset_type = Signal::new_wire(nreset_stmt.unwrap().location());
 	nreset_stmt
 		.unwrap()
-		.get_type(ctx, local_ctx, scope_id, nreset_type.clone(),false)?;
+		.get_type(ctx, local_ctx, scope_id, nreset_type.clone(), false)?;
 	nreset_type.sensitivity = SignalSensitivity::Async(nreset_stmt.unwrap().location());
 	let mut en_type = en_stmt
 		.unwrap()
@@ -879,29 +875,37 @@ fn create_register(
 		en_stmt.unwrap().location(),
 	);
 	debug!("En type is {:?}", en_type);
-	let en_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
-		en_name,
-		en_stmt.unwrap().location(),
-		VariableKind::Signal(en_type),
-	), scope_id)?;
+	let en_var_id = local_ctx.scope.define_intermidiate_signal(
+		Variable::new(en_name, en_stmt.unwrap().location(), VariableKind::Signal(en_type)),
+		scope_id,
+	)?;
 	debug!("Nreset type is {:?}", nreset_type);
-	let nreset_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
-		nreset_name,
-		nreset_stmt.unwrap().location(),
-		VariableKind::Signal(nreset_type),
-	), scope_id)?;
+	let nreset_var_id = local_ctx.scope.define_intermidiate_signal(
+		Variable::new(
+			nreset_name,
+			nreset_stmt.unwrap().location(),
+			VariableKind::Signal(nreset_type),
+		),
+		scope_id,
+	)?;
 	debug!("Data type is {:?}", data_type);
-	let data_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
-		data_name,
-		data_stmt.unwrap().location(),
-		VariableKind::Signal(data_type.clone()),
-	), scope_id)?;
+	let data_var_id = local_ctx.scope.define_intermidiate_signal(
+		Variable::new(
+			data_name,
+			data_stmt.unwrap().location(),
+			VariableKind::Signal(data_type.clone()),
+		),
+		scope_id,
+	)?;
 	debug!("Next type is {:?}", next_type);
-	let next_var_id = local_ctx.scope.define_intermidiate_signal(Variable::new(
-		next_name,
-		next_stmt.unwrap().location(),
-		VariableKind::Signal(next_type),
-	), scope_id)?;
+	let next_var_id = local_ctx.scope.define_intermidiate_signal(
+		Variable::new(
+			next_name,
+			next_stmt.unwrap().location(),
+			VariableKind::Signal(next_type),
+		),
+		scope_id,
+	)?;
 	local_ctx
 		.sensitivity_graph
 		.add_edges(

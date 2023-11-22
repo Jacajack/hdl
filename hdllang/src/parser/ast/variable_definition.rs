@@ -147,12 +147,17 @@ impl VariableDefinition {
 					if spec_kind.is_generic() {
 						let rhs_val = expr.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
 						if let VariableKind::Generic(GenericVariable { value, .. }) = &mut spec_kind {
-							value.replace(if rhs_val.is_none(){
-								local_ctx.scope.add_expression(expr.get_location(), scope_id, expr.clone());
-								BusWidth::Evaluable(expr.get_location())
-							} else {
-								BusWidth::Evaluated(rhs_val.unwrap())
-							});
+							value.replace(
+								if rhs_val.is_none() {
+									local_ctx
+										.scope
+										.add_expression(expr.get_location(), scope_id, expr.clone());
+									BusWidth::Evaluable(expr.get_location())
+								}
+								else {
+									BusWidth::Evaluated(rhs_val.unwrap())
+								},
+							);
 						}
 						else {
 							unreachable!()
@@ -332,7 +337,10 @@ impl VariableDefinition {
 		for direct_initializer in &self.initializer_list {
 			match &direct_initializer.expression {
 				Some(expr) => {
-					let api_id = local_ctx.scope.get_api_id(scope_id, &direct_initializer.declarator.name).expect("This variable should be declared already");
+					let api_id = local_ctx
+						.scope
+						.get_api_id(scope_id, &direct_initializer.declarator.name)
+						.expect("This variable should be declared already");
 					let rhs = expr.codegen(
 						ctx.nc_table,
 						ctx.id_table,

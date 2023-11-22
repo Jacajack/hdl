@@ -249,13 +249,13 @@ impl VariableKind {
 					current_scope,
 					id_table,
 				)?;
-				if already_created.sensitivity.is_clock(){
+				if already_created.sensitivity.is_clock() {
 					return Err(miette::Report::new(
 						SemanticError::ContradictingSpecifier
 							.to_diagnostic_builder()
 							.label(bus.location, "Buses cannot be marked as clocks")
 							.build(),
-					))
+					));
 				}
 				scope.evaluated_expressions.insert(
 					bus.width.get_location(),

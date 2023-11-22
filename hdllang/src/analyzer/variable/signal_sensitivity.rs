@@ -279,17 +279,12 @@ impl SignalSensitivity {
 		match (&self, rhs) {
 			(_, NoSensitivity) | (Async(_), _) | (Const(_), Const(_)) | (NoSensitivity, _) => (),
 			(Clock(..), Const(_)) => {
-				return Err(
-					SemanticError::DifferingSensitivities
-						.to_diagnostic_builder()
-						.label(
-							location,
-							"Cannot assign a constant signal to a clock signal",
-						)
-						.label(*rhs.location().unwrap(), "This sensitivity const")
-						.label(*self.location().unwrap(), "This is clock sensitivity")
-				);
-			}
+				return Err(SemanticError::DifferingSensitivities
+					.to_diagnostic_builder()
+					.label(location, "Cannot assign a constant signal to a clock signal")
+					.label(*rhs.location().unwrap(), "This sensitivity const")
+					.label(*self.location().unwrap(), "This is clock sensitivity"));
+			},
 			(Sync(current, lhs_location), Sync(incoming, _)) => {
 				log::debug!("Curent {:?}", current);
 				log::debug!("Incoming {:?}", incoming);
@@ -391,10 +386,10 @@ impl SignalSensitivity {
 		}
 		Ok(())
 	}
-	pub fn get_dependencies(&self) -> Vec<InternalVariableId>{
+	pub fn get_dependencies(&self) -> Vec<InternalVariableId> {
 		use SignalSensitivity::*;
 		match self {
-			Comb(list, _) | Sync(list, _)=> list.to_ids(),
+			Comb(list, _) | Sync(list, _) => list.to_ids(),
 			_ => Vec::new(),
 		}
 	}
@@ -482,7 +477,7 @@ mod tests {
 	}
 
 	#[test]
-	fn is_clock(){
+	fn is_clock() {
 		assert!(clock_sensitivity().is_clock());
 		assert!(!async_sensitivity().is_clock());
 		assert!(!const_sensitivity().is_clock());

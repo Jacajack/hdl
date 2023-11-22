@@ -2748,66 +2748,72 @@ impl Expression {
 			BinaryExpression(_) => false,
 		}
 	}
-	pub fn get_dependencies(&self,
-		scope_id: usize,
-		local_ctx: &ModuleImplementationScope,) -> Vec<InternalVariableId> {
+	pub fn get_dependencies(&self, scope_id: usize, local_ctx: &ModuleImplementationScope) -> Vec<InternalVariableId> {
 		use Expression::*;
-		match self{
-    		Number(_) => vec!(),
-    		Identifier(id) => {
+		match self {
+			Number(_) => vec![],
+			Identifier(id) => {
 				vec![local_ctx.get_variable(scope_id, &id.id).unwrap().id]
 			},
-    		ParenthesizedExpression(expr) => expr.expression.get_dependencies(scope_id, local_ctx),
-    		MatchExpression(expr) => {
+			ParenthesizedExpression(expr) => expr.expression.get_dependencies(scope_id, local_ctx),
+			MatchExpression(expr) => {
 				let mut deps = expr.value.get_dependencies(scope_id, local_ctx);
 				for stmt in &expr.statements {
-					if let MatchExpressionAntecendent::Expression { expressions, location:_ } =  &stmt.antecedent{
+					if let MatchExpressionAntecendent::Expression {
+						expressions,
+						location: _,
+					} = &stmt.antecedent
+					{
 						for expr in expressions {
 							deps.append(&mut expr.get_dependencies(scope_id, local_ctx));
 						}
-    				}
+					}
 					deps.append(&mut stmt.expression.get_dependencies(scope_id, local_ctx));
 				}
 				deps
 			},
-    		ConditionalExpression(expr) => {
+			ConditionalExpression(expr) => {
 				let mut deps = Vec::new();
 				for stmt in &expr.statements {
-					if let MatchExpressionAntecendent::Expression { expressions, location:_ } =  &stmt.antecedent{
+					if let MatchExpressionAntecendent::Expression {
+						expressions,
+						location: _,
+					} = &stmt.antecedent
+					{
 						for expr in expressions {
 							deps.append(&mut expr.get_dependencies(scope_id, local_ctx));
 						}
-    				}
+					}
 					deps.append(&mut stmt.expression.get_dependencies(scope_id, local_ctx));
 				}
 				deps
 			},
-    		Tuple(_) => unreachable!(),
-    		TernaryExpression(expr) => {
+			Tuple(_) => unreachable!(),
+			TernaryExpression(expr) => {
 				let mut deps = expr.condition.get_dependencies(scope_id, local_ctx);
 				deps.append(&mut expr.true_branch.get_dependencies(scope_id, local_ctx));
 				deps.append(&mut expr.false_branch.get_dependencies(scope_id, local_ctx));
 				deps
 			},
-    		PostfixWithIndex(expr) => {
+			PostfixWithIndex(expr) => {
 				let mut deps = expr.expression.get_dependencies(scope_id, local_ctx);
 				deps.append(&mut expr.index.get_dependencies(scope_id, local_ctx));
 				deps
 			},
-    		PostfixWithRange(expr) => {
+			PostfixWithRange(expr) => {
 				let mut deps = expr.expression.get_dependencies(scope_id, local_ctx);
 				deps.append(&mut expr.range.lhs.get_dependencies(scope_id, local_ctx));
 				deps.append(&mut expr.range.rhs.get_dependencies(scope_id, local_ctx));
 				deps
 			},
-    		PostfixWithArgs(_) => todo!(),
-    		PostfixWithId(expr) => todo!(),
-    		UnaryOperatorExpression(expr) => expr.expression.get_dependencies(scope_id, local_ctx),
-    		UnaryCastExpression(expr) => {
+			PostfixWithArgs(_) => todo!(),
+			PostfixWithId(expr) => todo!(),
+			UnaryOperatorExpression(expr) => expr.expression.get_dependencies(scope_id, local_ctx),
+			UnaryCastExpression(expr) => {
 				let deps = expr.expression.get_dependencies(scope_id, local_ctx);
 				deps // FIXME ID from sync/comb
 			},
-    		BinaryExpression(expr) => {
+			BinaryExpression(expr) => {
 				let mut deps = expr.lhs.get_dependencies(scope_id, local_ctx);
 				deps.append(&mut expr.rhs.get_dependencies(scope_id, local_ctx));
 				deps
