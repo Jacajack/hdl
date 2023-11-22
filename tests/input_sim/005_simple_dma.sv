@@ -47,6 +47,8 @@ module simple_dma_tb;
 	reg[7:0] exp_data;
 
 	int cycles;
+	int arready_delay = 17;
+	int arready_cycles;
 
 
 	axi_dma_addr16_data8_id4 dut_dma(
@@ -89,10 +91,7 @@ module simple_dma_tb;
 			current_request.transferred = 0;
 			current_request.age = 0;
 			current_request.delay = $urandom_range(67);
-			axi_arready <= 0;
 			//$display("addr request accepted");
-		end else begin
-			axi_arready <= !current_request_valid;
 		end
 
 		if (current_request_valid)
@@ -102,9 +101,16 @@ module simple_dma_tb;
 		if (current_request_valid && axi_rready && axi_rvalid) begin
 			//$display("data transfer");
 			current_request.transferred++;
-			if (current_request.transferred == current_request.len)
+			if (current_request.transferred == current_request.len) begin
 				current_request_valid = 0;
+				arready_cycles = 0;
+				arready_delay = $urandom_range(67);
+			end
 		end
+
+		axi_arready <= 
+			!current_request_valid
+			&& (axi_arready || (arready_cycles >= arready_delay));
 
 		axi_rid <= current_request.id;
 			axi_rdata <= mem_data[current_request.addr + current_request.transferred];
@@ -114,6 +120,8 @@ module simple_dma_tb;
 
 		if (dma_data_valid)
 			`ASSERT(dma_data == exp_data);
+
+		arready_cycles++;
 	end
 
 
@@ -132,6 +140,8 @@ module simple_dma_tb;
 		axi_rvalid = 0;
 		dma_addr = 0;
 		dma_addr_valid = 0;
+		arready_cycles = 0;
+		arready_delay = 0;
 
 		#1;
 		nreset = 1;
@@ -147,6 +157,8 @@ module simple_dma_tb;
 			clk = 1;
 			#1;
 			clk = 0;
+
+			dma_addr_valid = 0;
 
 			cycles = 0;
 			while (!dma_data_valid) begin
