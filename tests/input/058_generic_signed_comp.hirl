@@ -1,0 +1,4 @@
+module X {}
+impl X {
+    const ubus<((-1 < 1) ? 1 : -1)> data;
+}
