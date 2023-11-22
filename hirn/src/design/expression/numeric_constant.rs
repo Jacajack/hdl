@@ -202,62 +202,70 @@ impl NumericConstant {
 	/// Performs less-than comparison. The result is a boolean NumericConstant
 	pub fn op_lt(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.unwrap_or(Self::new_bool(self < rhs))
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self < rhs))
 	}
 
 	pub fn op_lte(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.unwrap_or(Self::new_bool(self <= rhs))
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self <= rhs))
 	}
 
 	pub fn op_gt(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.unwrap_or(Self::new_bool(self > rhs))
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self > rhs))
 	}
 
 	pub fn op_gte(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.unwrap_or(Self::new_bool(self >= rhs))
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self >= rhs))
 	}
 
 	pub fn op_eq(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.unwrap_or(Self::new_bool(self == rhs))
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self == rhs))
 	}
 
 	pub fn op_ne(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.unwrap_or(Self::new_bool(self != rhs))
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self != rhs))
 	}
 
 	pub fn op_min(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.unwrap_or(if self < rhs { self.clone() } else { rhs.clone() })
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| if self < rhs { self.clone() } else { rhs.clone() })
 	}
 
 	pub fn op_max(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_sign_match(self, rhs))
-			.unwrap_or(if self > rhs { self.clone() } else { rhs.clone() })
+			.or_else(|| Self::require_sign_match(self, rhs))
+			.or_else(|| Self::require_width_match(self, rhs))
+			.unwrap_or_else(|| if self > rhs { self.clone() } else { rhs.clone() })
 	}
 
 	pub fn op_land(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_boolean_operands(self, rhs))
-			.unwrap_or(Self::new_bool(self.is_nonzero() && rhs.is_nonzero()))
+			.or_else(|| Self::require_boolean_operands(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self.is_nonzero() && rhs.is_nonzero()))
 	}
 
 	pub fn op_lor(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
-			.or(Self::require_boolean_operands(self, rhs))
-			.unwrap_or(Self::new_bool(self.is_nonzero() || rhs.is_nonzero()))
+			.or_else(|| Self::require_boolean_operands(self, rhs))
+			.unwrap_or_else(|| Self::new_bool(self.is_nonzero() || rhs.is_nonzero()))
 	}
 
 	// FIXME as trait
@@ -748,7 +756,15 @@ impl Ord for NumericConstant {
 			(false, false) => Equal,
 			(false, true) => Greater,
 			(true, false) => Less,
-			(true, true) => self.value.cmp(&other.value),
+			(true, true) => {
+				assert!(self.is_signed() == other.is_signed());
+				assert!(self.width == other.width);
+				if self.is_signed() {
+					self.to_bigint().unwrap().cmp(&other.to_bigint().unwrap())
+				} else {
+					self.value.cmp(&other.value)
+				}
+			}
 		}
 	}
 }
@@ -992,6 +1008,14 @@ mod test {
 	#[test]
 	fn test_bitwise_xor() {
 		check_value_u(ncu(0b1010) ^ ncu(0b1100), 0b0110, 4);
+	}
+
+	#[test]
+	fn test_rel() {
+		check_value_u(nc(-1).op_lt(&nc(1)), 1, 1);
+		check_value_u(nc(-1).op_lt(&nc(1)), 1, 1);
+		check_value_u(nc(1).op_gt(&nc(-1)), 1, 1);
+		check_value_u(nc(1).op_ne(&nc(-1)), 1, 1);
 	}
 
 	#[test]
