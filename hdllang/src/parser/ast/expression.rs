@@ -1660,11 +1660,11 @@ impl Expression {
 							location: _,
 						} => {
 							for expr in expressions {
-								let _ = expr.evaluate_type(
+								expr.evaluate_type(
 									global_ctx,
 									scope_id,
 									local_ctx,
-									Signal::new_empty(),
+									Signal::new_wire(expr.get_location()),
 									is_lhs,
 									cond.location,
 								)?;
@@ -1700,6 +1700,15 @@ impl Expression {
 				))
 			},
 			TernaryExpression(ternary) => {
+				let type_condition = ternary.condition.evaluate_type(
+					global_ctx,
+					scope_id,
+					local_ctx,
+					Signal::new_wire(self.get_location()),
+					is_lhs,
+					self.get_location(),
+				)?;
+				debug!("condition: {:?}", type_condition);
 				let type_first = ternary.true_branch.evaluate_type(
 					global_ctx,
 					scope_id,
@@ -1721,15 +1730,6 @@ impl Expression {
 					location,
 				)?;
 				debug!("false branch: {:?}", type_second);
-				let type_condition = ternary.condition.evaluate_type(
-					global_ctx,
-					scope_id,
-					local_ctx,
-					Signal::new_empty(),
-					is_lhs,
-					location,
-				)?;
-				debug!("condition: {:?}", type_condition);
 				Ok(type_first) // FIXME
 			},
 			PostfixWithIndex(index) => {
