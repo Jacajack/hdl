@@ -284,7 +284,7 @@ impl SignalSensitivity {
 						.to_diagnostic_builder()
 						.label(
 							location,
-							"Cannot assign signals - sensitivity mismatch. Sensitivty of the destination signal should be a super set of the source signal",
+							"Cannot assign a constant signal to a clock signal",
 						)
 						.label(*rhs.location().unwrap(), "This sensitivity const")
 						.label(*self.location().unwrap(), "This is clock sensitivity")
