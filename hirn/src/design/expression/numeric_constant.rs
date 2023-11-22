@@ -246,14 +246,28 @@ impl NumericConstant {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
 			.or_else(|| Self::require_width_match(self, rhs))
-			.unwrap_or_else(|| if self < rhs { self.clone() } else { rhs.clone() })
+			.unwrap_or_else(|| {
+				if self < rhs {
+					self.clone()
+				}
+				else {
+					rhs.clone()
+				}
+			})
 	}
 
 	pub fn op_max(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
 			.or_else(|| Self::require_width_match(self, rhs))
-			.unwrap_or_else(|| if self > rhs { self.clone() } else { rhs.clone() })
+			.unwrap_or_else(|| {
+				if self > rhs {
+					self.clone()
+				}
+				else {
+					rhs.clone()
+				}
+			})
 	}
 
 	pub fn op_land(&self, rhs: &NumericConstant) -> Self {
@@ -761,10 +775,11 @@ impl Ord for NumericConstant {
 				assert!(self.width == other.width);
 				if self.is_signed() {
 					self.to_bigint().unwrap().cmp(&other.to_bigint().unwrap())
-				} else {
+				}
+				else {
 					self.value.cmp(&other.value)
 				}
-			}
+			},
 		}
 	}
 }
