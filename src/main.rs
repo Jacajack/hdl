@@ -81,19 +81,7 @@ fn main() -> miette::Result<()> {
 		None => "",
 	};
 	let output: Box<dyn Write> = match matches.get_one::<String>("output") {
-		None => {
-			let mut path = std::path::PathBuf::from(file_name);
-			path.set_extension("sv");
-			if path.exists(){
-				path.set_extension("out.sv");
-			}
-			match fs::File::create(path.to_str().unwrap()) {
-				Ok(file) => Box::new(file),
-				Err(err) => {
-					return Err(CompilerError::IoError(err).to_miette_report())?;
-				},
-			}
-		},
+		None => Box::new(std::io::stdout()),
 		Some(path) => match fs::File::create(path) {
 			Ok(file) => Box::new(file),
 			Err(err) => {
