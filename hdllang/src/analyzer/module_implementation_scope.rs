@@ -42,7 +42,7 @@ pub struct ModuleImplementationScope {
 	internal_ids: HashMap<InternalVariableId, (usize, IdTableKey)>,
 	variable_counter: usize,
 	variables: HashMap<InternalVariableId, VariableDefined>,
-	intermidiate_signals: HashMap<usize, Vec<InternalVariableId>>,
+	intermediate_signals: HashMap<usize, Vec<InternalVariableId>>,
 }
 pub trait InternalScopeTrait {
 	fn contains_key(&self, key: &IdTableKey) -> bool;
@@ -171,7 +171,7 @@ impl ModuleImplementationScope {
 			is_generic: false,
 			enriched_constants: HashMap::new(),
 			variables: HashMap::new(),
-			intermidiate_signals: HashMap::new()
+			intermediate_signals: HashMap::new()
 		}
 	}
 	pub fn new_scope(&mut self, parent_scope: Option<usize>) -> usize {
@@ -277,11 +277,11 @@ impl ModuleImplementationScope {
 		self.variable_counter += 1;
 		let defined = VariableDefined { var, id, scope_id, is_iterated: false };
 		self.variables.insert(id, defined);
-		if let Some(scope) = self.intermidiate_signals.get_mut(&scope_id){
+		if let Some(scope) = self.intermediate_signals.get_mut(&scope_id){
 			scope.push(id);
 		}
 		else {
-			self.intermidiate_signals.insert(scope_id,vec![id]);
+			self.intermediate_signals.insert(scope_id,vec![id]);
 		}
 		Ok(id)
 	}
@@ -452,7 +452,7 @@ impl ModuleImplementationScope {
 		let mut variables = Vec::new();
 		let scope = self.scopes.get(scope_id).unwrap();
 		variables.extend(scope.variables.values());
-		variables.extend(self.intermidiate_signals.get(&scope_id).unwrap_or(&Vec::new()));
+		variables.extend(self.intermediate_signals.get(&scope_id).unwrap_or(&Vec::new()));
 		variables
 	}
 	pub fn register_all_variables_in_scope(&mut self, depedency_graph: &DependencyGraph,
