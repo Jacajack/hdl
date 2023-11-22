@@ -92,7 +92,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 			let module_id = self
 				.ctx
 				.modules_declared
-				.get_mut(&local_ctx.module_id)
+				.get_mut(&local_ctx.module_id())
 				.unwrap()
 				.handle
 				.id();
@@ -182,7 +182,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 				.emit_module(
 					self.ctx
 						.modules_declared
-						.get_mut(&local_ctx.module_id)
+						.get_mut(&local_ctx.module_id())
 						.unwrap()
 						.handle
 						.id(),

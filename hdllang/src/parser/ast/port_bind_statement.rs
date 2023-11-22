@@ -260,17 +260,7 @@ impl PortBindStatement {
 						&id_with_declaration.declaration.direct_declarators.first().unwrap().name,
 					)
 					.unwrap();
-				let api_id = variable.var.register(
-					ctx.nc_table,
-					ctx.id_table,
-					current_scope,
-					&local_ctx.scope,
-					Some(&additional_ctx),
-					api_scope
-						.new_signal(ctx.id_table.get_by_key(&variable.var.name).unwrap().as_str())
-						.unwrap(),
-				)?;
-				local_ctx.scope.insert_api_id(variable.id, api_id.clone());
+				let api_id = local_ctx.scope.get_api_id(current_scope, &variable.var.name).unwrap();
 				Ok(api_id.into())
 			},
 		}

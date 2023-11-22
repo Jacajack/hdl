@@ -79,6 +79,13 @@ impl SignalSensitivity {
 			_ => false,
 		}
 	}
+	pub fn is_clock(&self) -> bool {
+		use SignalSensitivity::*;
+		match self {
+			Clock(..) => true,
+			_ => false,
+		}
+	}
 	pub fn evaluate_sensitivity(&mut self, others: Vec<SignalSensitivity>, location: SourceSpan) {
 		use SignalSensitivity::*;
 		for sens in others {
@@ -271,6 +278,18 @@ impl SignalSensitivity {
 		log::debug!("Other {:?}", rhs);
 		match (&self, rhs) {
 			(_, NoSensitivity) | (Async(_), _) | (Const(_), Const(_)) | (NoSensitivity, _) => (),
+			(Clock(..), Const(_)) => {
+				return Err(
+					SemanticError::DifferingSensitivities
+						.to_diagnostic_builder()
+						.label(
+							location,
+							"Cannot assign a constant signal to a clock signal",
+						)
+						.label(*rhs.location().unwrap(), "This sensitivity const")
+						.label(*self.location().unwrap(), "This is clock sensitivity")
+				);
+			}
 			(Sync(current, lhs_location), Sync(incoming, _)) => {
 				log::debug!("Curent {:?}", current);
 				log::debug!("Incoming {:?}", incoming);
@@ -356,7 +375,6 @@ impl SignalSensitivity {
 				);
 			},
 			(Sync(..), _) => (),
-			(_, Const(_)) => (),
 			(Const(sensitivity_location), _) => {
 				return Err(SemanticError::DifferingSensitivities
 						.to_diagnostic_builder()
@@ -372,6 +390,13 @@ impl SignalSensitivity {
 			_ => unreachable!(),
 		}
 		Ok(())
+	}
+	pub fn get_dependencies(&self) -> Vec<InternalVariableId>{
+		use SignalSensitivity::*;
+		match self {
+			Comb(list, _) | Sync(list, _)=> list.to_ids(),
+			_ => Vec::new(),
+		}
 	}
 }
 
@@ -454,6 +479,16 @@ mod tests {
 		assert!(!const_sensitivity().is_none());
 		assert!(!comb_sensitivity().is_none());
 		assert!(!sync_sensitivity().is_none());
+	}
+
+	#[test]
+	fn is_clock(){
+		assert!(clock_sensitivity().is_clock());
+		assert!(!async_sensitivity().is_clock());
+		assert!(!const_sensitivity().is_clock());
+		assert!(!comb_sensitivity().is_clock());
+		assert!(!sync_sensitivity().is_clock());
+		assert!(!SignalSensitivity::NoSensitivity.is_clock());
 	}
 
 	#[test]

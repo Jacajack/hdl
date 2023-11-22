@@ -172,6 +172,15 @@ impl IterationStatement {
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		match self.statement.as_ref() {
 			ModuleImplementationBlockStatement(block) => {
+				let scope_id = local_ctx.scope_map.get(&block.location).unwrap().to_owned();
+				local_ctx.scope.register_all_variables_in_scope(
+					&local_ctx.depenency_graph,
+					ctx.nc_table,
+					ctx.id_table,
+					Some(&additional_ctx),
+					scope_id,
+					&mut for_scope,
+				);
 				for statement in &block.statements {
 					statement.codegen_pass(ctx, local_ctx, &mut for_scope)?;
 				}

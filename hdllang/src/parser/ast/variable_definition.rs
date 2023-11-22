@@ -147,7 +147,12 @@ impl VariableDefinition {
 					if spec_kind.is_generic() {
 						let rhs_val = expr.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
 						if let VariableKind::Generic(GenericVariable { value, .. }) = &mut spec_kind {
-							value.replace(BusWidth::Evaluated(rhs_val.unwrap()));
+							value.replace(if rhs_val.is_none(){
+								local_ctx.scope.add_expression(expr.get_location(), scope_id, expr.clone());
+								BusWidth::Evaluable(expr.get_location())
+							} else {
+								BusWidth::Evaluated(rhs_val.unwrap())
+							});
 						}
 						else {
 							unreachable!()
@@ -309,6 +314,37 @@ impl VariableDefinition {
 			}
 
 			local_ctx.scope.insert_api_id(variable.id, api_id)
+		}
+		Ok(())
+	}
+	pub fn codegen_passv2(
+		&self,
+		ctx: &mut GlobalAnalyzerContext,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
+		api_scope: &mut ScopeHandle,
+	) -> miette::Result<()> {
+		let scope_id = local_ctx.scope_map.get(&self.location).unwrap().to_owned();
+		let additional_ctx = AdditionalContext::new(
+			local_ctx.nc_widths.clone(),
+			local_ctx.array_or_bus.clone(),
+			local_ctx.casts.clone(),
+		);
+		for direct_initializer in &self.initializer_list {
+			match &direct_initializer.expression {
+				Some(expr) => {
+					let api_id = local_ctx.scope.get_api_id(scope_id, &direct_initializer.declarator.name).expect("This variable should be declared already");
+					let rhs = expr.codegen(
+						ctx.nc_table,
+						ctx.id_table,
+						scope_id,
+						&local_ctx.scope,
+						Some(&additional_ctx),
+					)?;
+					log::debug!("Rhs is {:?}", rhs);
+					api_scope.assign(api_id.into(), rhs).unwrap()
+				},
+				None => (),
+			}
 		}
 		Ok(())
 	}

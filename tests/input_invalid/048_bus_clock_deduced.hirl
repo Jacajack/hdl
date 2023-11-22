@@ -1,0 +1,8 @@
+module m {
+}
+
+impl m{
+	clock d;
+	ubus<5> a;
+	a[0] = d;
+}

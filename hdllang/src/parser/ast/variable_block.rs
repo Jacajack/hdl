@@ -51,7 +51,7 @@ impl VariableBlockStatement {
 				block.codegen_pass(ctx, local_ctx, api_scope)?;
 			},
 			VariableBlockStatement::VariableDefinition(definition) => {
-				definition.codegen_pass(ctx, local_ctx, api_scope)?;
+				definition.codegen_passv2(ctx, local_ctx, api_scope)?;
 			},
 		}
 		Ok(())

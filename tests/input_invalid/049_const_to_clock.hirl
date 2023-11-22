@@ -1,0 +1,4 @@
+module x{}
+impl x{
+	clock clk =0;
+}
