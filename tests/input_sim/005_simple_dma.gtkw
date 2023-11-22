@@ -1,0 +1,76 @@
+[*]
+[*] GTKWave Analyzer v3.3.117 (w)1999-2023 BSI
+[*] Wed Nov 22 13:31:11 2023
+[*]
+[dumpfile] "/home/j/Projects/hdl/tests/input_sim/out/005_simple_dma.vcd"
+[dumpfile_mtime] "Wed Nov 22 13:30:35 2023"
+[dumpfile_size] 648379
+[savefile] "/home/j/Projects/hdl/tests/input_sim/005_simple_dma.gtkw"
+[timestart] 0
+[size] 2078 996
+[pos] -1 -1
+*-20.400000 7410000 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] simple_dma_tb.
+[treeopen] simple_dma_tb.dut_dma.
+[sst_width] 269
+[signals_width] 198
+[sst_expanded] 1
+[sst_vpaned_height] 300
+@28
+simple_dma_tb.axi_arburst[1:0]
+@22
+simple_dma_tb.axi_arcache[3:0]
+simple_dma_tb.axi_arid[3:0]
+simple_dma_tb.axi_arlen[7:0]
+@28
+simple_dma_tb.axi_arlock[1:0]
+simple_dma_tb.axi_arprot[2:0]
+@22
+simple_dma_tb.axi_arqos[3:0]
+@28
+simple_dma_tb.axi_arsize[1:0]
+@22
+simple_dma_tb.axi_rid[3:0]
+@28
+simple_dma_tb.axi_rlast
+simple_dma_tb.axi_rresp[1:0]
+simple_dma_tb.clk
+simple_dma_tb.current_request_valid
+simple_dma_tb.nreset
+[color] 5
+simple_dma_tb.dut_dma.dma.dma_state[1:0]
+[color] 2
+simple_dma_tb.dut_dma.dma.axi_ar_trans
+@22
+[color] 2
+simple_dma_tb.axi_araddr[15:0]
+@28
+[color] 2
+simple_dma_tb.axi_arvalid
+[color] 2
+simple_dma_tb.axi_arready
+simple_dma_tb.dut_dma.dma.axi_r_trans
+@22
+simple_dma_tb.axi_rdata[7:0]
+@28
+simple_dma_tb.axi_rvalid
+simple_dma_tb.axi_rready
+@22
+[color] 2
+simple_dma_tb.dma_addr[15:0]
+simple_dma_tb.dut_dma.dma.dma_data_addr[15:0]
+@28
+[color] 2
+simple_dma_tb.dma_addr_valid
+[color] 6
+simple_dma_tb.dut_dma.dma.needs_update
+@22
+[color] 3
+simple_dma_tb.dut_dma.dma_data[7:0]
+@28
+[color] 3
+simple_dma_tb.dma_data_valid
+@23
+simple_dma_tb.exp_data[7:0]
+[pattern_trace] 1
+[pattern_trace] 0
