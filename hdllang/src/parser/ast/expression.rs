@@ -2041,7 +2041,7 @@ impl Expression {
 						Ok(expr)
 					},
 					"zext" | "ext" | "sext" => {
-						if function.argument_list.len() > 1 {
+						if function.argument_list.len() != 1 {
 							return Err(miette::Report::new(
 								SemanticError::BadFunctionArguments
 									.to_diagnostic_builder()
@@ -2106,6 +2106,14 @@ impl Expression {
 						Ok(r_type)
 					},
 					"join" => {
+						if function.argument_list.is_empty()  {
+							return Err(miette::Report::new(
+								SemanticError::BadFunctionArguments
+									.to_diagnostic_builder()
+									.label(function.location, "This function should at least one argument")
+									.build(),
+							));
+						}
 						let mut t = Signal::new_empty();
 						let mut nc = NumericConstant::new_from_value(0.into());
 						for sig in &function.argument_list {
