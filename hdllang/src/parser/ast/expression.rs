@@ -14,7 +14,7 @@ mod tuple;
 mod unary_cast_expression;
 mod unary_operator_expression;
 
-use crate::analyzer::module_implementation_scope::{InternalVariableId, EvaluatedEntry};
+use crate::analyzer::module_implementation_scope::{EvaluatedEntry, InternalVariableId};
 use crate::analyzer::{
 	AdditionalContext, AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContext,
 	ModuleImplementationScope, ModuleInstanceKind, SemanticError, Signal, SignalSensitivity, SignalSignedness,
@@ -1459,9 +1459,7 @@ impl Expression {
 				let mut constant = global_ctx.nc_table.get_by_key(key).unwrap().clone();
 				let mut sig = Signal::new_from_constant(&constant, num.location);
 				match (width, sig.width()) {
-					(None, None) => {
-
-					},
+					(None, None) => {},
 					(None, Some(_)) => (),
 					(Some(val), None) => {
 						debug!("Setting width of {:?} in local_ctx", constant);
@@ -2098,7 +2096,7 @@ impl Expression {
 						Ok(r_type)
 					},
 					"join" => {
-						if function.argument_list.is_empty()  {
+						if function.argument_list.is_empty() {
 							return Err(miette::Report::new(
 								SemanticError::BadFunctionArguments
 									.to_diagnostic_builder()
@@ -2172,14 +2170,14 @@ impl Expression {
 							is_lhs,
 							location,
 						)?;
-						let entry = EvaluatedEntry{
-    					    expression: self.clone(),
-    					    scope_id,
-    					};
+						let entry = EvaluatedEntry {
+							expression: self.clone(),
+							scope_id,
+						};
 						local_ctx.scope.evaluated_expressions.insert(self.get_location(), entry);
 						let mut width = BusWidth::WidthOf(self.get_location());
-						if let Some(count) = function.argument_list[1]
-							.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?
+						if let Some(count) =
+							function.argument_list[1].evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?
 						{
 							if count.value < BigInt::from(1) {
 								return Err(miette::Report::new(
@@ -2220,11 +2218,7 @@ impl Expression {
 									.build(),
 							));
 						}
-						expr.set_width(
-							width,
-							expr.get_signedness(),
-							location,
-						);
+						expr.set_width(width, expr.get_signedness(), location);
 						Ok(expr)
 					},
 					"fold_or" | "fold_xor" | "fold_and" => {
