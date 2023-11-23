@@ -41,9 +41,9 @@ impl WidthExpression for BuiltinOp {
 		Ok(match self {
 			ZeroExtend { width, .. } => (**width).clone(),
 			SignExtend { width, .. } => (**width).clone(),
-			BusSelect { msb, lsb, .. } => (**msb).clone() - (**lsb).clone() + 1u32.into(),
+			BusSelect { msb, lsb, .. } => ((**msb).clone() - (**lsb).clone()).cast_unsigned() + 1u32.into(),
 			BitSelect { .. } => 1u32.into(),
-			Replicate { expr, count } => (**expr).clone() * (**count).clone(),
+			Replicate { expr, count } => expr.width()? * (**count).clone().cast_unsigned(),
 			Width(..) => 64u32.into(),
 			Join(exprs) => {
 				let mut result = Expression::new_zero();
