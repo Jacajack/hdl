@@ -1,0 +1,7 @@
+module X {}
+impl X {
+	auto v = cond {
+		1u3 => 2u3,
+		default => 1u3,
+	};
+}

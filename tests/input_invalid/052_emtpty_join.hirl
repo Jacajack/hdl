@@ -1,0 +1,4 @@
+module X {}
+impl X {
+    const auto y = join();
+}
