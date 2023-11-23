@@ -1820,7 +1820,7 @@ impl Expression {
 				use SignalType::*;
 				match &expr.signal_type {
 					Bus(bus) => {
-						let begin = range
+						let begin: Option<NumericConstant> = range
 							.range
 							.lhs
 							.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
@@ -1843,7 +1843,7 @@ impl Expression {
 								match &val.get_value() {
 									Some(value) => {
 										if let Some(begin_value) = &begin {
-											if &begin_value.value > value {
+											if &begin_value.value > value || begin_value.value < 0.into(){
 												return Err(miette::Report::new(
 													SemanticError::WidthMismatch
 														.to_diagnostic_builder()
@@ -1855,7 +1855,7 @@ impl Expression {
 															range.location,
 															format!(
 																"Range bounds are: {}:... but actual width is: {:?}",
-																begin_value.value, val
+																begin_value.value, value
 															)
 															.as_str(),
 														)
@@ -1863,11 +1863,11 @@ impl Expression {
 												));
 											}
 											if let Some(end_value) = &end {
-												if &end_value.value > value {
+												if &end_value.value > value  || end_value.value < begin_value.value {
 													return Err(miette::Report::new(
 														SemanticError::WidthMismatch.to_diagnostic_builder()
 															.label(range.location, "Cannot perform range indexing - range is out of bounds")
-															.label(range.location, format!("Range bounds are: {}:{} but actual width is: {:?}", begin_value.value, end_value.value, val).as_str())
+															.label(range.location, format!("Range bounds are: {}:{} but actual width is: {:?}", begin_value.value, end_value.value, value).as_str())
 															.build(),
 													));
 												}
