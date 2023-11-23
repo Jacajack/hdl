@@ -33,11 +33,9 @@ impl EvaluatesType for BinaryExpression {
 		let lhs = self.lhs.eval_type(ctx)?;
 		let rhs = self.rhs.eval_type(ctx)?;
 
-		let require_sign_match = || {
-			match lhs.signedness == rhs.signedness {
-				true => Ok(()),
-				false => Err(EvalError::MixedSignedness),
-			}
+		let require_sign_match = || match lhs.signedness == rhs.signedness {
+			true => Ok(()),
+			false => Err(EvalError::MixedSignedness),
 		};
 
 		use BinaryOp::*;

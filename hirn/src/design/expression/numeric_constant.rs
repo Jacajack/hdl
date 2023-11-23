@@ -812,7 +812,8 @@ impl std::ops::Shl for NumericConstant {
 	}
 }
 
-impl_binary_constant_op!(Div, div, |lhs: &NumericConstant, rhs: &NumericConstant|
+impl_binary_constant_op!(Div, div, |lhs: &NumericConstant,
+                                    rhs: &NumericConstant|
  -> Result<NumericConstant, EvalError> {
 	check_sign_match(lhs, rhs)?;
 
@@ -830,23 +831,24 @@ impl_binary_constant_op!(Div, div, |lhs: &NumericConstant, rhs: &NumericConstant
 	Ok(result)
 });
 
-impl_binary_constant_op!(Rem, rem, |lhs: &NumericConstant, rhs: &NumericConstant|
-	-> Result<NumericConstant, EvalError> {
-	   check_sign_match(lhs, rhs)?;
-   
-	   if rhs.is_zero() {
-		   return Err(EvalError::DivisionByZero);
-	   }
-   
-	   let width_expr = Expression::from(lhs.clone()) % rhs.clone().into();
-	   let mut result = NumericConstant::from_bigint(
-		   lhs.to_bigint()? % rhs.to_bigint()?,
-		   lhs.signedness()?,
-		   width_expr.width()?.const_narrow_eval()? as u64,
-	   )?;
-	   result.normalize();
-	   Ok(result)
-   });
+impl_binary_constant_op!(Rem, rem, |lhs: &NumericConstant,
+                                    rhs: &NumericConstant|
+ -> Result<NumericConstant, EvalError> {
+	check_sign_match(lhs, rhs)?;
+
+	if rhs.is_zero() {
+		return Err(EvalError::DivisionByZero);
+	}
+
+	let width_expr = Expression::from(lhs.clone()) % rhs.clone().into();
+	let mut result = NumericConstant::from_bigint(
+		lhs.to_bigint()? % rhs.to_bigint()?,
+		lhs.signedness()?,
+		width_expr.width()?.const_narrow_eval()? as u64,
+	)?;
+	result.normalize();
+	Ok(result)
+});
 
 impl_binary_constant_op!(BitAnd, bitand, |lhs: &NumericConstant,
                                           rhs: &NumericConstant|

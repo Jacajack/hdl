@@ -1,7 +1,7 @@
-use super::Evaluates;
 use super::DesignError;
 use super::DesignHandle;
 use super::EvalContext;
+use super::Evaluates;
 use super::EvaluatesType;
 use super::Expression;
 use super::HasComment;
@@ -666,11 +666,11 @@ impl SignalBuilder {
 		}
 
 		// Check if width is positive
-		let width_value = 
-			width_expr.try_eval_ignore_missing(&eval_ctx)?
+		let width_value = width_expr
+			.try_eval_ignore_missing(&eval_ctx)?
 			.map(|v| v.try_into_i64().ok())
 			.flatten();
-		
+
 		match width_value {
 			Some(w) if w < 1 => return Err(DesignError::InvalidSignalWidth),
 			Some(_) => {},
@@ -685,8 +685,8 @@ impl SignalBuilder {
 				return Err(DesignError::VariableArrayDimension);
 			}
 
-			let dim_value = 
-				dim.try_eval_ignore_missing(&eval_ctx)?
+			let dim_value = dim
+				.try_eval_ignore_missing(&eval_ctx)?
 				.map(|v| v.try_into_i64().ok())
 				.flatten();
 
