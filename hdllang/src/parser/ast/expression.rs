@@ -14,7 +14,7 @@ mod tuple;
 mod unary_cast_expression;
 mod unary_operator_expression;
 
-use crate::analyzer::module_implementation_scope::InternalVariableId;
+use crate::analyzer::module_implementation_scope::{InternalVariableId, EvaluatedEntry};
 use crate::analyzer::{
 	AdditionalContext, AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContext,
 	ModuleImplementationScope, ModuleInstanceKind, SemanticError, Signal, SignalSensitivity, SignalSignedness,
@@ -1460,15 +1460,7 @@ impl Expression {
 				let mut sig = Signal::new_from_constant(&constant, num.location);
 				match (width, sig.width()) {
 					(None, None) => {
-						if !is_lhs {
-							return Err(miette::Report::new(
-								SemanticError::WidthNotKnown
-									.to_diagnostic_builder()
-									.label(num.location, "Width of this expression is not known, but it should be")
-									.label(location, "Because of this operation")
-									.build(),
-							));
-						}
+
 					},
 					(None, Some(_)) => (),
 					(Some(val), None) => {
@@ -2164,11 +2156,11 @@ impl Expression {
 						Ok(t)
 					},
 					"rep" => {
-						if function.argument_list.len() > 2 && function.argument_list.len() > 1 {
+						if function.argument_list.len() != 2 {
 							return Err(miette::Report::new(
 								SemanticError::BadFunctionArguments
 									.to_diagnostic_builder()
-									.label(function.location, "This function should have only one or two arguments")
+									.label(function.location, "This function should have two arguments")
 									.build(),
 							));
 						}
@@ -2180,19 +2172,31 @@ impl Expression {
 							is_lhs,
 							location,
 						)?;
-						let count = function.argument_list[1]
+						let entry = EvaluatedEntry{
+    					    expression: self.clone(),
+    					    scope_id,
+    					};
+						local_ctx.scope.evaluated_expressions.insert(self.get_location(), entry);
+						let mut width = BusWidth::WidthOf(self.get_location());
+						if let Some(count) = function.argument_list[1]
 							.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?
-							.unwrap(); // FIXME
-						if count.value < BigInt::from(1) {
-							return Err(miette::Report::new(
-								SemanticError::BadFunctionArguments
-									.to_diagnostic_builder()
-									.label(
-										function.argument_list[1].get_location(),
-										"This function cannot be applied to a negative number",
-									)
-									.build(),
-							));
+						{
+							if count.value < BigInt::from(1) {
+								return Err(miette::Report::new(
+									SemanticError::BadFunctionArguments
+										.to_diagnostic_builder()
+										.label(
+											function.argument_list[1].get_location(),
+											"This function cannot be applied to a negative number",
+										)
+										.build(),
+								));
+							}
+							if let Some(w) = expr.width() {
+								width = BusWidth::Evaluated(NumericConstant::new_from_value(
+									w.get_value().unwrap() * count.value,
+								));
+							}
 						}
 						if expr.is_array() {
 							return Err(miette::Report::new(
@@ -2216,9 +2220,8 @@ impl Expression {
 									.build(),
 							));
 						}
-						let new_value = expr.width().unwrap().get_value().unwrap() * count.value;
 						expr.set_width(
-							BusWidth::Evaluated(NumericConstant::new_from_value(new_value)),
+							width,
 							expr.get_signedness(),
 							location,
 						);

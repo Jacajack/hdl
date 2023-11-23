@@ -1,0 +1,6 @@
+module X {}
+impl X {
+    bus<2> y1 = join(1u1, 1u1); 
+    ubus<1> y2 = rep(1u1, 1u1); 
+    bus<1> y3 = rep(1u1, 1u1); 
+}

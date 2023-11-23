@@ -1,0 +1,4 @@
+module x{}
+impl x{
+	sbus<1> a = rep(1u1, 1);
+}
