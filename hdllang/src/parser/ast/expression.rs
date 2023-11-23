@@ -2225,7 +2225,7 @@ impl Expression {
 						Ok(expr)
 					},
 					"fold_or" | "fold_xor" | "fold_and" => {
-						if function.argument_list.len() > 1 {
+						if function.argument_list.len() != 1 {
 							return Err(miette::Report::new(
 								SemanticError::BadFunctionArguments
 									.to_diagnostic_builder()
