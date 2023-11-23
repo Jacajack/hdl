@@ -558,11 +558,16 @@ impl<'a> SVCodegen<'a> {
 		else {
 			cg.translate_expression(expr)?
 		};
+
+		// Note: tmp_counter needs to be updated here, because new intermediates can be generated
+		// while translating the intermediates introduced by this expression
+		assert!(self.tmp_counter <= cg.get_tmp_counter());
+		self.tmp_counter = cg.get_tmp_counter();
+
 		for intermediate in cg.intermediates() {
 			let str = self.format_intermediate_signal_declaration(intermediate)?;
 			emitln!(self, "{};", str)?;
 		}
-		self.tmp_counter = cg.get_tmp_counter();
 		Ok(result)
 	}
 

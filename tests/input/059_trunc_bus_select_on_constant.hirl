@@ -1,0 +1,4 @@
+module X {}
+impl X {
+    const bus<1> y = trunc(7u8[0:6]);
+}
