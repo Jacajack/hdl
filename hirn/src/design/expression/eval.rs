@@ -179,6 +179,9 @@ pub enum EvalError {
 	#[error("Invalid LSB, MSB indices in bus select")]
 	BadBusSelect,
 
+	#[error("Division by zero")]
+	DivisionByZero,
+
 	#[error(transparent)]
 	InvalidAssumption(#[from] AssumptionError),
 

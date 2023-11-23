@@ -1,7 +1,7 @@
 use super::{NarrowEval, WidthExpression};
 use crate::design::{Expression, HasSignedness, SignalSignedness};
 
-use num_bigint::{BigInt, BigUint};
+use num_bigint::{BigInt, BigUint, ToBigInt};
 
 use super::EvalError;
 
@@ -795,8 +795,6 @@ impl Eq for NumericConstant {}
 impl_rust_binary_constant_op!(Add, add, +);
 impl_rust_binary_constant_op!(Sub, sub, -);
 impl_rust_binary_constant_op!(Mul, mul, *);
-impl_rust_binary_constant_op!(Div, div, /);
-impl_rust_binary_constant_op!(Rem, rem, %);
 
 impl std::ops::Shr for NumericConstant {
 	type Output = NumericConstant;
@@ -813,6 +811,42 @@ impl std::ops::Shl for NumericConstant {
 		self.op_shl(rhs)
 	}
 }
+
+impl_binary_constant_op!(Div, div, |lhs: &NumericConstant, rhs: &NumericConstant|
+ -> Result<NumericConstant, EvalError> {
+	check_sign_match(lhs, rhs)?;
+
+	if rhs.is_zero() {
+		return Err(EvalError::DivisionByZero);
+	}
+
+	let width_expr = Expression::from(lhs.clone()) / rhs.clone().into();
+	let mut result = NumericConstant::from_bigint(
+		lhs.to_bigint()? / rhs.to_bigint()?,
+		lhs.signedness()?,
+		width_expr.width()?.const_narrow_eval()? as u64,
+	)?;
+	result.normalize();
+	Ok(result)
+});
+
+impl_binary_constant_op!(Rem, rem, |lhs: &NumericConstant, rhs: &NumericConstant|
+	-> Result<NumericConstant, EvalError> {
+	   check_sign_match(lhs, rhs)?;
+   
+	   if rhs.is_zero() {
+		   return Err(EvalError::DivisionByZero);
+	   }
+   
+	   let width_expr = Expression::from(lhs.clone()) % rhs.clone().into();
+	   let mut result = NumericConstant::from_bigint(
+		   lhs.to_bigint()? % rhs.to_bigint()?,
+		   lhs.signedness()?,
+		   width_expr.width()?.const_narrow_eval()? as u64,
+	   )?;
+	   result.normalize();
+	   Ok(result)
+   });
 
 impl_binary_constant_op!(BitAnd, bitand, |lhs: &NumericConstant,
                                           rhs: &NumericConstant|
