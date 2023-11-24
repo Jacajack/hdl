@@ -1,5 +1,6 @@
 use std::{fmt::Display, sync::Arc};
 
+use log::debug;
 use thiserror::Error;
 
 use crate::design::{ModuleId, SignalId};
@@ -41,10 +42,13 @@ pub struct ElabReport {
 
 impl ElabReport {
 	pub fn extend(&mut self, other: &ElabReport) {
-		self.messages.extend(other.messages.clone());
+		for msg in other.messages.iter() {
+			self.add_message(msg.clone());
+		}
 	}
 
 	pub fn add_message(&mut self, msg: ElabMessage) {
+		debug!("Elab message: {}", msg);
 		self.messages.push(msg);
 	}
 
