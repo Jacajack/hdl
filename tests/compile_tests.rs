@@ -55,7 +55,9 @@ fn compile(mut code: String, file_name: String, output: &mut dyn Write, elab: bo
 	else {
 		analyzer.compile(output)
 	}
-	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code)))?;
+	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
+
+	analyzer.buffer().print_diagnostics(file_name, code)?;
 
 	Ok(())
 }
@@ -201,7 +203,7 @@ fn test_compile_success_sim_files(#[files("tests/input_sim/*.hirl")] path: PathB
 
 #[rstest]
 fn test_compile_failure(#[files("tests/input_invalid/*.hirl")] path: PathBuf) {
-	assert!(run_hdlc(path.as_path(), false).is_err());
+	assert!(run_hdlc(path.as_path(), true).is_err());
 }
 
 #[rstest]
