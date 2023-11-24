@@ -1830,13 +1830,13 @@ impl Expression {
 							.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
 						use crate::parser::ast::RangeOpcode::*;
 						match range.range.code {
-							Colon => end.as_mut().unwrap().value = end.clone().unwrap().value.clone() + BigInt::from(1),
+							Colon => (),
 							PlusColon => {
 								end = NumericConstant::new_from_binary(end.clone(), begin.clone(), |e1, e2| {
-									e1 + e2 + BigInt::from(1)
+									e1 + e2
 								})
 							},
-							ColonLessThan => (),
+							ColonLessThan => end.as_mut().unwrap().value = end.clone().unwrap().value.clone() - BigInt::from(1),
 						}
 						match &bus.width {
 							Some(val) => {
@@ -1873,7 +1873,7 @@ impl Expression {
 												}
 												expr.set_width(
 													crate::analyzer::BusWidth::Evaluated(NumericConstant::new(
-														end_value.clone().value - begin_value.clone().value,
+														end_value.clone().value - begin_value.clone().value + BigInt::from(1),
 														None,
 														None,
 														None,

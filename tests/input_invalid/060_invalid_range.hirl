@@ -1,0 +1,4 @@
+module X {}
+impl X {
+    const auto y = 11u64[0:-1];
+}
