@@ -1,0 +1,4 @@
+module X {}
+impl X {
+    const ubus<1> y = trunc(11u8[1:-4]);
+}

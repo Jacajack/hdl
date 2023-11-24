@@ -382,6 +382,7 @@ impl SignalSensitivity {
 						,
 				);
 			},
+			(_, Clock(_, None)) => (),
 			_ => unreachable!(),
 		}
 		Ok(())

@@ -1820,7 +1820,7 @@ impl Expression {
 				use SignalType::*;
 				match &expr.signal_type {
 					Bus(bus) => {
-						let begin = range
+						let begin: Option<NumericConstant> = range
 							.range
 							.lhs
 							.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
@@ -1830,20 +1830,20 @@ impl Expression {
 							.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
 						use crate::parser::ast::RangeOpcode::*;
 						match range.range.code {
-							Colon => end.as_mut().unwrap().value = end.clone().unwrap().value.clone() + BigInt::from(1),
+							Colon => (),
 							PlusColon => {
 								end = NumericConstant::new_from_binary(end.clone(), begin.clone(), |e1, e2| {
-									e1 + e2 + BigInt::from(1)
+									e1 + e2
 								})
 							},
-							ColonLessThan => (),
+							ColonLessThan => end.as_mut().unwrap().value = end.clone().unwrap().value.clone() - BigInt::from(1),
 						}
 						match &bus.width {
 							Some(val) => {
 								match &val.get_value() {
 									Some(value) => {
 										if let Some(begin_value) = &begin {
-											if &begin_value.value > value {
+											if &begin_value.value > value || begin_value.value < 0.into(){
 												return Err(miette::Report::new(
 													SemanticError::WidthMismatch
 														.to_diagnostic_builder()
@@ -1855,7 +1855,7 @@ impl Expression {
 															range.location,
 															format!(
 																"Range bounds are: {}:... but actual width is: {:?}",
-																begin_value.value, val
+																begin_value.value, value
 															)
 															.as_str(),
 														)
@@ -1863,17 +1863,17 @@ impl Expression {
 												));
 											}
 											if let Some(end_value) = &end {
-												if &end_value.value > value {
+												if &end_value.value > value  || end_value.value < begin_value.value {
 													return Err(miette::Report::new(
 														SemanticError::WidthMismatch.to_diagnostic_builder()
 															.label(range.location, "Cannot perform range indexing - range is out of bounds")
-															.label(range.location, format!("Range bounds are: {}:{} but actual width is: {:?}", begin_value.value, end_value.value, val).as_str())
+															.label(range.location, format!("Range bounds are: {}:{} but actual width is: {:?}", begin_value.value, end_value.value, value).as_str())
 															.build(),
 													));
 												}
 												expr.set_width(
 													crate::analyzer::BusWidth::Evaluated(NumericConstant::new(
-														end_value.clone().value - begin_value.clone().value,
+														end_value.clone().value - begin_value.clone().value + BigInt::from(1),
 														None,
 														None,
 														None,
