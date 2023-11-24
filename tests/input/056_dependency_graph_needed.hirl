@@ -1,0 +1,11 @@
+module X {input clock clk;}
+impl X {
+	ubus<3> dma_state;
+	reg dma_state_reg {
+		clk,
+		nreset: 0u1,
+		en: 0u1,
+		next: 0u3,
+		data: dma_state,
+	}
+}

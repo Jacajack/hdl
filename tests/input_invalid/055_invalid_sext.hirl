@@ -1,0 +1,4 @@
+module x{}
+impl x{
+	ubus<2> a = sext();
+}

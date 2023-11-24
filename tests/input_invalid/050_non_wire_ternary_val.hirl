@@ -1,0 +1,5 @@
+module X {}
+
+impl X {
+	ubus<3> v = 7u8 ? 3 : 4;
+}

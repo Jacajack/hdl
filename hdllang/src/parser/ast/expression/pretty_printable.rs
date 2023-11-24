@@ -25,7 +25,7 @@ impl PrettyPrintable for Expression {
 				ctx.write_indent("}")
 			},
 			ConditionalExpression(cond) => {
-				ctx.write("conditional")?;
+				ctx.write("cond")?;
 				ctx.increase_indent();
 				ctx.writeln(" {")?;
 				for statement in &cond.statements {

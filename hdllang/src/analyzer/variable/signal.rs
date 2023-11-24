@@ -351,26 +351,15 @@ impl Signal {
 				}
 			},
 		};
-		if width.clone().unwrap().get_value().unwrap() == 1.into() && !matches!(signedness, SignalSignedness::Signed(_))
-		{
-			Self {
-				signal_type: SignalType::Wire(location),
-				dimensions: Vec::new(),
-				sensitivity: SignalSensitivity::Const(location),
-				direction: Direction::None,
-			}
-		}
-		else {
-			Self {
-				signal_type: SignalType::Bus(BusType {
-					width,
-					signedness,
-					location,
-				}),
-				dimensions: Vec::new(),
-				sensitivity: SignalSensitivity::Const(location),
-				direction: Direction::None,
-			}
+		Self {
+			signal_type: SignalType::Bus(BusType {
+				width,
+				signedness,
+				location,
+			}),
+			dimensions: Vec::new(),
+			sensitivity: SignalSensitivity::Const(location),
+			direction: Direction::None,
 		}
 	}
 }

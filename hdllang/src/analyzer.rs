@@ -10,6 +10,7 @@ mod semantic_error;
 mod semantical_analyzer;
 mod sensitivity_graph;
 mod variable;
+mod variable_dependency_graph;
 
 pub use already_created::*;
 pub use analyze_qualifiers::*;
@@ -24,3 +25,4 @@ pub use semantic_error::SemanticError;
 pub use semantical_analyzer::*;
 pub use sensitivity_graph::*;
 pub use variable::*;
+pub use variable_dependency_graph::*;

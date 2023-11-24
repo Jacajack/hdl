@@ -93,6 +93,14 @@ pub trait Evaluates {
 	fn const_eval(&self) -> Result<NumericConstant, EvalError> {
 		self.eval(&EvalContext::default())
 	}
+
+	fn try_eval_ignore_missing(&self, ctx: &dyn EvalAssumptions) -> Result<Option<NumericConstant>, EvalError> {
+		match self.eval(ctx) {
+			Ok(value) => Ok(Some(value)),
+			Err(EvalError::MissingAssumption(_)) => Ok(None),
+			Err(err) => Err(err),
+		}
+	}
 }
 
 #[derive(Debug, Clone, Copy, Error)]
@@ -178,6 +186,9 @@ pub enum EvalError {
 
 	#[error("Invalid LSB, MSB indices in bus select")]
 	BadBusSelect,
+
+	#[error("Division by zero")]
+	DivisionByZero,
 
 	#[error(transparent)]
 	InvalidAssumption(#[from] AssumptionError),

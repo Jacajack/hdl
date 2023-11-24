@@ -1,7 +1,7 @@
 module if_else_test {}
 
 impl if_else_test {
-	if (7 == 1) {
+	if (7u6 == 1u6) {
 	} else {
 	}
 }

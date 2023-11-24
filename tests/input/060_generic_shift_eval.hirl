@@ -1,0 +1,8 @@
+module X {}
+impl X {
+    const ubus<(1s8 << 6u7)> x;
+    const sbus<(2s8 << 5u7)> y;
+    const sbus<(1u8 << 7u7)> z;
+    const sbus<(128u8 >> 7u7)> w;
+    // const sbus<((1s8 << 7u7) < 0 ? 1 : -1)> z; // FIXME hdllang #348
+}

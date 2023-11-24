@@ -1,0 +1,4 @@
+module X {}
+impl X {
+	clock c = (clock wire)0u1;
+}

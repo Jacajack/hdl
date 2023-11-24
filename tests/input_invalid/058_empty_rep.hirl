@@ -1,0 +1,4 @@
+module x{}
+impl x{
+	signed auto a = rep();
+}

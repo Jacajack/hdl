@@ -32,6 +32,20 @@ impl ModuleImplementationBlockStatement {
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
 		let mut subscope = api_scope.new_subscope().unwrap();
+		let scope_id = local_ctx.scope_map.get(&self.location).unwrap().to_owned();
+		let additional_ctx = crate::analyzer::AdditionalContext::new(
+			local_ctx.nc_widths.clone(),
+			local_ctx.array_or_bus.clone(),
+			local_ctx.casts.clone(),
+		);
+		local_ctx.scope.register_all_variables_in_scope(
+			&local_ctx.depenency_graph,
+			ctx.nc_table,
+			ctx.id_table,
+			Some(&additional_ctx),
+			scope_id,
+			&mut subscope,
+		);
 		for statement in &self.statements {
 			statement.codegen_pass(ctx, local_ctx, &mut subscope)?;
 		}

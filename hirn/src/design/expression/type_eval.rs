@@ -35,20 +35,27 @@ impl EvaluatesType for BinaryExpression {
 		let lhs = self.lhs.eval_type(ctx)?;
 		let rhs = self.rhs.eval_type(ctx)?;
 
-		if lhs.signedness != rhs.signedness {
-			return Err(EvalError::MixedSignedness);
-		}
+		let require_sign_match = || match lhs.signedness == rhs.signedness {
+			true => Ok(()),
+			false => Err(EvalError::MixedSignedness),
+		};
 
 		use BinaryOp::*;
 		let signedness = match self.op {
 			// Boolean results
 			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual | LogicalAnd | LogicalOr => {
+				require_sign_match()?;
 				SignalSignedness::Unsigned
 			},
 
 			// Copy signedness from operands
-			BitwiseAnd | BitwiseOr | BitwiseXor | Add | Subtract | Multiply | Divide | Modulo | Max | Min
-			| ShiftLeft | ShiftRight => lhs.signedness,
+			BitwiseAnd | BitwiseOr | BitwiseXor | Add | Subtract | Multiply | Divide | Modulo | Max | Min => {
+				require_sign_match()?;
+				lhs.signedness
+			},
+
+			// Shift signedness depends on LHS
+			ShiftLeft | ShiftRight => lhs.signedness,
 		};
 
 		Ok(EvalType {

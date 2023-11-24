@@ -1,0 +1,4 @@
+module x{}
+impl x{
+	auto x = fold_and();
+}

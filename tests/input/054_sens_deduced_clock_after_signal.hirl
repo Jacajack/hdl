@@ -1,0 +1,14 @@
+module X{
+	input {
+		clock ins;
+		comb(ins) x;
+	}
+}
+impl X{
+	wire a;
+	clock clk;
+	comb(clk) b;
+	clk = ins;
+	b = x;
+	a = b;
+}
