@@ -1820,10 +1820,11 @@ impl Expression {
 				use SignalType::*;
 				match &expr.signal_type {
 					Bus(bus) => {
-						let begin: Option<NumericConstant> = range
-							.range
-							.lhs
-							.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
+						let begin: Option<NumericConstant> =
+							range
+								.range
+								.lhs
+								.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
 						let mut end = range
 							.range
 							.rhs
@@ -1832,18 +1833,18 @@ impl Expression {
 						match range.range.code {
 							Colon => (),
 							PlusColon => {
-								end = NumericConstant::new_from_binary(end.clone(), begin.clone(), |e1, e2| {
-									e1 + e2
-								})
+								end = NumericConstant::new_from_binary(end.clone(), begin.clone(), |e1, e2| e1 + e2)
 							},
-							ColonLessThan => end.as_mut().unwrap().value = end.clone().unwrap().value.clone() - BigInt::from(1),
+							ColonLessThan => {
+								end.as_mut().unwrap().value = end.clone().unwrap().value.clone() - BigInt::from(1)
+							},
 						}
 						match &bus.width {
 							Some(val) => {
 								match &val.get_value() {
 									Some(value) => {
 										if let Some(begin_value) = &begin {
-											if &begin_value.value > value || begin_value.value < 0.into(){
+											if &begin_value.value > value || begin_value.value < 0.into() {
 												return Err(miette::Report::new(
 													SemanticError::WidthMismatch
 														.to_diagnostic_builder()
@@ -1863,7 +1864,7 @@ impl Expression {
 												));
 											}
 											if let Some(end_value) = &end {
-												if &end_value.value > value  || end_value.value < begin_value.value {
+												if &end_value.value > value || end_value.value < begin_value.value {
 													return Err(miette::Report::new(
 														SemanticError::WidthMismatch.to_diagnostic_builder()
 															.label(range.location, "Cannot perform range indexing - range is out of bounds")
@@ -1873,7 +1874,8 @@ impl Expression {
 												}
 												expr.set_width(
 													crate::analyzer::BusWidth::Evaluated(NumericConstant::new(
-														end_value.clone().value - begin_value.clone().value + BigInt::from(1),
+														end_value.clone().value - begin_value.clone().value
+															+ BigInt::from(1),
 														None,
 														None,
 														None,
