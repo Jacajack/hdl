@@ -1,5 +1,7 @@
 use std::sync::{Arc, Mutex};
 
+use log::{info, debug};
+
 use crate::{
 	design::{DesignHandle, ModuleHandle, ModuleId, EvalError},
 	elab::{
@@ -18,7 +20,6 @@ pub(super) struct FullElabCtx {
 	design: DesignHandle,
 	module_id: ModuleId,
 	report: ElabReport,
-	queued: Vec<ElabQueueItem>,
 	assumptions: Arc<dyn ElabAssumptionsBase>,
 	severity_policy: Box<dyn SeverityPolicy>,
 
@@ -63,7 +64,6 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 			design,
 			module_id,
 			assumptions,
-			queued: Vec::new(),
 			report: ElabReport::default(),
 			severity_policy: Box::new(DefaultSeverityPolicy),
 			sig_graph_config: MainPassConfig::default(),
@@ -72,7 +72,19 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 	}
 
 	fn queued(&self) -> Vec<ElabQueueItem> {
-		self.queued.clone()
+		if let Some(result) = &self.sig_graph_result {
+			result.queued_modules().iter()
+				.map(
+					|(module, assumptions)| ElabQueueItem {
+						module: module.id(),
+						assumptions: assumptions.clone(),
+					}
+				)
+				.collect()
+		}
+		else {
+			vec![]
+		}
 	}
 
 	fn report(&self) -> &ElabReport {
@@ -102,6 +114,7 @@ impl Elaborator for FullElaborator {
 		assumptions: Arc<dyn super::ElabAssumptionsBase>,
 	) -> Result<ElabReport, ElabError> {
 		if assumptions.design().is_none() {return Err(EvalError::NoDesign.into());}
+		info!("Starting full elab module {:?}", id);
 		self.elaborator.elaborate(id, assumptions)
 	}
 }

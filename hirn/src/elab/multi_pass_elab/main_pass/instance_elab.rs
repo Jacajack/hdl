@@ -58,7 +58,7 @@ impl MainPassCtx {
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<(), ElabMessageKind> {
 		let module_handle = instance.module.clone();
-		let mut inner_assumptions = ElabAssumptions::new_with_parent(assumptions.clone());
+		let mut inner_assumptions = ElabAssumptions::new(Some(self.design.clone()));
 
 		for (port_name, sig_id) in instance.get_bindings() {
 			let interface_sig = module_handle
@@ -82,7 +82,7 @@ impl MainPassCtx {
 			}
 		}
 
-		// TODO Important: trigger elab for module
+		self.queued_modules.push((module_handle, Arc::new(inner_assumptions)));
 
 		Ok(())
 

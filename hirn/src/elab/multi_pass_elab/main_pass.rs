@@ -4,7 +4,7 @@ mod scope_elab;
 mod scope_pass;
 mod signal_drive;
 
-use log::{error, info};
+use log::{error, info, debug};
 use petgraph::graphmap::GraphMap;
 use petgraph::Directed;
 use std::collections::HashMap;
@@ -52,6 +52,9 @@ pub struct MainPassResult {
 
 	/// Scope pass info
 	pass_info: HashMap<ScopePassId, ScopePassInfo>,
+
+	/// Modules queued for elaboration
+	queued_modules: Vec<(ModuleHandle, Arc<dyn ElabAssumptionsBase>)>,
 }
 
 impl MainPassResult {
@@ -65,6 +68,10 @@ impl MainPassResult {
 
 	pub fn pass_info(&self) -> &HashMap<ScopePassId, ScopePassInfo> {
 		&self.pass_info
+	}
+
+	pub fn queued_modules(&self) -> &[(ModuleHandle, Arc<dyn ElabAssumptionsBase>)] {
+		&self.queued_modules
 	}
 }
 
@@ -93,6 +100,9 @@ struct MainPassCtx {
 	comb_graph: GraphMap<GeneratedSignalRef, (), Directed>,
 	// clock_graph: GraphMap<GeneratedSignalId, (), Undirected>,
 	// clock_groups: HashMap<GeneratedSignalId, usize>,
+
+	/// Modules queued for elaboration
+	queued_modules: Vec<(ModuleHandle, Arc<dyn ElabAssumptionsBase>)>,
 }
 
 impl MainPassCtx {
@@ -110,6 +120,8 @@ impl MainPassCtx {
 
 			signals: HashMap::new(),
 			elab_signals: HashMap::new(),
+
+			queued_modules: Vec::new(),
 		}
 	}
 
@@ -140,6 +152,8 @@ impl MainPassCtx {
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<(), ElabMessageKind> {
 		assert!(assumptions.design().is_some());
+		info!("Elaborating module {:?}", module.id());
+		debug!("Assumptions: {:?}", assumptions);
 		self.elab_unconditional_scope(&module.scope(), assumptions.clone())?;
 		self.elab_module_interface(module, assumptions.clone())?;
 		Ok(())
@@ -174,6 +188,7 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for MainPass {
 			signals: ctx.signals,
 			elab_signals: ctx.elab_signals,
 			pass_info: ctx.pass_info,
+			queued_modules: ctx.queued_modules,
 		});
 		Ok(full_ctx)
 	}
