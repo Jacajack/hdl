@@ -1,6 +1,6 @@
 module m {}
 impl m {
-	clock wire clk = 0;
+	clock wire clk = (clock wire)0u1;
 	comb(clk) auto next = 11u5;
 	sync(clk) unsigned auto out; 
 	async wire nreset = 0;

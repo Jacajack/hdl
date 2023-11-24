@@ -1,6 +1,6 @@
 module X{}
 impl X{
-	clock wire a = 0, b = 0;
+	clock wire a = (clock wire)0u1, b = (clock wire)0u1;
 	comb(a,b) wire c;
 	c = a & b;
 }

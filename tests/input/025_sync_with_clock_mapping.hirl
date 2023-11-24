@@ -1,6 +1,6 @@
 module m {}
 impl m {
-	clock clk, clk2 = 0;
+	clock clk, clk2 = (clock wire)0u1;
 	sync(clk) unsigned bus<8> a;
 	sync(clk2) unsigned bus<8> b = 0;
 	a = b;
