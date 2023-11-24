@@ -104,7 +104,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 					Ok(elab_report) => {
 						for msg in elab_report.messages() {
 							match msg.default_severity() {
-								ElabMessageSeverity::Error => self.ctx.diagnostic_buffer.push_diagnostic(to_report(
+								ElabMessageSeverity::Error => self.ctx.diagnostic_buffer.push_error(to_report(
 									&local_ctx,
 									module.location,
 									CompilerDiagnosticBuilder::new_error(msg.to_string().as_str()),
