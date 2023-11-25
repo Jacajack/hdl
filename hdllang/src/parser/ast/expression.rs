@@ -1513,12 +1513,14 @@ impl Expression {
 							))
 						},
 						(NoSignedness, _) => (),
-						(Signed(_), NoSignedness) => {
+						(Signed(loc), NoSignedness) => {
 							constant.signed = Some(true);
+							sig.set_signedness(SignalSignedness::Signed(loc), loc);
 							local_ctx.nc_widths.insert(self.get_location(), constant.clone());
 						},
-						(Unsigned(_), NoSignedness) => {
+						(Unsigned(loc), NoSignedness) => {
 							constant.signed = Some(false);
+							sig.set_signedness(SignalSignedness::Unsigned(loc), loc);
 							local_ctx.nc_widths.insert(self.get_location(), constant.clone());
 						},
 					}

@@ -193,6 +193,22 @@ impl VariableDefinition {
 									.build(),
 							));
 						}
+						if rhs.width().is_none() {
+							return Err(miette::Report::new(
+								SemanticError::WidthNotKnown
+									.to_diagnostic_builder()
+									.label(expr.get_location(), "This expression has unknown width")
+									.build(),
+							));
+						}
+						if rhs.get_signedness().is_none() {
+							return Err(miette::Report::new(
+								SemanticError::SignednessMismatch // FIXME when fixing errors msgs
+									.to_diagnostic_builder()
+									.label(expr.get_location(), "This expression has unknown signedness")
+									.build(),
+							));
+						}
 						lhs.evaluate_as_lhs(true, ctx, rhs, direct_initializer.declarator.get_location())?;
 						var.var.kind = VariableKind::Signal(lhs);
 						local_ctx.scope.redeclare_variable(var);
@@ -226,6 +242,22 @@ impl VariableDefinition {
 										direct_initializer.get_location(),
 										"Array cannot be initialized with expression",
 									)
+									.build(),
+							));
+						}
+						if rhs.width().is_none() {
+							return Err(miette::Report::new(
+								SemanticError::WidthNotKnown
+									.to_diagnostic_builder()
+									.label(expr.get_location(), "This expression has unknown width")
+									.build(),
+							));
+						}
+						if rhs.get_signedness().is_none() {
+							return Err(miette::Report::new(
+								SemanticError::SignednessMismatch // FIXME when fixing errors msgs
+									.to_diagnostic_builder()
+									.label(expr.get_location(), "This expression has unknown signedness")
 									.build(),
 							));
 						}

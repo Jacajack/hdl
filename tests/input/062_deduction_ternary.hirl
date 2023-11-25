@@ -1,0 +1,5 @@
+module X {}
+
+impl X {
+	ubus<3> v = true ? 3 : 4;
+}
