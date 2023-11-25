@@ -140,7 +140,11 @@ pub enum ElabMessageKind {
 	CombLoop,
 
 	#[error("Assignment/binding of signals with different widths")]
-	WidthMismatch,
+	WidthMismatch {
+		lhs: Box<GeneratedSignalRef>,
+		lhs_width: u64,
+		rhs_width: u64,
+	},
 
 	#[error("Notice for the user")]
 	Notice(String),
