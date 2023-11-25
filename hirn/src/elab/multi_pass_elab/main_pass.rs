@@ -4,7 +4,7 @@ mod scope_elab;
 mod scope_pass;
 mod signal_drive;
 
-use log::{error, info, debug};
+use log::{debug, error, info};
 use petgraph::graphmap::GraphMap;
 use petgraph::Directed;
 use std::collections::HashMap;
@@ -100,7 +100,6 @@ struct MainPassCtx {
 	comb_graph: GraphMap<GeneratedSignalRef, (), Directed>,
 	// clock_graph: GraphMap<GeneratedSignalId, (), Undirected>,
 	// clock_groups: HashMap<GeneratedSignalId, usize>,
-
 	/// Modules queued for elaboration
 	queued_modules: Vec<(ModuleHandle, Arc<dyn ElabAssumptionsBase>)>,
 }

@@ -8,8 +8,8 @@ use crate::design::{
 };
 
 use super::{
-	BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalError, EvaluatesType,
-	Expression, NarrowEval, UnaryExpression, WidthExpression, EvalAssumptions, EvalContext,
+	BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalAssumptions, EvalContext, EvalError,
+	EvaluatesType, Expression, NarrowEval, UnaryExpression, WidthExpression,
 };
 
 #[derive(Clone, Debug, Copy, Error)]
@@ -406,7 +406,7 @@ impl Expression {
 
 	/// Validate the expression without making any assumptions regarding values of signals
 	pub fn validate_no_assumptions(&self, scope: &ScopeHandle) -> Result<(), EvalError> {
-		self.validate(& EvalContext::without_assumptions(scope.design()), scope)
+		self.validate(&EvalContext::without_assumptions(scope.design()), scope)
 	}
 }
 

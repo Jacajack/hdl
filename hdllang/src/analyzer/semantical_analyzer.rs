@@ -1,4 +1,4 @@
-use super::{GlobalAnalyzerContext, LocalAnalyzerContext, SemanticError, ModuleImplementationScope};
+use super::{GlobalAnalyzerContext, LocalAnalyzerContext, ModuleImplementationScope, SemanticError};
 use crate::core::CompilerDiagnosticBuilder;
 use crate::parser::ast::ModuleImplementation;
 use crate::{core::IdTableKey, ProvidesCompilerDiagnostic};
@@ -94,12 +94,12 @@ impl<'a> SemanticalAnalyzer<'a> {
 			}
 
 			let module_id = self
-			.ctx
-			.modules_declared
-			.get_mut(&local_ctx.module_id())
-			.unwrap()
-			.handle
-			.id();
+				.ctx
+				.modules_declared
+				.get_mut(&local_ctx.module_id())
+				.unwrap()
+				.handle
+				.id();
 
 			scopes.insert(module_id, local_ctx.scope);
 		}
@@ -137,16 +137,13 @@ impl<'a> SemanticalAnalyzer<'a> {
 				.id();
 			scopes.insert(module_id, local_ctx.scope.clone());
 		}
-		for module in self.modules_implemented.values(){
-			let module_id = self
-				.ctx
-				.modules_declared
-				.get_mut(&module.id)
-				.unwrap()
-				.handle
-				.id();
+		for module in self.modules_implemented.values() {
+			let module_id = self.ctx.modules_declared.get_mut(&module.id).unwrap().handle.id();
 			let mut elab = FullElaborator::new(self.ctx.design.clone());
-			let elab_result = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::new(self.ctx.design.clone())));
+			let elab_result = elab.elaborate(
+				module_id,
+				Arc::new(ElabToplevelAssumptions::new(self.ctx.design.clone())),
+			);
 			match elab_result {
 				Ok(elab_report) => {
 					for msg in elab_report.messages() {
@@ -187,7 +184,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 					));
 				},
 			};
-			if self.buffer().contains_errors(){
+			if self.buffer().contains_errors() {
 				continue;
 			}
 			let mut output_string = String::new();
@@ -197,14 +194,8 @@ impl<'a> SemanticalAnalyzer<'a> {
 			write!(output, "{}", output_string).unwrap();
 		}
 		// if elab did not catch any errors, then we can proceed to codegen generic modules
-		for module in self.ctx.generic_modules.values(){
-			let module_id = self
-				.ctx
-				.modules_declared
-				.get_mut(&module.id)
-				.unwrap()
-				.handle
-				.id();
+		for module in self.ctx.generic_modules.values() {
+			let module_id = self.ctx.modules_declared.get_mut(&module.id).unwrap().handle.id();
 			let mut output_string = String::new();
 			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
 			use hirn::codegen::Codegen;
@@ -244,12 +235,12 @@ impl<'a> SemanticalAnalyzer<'a> {
 			}
 
 			let module_id = self
-			.ctx
-			.modules_declared
-			.get_mut(&local_ctx.module_id())
-			.unwrap()
-			.handle
-			.id();
+				.ctx
+				.modules_declared
+				.get_mut(&local_ctx.module_id())
+				.unwrap()
+				.handle
+				.id();
 
 			let mut output_string = String::new();
 			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
@@ -369,7 +360,10 @@ fn to_report(
 			use hirn::elab::SignalMaskSummary::*;
 			match mask {
 				Empty => unreachable!(),
-				Full => report.label(variable_location, "This signal does not have any drivers but is being used"),
+				Full => report.label(
+					variable_location,
+					"This signal does not have any drivers but is being used",
+				),
 				Single(bit) => report.label(
 					variable_location,
 					format!("Bit {} of this signal is not driven but used", bit).as_str(),

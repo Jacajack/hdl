@@ -241,12 +241,12 @@ impl SignalMask {
 
 		use SignalMask::*;
 		match (self, other) {
-			(Full{set: true, ..}, Full{set: true, ..}) => Self::new_set(self.width()),
-			(Full{..}, Full{..}) => Self::new(self.width()),
-			(Full{set: true, ..}, Sparse(m)) => Self::Sparse(m),
-			(Sparse(m), Full{set: true, ..}) => Self::Sparse(m.clone()),
-			(Full{set: false, ..}, Sparse(m)) => Self::new(self.width()),
-			(Sparse(m), Full{set: false, ..}) => Self::new(self.width()),
+			(Full { set: true, .. }, Full { set: true, .. }) => Self::new_set(self.width()),
+			(Full { .. }, Full { .. }) => Self::new(self.width()),
+			(Full { set: true, .. }, Sparse(m)) => Self::Sparse(m),
+			(Sparse(m), Full { set: true, .. }) => Self::Sparse(m.clone()),
+			(Full { set: false, .. }, Sparse(m)) => Self::new(self.width()),
+			(Sparse(m), Full { set: false, .. }) => Self::new(self.width()),
 			(Sparse(lhs_mask), Sparse(rhs_mask)) => Self::Sparse(lhs_mask.clone().and(&rhs_mask)),
 		}
 	}

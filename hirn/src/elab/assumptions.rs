@@ -65,7 +65,7 @@ impl ElabAssumptionsBase for ElabToplevelAssumptions {
 	fn design(&self) -> Option<DesignHandle> {
 		Some(self.design.clone())
 	}
-	
+
 	fn get_indexed(&self, _id: SignalId, _indices: &Vec<GenericVar>) -> Option<&NumericConstant> {
 		None
 	}

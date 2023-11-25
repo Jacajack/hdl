@@ -1,7 +1,5 @@
 use super::eval::EvalAssumptions;
-use super::{
-	eval::Evaluates, EvalError, Expression, NumericConstant, SignalId, SignalSlice, WidthExpression,
-};
+use super::{eval::Evaluates, EvalError, Expression, NumericConstant, SignalId, SignalSlice, WidthExpression};
 use super::{
 	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, SignalSignedness, UnaryExpression,
 	UnaryOp,
@@ -165,10 +163,10 @@ impl Evaluates for BuiltinOp {
 				Expression::Signal(ref slice) => {
 					if let Some(design_handle) = ctx.design() {
 						let sig = design_handle.get_signal(slice.signal).expect("signal not in design");
-						return Ok(sig.width().cast_unsigned().eval(ctx)?)
+						return Ok(sig.width().cast_unsigned().eval(ctx)?);
 					}
 					else {
-						return Err(EvalError::NoDesign)
+						return Err(EvalError::NoDesign);
 					}
 				},
 

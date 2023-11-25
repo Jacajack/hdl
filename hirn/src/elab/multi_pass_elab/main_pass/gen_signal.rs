@@ -7,7 +7,7 @@ use crate::{
 	elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
 
-use super::{ScopePassId, MainPassCtx};
+use super::{MainPassCtx, ScopePassId};
 
 /// Signal ID coupled with scope pass ID to distingush between generated signals
 #[derive(Copy, Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
