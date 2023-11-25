@@ -71,7 +71,7 @@ fn main() -> Result<(), HirnError> {
 	loop_scope.assign(m_bus.into(), iter.into())?;
 
 	let mut elab = hirn::elab::FullElaborator::new(d.clone());
-	let elab_report = elab.elaborate(m.id(), Arc::new(ElabToplevelAssumptions::default()))?;
+	let elab_report = elab.elaborate(m.id(), Arc::new(ElabToplevelAssumptions::new(d.clone())))?;
 	println!("{:?}", elab_report);
 
 	let mut source = String::new();

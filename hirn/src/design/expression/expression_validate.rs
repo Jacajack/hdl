@@ -8,8 +8,8 @@ use crate::design::{
 };
 
 use super::{
-	BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalContext, EvalError, EvaluatesType,
-	Expression, NarrowEval, UnaryExpression, WidthExpression,
+	BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalAssumptions, EvalContext, EvalError,
+	EvaluatesType, Expression, NarrowEval, UnaryExpression, WidthExpression,
 };
 
 #[derive(Clone, Debug, Copy, Error)]
@@ -67,7 +67,7 @@ pub enum ExpressionError {
 }
 
 impl UnaryExpression {
-	fn shallow_validate(&self, ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
+	fn shallow_validate(&self, ctx: &dyn EvalAssumptions, _scope: &ScopeHandle) -> Result<(), EvalError> {
 		let expr_type = self.operand.eval_type(ctx)?;
 		let expr_width = self.operand.width()?.narrow_eval(ctx).ok();
 
@@ -100,7 +100,7 @@ impl UnaryExpression {
 }
 
 impl BinaryExpression {
-	fn shallow_validate(&self, ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
+	fn shallow_validate(&self, ctx: &dyn EvalAssumptions, _scope: &ScopeHandle) -> Result<(), EvalError> {
 		let lhs_type = self.lhs.eval_type(ctx)?;
 		let rhs_type = self.rhs.eval_type(ctx)?;
 		let lhs_width = self.lhs.width()?.narrow_eval(ctx).ok();
@@ -166,7 +166,7 @@ impl BinaryExpression {
 }
 
 impl BuiltinOp {
-	fn shallow_validate(&self, ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
+	fn shallow_validate(&self, ctx: &dyn EvalAssumptions, _scope: &ScopeHandle) -> Result<(), EvalError> {
 		use BuiltinOp::*;
 		match self {
 			// Extension width must be nonzero and generic
@@ -257,7 +257,7 @@ impl BuiltinOp {
 }
 
 impl CastExpression {
-	fn shallow_validate(&self, _ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
+	fn shallow_validate(&self, _ctx: &dyn EvalAssumptions, _scope: &ScopeHandle) -> Result<(), EvalError> {
 		// We must ensre that nothing is ever casted to generic sensitivity
 		// Note: this could be conditionally allowed for expressions which already
 		// are generic
@@ -270,7 +270,7 @@ impl CastExpression {
 }
 
 impl ConditionalExpression {
-	fn shallow_validate(&self, ctx: &EvalContext, _scope: &ScopeHandle) -> Result<(), EvalError> {
+	fn shallow_validate(&self, ctx: &dyn EvalAssumptions, _scope: &ScopeHandle) -> Result<(), EvalError> {
 		let result_type = self.default_value().eval_type(ctx)?;
 		let mut result_width = self.default_value().width()?.narrow_eval(ctx).ok();
 
@@ -320,7 +320,7 @@ impl ConditionalExpression {
 
 fn shallow_validate_slice(
 	slice: &SignalSlice,
-	ctx: &EvalContext,
+	ctx: &dyn EvalAssumptions,
 	scope: &ScopeHandle,
 	allow_nonscalar: bool,
 ) -> Result<(), EvalError> {
@@ -376,7 +376,7 @@ impl Expression {
 	}
 
 	/// Validates the expression
-	pub fn validate(&self, ctx: &EvalContext, scope: &ScopeHandle) -> Result<(), EvalError> {
+	pub fn validate(&self, ctx: &dyn EvalAssumptions, scope: &ScopeHandle) -> Result<(), EvalError> {
 		let mut is_root_level = true;
 		self.traverse(&mut |e| -> Result<bool, EvalError> {
 			// Check if all variables used in the expression are a subset of the ones

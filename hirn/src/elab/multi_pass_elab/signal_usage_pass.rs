@@ -20,11 +20,18 @@ fn get_messages(ctx: &FullElabCtx) -> Vec<ElabMessageKind> {
 		let sig_name = sig.name();
 
 		if !elab_sig.is_fully_driven() {
-			// error!("Signal {} is not fully driven: {:?}", sig_name, elab_sig.undriven_summary());
-			messages.push(ElabMessageKind::SignalNotDriven {
-				signal: Box::new(sig_ref.clone()),
-				elab: Box::new((*elab_sig).clone()),
-			});
+			if elab_sig.is_read() {
+				messages.push(ElabMessageKind::SignalNotDrivenAndUsed {
+					signal: Box::new(sig_ref.clone()),
+					elab: Box::new((*elab_sig).clone()),
+				});
+			}
+			else {
+				messages.push(ElabMessageKind::SignalNotDriven {
+					signal: Box::new(sig_ref.clone()),
+					elab: Box::new((*elab_sig).clone()),
+				});
+			}
 		}
 
 		if !elab_sig.is_fully_read() {

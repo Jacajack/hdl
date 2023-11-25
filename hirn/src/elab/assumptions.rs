@@ -21,7 +21,7 @@ pub trait ElabAssumptionsBase: DynClone + core::fmt::Debug {
 
 impl EvalAssumptions for &dyn ElabAssumptionsBase {
 	fn design(&self) -> Option<DesignHandle> {
-		ElabAssumptionsBase::design(*self)
+		(*self).design()
 	}
 
 	fn signal(&self, signal: SignalId, indices: &Vec<GenericVar>) -> Option<&NumericConstant> {
@@ -35,7 +35,7 @@ impl EvalAssumptions for &dyn ElabAssumptionsBase {
 
 impl EvalAssumptions for Arc<dyn ElabAssumptionsBase> {
 	fn design(&self) -> Option<DesignHandle> {
-		ElabAssumptionsBase::design(self.as_ref())
+		self.as_ref().design()
 	}
 
 	fn signal(&self, signal: SignalId, indices: &Vec<GenericVar>) -> Option<&NumericConstant> {
@@ -50,10 +50,22 @@ impl EvalAssumptions for Arc<dyn ElabAssumptionsBase> {
 dyn_clone::clone_trait_object!(ElabAssumptionsBase);
 
 /// Elaboration assumptions for top-level module (i.e. no assumptions at all)
-#[derive(Clone, Debug, Default)]
-pub struct ElabToplevelAssumptions;
+#[derive(Clone, Debug)]
+pub struct ElabToplevelAssumptions {
+	design: DesignHandle,
+}
+
+impl ElabToplevelAssumptions {
+	pub fn new(design: DesignHandle) -> Self {
+		Self { design }
+	}
+}
 
 impl ElabAssumptionsBase for ElabToplevelAssumptions {
+	fn design(&self) -> Option<DesignHandle> {
+		Some(self.design.clone())
+	}
+
 	fn get_indexed(&self, _id: SignalId, _indices: &Vec<GenericVar>) -> Option<&NumericConstant> {
 		None
 	}

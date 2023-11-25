@@ -1,6 +1,6 @@
 use crate::design::ScopeId;
 
-use super::SignalGraphPassCtx;
+use super::MainPassCtx;
 
 /// IDs generated each time a scope is visited
 #[derive(Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Clone)]
@@ -25,7 +25,7 @@ pub enum ScopePassInfo {
 	},
 }
 
-impl SignalGraphPassCtx {
+impl MainPassCtx {
 	/// Records that an unconditional scope has been visited
 	pub(super) fn record_scope_pass(&mut self, id: ScopeId) -> ScopePassId {
 		let handle = self.design.get_scope_handle(id).expect("scope not in design");

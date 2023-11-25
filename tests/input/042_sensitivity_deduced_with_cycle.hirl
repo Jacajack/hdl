@@ -3,5 +3,5 @@ impl X{
 	unsigned bus<4> a[4], b;
 	a[0] = b;
 	b = a[1];
-	b=3u;
+	a[1] = 3u;
 }

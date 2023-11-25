@@ -1,10 +1,10 @@
 mod full_elab;
-mod signal_graph_pass;
+mod main_pass;
 mod signal_usage_pass;
 
 pub use full_elab::FullElaborator;
 use log::info;
-pub use signal_graph_pass::{GeneratedSignal, GeneratedSignalId, GeneratedSignalRef, ScopePassId, ScopePassInfo};
+pub use main_pass::{GeneratedSignal, GeneratedSignalId, GeneratedSignalRef, ScopePassId, ScopePassInfo};
 
 use std::{collections::VecDeque, sync::Arc};
 

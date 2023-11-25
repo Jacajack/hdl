@@ -1,10 +1,10 @@
 module m {}
 impl m {
-	clock wire clk;
-	comb(clk) auto next ;
-	async unsigned auto out = 4u5;
-	async wire nreset;
-	comb(clk) wire en;
+	clock wire clk = (clock wire)0u1;
+	comb(clk) auto next = 4u5;
+	async unsigned auto out;
+	async wire nreset = 0;
+	comb(clk) wire en = 1;
 	reg reg1 {
 		clk,
 		nreset: nreset,

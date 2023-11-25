@@ -1,0 +1,7 @@
+module X {
+	output const ubus<16> x;
+}
+
+impl X {
+	x[0:7] = 123;
+}

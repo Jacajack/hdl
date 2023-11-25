@@ -1,6 +1,6 @@
 
 module m {}
 impl m {
-	clock a;
+	clock a = (clock wire)0u1;
 	const b = (const auto)((clock auto)((comb(a) auto)((sync(a) auto)((async auto)a))));
 }

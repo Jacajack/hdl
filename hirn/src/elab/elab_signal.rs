@@ -1,3 +1,5 @@
+use std::ops::Shl;
+
 use num_bigint::BigUint;
 
 #[derive(Clone, Debug)]
@@ -55,13 +57,31 @@ impl SparseSignalMask {
 		conflict_mask
 	}
 
-	fn mask_or(&mut self, other: &Self) -> SparseSignalMask {
+	fn combine(&mut self, other: &Self) -> SparseSignalMask {
 		assert_eq!(self.width, other.width);
 		let conflict = self.mask.clone() & &other.mask;
 		self.mask |= &other.mask;
 		Self {
 			width: self.width,
 			mask: conflict,
+		}
+	}
+
+	fn and(&self, other: &Self) -> SparseSignalMask {
+		assert_eq!(self.width, other.width);
+		let conflict = self.mask.clone() & &other.mask;
+		Self {
+			width: self.width,
+			mask: conflict,
+		}
+	}
+
+	fn negated(&self) -> SparseSignalMask {
+		let ones_mask = BigUint::from(1u32).shl(self.width) - 1u32;
+		let negated_mask = ones_mask - &self.mask;
+		Self {
+			width: self.width,
+			mask: negated_mask,
 		}
 	}
 
@@ -177,7 +197,7 @@ impl SignalMask {
 		conflict
 	}
 
-	pub fn mask_or(&mut self, other: &SignalMask) -> SignalMask {
+	pub fn combine(&mut self, other: &SignalMask) -> SignalMask {
 		assert!(self.width() == other.width());
 
 		use SignalMask::*;
@@ -209,11 +229,37 @@ impl SignalMask {
 				Self::Sparse(conflict)
 			},
 
-			(Sparse(lhs_mask), Sparse(rhs_mask)) => Self::Sparse(lhs_mask.clone().mask_or(rhs_mask)),
+			(Sparse(lhs_mask), Sparse(rhs_mask)) => Self::Sparse(lhs_mask.clone().combine(rhs_mask)),
 		};
 
 		self.normalize();
 		conflict
+	}
+
+	pub fn and(&self, other: SignalMask) -> SignalMask {
+		assert!(self.width() == other.width());
+
+		use SignalMask::*;
+		match (self, other) {
+			(Full { set: true, .. }, Full { set: true, .. }) => Self::new_set(self.width()),
+			(Full { .. }, Full { .. }) => Self::new(self.width()),
+			(Full { set: true, .. }, Sparse(m)) => Self::Sparse(m),
+			(Sparse(m), Full { set: true, .. }) => Self::Sparse(m.clone()),
+			(Full { set: false, .. }, Sparse(m)) => Self::new(self.width()),
+			(Sparse(m), Full { set: false, .. }) => Self::new(self.width()),
+			(Sparse(lhs_mask), Sparse(rhs_mask)) => Self::Sparse(lhs_mask.clone().and(&rhs_mask)),
+		}
+	}
+
+	pub fn negated(&self) -> SignalMask {
+		use SignalMask::*;
+		match self {
+			Full { width, set } => Self::Full {
+				width: *width,
+				set: !*set,
+			},
+			Sparse(m) => Self::Sparse(m.negated()),
+		}
 	}
 
 	pub fn is_full(&self) -> bool {
@@ -341,7 +387,7 @@ impl ElabSignal {
 
 	pub fn drive(&mut self) -> SignalMask {
 		let conflict = self.driven_mask.set_all();
-		self.conflict_mask.mask_or(&conflict);
+		self.conflict_mask.combine(&conflict);
 		conflict
 	}
 
@@ -351,7 +397,7 @@ impl ElabSignal {
 
 	pub fn drive_bits(&mut self, lsb: u32, msb: u32) -> SignalMask {
 		let conflict = self.driven_mask.set_bits(lsb, msb);
-		self.conflict_mask.mask_or(&conflict);
+		self.conflict_mask.combine(&conflict);
 		conflict
 	}
 
@@ -365,6 +411,10 @@ impl ElabSignal {
 
 	pub fn is_fully_read(&self) -> bool {
 		self.read_mask.is_full()
+	}
+
+	pub fn is_read(&self) -> bool {
+		!self.read_mask.is_empty()
 	}
 
 	pub fn has_conflicts(&self) -> bool {
@@ -385,6 +435,14 @@ impl ElabSignal {
 
 	pub fn read_mask(&self) -> &SignalMask {
 		&self.read_mask
+	}
+
+	pub fn undriven_read_mask(&self) -> SignalMask {
+		self.driven_mask.negated().and(self.read_mask().clone())
+	}
+
+	pub fn undriven_read_summary(&self) -> SignalMaskSummary {
+		self.undriven_read_mask().ones_summary()
 	}
 
 	pub fn conflict_summary(&self) -> SignalMaskSummary {

@@ -1,7 +1,9 @@
 use std::sync::{Arc, Mutex};
 
+use log::{debug, info};
+
 use crate::{
-	design::{DesignHandle, ModuleHandle, ModuleId},
+	design::{DesignHandle, EvalError, ModuleHandle, ModuleId},
 	elab::{
 		DefaultSeverityPolicy, ElabAssumptionsBase, ElabError, ElabMessage, ElabMessageKind, ElabReport, Elaborator,
 		SeverityPolicy,
@@ -9,7 +11,7 @@ use crate::{
 };
 
 use super::{
-	signal_graph_pass::{SignalGraphPass, SignalGraphPassConfig, SignalGraphPassResult},
+	main_pass::{MainPass, MainPassConfig, MainPassResult},
 	signal_usage_pass::SignalUsagePass,
 	ElabPassContext, ElabQueueItem, MultiPassElaborator,
 };
@@ -18,12 +20,11 @@ pub(super) struct FullElabCtx {
 	design: DesignHandle,
 	module_id: ModuleId,
 	report: ElabReport,
-	queued: Vec<ElabQueueItem>,
 	assumptions: Arc<dyn ElabAssumptionsBase>,
 	severity_policy: Box<dyn SeverityPolicy>,
 
-	pub(super) sig_graph_result: Option<SignalGraphPassResult>,
-	pub(super) sig_graph_config: SignalGraphPassConfig,
+	pub(super) sig_graph_result: Option<MainPassResult>,
+	pub(super) sig_graph_config: MainPassConfig,
 }
 
 impl FullElabCtx {
@@ -58,20 +59,32 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 		_cache: FullElabCacheHandle,
 	) -> Self {
+		assumptions.design().expect("assumptions must have a design");
 		Self {
 			design,
 			module_id,
 			assumptions,
-			queued: Vec::new(),
 			report: ElabReport::default(),
 			severity_policy: Box::new(DefaultSeverityPolicy),
-			sig_graph_config: SignalGraphPassConfig::default(),
+			sig_graph_config: MainPassConfig::default(),
 			sig_graph_result: None,
 		}
 	}
 
 	fn queued(&self) -> Vec<ElabQueueItem> {
-		self.queued.clone()
+		if let Some(result) = &self.sig_graph_result {
+			result
+				.queued_modules()
+				.iter()
+				.map(|(module, assumptions)| ElabQueueItem {
+					module: module.id(),
+					assumptions: assumptions.clone(),
+				})
+				.collect()
+		}
+		else {
+			vec![]
+		}
 	}
 
 	fn report(&self) -> &ElabReport {
@@ -88,7 +101,7 @@ impl FullElaborator {
 	/// Create a new FullElaborator and add all passes
 	pub fn new(design: DesignHandle) -> Self {
 		let mut elaborator = MultiPassElaborator::new(design);
-		elaborator.add_pass(Box::new(SignalGraphPass {}));
+		elaborator.add_pass(Box::new(MainPass {}));
 		elaborator.add_pass(Box::new(SignalUsagePass {}));
 		Self { elaborator }
 	}
@@ -100,6 +113,10 @@ impl Elaborator for FullElaborator {
 		id: ModuleId,
 		assumptions: Arc<dyn super::ElabAssumptionsBase>,
 	) -> Result<ElabReport, ElabError> {
+		if assumptions.design().is_none() {
+			return Err(EvalError::NoDesign.into());
+		}
+		info!("Starting full elab module {:?}", id);
 		self.elaborator.elaborate(id, assumptions)
 	}
 }

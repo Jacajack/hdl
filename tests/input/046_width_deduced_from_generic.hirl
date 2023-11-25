@@ -1,14 +1,14 @@
 module x{
 	int x;
-	input const ubus<x> b;
+	input const ubus<5> b;
 }
 impl x{}
+
 module y{}
 impl y{
 	x a{
 		x: 5,
 		b: const auto dd
 	}
-
 	dd = 2;
 }
