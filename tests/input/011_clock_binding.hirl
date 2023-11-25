@@ -3,12 +3,14 @@ module inner {
 	input comb(clk) wire x;
 	output sync(clk) wire y;
 }
-impl inner {}
+impl inner {
+	y = 0;
+}
 
 module outer {}
 impl outer{
-	clock my_clk;
-	sync(my_clk) wire x;
+	clock my_clk = (clock wire)0u1;
+	sync(my_clk) wire x = 0;
 	sync(my_clk) wire y;
 
 	inner my_inner {

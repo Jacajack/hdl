@@ -1,0 +1,7 @@
+module X {
+	output const wire x;
+}
+
+impl X {
+	// x not driven
+}

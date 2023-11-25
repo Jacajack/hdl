@@ -92,7 +92,7 @@ pub fn combine<'a>(
 				},
 				Some(implementation) => {
 					generic_modules.insert(name.clone(), *implementation);
-					//modules_implemented.remove(&name);
+					modules_implemented.remove(&name);
 				},
 			}
 		}

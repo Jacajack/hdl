@@ -3,7 +3,9 @@ module Y{
 	output const wire out_arr[4];
 }
 impl Y {
-	// TODO bind out_arr to in_arrs
+	for (i in [0:<4]) {
+		out_arr[i] = in_arr[i];
+	}
 }
 
 module X {}
@@ -14,4 +16,9 @@ impl X {
 		in_arr: arr,
 		out_arr: brr,
 	};
+
+	arr[0] = 0;
+	arr[1] = 1;
+	arr[2] = 1;
+	arr[3] = 0;
 }

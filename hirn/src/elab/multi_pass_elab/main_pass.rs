@@ -4,7 +4,7 @@ mod scope_elab;
 mod scope_pass;
 mod signal_drive;
 
-use log::{error, info};
+use log::{error, info, debug};
 use petgraph::graphmap::GraphMap;
 use petgraph::Directed;
 use std::collections::HashMap;
@@ -23,7 +23,7 @@ pub use gen_signal::{GeneratedSignal, GeneratedSignalId, GeneratedSignalRef};
 pub use scope_pass::{ScopePassId, ScopePassInfo};
 
 #[derive(Clone, Debug, Copy)]
-pub(super) struct SignalGraphPassConfig {
+pub(super) struct MainPassConfig {
 	pub max_for_iters: i64,
 	pub max_signal_width: i64,
 	pub max_array_dimension: i64,
@@ -31,9 +31,9 @@ pub(super) struct SignalGraphPassConfig {
 	pub max_array_size: usize,
 }
 
-impl Default for SignalGraphPassConfig {
+impl Default for MainPassConfig {
 	fn default() -> Self {
-		SignalGraphPassConfig {
+		MainPassConfig {
 			max_for_iters: 65536,
 			max_signal_width: 65536,
 			max_array_dimension: 65536,
@@ -43,7 +43,7 @@ impl Default for SignalGraphPassConfig {
 	}
 }
 
-pub struct SignalGraphPassResult {
+pub struct MainPassResult {
 	/// All generated signals
 	signals: HashMap<GeneratedSignalId, GeneratedSignal>,
 
@@ -52,9 +52,12 @@ pub struct SignalGraphPassResult {
 
 	/// Scope pass info
 	pass_info: HashMap<ScopePassId, ScopePassInfo>,
+
+	/// Modules queued for elaboration
+	queued_modules: Vec<(ModuleHandle, Arc<dyn ElabAssumptionsBase>)>,
 }
 
-impl SignalGraphPassResult {
+impl MainPassResult {
 	pub fn signals(&self) -> &HashMap<GeneratedSignalId, GeneratedSignal> {
 		&self.signals
 	}
@@ -66,14 +69,18 @@ impl SignalGraphPassResult {
 	pub fn pass_info(&self) -> &HashMap<ScopePassId, ScopePassInfo> {
 		&self.pass_info
 	}
+
+	pub fn queued_modules(&self) -> &[(ModuleHandle, Arc<dyn ElabAssumptionsBase>)] {
+		&self.queued_modules
+	}
 }
 
-struct SignalGraphPassCtx {
+struct MainPassCtx {
 	/// Design handle
 	design: DesignHandle,
 
 	/// Configuration for this pass
-	config: SignalGraphPassConfig,
+	config: MainPassConfig,
 
 	/// Counter for scope passes
 	scope_pass_counter: usize,
@@ -93,11 +100,14 @@ struct SignalGraphPassCtx {
 	comb_graph: GraphMap<GeneratedSignalRef, (), Directed>,
 	// clock_graph: GraphMap<GeneratedSignalId, (), Undirected>,
 	// clock_groups: HashMap<GeneratedSignalId, usize>,
+
+	/// Modules queued for elaboration
+	queued_modules: Vec<(ModuleHandle, Arc<dyn ElabAssumptionsBase>)>,
 }
 
-impl SignalGraphPassCtx {
-	fn new(design: DesignHandle, config: SignalGraphPassConfig) -> Self {
-		SignalGraphPassCtx {
+impl MainPassCtx {
+	fn new(design: DesignHandle, config: MainPassConfig) -> Self {
+		MainPassCtx {
 			config,
 			design,
 			scope_pass_counter: 0,
@@ -110,6 +120,8 @@ impl SignalGraphPassCtx {
 
 			signals: HashMap::new(),
 			elab_signals: HashMap::new(),
+
+			queued_modules: Vec::new(),
 		}
 	}
 
@@ -139,22 +151,25 @@ impl SignalGraphPassCtx {
 		module: ModuleHandle,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<(), ElabMessageKind> {
+		assert!(assumptions.design().is_some());
+		info!("Elaborating module {:?}", module.id());
+		debug!("Assumptions: {:?}", assumptions);
 		self.elab_unconditional_scope(&module.scope(), assumptions.clone())?;
 		self.elab_module_interface(module, assumptions.clone())?;
 		Ok(())
 	}
 }
 
-pub(super) struct SignalGraphPass;
+pub(super) struct MainPass;
 
-impl ElabPass<FullElabCtx, FullElabCacheHandle> for SignalGraphPass {
+impl ElabPass<FullElabCtx, FullElabCacheHandle> for MainPass {
 	fn name(&self) -> &'static str {
 		"SignalGraphPass"
 	}
 
 	fn run(&mut self, mut full_ctx: FullElabCtx) -> Result<FullElabCtx, ElabError> {
 		info!("Running signal graph pass...");
-		let mut ctx = SignalGraphPassCtx::new(full_ctx.design().clone(), full_ctx.sig_graph_config.clone());
+		let mut ctx = MainPassCtx::new(full_ctx.design().clone(), full_ctx.sig_graph_config.clone());
 		let module = full_ctx.module_handle();
 
 		let result = ctx.elab_module(module.clone(), full_ctx.assumptions());
@@ -169,10 +184,11 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for SignalGraphPass {
 		info!("Signal graph edge count: {}", ctx.comb_graph.edge_count());
 		info!("Elab signals registered: {}", ctx.elab_signals.len());
 
-		full_ctx.sig_graph_result = Some(SignalGraphPassResult {
+		full_ctx.sig_graph_result = Some(MainPassResult {
 			signals: ctx.signals,
 			elab_signals: ctx.elab_signals,
 			pass_info: ctx.pass_info,
+			queued_modules: ctx.queued_modules,
 		});
 		Ok(full_ctx)
 	}

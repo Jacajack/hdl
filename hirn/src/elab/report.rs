@@ -1,5 +1,6 @@
 use std::{fmt::Display, sync::Arc};
 
+use log::debug;
 use thiserror::Error;
 
 use crate::design::{ModuleId, SignalId};
@@ -18,7 +19,8 @@ impl SeverityPolicy for DefaultSeverityPolicy {
 		use ElabMessageSeverity::*;
 		match kind {
 			SignalUnused { .. } => Warning,
-			SignalNotDriven { .. } => Error,
+			SignalNotDriven { .. } => Warning,
+			SignalNotDrivenAndUsed { .. } => Error,
 			CombLoop => Error,
 			WidthMismatch => Error,
 			Notice(_) => Info,
@@ -40,10 +42,13 @@ pub struct ElabReport {
 
 impl ElabReport {
 	pub fn extend(&mut self, other: &ElabReport) {
-		self.messages.extend(other.messages.clone());
+		for msg in other.messages.iter() {
+			self.add_message(msg.clone());
+		}
 	}
 
 	pub fn add_message(&mut self, msg: ElabMessage) {
+		debug!("Elab message: {}", msg);
 		self.messages.push(msg);
 	}
 
@@ -121,6 +126,12 @@ pub enum ElabMessageKind {
 
 	#[error("Signal has more that one driver")]
 	SignalConflict {
+		signal: Box<GeneratedSignalRef>,
+		elab: Box<ElabSignal>,
+	},
+
+	#[error("Signal is being used despite not having a driver")]
+	SignalNotDrivenAndUsed {
 		signal: Box<GeneratedSignalRef>,
 		elab: Box<ElabSignal>,
 	},

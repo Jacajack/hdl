@@ -1,6 +1,6 @@
 use super::eval::EvalAssumptions;
 use super::{
-	eval::Evaluates, EvalContext, EvalError, Expression, NumericConstant, SignalId, SignalSlice, WidthExpression,
+	eval::Evaluates, EvalError, Expression, NumericConstant, SignalId, SignalSlice, WidthExpression,
 };
 use super::{
 	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, SignalSignedness, UnaryExpression,
@@ -163,19 +163,12 @@ impl Evaluates for BuiltinOp {
 
 			Width(arg) => match **arg {
 				Expression::Signal(ref slice) => {
-					// FIXME nasty cast
-					// FIXME we should look in the Design for that and not the assumptions??!
-					let indices: Result<Vec<_>, EvalError> = slice
-						.indices
-						.iter()
-						.map(|e| e.eval(ctx)?.try_into_u64().map(|v| v as i64))
-						.collect();
-					match ctx.signal(slice.signal, &indices?) {
-						Some(value) => {
-							NumericConstant::new(value.width()?.into(), crate::design::SignalSignedness::Unsigned, 64)
-						},
-
-						None => Err(EvalError::MissingAssumption(slice.signal)),
+					if let Some(design_handle) = ctx.design() {
+						let sig = design_handle.get_signal(slice.signal).expect("signal not in design");
+						return Ok(sig.width().cast_unsigned().eval(ctx)?)
+					}
+					else {
+						return Err(EvalError::NoDesign)
 					}
 				},
 

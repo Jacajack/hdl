@@ -206,13 +206,9 @@ pub fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) 
 	analyzer
 		.compile(&mut *output)
 		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
-	for diag in analyzer.buffer().buffer {
-		eprintln!(
-			"{:?}",
-			miette::Report::new(diag).with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))
-		)
-	}
-	//crate::analyzer::analyze_semantically(&mut global_ctx, &modules)?;
+
+	analyzer.buffer().print_diagnostics(file_name.clone(), code)?;
+
 	info!("File {} compiled succesfully", file_name);
 	Ok(())
 }
@@ -239,12 +235,9 @@ pub fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>
 	analyzer
 		.compile_and_elaborate(&mut *output)
 		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
-	for diag in analyzer.buffer().buffer {
-		eprintln!(
-			"{:?}",
-			miette::Report::new(diag).with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))
-		)
-	}
+
+	analyzer.buffer().print_diagnostics(file_name.clone(), code)?;
+
 	info!("File {} compiled and elaborated succesfully", file_name);
 	Ok(())
 }

@@ -1,3 +1,5 @@
+use log::error;
+
 use super::{
 	eval::EvalAssumptions, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalContext, EvalError,
 	EvalType, EvaluatesType, NumericConstant, UnaryExpression,

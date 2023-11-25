@@ -1,6 +1,6 @@
 module x{}
 impl x{
-	const ubus<1> a; 
+	const ubus<1> a = 1; 
 	bus<10> b = zext(a);
 	bus<10> c = sext(a);
 }

@@ -4,7 +4,9 @@ impl X{
 	a = b;
 	b = c;
 	c = d;
+	d = (clock wire)0u1;
 	comb(d) wire e;
 	comb(a) wire f;
 	f = e;
+	e = 1;
 }

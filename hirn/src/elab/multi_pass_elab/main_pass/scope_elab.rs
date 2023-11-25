@@ -11,9 +11,9 @@ use crate::{
 	elab::{ElabAssumptions, ElabAssumptionsBase, ElabMessageKind},
 };
 
-use super::SignalGraphPassCtx;
+use super::MainPassCtx;
 
-impl SignalGraphPassCtx {
+impl MainPassCtx {
 	/// Analyzes scope contents (non-recursively)
 	fn elab_scope_content(
 		&mut self,
@@ -23,6 +23,7 @@ impl SignalGraphPassCtx {
 		let pass_id = self.get_scope_pass_id(scope.id());
 		debug!("Analyzing scope {:?} (pass {:?})", scope.id(), pass_id);
 		debug!("Pass info: {:?}", self.pass_info.get(&pass_id));
+		assert!(assumptions.design().is_some());
 
 		// Process all non-generic declarations
 		for sig_id in scope.signals() {
@@ -44,10 +45,14 @@ impl SignalGraphPassCtx {
 
 			// TODO actually check the binding (I need to write an assignment checker)
 			// this is gonna be fun
+
+			asmt.lhs.validate(&assumptions.clone(), &scope)?;
+			asmt.rhs.validate(&assumptions.clone(), &scope)?;
 		}
 
 		// Process expressions marked as unused
 		for expr in scope.unused_expressions() {
+			expr.validate(&assumptions.clone(), &scope)?;
 			let unused_bits = expr.try_drive_bits().ok_or(ElabMessageKind::NotDrivable)?;
 			self.read_signal(&unused_bits, assumptions.clone())?;
 		}
@@ -75,6 +80,7 @@ impl SignalGraphPassCtx {
 		for sig_id in scope.signals() {
 			let sig = scope.design().get_signal(sig_id).unwrap();
 			if sig.is_generic() {
+				debug!("Adding generic signal {:?} to graph", sig_id);
 				graph.add_node(sig_id);
 			}
 		}
@@ -93,8 +99,10 @@ impl SignalGraphPassCtx {
 			}
 
 			graph.add_node(lhs_target.signal);
+			debug!("Adding generic signal {:?} to graph", lhs_target.signal);
 			for dep_var in asmt.dependencies() {
 				graph.add_edge(dep_var, lhs_target.signal, ());
+				debug!("Adding edge {:?} -> {:?}", dep_var, lhs_target.signal);
 			}
 
 			if assigned_values.insert(lhs_target.signal, asmt.rhs.clone()).is_some() {
@@ -106,34 +114,29 @@ impl SignalGraphPassCtx {
 			}
 		}
 
-		// Cycles are a no-no
-		if petgraph::algo::is_cyclic_directed(&graph) {
+		// Resolve all generic values
+		if let Ok(eval_order) = petgraph::algo::toposort(&graph, None) {
+			for signal_id in eval_order {
+				// If the variable has an assumption already, we don't need to resolve it
+				if assumptions.get(signal_id).is_some() {
+					continue;
+				}
+
+				let sig = self.design.get_signal(signal_id).expect("signal not in design");
+				let expr = assigned_values.get(&signal_id).ok_or_else(|| {
+					error!("The generic variable '{}' is not assigned", sig.name());
+					ElabMessageKind::UnassignedGeneric
+				})?;
+				let ass: &dyn ElabAssumptionsBase = &assumptions;
+				debug!("Evaluating value of {:?}", signal_id);
+				let value = expr.eval(&ass)?; // FIXME check if eval result is compatible with the signal
+				info!("Generic var '{}' assumed to be {}", sig.name(), value);
+				assumptions.assume(signal_id, value);
+			}
+		}
+		else {
 			error!("The scope {:?} contains a cyclic generic dependency", scope.id());
 			return Err(ElabMessageKind::CyclicGenericDependency);
-		}
-
-		// Resolve all generic values
-		for element in petgraph::algo::min_spanning_tree(&graph) {
-			use petgraph::data::Element::*;
-			match element {
-				Node { weight: signal_id } => {
-					// If the variable has an assumption already, we don't need to resolve it
-					if assumptions.get(signal_id).is_some() {
-						continue;
-					}
-
-					let sig = self.design.get_signal(signal_id).expect("signal not in design");
-					let expr = assigned_values.get(&signal_id).ok_or_else(|| {
-						error!("The generic variable '{}' is not assigned", sig.name());
-						ElabMessageKind::UnassignedGeneric
-					})?;
-					let ass: &dyn ElabAssumptionsBase = &assumptions;
-					let value = expr.eval(&ass)?; // FIXME check if eval result is compatible with the signal
-					info!("Generic var '{}' assumed to be {}", sig.name(), value);
-					assumptions.assume(signal_id, value);
-				},
-				_ => {},
-			}
 		}
 
 		// Analyze resolved scope
@@ -237,6 +240,7 @@ impl SignalGraphPassCtx {
 		scope: &ScopeHandle,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<(), ElabMessageKind> {
+		assert!(assumptions.design().is_some());
 		self.record_scope_pass(scope.id());
 		self.elab_scope(scope.clone(), assumptions)?;
 		Ok(())
