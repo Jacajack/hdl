@@ -1,4 +1,4 @@
-use super::{GlobalAnalyzerContext, LocalAnalyzerContext, SemanticError};
+use super::{GlobalAnalyzerContext, LocalAnalyzerContext, SemanticError, ModuleImplementationScope};
 use crate::core::CompilerDiagnosticBuilder;
 use crate::parser::ast::ModuleImplementation;
 use crate::{core::IdTableKey, ProvidesCompilerDiagnostic};
@@ -65,6 +65,48 @@ impl<'a> SemanticalAnalyzer<'a> {
 		self.passes.push(first_pass);
 		self.passes.push(second_pass);
 		self.passes.push(codegen_pass);
+
+		let generic_modules = self.ctx.generic_modules.clone();
+		let scopes: HashMap<hirn::design::ModuleId, ModuleImplementationScope> = HashMap::new();
+		for module in generic_modules.values() {
+			let scope = match self.ctx.modules_declared.get(&module.id) {
+				Some(m) => m.scope.clone(),
+				None => {
+					return Err(miette::Report::new(
+						SemanticError::ModuleNotDeclared
+							.to_diagnostic_builder()
+							.label(
+								module.location,
+								format!(
+									"Declaration of {:?} module cannot be found",
+									self.ctx.id_table.get_by_key(&module.id).unwrap()
+								)
+								.as_str(),
+							)
+							.build(),
+					))
+				},
+			};
+			let mut local_ctx = LocalAnalyzerContext::new(module.id, scope);
+			for pass in &self.passes {
+				pass(&mut self.ctx, &mut local_ctx, *module)?;
+			}
+
+			let module_id = self
+			.ctx
+			.modules_declared
+			.get_mut(&local_ctx.module_id())
+			.unwrap()
+			.handle
+			.id();
+
+			let mut output_string = String::new();
+			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
+			use hirn::codegen::Codegen;
+			sv_codegen.emit_module(module_id).unwrap();
+			write!(output, "{}", output_string).unwrap();
+		}
+
 		for module in self.modules_implemented.values() {
 			let scope = match self.ctx.modules_declared.get(&module.id) {
 				Some(m) => m.scope.clone(),
