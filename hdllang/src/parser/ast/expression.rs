@@ -1111,7 +1111,7 @@ impl Expression {
 						let expr = hirn::design::NumericConstant::from_bigint(
 							0.into(),
 							hirn::design::SignalSignedness::Unsigned,
-							64,
+							1,
 						)
 						.unwrap(); // FIXME
 						let count = function.argument_list.first().unwrap().codegen(
@@ -1132,7 +1132,7 @@ impl Expression {
 						let expr = hirn::design::NumericConstant::from_bigint(
 							1.into(),
 							hirn::design::SignalSignedness::Unsigned,
-							64,
+							1,
 						)
 						.unwrap(); // FIXME
 						let count = function.argument_list.first().unwrap().codegen(
