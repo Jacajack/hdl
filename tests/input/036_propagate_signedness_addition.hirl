@@ -1,13 +1,14 @@
+// This testcase need to be rethought
 module m {}
 impl m {
 	{
 		ubus<4> a;
-		const bus<3> b = 2;
+		const bus<3> b = 2u;
 		a = b + 1u1;
 	}
 	{
 		ubus<4> a;
-		const bus<3> b = 2;
+		const bus<3> b = 2u;
 		a = 1u1+b;
 	}
 }
