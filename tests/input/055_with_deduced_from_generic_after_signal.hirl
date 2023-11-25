@@ -7,6 +7,7 @@ impl X{
 	int c = a;
 	const ubus<c> d;
 	b = d;
+	d = 0u4; // FIXME ext does not work
 }
 module x{
 	input const ubus<4> d;
