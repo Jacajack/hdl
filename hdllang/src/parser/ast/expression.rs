@@ -1719,8 +1719,8 @@ impl Expression {
 					location,
 				)?;
 				debug!("false branch: {:?}", false_branch_type);
-				match (true_branch_type.width(), false_branch_type.width()){
-    			    (None, None) => {
+				match (true_branch_type.width(), false_branch_type.width()) {
+					(None, None) => {
 						return Err(miette::Report::new(
 							SemanticError::WidthNotKnown
 								.to_diagnostic_builder()
@@ -1735,14 +1735,24 @@ impl Expression {
 								.build(),
 						))
 					},
-    			    (None, Some(_)) => {
-						ternary.true_branch.evaluate_type(global_ctx, scope_id, local_ctx, false_branch_type.clone(), is_lhs, location)?;
+					(None, Some(_)) => {
+						ternary.true_branch.evaluate_type(
+							global_ctx,
+							scope_id,
+							local_ctx,
+							false_branch_type.clone(),
+							is_lhs,
+							location,
+						)?;
 					},
-    			    (Some(_), None) => unreachable!(),
-    			    (Some(_), Some(_)) => (), // This is checked by evaluating type second with the first one
-    			}
-				match (true_branch_type.get_signedness().is_none(), false_branch_type.get_signedness().is_none()) {
-        			(true, true) => {
+					(Some(_), None) => unreachable!(),
+					(Some(_), Some(_)) => (), // This is checked by evaluating type second with the first one
+				}
+				match (
+					true_branch_type.get_signedness().is_none(),
+					false_branch_type.get_signedness().is_none(),
+				) {
+					(true, true) => {
 						return Err(miette::Report::new(
 							SemanticError::SignednessMismatch // FIXME when fixing error messages
 								.to_diagnostic_builder()
@@ -1755,15 +1765,22 @@ impl Expression {
 									"Signedness of this expression is unknown",
 								)
 								.build(),
-						))
+						));
 					},
-        			(false, true) => unreachable!(),
-        			(true, false) => {
-						ternary.true_branch.evaluate_type(global_ctx, scope_id, local_ctx, false_branch_type.clone(), is_lhs, location)?;
+					(false, true) => unreachable!(),
+					(true, false) => {
+						ternary.true_branch.evaluate_type(
+							global_ctx,
+							scope_id,
+							local_ctx,
+							false_branch_type.clone(),
+							is_lhs,
+							location,
+						)?;
 					},
-        			(false, false) => (),
-    			}
-				Ok(false_branch_type) 
+					(false, false) => (),
+				}
+				Ok(false_branch_type)
 			},
 			PostfixWithIndex(index) => {
 				let mut expr = index.expression.evaluate_type(
