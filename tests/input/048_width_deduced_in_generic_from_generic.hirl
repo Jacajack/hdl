@@ -13,7 +13,7 @@ impl x{
 		a: a*2,
 		d: const auto dd
 	}
-	dd = 0u2; // FIXME ext() does not work here!
+	dd = 17u8; // FIXME ext() does not work here
 }
 
 module m{}
