@@ -102,11 +102,6 @@ impl<'a> SemanticalAnalyzer<'a> {
 			.id();
 
 			scopes.insert(module_id, local_ctx.scope);
-			let mut output_string = String::new();
-			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
-			use hirn::codegen::Codegen;
-			sv_codegen.emit_module(module_id).unwrap();
-			write!(output, "{}", output_string).unwrap();
 		}
 
 		for module in self.modules_implemented.values() {
@@ -201,6 +196,21 @@ impl<'a> SemanticalAnalyzer<'a> {
 			sv_codegen.emit_module(module_id).unwrap();
 			write!(output, "{}", output_string).unwrap();
 		}
+		// if elab did not catch any errors, then we can proceed to codegen generic modules
+		for module in self.ctx.generic_modules.values(){
+			let module_id = self
+				.ctx
+				.modules_declared
+				.get_mut(&module.id)
+				.unwrap()
+				.handle
+				.id();
+			let mut output_string = String::new();
+			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
+			use hirn::codegen::Codegen;
+			sv_codegen.emit_module(module_id).unwrap();
+			write!(output, "{}", output_string).unwrap();
+		}
 		Ok(())
 	}
 
@@ -208,6 +218,46 @@ impl<'a> SemanticalAnalyzer<'a> {
 		self.passes.push(first_pass);
 		self.passes.push(second_pass);
 		self.passes.push(codegen_pass);
+		let generic_modules = self.ctx.generic_modules.clone();
+		for module in generic_modules.values() {
+			let scope = match self.ctx.modules_declared.get(&module.id) {
+				Some(m) => m.scope.clone(),
+				None => {
+					return Err(miette::Report::new(
+						SemanticError::ModuleNotDeclared
+							.to_diagnostic_builder()
+							.label(
+								module.location,
+								format!(
+									"Declaration of {:?} module cannot be found",
+									self.ctx.id_table.get_by_key(&module.id).unwrap()
+								)
+								.as_str(),
+							)
+							.build(),
+					))
+				},
+			};
+			let mut local_ctx = LocalAnalyzerContext::new(module.id, scope);
+			for pass in &self.passes {
+				pass(&mut self.ctx, &mut local_ctx, *module)?;
+			}
+
+			let module_id = self
+			.ctx
+			.modules_declared
+			.get_mut(&local_ctx.module_id())
+			.unwrap()
+			.handle
+			.id();
+
+			let mut output_string = String::new();
+			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
+			use hirn::codegen::Codegen;
+			sv_codegen.emit_module(module_id).unwrap();
+			write!(output, "{}", output_string).unwrap();
+		}
+
 		for module in self.modules_implemented.values() {
 			let scope = match self.ctx.modules_declared.get(&module.id) {
 				Some(m) => m.scope.clone(),
@@ -231,19 +281,19 @@ impl<'a> SemanticalAnalyzer<'a> {
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
+
+			let module_id = self
+				.ctx
+				.modules_declared
+				.get_mut(&local_ctx.module_id())
+				.unwrap()
+				.handle
+				.id();
+
 			let mut output_string = String::new();
 			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
 			use hirn::codegen::Codegen;
-			sv_codegen
-				.emit_module(
-					self.ctx
-						.modules_declared
-						.get_mut(&local_ctx.module_id())
-						.unwrap()
-						.handle
-						.id(),
-				)
-				.unwrap();
+			sv_codegen.emit_module(module_id).unwrap();
 			write!(output, "{}", output_string).unwrap();
 		}
 		Ok(())
