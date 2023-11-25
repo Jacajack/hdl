@@ -17,7 +17,10 @@ impl DiagnosticBuffer {
 		return !self.error_buffer.is_empty();
 	}
 	pub fn print_diagnostics(self, file_name: String, source_code: String) -> miette::Result<()>{
-		eprintln!("During elaboration the following diagnostics were generated:");
+		if !self.buffer.is_empty() {
+			eprintln!("During elaboration the following diagnostics were generated:");
+		}
+		
 		for diag in self.buffer {
 			eprintln!(
 				"{:?}",
