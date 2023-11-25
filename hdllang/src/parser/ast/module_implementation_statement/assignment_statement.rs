@@ -64,6 +64,22 @@ impl AssignmentStatement {
 		let rhs_type = self
 			.rhs
 			.evaluate_type(ctx, scope_id, local_ctx, lhs_type, true, self.location)?;
+		if rhs_type.width().is_none() {
+			return Err(miette::Report::new(
+				SemanticError::WidthNotKnown
+					.to_diagnostic_builder()
+					.label(self.location, "This expression has unknown width")
+					.build(),
+			));
+		}
+		if rhs_type.get_signedness().is_none() {
+			return Err(miette::Report::new(
+				SemanticError::SignednessMismatch // FIXME when fixing errors msgs
+					.to_diagnostic_builder()
+					.label(self.location, "This expression has unknown signedness")
+					.build(),
+			));
+		}
 		if rhs_type.is_array() {
 			return Err(miette::Report::new(
 				SemanticError::ArrayInExpression

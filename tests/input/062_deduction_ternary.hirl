@@ -1,0 +1,8 @@
+module X {}
+
+impl X {
+	auto v = true ? 3 : 4u3;
+	auto v1 = true ? 3u3 : 4;
+	ubus<3> v2 = true ? 3 : 4;
+	auto v3 = true ? 3s3 : 4;
+}

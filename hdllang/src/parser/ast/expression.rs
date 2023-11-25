@@ -1513,12 +1513,14 @@ impl Expression {
 							))
 						},
 						(NoSignedness, _) => (),
-						(Signed(_), NoSignedness) => {
+						(Signed(loc), NoSignedness) => {
 							constant.signed = Some(true);
+							sig.set_signedness(SignalSignedness::Signed(loc), loc);
 							local_ctx.nc_widths.insert(self.get_location(), constant.clone());
 						},
-						(Unsigned(_), NoSignedness) => {
+						(Unsigned(loc), NoSignedness) => {
 							constant.signed = Some(false);
+							sig.set_signedness(SignalSignedness::Unsigned(loc), loc);
 							local_ctx.nc_widths.insert(self.get_location(), constant.clone());
 						},
 					}
@@ -1699,7 +1701,7 @@ impl Expression {
 					self.get_location(),
 				)?;
 				debug!("condition: {:?}", type_condition);
-				let type_first = ternary.true_branch.evaluate_type(
+				let true_branch_type = ternary.true_branch.evaluate_type(
 					global_ctx,
 					scope_id,
 					local_ctx,
@@ -1707,20 +1709,61 @@ impl Expression {
 					is_lhs,
 					location,
 				)?;
-				debug!("true branch: {:?}", type_first);
-				if type_first.is_auto() {
-					// ? FIXME
-				}
-				let type_second = ternary.false_branch.evaluate_type(
+				debug!("true branch: {:?}", true_branch_type);
+				let false_branch_type = ternary.false_branch.evaluate_type(
 					global_ctx,
 					scope_id,
 					local_ctx,
-					type_first.clone(),
+					true_branch_type.clone(),
 					is_lhs,
 					location,
 				)?;
-				debug!("false branch: {:?}", type_second);
-				Ok(type_first) // FIXME
+				debug!("false branch: {:?}", false_branch_type);
+				match (true_branch_type.width(), false_branch_type.width()){
+    			    (None, None) => {
+						return Err(miette::Report::new(
+							SemanticError::WidthNotKnown
+								.to_diagnostic_builder()
+								.label(
+									ternary.true_branch.get_location(),
+									"Width of this expression is unknown",
+								)
+								.label(
+									ternary.false_branch.get_location(),
+									"Width of this expression is unknown",
+								)
+								.build(),
+						))
+					},
+    			    (None, Some(_)) => {
+						ternary.true_branch.evaluate_type(global_ctx, scope_id, local_ctx, false_branch_type.clone(), is_lhs, location)?;
+					},
+    			    (Some(_), None) => unreachable!(),
+    			    (Some(_), Some(_)) => (), // This is checked by evaluating type second with the first one
+    			}
+				match (true_branch_type.get_signedness().is_none(), false_branch_type.get_signedness().is_none()) {
+        			(true, true) => {
+						return Err(miette::Report::new(
+							SemanticError::SignednessMismatch // FIXME when fixing error messages
+								.to_diagnostic_builder()
+								.label(
+									ternary.true_branch.get_location(),
+									"Signedness of this expression is unknown",
+								)
+								.label(
+									ternary.false_branch.get_location(),
+									"Signedness of this expression is unknown",
+								)
+								.build(),
+						))
+					},
+        			(false, true) => unreachable!(),
+        			(true, false) => {
+						ternary.true_branch.evaluate_type(global_ctx, scope_id, local_ctx, false_branch_type.clone(), is_lhs, location)?;
+					},
+        			(false, false) => (),
+    			}
+				Ok(false_branch_type) 
 			},
 			PostfixWithIndex(index) => {
 				let mut expr = index.expression.evaluate_type(
