@@ -9,4 +9,6 @@ impl y{
 		x: 5,
 		b: const auto dd
 	}
+
+	dd = 2;
 }

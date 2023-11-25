@@ -802,7 +802,7 @@ impl Expression {
 	}
 	pub fn codegen(
 		&self,
-		nc_table: &crate::lexer::NumericConstantTable,
+		nc_table: &crate::core::NumericConstantTable,
 		id_table: &crate::lexer::IdTable,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
@@ -812,6 +812,36 @@ impl Expression {
 		match self {
 			Number(num) => {
 				if let Some(ncs) = additional_ctx {
+					log::debug!("Location is {:?}", self.get_location());
+					log::debug!("ncs.nc_widths is {:?}", ncs.ncs_to_be_exted);
+					if let Some(loc) = ncs.ncs_to_be_exted.get(&self.get_location()){
+						debug!("Found a constant to be extended {:?}", loc);
+						let constant = nc_table.get_by_key(&num.key).unwrap();
+						let value:BigInt = constant.value.clone();
+						let width_loc = scope.evaluated_expressions.get(loc).unwrap().clone();
+						let width = width_loc.expression.codegen(nc_table, id_table, width_loc.scope_id, scope, additional_ctx)?;
+						let signed = match constant.signed {
+							Some(s) => s,
+							None => true,
+						};
+						let constant = hirn::design::Expression::Constant(
+							hirn::design::NumericConstant::from_bigint(
+								constant.value.clone(),
+								if signed {
+									hirn::design::SignalSignedness::Signed
+								}
+								else {
+									hirn::design::SignalSignedness::Unsigned
+								},
+								(value.bits() + BigInt::from(1)).to_u64().unwrap()
+							)
+							.unwrap(),
+						);
+						return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::SignExtend {
+							expr: Box::new(constant),
+							width: Box::new(width),
+						}));
+					}
 					if let Some(nc) = ncs.nc_widths.get(&num.location) {
 						return Ok(hirn::design::Expression::Constant(
 							hirn::design::NumericConstant::from_bigint(
@@ -831,6 +861,34 @@ impl Expression {
 							)
 							.unwrap(),
 						));
+					}
+					if let Some(loc) = ncs.ncs_to_be_exted.get(&self.get_location()){
+						debug!("Found a constant to be extended {:?}", loc);
+						let constant = nc_table.get_by_key(&num.key).unwrap();
+						let value:BigInt = constant.value.clone();
+						let width_loc = scope.evaluated_expressions.get(loc).unwrap().clone();
+						let width = width_loc.expression.codegen(nc_table, id_table, width_loc.scope_id, scope, additional_ctx)?;
+						let signed = match constant.signed {
+							Some(s) => s,
+							None => true,
+						};
+						let constant = hirn::design::Expression::Constant(
+							hirn::design::NumericConstant::from_bigint(
+								constant.value.clone(),
+								if signed {
+									hirn::design::SignalSignedness::Signed
+								}
+								else {
+									hirn::design::SignalSignedness::Unsigned
+								},
+								(value.bits() + BigInt::from(1)).to_u64().unwrap()
+							)
+							.unwrap(),
+						);
+						return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::SignExtend {
+							expr: Box::new(constant),
+							width: Box::new(width),
+						}));
 					}
 				}
 				let constant = nc_table.get_by_key(&num.key).unwrap();
@@ -1462,19 +1520,33 @@ impl Expression {
 					(None, None) => {},
 					(None, Some(_)) => (),
 					(Some(val), None) => {
-						debug!("Setting width of {:?} in local_ctx", constant);
-						constant.width = val.get_value().unwrap().to_u32();
-						sig.set_width(
-							BusWidth::Evaluated(NumericConstant::from_u64(
-								constant.width.unwrap() as u64,
-								None,
-								None,
-								None,
-							)),
-							sig.get_signedness(),
-							location,
-						);
-						local_ctx.nc_widths.insert(self.get_location(), constant.clone());
+						debug!("Setting width of {:?} to {:?} in local_ctx", constant, val);
+						match val.get_value(){
+								Some(val) => {
+									constant.width = Some(val.to_u32().unwrap());
+									sig.set_width(
+									BusWidth::Evaluated(NumericConstant::from_u64(
+										constant.width.unwrap() as u64,
+										None,
+										None,
+										None,
+									)),
+									sig.get_signedness(),
+									location,
+								);
+								local_ctx.nc_widths.insert(self.get_location(), constant.clone());
+							},
+							None => {
+								log::debug!("Inserting {:?} to be extended", self.get_location());
+								local_ctx.ncs_to_be_exted.insert(self.get_location(), val.get_location().unwrap());
+								log::debug!("ncs_to_be_exted is now {:?}", local_ctx.ncs_to_be_exted);
+								sig.set_width(val,
+									sig.get_signedness(),
+									location,
+								);
+							},
+						}
+						
 					},
 					(Some(coming), Some(original)) => {
 						log::debug!("Coming: {:?}", coming);

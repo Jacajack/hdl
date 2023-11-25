@@ -6,6 +6,7 @@ use std::collections::HashMap;
 pub struct LocalAnalyzerContext {
 	pub scope: ModuleImplementationScope,
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
+	pub ncs_to_be_exted: HashMap<SourceSpan, SourceSpan>,
 	pub array_or_bus: HashMap<SourceSpan, bool>, // to distinguish between array and bus in index expr
 	pub widths_map: HashMap<SourceSpan, BusWidth>,
 	pub scope_map: HashMap<SourceSpan, usize>,
@@ -23,6 +24,7 @@ impl LocalAnalyzerContext {
 			scope_map: HashMap::new(),
 			module_id,
 			nc_widths: HashMap::new(),
+			ncs_to_be_exted: HashMap::new(),
 			widths_map: HashMap::new(),
 			sensitivity_graph: super::SensitivityGraph::new(),
 			casts: HashMap::new(),
@@ -63,17 +65,20 @@ impl LocalAnalyzerContext {
 /// To be deleted and replaced by LocalAnalyzerContext
 pub struct AdditionalContext {
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
+	pub ncs_to_be_exted: HashMap<SourceSpan, SourceSpan>,
 	pub array_or_bus: HashMap<SourceSpan, bool>, // to distinguish between array and bus in index expr
 	pub casts: HashMap<SourceSpan, Cast>,
 }
 impl AdditionalContext {
 	pub fn new(
 		nc_widths: HashMap<SourceSpan, NumericConstant>,
+		ncs_to_be_exted: HashMap<SourceSpan, SourceSpan>,
 		array_or_bus: HashMap<SourceSpan, bool>,
 		casts: HashMap<SourceSpan, Cast>,
 	) -> Self {
 		AdditionalContext {
 			nc_widths,
+			ncs_to_be_exted,
 			array_or_bus,
 			casts,
 		}
