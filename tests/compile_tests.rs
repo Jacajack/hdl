@@ -203,6 +203,11 @@ fn test_compile_success_sim_files(#[files("tests/input_sim/*.hirl")] path: PathB
 
 #[rstest]
 fn test_compile_failure(#[files("tests/input_invalid/*.hirl")] path: PathBuf) {
+	assert!(run_hdlc(path.as_path(), false).is_err());
+}
+
+#[rstest]
+fn test_elab_failure(#[files("tests/input_elab_invalid/*.hirl")] path: PathBuf) {
 	assert!(run_hdlc(path.as_path(), true).is_err());
 }
 
