@@ -203,49 +203,42 @@ impl NumericConstant {
 	pub fn op_lt(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| Self::new_bool(self < rhs))
 	}
 
 	pub fn op_lte(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| Self::new_bool(self <= rhs))
 	}
 
 	pub fn op_gt(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| Self::new_bool(self > rhs))
 	}
 
 	pub fn op_gte(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| Self::new_bool(self >= rhs))
 	}
 
 	pub fn op_eq(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| Self::new_bool(self == rhs))
 	}
 
 	pub fn op_ne(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| Self::new_bool(self != rhs))
 	}
 
 	pub fn op_min(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| {
 				if self < rhs {
 					self.clone()
@@ -259,7 +252,6 @@ impl NumericConstant {
 	pub fn op_max(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| {
 				if self > rhs {
 					self.clone()
@@ -772,7 +764,6 @@ impl Ord for NumericConstant {
 			(true, false) => Less,
 			(true, true) => {
 				assert!(self.is_signed() == other.is_signed());
-				assert!(self.width == other.width);
 				if self.is_signed() {
 					self.to_bigint().unwrap().cmp(&other.to_bigint().unwrap())
 				}
