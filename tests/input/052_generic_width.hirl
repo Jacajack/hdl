@@ -20,10 +20,6 @@ impl m{
 		x : const auto x,
 		y : const auto y
 	}
-<<<<<<< HEAD
-=======
-
-	x = 11; // FIXME #320 would allow this without u8
+	x = 11;
 	y = 13;
->>>>>>> dc95fe6 (Use ext to enforce proper widths on ncs)
 }
