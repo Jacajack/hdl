@@ -7,7 +7,6 @@ impl X{
 	int c = a;
 	const ubus<c> d;
 	b = d;
-	e=b;
 }
 module x{
 	input const ubus<4> d;

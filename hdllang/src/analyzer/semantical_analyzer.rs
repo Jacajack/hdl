@@ -1,4 +1,4 @@
-use super::{GlobalAnalyzerContext, LocalAnalyzerContext, SemanticError};
+use super::{GlobalAnalyzerContext, LocalAnalyzerContext, SemanticError, ModuleImplementationScope};
 use crate::core::CompilerDiagnosticBuilder;
 use crate::parser::ast::ModuleImplementation;
 use crate::{core::IdTableKey, ProvidesCompilerDiagnostic};
@@ -65,6 +65,50 @@ impl<'a> SemanticalAnalyzer<'a> {
 		self.passes.push(first_pass);
 		self.passes.push(second_pass);
 		self.passes.push(codegen_pass);
+
+		let mut scopes: HashMap<hirn::design::ModuleId, ModuleImplementationScope> = HashMap::new();
+
+		let generic_modules = self.ctx.generic_modules.clone();
+		for module in generic_modules.values() {
+			let scope = match self.ctx.modules_declared.get(&module.id) {
+				Some(m) => m.scope.clone(),
+				None => {
+					return Err(miette::Report::new(
+						SemanticError::ModuleNotDeclared
+							.to_diagnostic_builder()
+							.label(
+								module.location,
+								format!(
+									"Declaration of {:?} module cannot be found",
+									self.ctx.id_table.get_by_key(&module.id).unwrap()
+								)
+								.as_str(),
+							)
+							.build(),
+					))
+				},
+			};
+			let mut local_ctx = LocalAnalyzerContext::new(module.id, scope);
+			for pass in &self.passes {
+				pass(&mut self.ctx, &mut local_ctx, *module)?;
+			}
+
+			let module_id = self
+			.ctx
+			.modules_declared
+			.get_mut(&local_ctx.module_id())
+			.unwrap()
+			.handle
+			.id();
+
+			scopes.insert(module_id, local_ctx.scope);
+			let mut output_string = String::new();
+			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
+			use hirn::codegen::Codegen;
+			sv_codegen.emit_module(module_id).unwrap();
+			write!(output, "{}", output_string).unwrap();
+		}
+
 		for module in self.modules_implemented.values() {
 			let scope = match self.ctx.modules_declared.get(&module.id) {
 				Some(m) => m.scope.clone(),
@@ -96,49 +140,61 @@ impl<'a> SemanticalAnalyzer<'a> {
 				.unwrap()
 				.handle
 				.id();
-
-			if !local_ctx.scope.is_generic() {
-				let mut elab = FullElaborator::new(self.ctx.design.clone());
-				let elab_result = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::new(self.ctx.design.clone())));
-				match elab_result {
-					Ok(elab_report) => {
-						for msg in elab_report.messages() {
-							match msg.default_severity() {
-								ElabMessageSeverity::Error => self.ctx.diagnostic_buffer.push_error(to_report(
-									&local_ctx,
-									module.location,
-									CompilerDiagnosticBuilder::new_error(msg.to_string().as_str()),
-									msg.kind(),
-								)),
-								ElabMessageSeverity::Warning => self.ctx.diagnostic_buffer.push_diagnostic(to_report(
-									&local_ctx,
-									module.location,
-									CompilerDiagnosticBuilder::new_warning(msg.to_string().as_str()),
-									msg.kind(),
-								)),
-								ElabMessageSeverity::Info => self.ctx.diagnostic_buffer.push_diagnostic(to_report(
-									&local_ctx,
-									module.location,
-									CompilerDiagnosticBuilder::new_info(msg.to_string().as_str()),
-									msg.kind(),
-								)),
-							}
+			scopes.insert(module_id, local_ctx.scope.clone());
+		}
+		for module in self.modules_implemented.values(){
+			let module_id = self
+				.ctx
+				.modules_declared
+				.get_mut(&module.id)
+				.unwrap()
+				.handle
+				.id();
+			let mut elab = FullElaborator::new(self.ctx.design.clone());
+			let elab_result = elab.elaborate(module_id, Arc::new(ElabToplevelAssumptions::new(self.ctx.design.clone())));
+			match elab_result {
+				Ok(elab_report) => {
+					for msg in elab_report.messages() {
+						let id = msg.module_id();
+						log::debug!("Module id: {:?}", id);
+						log::debug!("Scopes: {:?}", scopes.keys());
+						match msg.default_severity() {
+							ElabMessageSeverity::Error => self.ctx.diagnostic_buffer.push_error(to_report(
+								&scopes.get(&msg.module_id()).unwrap(),
+								module.location,
+								CompilerDiagnosticBuilder::new_error(msg.to_string().as_str()),
+								msg.kind(),
+							)),
+							ElabMessageSeverity::Warning => self.ctx.diagnostic_buffer.push_diagnostic(to_report(
+								&scopes.get(&msg.module_id()).unwrap(),
+								module.location,
+								CompilerDiagnosticBuilder::new_warning(msg.to_string().as_str()),
+								msg.kind(),
+							)),
+							ElabMessageSeverity::Info => self.ctx.diagnostic_buffer.push_diagnostic(to_report(
+								&scopes.get(&msg.module_id()).unwrap(),
+								module.location,
+								CompilerDiagnosticBuilder::new_info(msg.to_string().as_str()),
+								msg.kind(),
+							)),
 						}
-					},
-					Err(err) => {
-						return Err(miette::Report::new(
-							CompilerError::ElaborationError(err)
-								.to_diagnostic_builder()
-								.label(
-									module.location,
-									"During elaboration of module this module critical error occured",
-								)
-								.build(),
-						));
-					},
-				};
+					}
+				},
+				Err(err) => {
+					return Err(miette::Report::new(
+						CompilerError::ElaborationError(err)
+							.to_diagnostic_builder()
+							.label(
+								module.location,
+								"During elaboration of module this module critical error occured",
+							)
+							.build(),
+					));
+				},
+			};
+			if self.buffer().contains_errors(){
+				continue;
 			}
-
 			let mut output_string = String::new();
 			let mut sv_codegen = hirn::codegen::sv::SVCodegen::new(self.ctx.design.clone(), &mut output_string);
 			use hirn::codegen::Codegen;
@@ -231,7 +287,7 @@ fn codegen_pass(
 }
 
 fn to_report(
-	local_ctx: &LocalAnalyzerContext,
+	scope: &ModuleImplementationScope,
 	module_location: crate::SourceSpan,
 	report: CompilerDiagnosticBuilder,
 	elab_report_kind: &ElabMessageKind,
@@ -239,7 +295,7 @@ fn to_report(
 	use ElabMessageKind::*;
 	match elab_report_kind {
 		SignalNotDriven { signal, elab } => {
-			let variable_location = local_ctx.scope.get_variable_location(signal.signal());
+			let variable_location = scope.get_variable_location(signal.signal());
 			let mask = elab.undriven_summary();
 			use hirn::elab::SignalMaskSummary::*;
 			match mask {
@@ -258,7 +314,7 @@ fn to_report(
 			.build()
 		},
 		SignalNotDrivenAndUsed { signal, elab } => {
-			let variable_location = local_ctx.scope.get_variable_location(signal.signal());
+			let variable_location = scope.get_variable_location(signal.signal());
 			let mask = elab.undriven_summary();
 			use hirn::elab::SignalMaskSummary::*;
 			match mask {
@@ -277,7 +333,7 @@ fn to_report(
 			.build()
 		},
 		SignalUnused { signal, elab } => {
-			let variable_location = local_ctx.scope.get_variable_location(signal.signal());
+			let variable_location = scope.get_variable_location(signal.signal());
 			let mask = elab.unread_summary();
 			use hirn::elab::SignalMaskSummary::*;
 			match mask {
@@ -296,7 +352,7 @@ fn to_report(
 			.build()
 		},
 		SignalConflict { signal, elab } => {
-			let variable_location = local_ctx.scope.get_variable_location(signal.signal());
+			let variable_location = scope.get_variable_location(signal.signal());
 			let mask = elab.conflict_summary();
 			use hirn::elab::SignalMaskSummary::*;
 			match mask {
