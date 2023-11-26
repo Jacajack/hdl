@@ -662,6 +662,22 @@ impl From<NumericConstant> for Result<NumericConstant, EvalError> {
 	}
 }
 
+impl TryFrom<NumericConstant> for i64 {
+	type Error = EvalError;
+
+	fn try_from(nc: NumericConstant) -> Result<Self, Self::Error> {
+		i64::try_from(nc.to_bigint()?).or(Err(EvalError::NarrowEvalRange))
+	}	
+}
+
+impl TryFrom<NumericConstant> for u64 {
+	type Error = EvalError;
+
+	fn try_from(nc: NumericConstant) -> Result<Self, Self::Error> {
+		u64::try_from(nc.to_biguint()?).or(Err(EvalError::NarrowEvalRange))
+	}	
+}
+
 impl HasSignedness for NumericConstant {
 	fn signedness(&self) -> SignalSignedness {
 		self.signedness

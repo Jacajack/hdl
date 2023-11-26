@@ -94,12 +94,25 @@ pub trait Evaluates {
 		self.eval(&EvalContext::default())
 	}
 
+	fn eval_to<T: TryFrom<NumericConstant, Error = EvalError>>(&self, ctx: &dyn EvalAssumptions) -> Result<T, EvalError> {
+		self.eval(ctx)?.try_into()
+	}
+
 	fn try_eval_ignore_missing(&self, ctx: &dyn EvalAssumptions) -> Result<Option<NumericConstant>, EvalError> {
 		match self.eval(ctx) {
 			Ok(value) => Ok(Some(value)),
 			Err(EvalError::MissingAssumption(_)) => Ok(None),
 			Err(err) => Err(err),
 		}
+	}
+
+	fn try_eval_ignore_missing_into
+		<T: TryFrom<NumericConstant, Error = EvalError>>(&self, ctx: &dyn EvalAssumptions)
+		-> Result<Option<T>, EvalError> {
+		Ok(match self.try_eval_ignore_missing(ctx)? {
+			Some(value) => Some(value.try_into()?),
+			None => None,
+		})
 	}
 }
 
