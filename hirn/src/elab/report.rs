@@ -146,6 +146,20 @@ pub enum ElabMessageKind {
 		rhs_width: u64,
 	},
 
+	#[error("Partial array assignment is not supported")]
+	PartialArrayAssignment {
+		lhs: Box<GeneratedSignalRef>,
+		rhs: Box<GeneratedSignalRef>,
+	},
+
+	#[error("Array dimensions mismatch in assignment")]
+	ArraySizeMismatch {
+		lhs: Box<GeneratedSignalRef>,
+		rhs: Box<GeneratedSignalRef>,
+		lhs_dimensions: Vec<usize>,
+		rhs_dimensions: Vec<usize>,
+	},
+
 	#[error("Notice for the user")]
 	Notice(String),
 

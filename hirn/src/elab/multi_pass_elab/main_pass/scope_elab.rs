@@ -7,7 +7,7 @@ use log::{debug, error, info};
 use petgraph::graphmap::DiGraphMap;
 
 use crate::{
-	design::{ConditionalScope, Evaluates, HasSensitivity, RangeScope, ScopeHandle, SignalId, WidthExpression},
+	design::{ConditionalScope, Evaluates, HasSensitivity, RangeScope, ScopeHandle, SignalId},
 	elab::{ElabAssumptions, ElabAssumptionsBase, ElabMessageKind},
 };
 
@@ -39,9 +39,9 @@ impl MainPassCtx {
 				scope.clone(), 
 				assumptions.clone(), 
 				&asmt.lhs, 
-				false, 
+				None, 
 				&asmt.rhs, 
-				false)?;
+				None)?;
 		}
 
 		// Process expressions marked as unused
@@ -52,7 +52,7 @@ impl MainPassCtx {
 		}
 
 		for block in scope.blocks() {
-			self.elab_block(&block, assumptions.clone())?;
+			self.elab_block(scope.clone(), &block, assumptions.clone())?;
 		}
 
 		// TODO process submodule binding lists
