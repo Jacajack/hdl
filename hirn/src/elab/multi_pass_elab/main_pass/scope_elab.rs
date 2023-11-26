@@ -35,44 +35,13 @@ impl MainPassCtx {
 
 		// Process all non-generic assignments
 		for asmt in scope.assignments() {
-			let driven_bits = asmt.lhs.try_drive_bits().ok_or(ElabMessageKind::NotDrivable)?;
-			let driven_sig = self.design.get_signal(driven_bits.signal()).expect("LHS signal not in design");
-
-			// Ignore generic assignments
-			if driven_sig.sensitivity().is_generic() {
-				continue;
-			}
-
-			self.drive_signal(&driven_bits, assumptions.clone())?;
-
-			let read = asmt.dependencies_bits();
-			for range in &read {
-				self.read_signal(range, assumptions.clone())?;
-			}
-
-			// TODO actually check the binding (I need to write an assignment checker)
-			// this is gonna be fun
-
-			// TODO move this logic to assignment checker
-			let lhs_width = asmt.lhs.width()?.eval(&assumptions)?.try_into_u64()?;
-			let rhs_width = asmt.rhs.width()?.eval(&assumptions)?.try_into_u64()?;
-
-			if lhs_width != rhs_width {
-				error!(
-					"Assignment width mismatch ({}B = {}B): LHS: {:?}, RHS is {:?}",
-					lhs_width, rhs_width,
-					asmt.lhs, asmt.rhs,
-				);
-
-				return Err(ElabMessageKind::WidthMismatch {
-					lhs: Box::new(self.get_generated_signal_ref(driven_bits.slice(), assumptions.clone())?),
-					lhs_width,
-					rhs_width,
-				});
-			}
-
-			asmt.lhs.validate(&assumptions.clone(), &scope)?;
-			asmt.rhs.validate(&assumptions.clone(), &scope)?;
+			self.assign_signals(
+				scope.clone(), 
+				assumptions.clone(), 
+				&asmt.lhs, 
+				false, 
+				&asmt.rhs, 
+				false)?;
 		}
 
 		// Process expressions marked as unused

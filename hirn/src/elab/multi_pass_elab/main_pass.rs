@@ -3,6 +3,7 @@ mod instance_elab;
 mod scope_elab;
 mod scope_pass;
 mod signal_drive;
+mod assignment;
 
 use log::{debug, error, info};
 use petgraph::graphmap::GraphMap;
