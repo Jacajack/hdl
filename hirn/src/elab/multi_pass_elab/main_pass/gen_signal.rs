@@ -248,7 +248,7 @@ impl MainPassCtx {
 		// Evaluate width & validate range
 		sig.width().validate(&assumptions.clone(), &validation_scope)?;
 		let width = sig.width().eval(&assumptions)?.try_into_i64()?;
-		if width < 0 || width > self.config.max_signal_width {
+		if width <= 0 || width > self.config.max_signal_width {
 			error!("Signal {} has width {} which is out of range", sig.name(), width);
 			return Err(ElabMessageKind::InvalidSignalWidth(width));
 		}
@@ -258,7 +258,7 @@ impl MainPassCtx {
 		for dim_expr in &sig.dimensions {
 			dim_expr.validate(&assumptions.clone(), &validation_scope)?;
 			let dim = dim_expr.eval(&assumptions)?.try_into_i64()?;
-			if dim < 0 || dim > self.config.max_array_dimension {
+			if dim <= 0 || dim > self.config.max_array_dimension {
 				error!("Signal {} has dimension {} which is out of range", sig.name(), dim);
 				return Err(ElabMessageKind::InvalidArrayDimension(dim));
 			}
