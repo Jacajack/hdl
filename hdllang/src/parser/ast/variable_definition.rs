@@ -179,7 +179,7 @@ impl VariableDefinition {
 							local_ctx,
 							lhs.clone(),
 							false,
-							direct_initializer.declarator.get_location(),
+							direct_initializer.get_location(),
 						)?;
 						debug!("Rhs is {:?}", rhs);
 						if rhs.is_array() {
@@ -231,7 +231,7 @@ impl VariableDefinition {
 							local_ctx,
 							lhs.clone(),
 							false,
-							direct_initializer.declarator.get_location(),
+							direct_initializer.get_location(),
 						)?;
 						debug!("Rhs is {:?}", rhs);
 						if rhs.is_array() {

@@ -240,7 +240,7 @@ pub PortBindStmt: PortBindStatement={
 		PortBindStatement::IdWithDeclaration(IdWithDeclaration{
 			id,
 			declaration,
-			location:SourceSpan::new_between(start, end),
+			location:SourceSpan::new_between(start, end-1),
 		}),
 }
 VarDef: VariableDefinition={
@@ -351,7 +351,10 @@ SingleVarDecl: VariableDeclaration = {
 		},
 }
 DirectDecl: DirectDeclarator = {
-	<start: @L>  <name:"Id"> <array_declarators:Space<IndexExpr>> <end: @R>=>
+	<start: @L>  <name:"Id"> <array_declarators:Space<IndexExpr>> <mut end: @R>=>
+		if end == start + 1 {
+			end = end -1;
+		}
 		DirectDeclarator{
 			name,
 			array_declarators,
