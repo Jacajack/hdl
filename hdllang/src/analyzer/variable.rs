@@ -277,6 +277,25 @@ impl BusWidth {
 			WidthOf(_) => None,
 		}
 	}
+	pub fn eval(&mut self, nc_table: &crate::core::NumericConstantTable, id_table: &id_table::IdTable, scope: &ModuleImplementationScope) -> miette::Result<()> {
+		use BusWidth::*;
+		match self {
+			Evaluated(_) => (),
+			EvaluatedLocated(..) => (),
+			Evaluable(location) => {
+				let expr_ast = scope.evaluated_expressions.get(location).unwrap();
+				let expr = expr_ast.expression.evaluate(nc_table, expr_ast.scope_id, scope)?;
+				match expr {
+					Some(expr) => {
+						*self = EvaluatedLocated(expr, *location);
+					},
+					None => (),
+				}
+			},
+			WidthOf(_) => (),
+		}
+		Ok(())
+	}
 }
 
 #[derive(Clone, Debug, PartialEq, Eq)]
