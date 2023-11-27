@@ -138,27 +138,6 @@ impl MainPassCtx {
 		}
 	}
 
-	fn elab_module_interface(
-		&mut self,
-		module: ModuleHandle,
-		assumptions: Arc<dyn ElabAssumptionsBase>,
-	) -> Result<(), ElabMessageKind> {
-		for interface_sig in module.interface() {
-			let sig_id = interface_sig.signal;
-			let sig = module.design().get_signal(sig_id).unwrap();
-			if sig.is_generic() {
-				continue;
-			}
-
-			match interface_sig.is_input() {
-				true => self.drive_signal(&sig_id.into(), assumptions.clone()),
-				false => self.read_signal(&sig_id.into(), assumptions.clone()),
-			}?;
-		}
-
-		Ok(())
-	}
-
 	fn elab_module(
 		&mut self,
 		module: ModuleHandle,
@@ -168,7 +147,6 @@ impl MainPassCtx {
 		info!("Elaborating module {:?}", module.id());
 		debug!("Assumptions: {:?}", assumptions);
 		self.elab_unconditional_scope(&module.scope(), assumptions.clone())?;
-		self.elab_module_interface(module, assumptions.clone())?;
 		Ok(())
 	}
 }

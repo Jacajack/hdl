@@ -184,7 +184,10 @@ impl ModuleHandle {
 
 	/// Exposes a signal to module's interface
 	pub fn expose(&mut self, signal: SignalId, direction: SignalDirection) -> Result<(), DesignError> {
-		this_module_mut!(self).expose(signal, direction)
+		let result = this_module_mut!(self).expose(signal, direction);
+		let mut design = self.design.borrow_mut();
+		design.get_signal_mut(signal).unwrap().set_direction(direction);
+		result
 	}
 
 	pub fn comment(&mut self, comment: &str) {

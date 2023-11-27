@@ -3,7 +3,7 @@ use std::sync::Arc;
 use log::{debug, error};
 
 use crate::{
-	design::{Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalId, SignalSlice},
+	design::{Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalId, SignalSlice, DesignHandle, SignalDirection},
 	elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
 
@@ -81,6 +81,7 @@ pub struct GeneratedSignal {
 	dimensions: Vec<usize>,
 	total_fields: usize,
 	instance_id: Option<usize>,
+	main_interface_dir: Option<SignalDirection>,
 }
 
 impl GeneratedSignal {
@@ -106,6 +107,39 @@ impl GeneratedSignal {
 
 	pub fn is_external(&self) -> bool {
 		self.instance_id.is_some()
+	}
+
+	pub fn index_to_indices(&self, index: u32) -> Vec<u32> {
+		let mut indices = Vec::new();
+		let mut index = index;
+		for dim in self.dimensions.iter().rev() {
+			indices.push(index % (*dim as u32));
+			index /= *dim as u32;
+		}
+		indices.reverse();
+		assert_eq!(indices.len(), self.dimensions.len());
+		indices
+	}
+
+	pub fn direction(&self) -> Option<SignalDirection> {
+		self.main_interface_dir
+	}
+}
+
+pub fn format_generated_signal_ref(design: DesignHandle, gen_sig: &GeneratedSignal, gen_ref: &GeneratedSignalRef) -> String {
+	let sig_name = design.get_signal(gen_ref.signal()).unwrap().name().to_string();
+	if let Some(index) = gen_ref.index() {
+		let indices = gen_sig.index_to_indices(index);
+		let indices_str = indices
+			.iter()
+			.map(|index| format!("[{}]", index.to_string()))
+			.collect::<Vec<_>>()
+			.join("");
+
+		format!("{}{}", sig_name, indices_str)
+	}
+	else {
+		sig_name
 	}
 }
 
@@ -235,6 +269,7 @@ impl MainPassCtx {
 		validation_scope: ScopeHandle,
 		pass_id: Option<ScopePassId>,
 		ext_instance_id: Option<usize>,
+		main_interface_dir: Option<SignalDirection>,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<GeneratedSignalId, ElabMessageKind> {
 		let sig = self.design.get_signal(id).expect("signal not in design");
@@ -341,6 +376,7 @@ impl MainPassCtx {
 			dimensions,
 			total_fields,
 			instance_id: ext_instance_id,
+			main_interface_dir,
 		};
 
 		let sig_exists = self.signals.insert(gen_id.clone(), gen_sig).is_some();
@@ -358,7 +394,20 @@ impl MainPassCtx {
 		let pass_id = self.get_scope_pass_id(sig.parent_scope);
 		let scope_handle = self.design.get_scope_handle(sig.parent_scope).unwrap();
 
-		self.declare_signal_impl(id, scope_handle, Some(pass_id), None, assumptions)
+		self.declare_signal_impl(id, scope_handle, Some(pass_id), None, None, assumptions)
+	}
+
+	pub fn declare_main_interface_signal(
+		&mut self,
+		id: SignalId,
+		dir: SignalDirection,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
+	) -> Result<GeneratedSignalId, ElabMessageKind> {
+		let sig = self.design.get_signal(id).expect("signal not in design");
+		let pass_id = self.get_scope_pass_id(sig.parent_scope);
+		let scope_handle = self.design.get_scope_handle(sig.parent_scope).unwrap();
+
+		self.declare_signal_impl(id, scope_handle, Some(pass_id), None, Some(dir), assumptions)
 	}
 
 	pub fn declare_ext_interface_signal(
@@ -368,6 +417,6 @@ impl MainPassCtx {
 		instance_id: usize,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<GeneratedSignalId, ElabMessageKind> {
-		self.declare_signal_impl(id, module.scope(), None, Some(instance_id), assumptions)
+		self.declare_signal_impl(id, module.scope(), None, Some(instance_id), None, assumptions)
 	}
 }

@@ -356,6 +356,22 @@ fn to_report(
 				.build()
 		}
 
+		CombInterfaceLoop { from, to } => {
+			let from_location = scope.get_variable_location(from.signal());
+			let to_location = scope.get_variable_location(to.signal());
+			report
+				.label(from_location, "Combinational path starts here")
+				.label(to_location, "and ends here")
+				.help("This path may cause combinational loop, please consider using registers to drive module outputs")
+				.build()
+		}
+
+		ComplexInterface { num_inputs, num_outputs } => {
+			report
+				.help(format!("Module interface is quite complex (effective {} inputs and {} outputs). Some elab checks might have been skipped.", num_inputs, num_outputs).as_str())
+				.build()
+		}
+
 		SignalNotDriven { signal, elab } => {
 			let variable_location = scope.get_variable_location(signal.signal());
 			let mask = elab.undriven_summary();

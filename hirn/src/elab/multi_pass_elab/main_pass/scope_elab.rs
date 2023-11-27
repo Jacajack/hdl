@@ -7,7 +7,7 @@ use log::{debug, error, info};
 use petgraph::graphmap::DiGraphMap;
 
 use crate::{
-	design::{ConditionalScope, Evaluates, HasSensitivity, RangeScope, ScopeHandle, SignalId},
+	design::{ConditionalScope, Evaluates, HasSensitivity, RangeScope, ScopeHandle, SignalId, SignalDirection},
 	elab::{ElabAssumptions, ElabAssumptionsBase, ElabMessageKind},
 };
 
@@ -29,7 +29,19 @@ impl MainPassCtx {
 		for sig_id in scope.signals() {
 			let sig = scope.design().get_signal(sig_id).unwrap();
 			if !sig.is_generic() {
-				self.declare_signal(sig_id, assumptions.clone())?;
+				if let Some(dir) = sig.direction() {
+					// Interface signals are treated specially
+					self.declare_main_interface_signal(sig_id, dir, assumptions.clone())?;
+
+					// Drive or read signal depending on interface direction
+					match dir == SignalDirection::Input {
+						true => self.drive_signal(&sig_id.into(), assumptions.clone()),
+						false => self.read_signal(&sig_id.into(), assumptions.clone()),
+					}?;
+				}
+				else {
+					self.declare_signal(sig_id, assumptions.clone())?;
+				}
 			}
 		}
 
@@ -49,7 +61,6 @@ impl MainPassCtx {
 			self.elab_block(scope.clone(), &block, assumptions.clone())?;
 		}
 
-		// TODO process submodule binding lists
 		Ok(())
 	}
 
