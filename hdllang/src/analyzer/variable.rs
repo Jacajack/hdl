@@ -277,7 +277,12 @@ impl BusWidth {
 			WidthOf(_) => None,
 		}
 	}
-	pub fn eval(&mut self, nc_table: &crate::core::NumericConstantTable, id_table: &id_table::IdTable, scope: &ModuleImplementationScope) -> miette::Result<()> {
+	pub fn eval(
+		&mut self,
+		nc_table: &crate::core::NumericConstantTable,
+		id_table: &id_table::IdTable,
+		scope: &ModuleImplementationScope,
+	) -> miette::Result<()> {
 		use BusWidth::*;
 		match self {
 			Evaluated(_) => (),

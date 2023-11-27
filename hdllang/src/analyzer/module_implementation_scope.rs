@@ -258,14 +258,22 @@ impl ModuleImplementationScope {
 	pub fn clear_scope(&mut self, scope_id: usize) {
 		self.scopes[scope_id].variables.clear();
 		let mut binding = Vec::new();
-  		self.intermediate_signals.get_mut(&scope_id).unwrap_or(&mut binding).clear();
+		self.intermediate_signals
+			.get_mut(&scope_id)
+			.unwrap_or(&mut binding)
+			.clear();
 	}
 	pub fn define_variable(&mut self, scope_id: usize, mut var: Variable) -> miette::Result<InternalVariableId> {
 		let id = InternalVariableId::new(self.variable_counter);
 		var.kind.add_name_to_clock(id);
 		self.variable_counter += 1;
 		let name = var.name.clone();
-		log::debug!("Defining variable {:?} with name {:?} in scope {:?}", id, name, scope_id);
+		log::debug!(
+			"Defining variable {:?} with name {:?} in scope {:?}",
+			id,
+			name,
+			scope_id
+		);
 		let defined = VariableDefined {
 			var,
 			id,
