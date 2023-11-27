@@ -134,7 +134,9 @@ impl MainPassCtx {
 		}
 
 		// Inner assumptions are sufficient for module elaboration
-		self.queued_modules.push((module_handle, Arc::new(inner_assumptions)));
+		if module_handle.should_elaborate() {
+			self.queued_modules.push((module_handle, Arc::new(inner_assumptions)));
+		}
 
 		Ok(())
 
