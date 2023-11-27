@@ -1,6 +1,5 @@
 use hirn::design::ModuleHandle;
 
-use crate::analyzer::module_implementation_scope::EvaluatedEntry;
 use crate::analyzer::*;
 use crate::core::NumericConstant;
 use crate::lexer::CommentTableKey;
@@ -79,9 +78,9 @@ impl VariableDeclarationStatement {
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_declarator.array_declarators {
 				let size = array_declarator.evaluate(nc_table, 0, scope)?;
-				scope.evaluated_expressions.insert(
-					array_declarator.get_location(),
-					EvaluatedEntry::new(array_declarator.clone(), 0),
+				let id = scope.add_expression(
+					0,
+					array_declarator.clone(),
 				);
 				match &size {
 					Some(val) => {
@@ -93,9 +92,9 @@ impl VariableDeclarationStatement {
 									.build(),
 							));
 						}
-						dimensions.push(BusWidth::EvaluatedLocated(val.clone(), array_declarator.get_location()));
+						dimensions.push(BusWidth::EvaluatedLocated(val.clone(), id));
 					},
-					None => dimensions.push(BusWidth::Evaluable(array_declarator.get_location())),
+					None => dimensions.push(BusWidth::Evaluable(id)),
 				}
 			}
 			spec_kind = match spec_kind {

@@ -79,16 +79,16 @@ impl IterationStatement {
 			},
 			_ => {
 				local_ctx.scope_map.insert(self.statement.get_location(), id);
-				local_ctx
+				let expr_id = local_ctx
 					.scope
-					.add_expression(self.range.rhs.get_location(), scope_id, *self.range.rhs.clone());
+					.add_expression(scope_id,  *self.range.rhs.clone());
 				local_ctx.scope.define_variable(
 					id,
 					Variable::new(
 						self.id,
 						self.location,
 						VariableKind::Generic(GenericVariable {
-							value: Some(BusWidth::Evaluable(self.range.rhs.get_location())),
+							value: Some(BusWidth::Evaluable(expr_id)),
 							is_wire: false,
 							direction: crate::analyzer::Direction::None,
 							width: Some(BusWidth::Evaluated(NumericConstant::new_from_value(64.into()))),

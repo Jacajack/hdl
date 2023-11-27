@@ -36,15 +36,16 @@ impl AssignmentStatement {
 		}
 		if self.lhs.is_generic(ctx, scope_id, local_ctx)? {
 			debug!("Lhs is generic");
+			let id = local_ctx.scope.add_expression(scope_id, self.rhs.clone());
 			match self.rhs.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)? {
 				Some(val) => self.lhs.assign(
-					BusWidth::EvaluatedLocated(val, self.rhs.get_location()),
+					BusWidth::EvaluatedLocated(val, id),
 					local_ctx,
 					scope_id,
 				),
 				None => self
 					.lhs
-					.assign(BusWidth::Evaluable(self.rhs.get_location()), local_ctx, scope_id),
+					.assign(BusWidth::Evaluable(id), local_ctx, scope_id),
 			}
 			.map_err(|e| e.label(self.location, "This self is invalid").build())?;
 			//return Ok(());
