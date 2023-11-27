@@ -1130,15 +1130,13 @@ mod test {
 		check_value_u(ncu(0b1010) ^ ncu(0b1100), 0b0110, 4);
 	}
 
-	// FIXME enable back after merging #309 - this fails due to overly restrictive
-	// width rules, which has already been relaxed on that branch.
-	// #[test]
-	// fn test_rel() {
-	// 	check_value_u(nc(-1).op_lt(&nc(1)), 1, 1);
-	// 	check_value_u(nc(-1).op_lt(&nc(1)), 1, 1);
-	// 	check_value_u(nc(1).op_gt(&nc(-1)), 1, 1);
-	// 	check_value_u(nc(1).op_ne(&nc(-1)), 1, 1);
-	// }
+	#[test]
+	fn test_rel() {
+		check_value_u(nc(-1).op_lt(&nc(1)), 1, 1);
+		check_value_u(nc(-1).op_lt(&nc(1)), 1, 1);
+		check_value_u(nc(1).op_gt(&nc(-1)), 1, 1);
+		check_value_u(nc(1).op_ne(&nc(-1)), 1, 1);
+	}
 
 	#[test]
 	fn test_logic() {
