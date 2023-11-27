@@ -190,8 +190,9 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 		}
 	}
 	else if s.starts_with("0b") {
-		// ADD WITDH
 		base = NumericConstantBase::Binary;
+		num_bits = num_bits.or(Some((digits_end - 2) as u32));
+
 		match is_signed {
 			Some(true) => {
 				if s.starts_with("0b1") {
