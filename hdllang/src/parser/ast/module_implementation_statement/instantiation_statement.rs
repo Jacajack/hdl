@@ -264,10 +264,13 @@ impl InstantiationStatement {
 			}
 			Ok(())
 		};
-		for entry in scope.evaluated_expressions.values_mut() {
+		// FIXME this is changed with 387
+		for entry in scope.evaluated_expressions.values() {
 			let prev_loc = entry.expression.get_location();
-			entry.expression.transform(f).unwrap();
-			local_ctx.scope.evaluated_expressions.insert(prev_loc, entry.clone());
+			let mut entry_copy = entry.clone();
+			entry_copy.expression.transform(f).unwrap();
+			entry_copy.scope_id = scope_id;
+			local_ctx.scope.evaluated_expressions.insert(prev_loc, entry_copy.clone());
 			log::debug!("Inserted entry at {:?}", prev_loc);
 		}
 		debug!("Binding clocks!");
@@ -472,6 +475,7 @@ impl InstantiationStatement {
 		use log::*;
 		let additional_ctx = AdditionalContext::new(
 			local_ctx.nc_widths.clone(),
+			local_ctx.ncs_to_be_exted.clone(),
 			local_ctx.array_or_bus.clone(),
 			local_ctx.casts.clone(),
 		);

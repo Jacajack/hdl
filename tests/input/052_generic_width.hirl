@@ -20,7 +20,6 @@ impl m{
 		x : const auto x,
 		y : const auto y
 	}
-
-	x = 11u8; // FIXME #320 would allow this without u8
-	y = 13u8;
+	x = 11;
+	y = 13;
 }

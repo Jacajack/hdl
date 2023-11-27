@@ -384,6 +384,7 @@ impl Expression {
 				let var = match scope.get_variable(scope_id, &id.id) {
 					Some(var) => var,
 					None => {
+						log::debug!("Scope id is {:?}", scope_id);
 						return Err(miette::Report::new(
 							SemanticError::VariableNotDeclared
 								.to_diagnostic_builder()
@@ -802,7 +803,7 @@ impl Expression {
 	}
 	pub fn codegen(
 		&self,
-		nc_table: &crate::lexer::NumericConstantTable,
+		nc_table: &crate::core::NumericConstantTable,
 		id_table: &crate::lexer::IdTable,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
@@ -812,6 +813,55 @@ impl Expression {
 		match self {
 			Number(num) => {
 				if let Some(ncs) = additional_ctx {
+					log::debug!("Location is {:?}", self.get_location());
+					log::debug!("ncs.nc_widths is {:?}", ncs.ncs_to_be_exted);
+					if let Some(loc) = ncs.ncs_to_be_exted.get(&self.get_location()){
+						debug!("Found a constant to be extended {:?}", loc);
+						let constant = nc_table.get_by_key(&num.key).unwrap();
+						let value:BigInt = constant.value.clone();
+						let width_loc = scope.evaluated_expressions.get(loc).unwrap().clone();
+						let width = width_loc.expression.codegen(nc_table, id_table, width_loc.scope_id, scope, additional_ctx)?;
+						let signed = if let Some(nc) = ncs.nc_widths.get(&self.get_location()){
+							log::debug!("We will read sign!");
+							match nc.signed {
+								Some(s) => s,
+								None => true,
+							}
+						}
+						else{
+							match constant.signed {
+								Some(s) => s,
+								None => true,
+							}
+						};
+						log::debug!("Sign is {:?}", signed);
+						let constant = hirn::design::Expression::Constant(
+							hirn::design::NumericConstant::from_bigint(
+								constant.value.clone(),
+								if signed {
+									hirn::design::SignalSignedness::Signed
+								}
+								else {
+									hirn::design::SignalSignedness::Unsigned
+								},
+								max(value.bits() + if signed {1} else {0},1)
+							)
+							.unwrap(),
+						);
+						if signed{
+							return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::SignExtend {
+								expr: Box::new(constant),
+								width: Box::new(width),
+							}));
+						}
+						else {
+							return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::ZeroExtend {
+								expr: Box::new(constant),
+								width: Box::new(width),
+							}));
+						}
+
+					}
 					if let Some(nc) = ncs.nc_widths.get(&num.location) {
 						return Ok(hirn::design::Expression::Constant(
 							hirn::design::NumericConstant::from_bigint(
@@ -832,6 +882,34 @@ impl Expression {
 							.unwrap(),
 						));
 					}
+					//if let Some(loc) = ncs.ncs_to_be_exted.get(&self.get_location()){
+					//	debug!("Found a constant to be extended {:?}", loc);
+					//	let constant = nc_table.get_by_key(&num.key).unwrap();
+					//	let value:BigInt = constant.value.clone();
+					//	let width_loc = scope.evaluated_expressions.get(loc).unwrap().clone();
+					//	let width = width_loc.expression.codegen(nc_table, id_table, width_loc.scope_id, scope, additional_ctx)?;
+					//	let signed = match constant.signed {
+					//		Some(s) => s,
+					//		None => true,
+					//	};
+					//	let constant = hirn::design::Expression::Constant(
+					//		hirn::design::NumericConstant::from_bigint(
+					//			constant.value.clone(),
+					//			if signed {
+					//				hirn::design::SignalSignedness::Signed
+					//			}
+					//			else {
+					//				hirn::design::SignalSignedness::Unsigned
+					//			},
+					//			(value.bits() + BigInt::from(1)).to_u64().unwrap()
+					//		)
+					//		.unwrap(),
+					//	);
+					//	return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::SignExtend {
+					//		expr: Box::new(constant),
+					//		width: Box::new(width),
+					//	}));
+					//}
 				}
 				let constant = nc_table.get_by_key(&num.key).unwrap();
 				let signed = match constant.signed {
@@ -1053,7 +1131,7 @@ impl Expression {
 						let expr = hirn::design::NumericConstant::from_bigint(
 							0.into(),
 							hirn::design::SignalSignedness::Unsigned,
-							64,
+							1,
 						)
 						.unwrap(); // FIXME
 						let count = function.argument_list.first().unwrap().codegen(
@@ -1074,7 +1152,7 @@ impl Expression {
 						let expr = hirn::design::NumericConstant::from_bigint(
 							1.into(),
 							hirn::design::SignalSignedness::Unsigned,
-							64,
+							1,
 						)
 						.unwrap(); // FIXME
 						let count = function.argument_list.first().unwrap().codegen(
@@ -1462,19 +1540,36 @@ impl Expression {
 					(None, None) => {},
 					(None, Some(_)) => (),
 					(Some(val), None) => {
-						debug!("Setting width of {:?} in local_ctx", constant);
-						constant.width = val.get_value().unwrap().to_u32();
-						sig.set_width(
-							BusWidth::Evaluated(NumericConstant::from_u64(
-								constant.width.unwrap() as u64,
-								None,
-								None,
-								None,
-							)),
-							sig.get_signedness(),
-							location,
-						);
-						local_ctx.nc_widths.insert(self.get_location(), constant.clone());
+						debug!("Setting width of {:?} to {:?} in local_ctx", constant, val);
+						match val.get_value(){
+								Some(value) => {
+									constant.width = Some(value.to_u32().unwrap());
+									sig.set_width(
+									BusWidth::Evaluated(NumericConstant::from_u64(
+										constant.width.unwrap() as u64,
+										None,
+										None,
+										None,
+									)),
+									sig.get_signedness(),
+									location,
+								);
+								local_ctx.nc_widths.insert(self.get_location(), constant.clone());
+								if let Some(loc) = val.get_location(){
+									local_ctx.ncs_to_be_exted.insert(self.get_location(), loc);
+								}
+							},
+							None => {
+								log::debug!("Inserting {:?} to be extended", self.get_location());
+								local_ctx.ncs_to_be_exted.insert(self.get_location(), val.get_location().unwrap());
+								log::debug!("ncs_to_be_exted is now {:?}", local_ctx.ncs_to_be_exted);
+								sig.set_width(val,
+									sig.get_signedness(),
+									location,
+								);
+							},
+						}
+						
 					},
 					(Some(coming), Some(original)) => {
 						log::debug!("Coming: {:?}", coming);
@@ -1520,6 +1615,7 @@ impl Expression {
 						},
 						(Unsigned(loc), NoSignedness) => {
 							constant.signed = Some(false);
+							log::debug!("Setting signedness of unsigned");
 							sig.set_signedness(SignalSignedness::Unsigned(loc), loc);
 							local_ctx.nc_widths.insert(self.get_location(), constant.clone());
 						},
@@ -1896,7 +1992,7 @@ impl Expression {
 								end = NumericConstant::new_from_binary(end.clone(), begin.clone(), |e1, e2| e1 + e2)
 							},
 							ColonLessThan => {
-								end.as_mut().unwrap().value = end.clone().unwrap().value.clone() - BigInt::from(1)
+								end = NumericConstant::new_from_binary(end.clone(), Some(NumericConstant::new_true()), |e1, e2| e1 - e2)
 							},
 						}
 						match &bus.width {
@@ -2034,7 +2130,7 @@ impl Expression {
 						}
 					},
 					"trunc" => {
-						if function.argument_list.len() > 1 {
+						if function.argument_list.len() != 1 {
 							return Err(miette::Report::new(
 								SemanticError::BadFunctionArguments
 									.to_diagnostic_builder()
@@ -2072,19 +2168,50 @@ impl Expression {
 									.build(),
 							));
 						}
-						if expr.width().unwrap().get_value().unwrap()
-							< coupling_type.width().unwrap().get_value().unwrap()
-						{
-							return Err(miette::Report::new(
-								SemanticError::WidthMismatch
-									.to_diagnostic_builder()
-									.label(
-										function.argument_list[0].get_location(),
-										"You cannot enlarge the width of the signal",
-									)
-									.build(),
-							));
+						match (expr.width().unwrap().get_value(), coupling_type.width().unwrap().get_value()) {
+							(Some(val1), Some(val2)) => {
+								if val1 < val2 {
+									return Err(miette::Report::new(
+										SemanticError::WidthMismatch
+											.to_diagnostic_builder()
+											.label(
+												function.argument_list[0].get_location(),
+												"You cannot enlarge the width of the signal",
+											)
+											.build(),
+									));
+								}
+							},
+							_ => (),
 						}
+						use SignalSignedness::*;
+						match (expr.get_signedness(), coupling_type.get_signedness()) {
+        					(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
+        					(Signed(loc_signed), Unsigned(loc_unsigned)) | (Unsigned(loc_unsigned), Signed(loc_signed)) => {
+								return Err(miette::Report::new(
+									SemanticError::SignednessMismatch
+										.to_diagnostic_builder()
+										.label(
+											self.get_location(),
+											"Signedness of this expression does not match",
+										)
+										.label(loc_signed, "This signedness is signed")
+										.label(loc_unsigned, "This signedness is unsigned")
+										.build(),
+								))
+							},
+							(_, NoSignedness) => (), //FIXME 
+        					(NoSignedness, _) => {
+								function.argument_list[0].evaluate_type(
+									global_ctx,
+									scope_id,
+									local_ctx,
+									Signal::new_bus(None, coupling_type.get_signedness(), location),
+									is_lhs,
+									location,
+								)?;
+							},
+    					};
 						local_ctx
 							.scope
 							.widths
@@ -2131,18 +2258,21 @@ impl Expression {
 									.build(),
 							));
 						}
-						if expr.width().unwrap().get_value().unwrap()
-							> coupling_type.width().unwrap().get_value().unwrap()
-						{
-							return Err(miette::Report::new(
-								SemanticError::WidthMismatch
-									.to_diagnostic_builder()
-									.label(
-										function.argument_list[0].get_location(),
-										"You cannot shrink the width of the signal",
-									)
-									.build(),
-							));
+						match (expr.width().unwrap().get_value(), coupling_type.width().unwrap().get_value()) {
+							(Some(val1), Some(val2)) => {
+								if val1 > val2 {
+									return Err(miette::Report::new(
+										SemanticError::WidthMismatch
+											.to_diagnostic_builder()
+											.label(
+												function.argument_list[0].get_location(),
+												"You cannot shrink the width of the signal",
+											)
+											.build(),
+									));
+								}
+							},
+							_ => (),
 						}
 						local_ctx
 							.scope
@@ -2820,6 +2950,7 @@ impl Expression {
 		match self {
 			Number(_) => vec![],
 			Identifier(id) => {
+				log::debug!("id: {:?}", id.id);
 				vec![local_ctx.get_variable(scope_id, &id.id).unwrap().id]
 			},
 			ParenthesizedExpression(expr) => expr.expression.get_dependencies(scope_id, local_ctx),
@@ -2873,7 +3004,13 @@ impl Expression {
 				deps.append(&mut expr.range.rhs.get_dependencies(scope_id, local_ctx));
 				deps
 			},
-			PostfixWithArgs(_) => todo!(),
+			PostfixWithArgs(function) =>{
+				let mut deps = Vec::new();
+				for arg in function.argument_list.iter() {
+					deps.append(&mut arg.get_dependencies(scope_id, local_ctx));
+				}
+				deps
+			},
 			PostfixWithId(expr) => todo!(),
 			UnaryOperatorExpression(expr) => expr.expression.get_dependencies(scope_id, local_ctx),
 			UnaryCastExpression(expr) => {

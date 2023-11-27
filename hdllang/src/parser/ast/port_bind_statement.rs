@@ -226,6 +226,7 @@ impl PortBindStatement {
 	) -> miette::Result<hirn::design::Expression> {
 		let additional_ctx = AdditionalContext::new(
 			local_ctx.nc_widths.clone(),
+			local_ctx.ncs_to_be_exted.clone(),
 			local_ctx.array_or_bus.clone(),
 			local_ctx.casts.clone(),
 		);
