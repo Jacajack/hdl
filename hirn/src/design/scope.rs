@@ -430,49 +430,6 @@ impl ScopeHandle {
 		this_scope!(self).unused.clone()
 	}
 
-	/// Returns a set of variables on which the condition of this scope depends
-	/// This is not recursive.
-	pub fn condition_dependencies(&self) -> HashSet<SignalId> {
-		if let Some(parent) = self.parent_handle() {
-			for subscope in &parent.conditional_subscopes() {
-				if subscope.scope == self.scope {
-					return subscope.condition_dependencies();
-				}
-			}
-
-			for subscope in &parent.loop_subscopes() {
-				if subscope.scope == self.scope {
-					return subscope.condition_dependencies();
-				}
-			}
-
-			for subscope in &parent.subscopes() {
-				if *subscope == self.scope {
-					return HashSet::new();
-				}
-			}
-
-			panic!("This scope is not contained in its parent");
-		}
-		else {
-			HashSet::new()
-		}
-	}
-
-	/// Returns a set of all signals affected by this scope (i.e. LHS signals)
-	/// Not recursive.
-	pub fn output_signals(&self) -> HashSet<SignalId> {
-		let mut signals: HashSet<SignalId> = HashSet::new();
-
-		for assignment in &this_scope!(self).assignments {
-			signals.insert(assignment.driven_signal());
-		}
-
-		todo!();
-
-		signals
-	}
-
 	pub fn parent(&self) -> Option<ScopeId> {
 		this_scope!(self).parent
 	}
