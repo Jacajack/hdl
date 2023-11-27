@@ -1,11 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-use super::expression::NarrowEval;
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::{SignalBuilder, SignalSliceRange};
 use super::{
 	DesignError, DesignHandle, EvalContext, EvaluatesType, HasComment, HasSensitivity, HasSignedness, ModuleId,
-	RegisterBuilder, ScopeId, SignalId, WidthExpression,
+	RegisterBuilder, ScopeId, SignalId, WidthExpression, Evaluates,
 };
 use super::{Expression, ModuleHandle};
 
@@ -274,7 +273,7 @@ impl ScopeHandle {
 			return Err(DesignError::InvalidIfCondition);
 		}
 
-		match condition.width()?.narrow_eval(&eval_ctx).ok() {
+		match condition.width()?.try_eval_ignore_missing_into::<i64>(&eval_ctx)? {
 			Some(1) => {},
 			Some(_) => return Err(DesignError::InvalidIfCondition),
 			None => {},
@@ -428,49 +427,6 @@ impl ScopeHandle {
 
 	pub fn unused_expressions(&self) -> Vec<Expression> {
 		this_scope!(self).unused.clone()
-	}
-
-	/// Returns a set of variables on which the condition of this scope depends
-	/// This is not recursive.
-	pub fn condition_dependencies(&self) -> HashSet<SignalId> {
-		if let Some(parent) = self.parent_handle() {
-			for subscope in &parent.conditional_subscopes() {
-				if subscope.scope == self.scope {
-					return subscope.condition_dependencies();
-				}
-			}
-
-			for subscope in &parent.loop_subscopes() {
-				if subscope.scope == self.scope {
-					return subscope.condition_dependencies();
-				}
-			}
-
-			for subscope in &parent.subscopes() {
-				if *subscope == self.scope {
-					return HashSet::new();
-				}
-			}
-
-			panic!("This scope is not contained in its parent");
-		}
-		else {
-			HashSet::new()
-		}
-	}
-
-	/// Returns a set of all signals affected by this scope (i.e. LHS signals)
-	/// Not recursive.
-	pub fn output_signals(&self) -> HashSet<SignalId> {
-		let mut signals: HashSet<SignalId> = HashSet::new();
-
-		for assignment in &this_scope!(self).assignments {
-			signals.insert(assignment.driven_signal());
-		}
-
-		todo!();
-
-		signals
 	}
 
 	pub fn parent(&self) -> Option<ScopeId> {

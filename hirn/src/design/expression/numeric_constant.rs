@@ -1,7 +1,5 @@
 use std::cmp::max;
-
-use super::{NarrowEval, WidthExpression};
-use crate::design::{Expression, HasSignedness, SignalSignedness};
+use crate::design::{HasSignedness, SignalSignedness};
 
 use log::error;
 use num_bigint::{BigInt, BigUint};
@@ -249,49 +247,42 @@ impl NumericConstant {
 	pub fn op_lt(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| Self::new_bool(self < rhs))
 	}
 
 	pub fn op_lte(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| Self::new_bool(self <= rhs))
 	}
 
 	pub fn op_gt(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| Self::new_bool(self > rhs))
 	}
 
 	pub fn op_gte(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| Self::new_bool(self >= rhs))
 	}
 
 	pub fn op_eq(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| Self::new_bool(self == rhs))
 	}
 
 	pub fn op_ne(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| Self::new_bool(self != rhs))
 	}
 
 	pub fn op_min(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| {
 				if self < rhs {
 					self.clone()
@@ -305,7 +296,6 @@ impl NumericConstant {
 	pub fn op_max(&self, rhs: &NumericConstant) -> Self {
 		Self::propagate_err(self, rhs)
 			.or_else(|| Self::require_sign_match(self, rhs))
-			.or_else(|| Self::require_width_match(self, rhs))
 			.unwrap_or_else(|| {
 				if self > rhs {
 					self.clone()
@@ -328,11 +318,17 @@ impl NumericConstant {
 			.unwrap_or_else(|| Self::new_bool(self.is_nonzero() || rhs.is_nonzero()))
 	}
 
-	// FIXME as trait
 	pub fn op_lnot(&self) -> Self {
 		match self.is_valid() {
 			false => self.clone(),
-			true => Self::new_bool(self.is_nonzero()), // FIXME ensure boolean operand
+			true => {
+				if self.is_signed() || self.width != 1 {
+					Self::new_invalid(EvalError::NonBooleanOperand)
+				}
+				else {
+					Self::new_bool(self.is_zero())
+				}
+			}, 
 		}
 	}
 
@@ -481,7 +477,7 @@ impl NumericConstant {
 		match rhs.try_into_u64() {
 			Err(_) => Self::new_invalid(EvalError::BadBitSelect),
 			Ok(n) => {
-				if n > self.width {
+				if n >= self.width {
 					Self::new_invalid(EvalError::BadBitSelect)
 				}
 				else {
@@ -492,7 +488,7 @@ impl NumericConstant {
 	}
 
 	fn op_bus_select_i(&self, lsb: u64, msb: u64) -> Self {
-		if msb < lsb {
+		if msb < lsb || msb >= self.width || lsb >= self.width {
 			return Self::new_invalid(EvalError::BadBusSelect);
 		}
 		let new_width = msb - lsb + 1;
@@ -643,13 +639,6 @@ impl NumericConstant {
 		None
 	}
 
-	fn require_width_match(lhs: &Self, rhs: &Self) -> Option<NumericConstant> {
-		if lhs.width != rhs.width {
-			return Some(Self::new_invalid(EvalError::WidthMismatch));
-		}
-		None
-	}
-
 	fn require_boolean_operands(lhs: &Self, rhs: &Self) -> Option<NumericConstant> {
 		if !lhs.is_bool() || !rhs.is_bool() {
 			return Some(Self::new_invalid(EvalError::NonBooleanOperand));
@@ -714,6 +703,22 @@ impl From<NumericConstant> for Result<NumericConstant, EvalError> {
 			Err(value.get_error().unwrap())
 		}
 	}
+}
+
+impl TryFrom<NumericConstant> for i64 {
+	type Error = EvalError;
+
+	fn try_from(nc: NumericConstant) -> Result<Self, Self::Error> {
+		i64::try_from(nc.to_bigint()?).or(Err(EvalError::NarrowEvalRange))
+	}	
+}
+
+impl TryFrom<NumericConstant> for u64 {
+	type Error = EvalError;
+
+	fn try_from(nc: NumericConstant) -> Result<Self, Self::Error> {
+		u64::try_from(nc.to_biguint()?).or(Err(EvalError::NarrowEvalRange))
+	}	
 }
 
 impl HasSignedness for NumericConstant {
@@ -782,29 +787,21 @@ macro_rules! impl_binary_constant_op {
 	};
 }
 
-macro_rules! impl_rust_binary_constant_op {
-	($trait_name: ident, $trait_func: ident, $operator: tt) => {
-		impl_binary_constant_op!($trait_name, $trait_func, |lhs: &NumericConstant, rhs: &NumericConstant| -> Result<NumericConstant, EvalError> {
-			check_sign_match(lhs, rhs)?;
-			let width_expr = Expression::from(lhs.clone()) $operator rhs.clone().into();
-			let mut result = NumericConstant::from_bigint(
-				lhs.to_bigint()? $operator rhs.to_bigint()?,
-				lhs.signedness()?,
-				width_expr.width()?.const_narrow_eval()? as u64
-			)?;
-			result.normalize();
-			Ok(result)
-		});
-	}
-}
-
 impl PartialEq for NumericConstant {
 	fn eq(&self, other: &Self) -> bool {
 		match (self.is_valid(), other.is_valid()) {
 			(false, false) => true,
 			(false, true) => false,
 			(true, false) => false,
-			(true, true) => self.value == other.value,
+			(true, true) => {
+				assert!(self.is_signed() == other.is_signed());
+				if self.is_signed() {
+					self.to_bigint().unwrap() == other.to_bigint().unwrap()
+				}
+				else {
+					self.value == other.value
+				}
+			}
 		}
 	}
 }
@@ -818,7 +815,6 @@ impl Ord for NumericConstant {
 			(true, false) => Less,
 			(true, true) => {
 				assert!(self.is_signed() == other.is_signed());
-				assert!(self.width == other.width);
 				if self.is_signed() {
 					self.to_bigint().unwrap().cmp(&other.to_bigint().unwrap())
 				}
@@ -838,10 +834,6 @@ impl PartialOrd for NumericConstant {
 
 impl Eq for NumericConstant {}
 
-impl_rust_binary_constant_op!(Add, add, +);
-impl_rust_binary_constant_op!(Sub, sub, -);
-impl_rust_binary_constant_op!(Mul, mul, *);
-
 impl std::ops::Shr for NumericConstant {
 	type Output = NumericConstant;
 
@@ -858,6 +850,48 @@ impl std::ops::Shl for NumericConstant {
 	}
 }
 
+impl_binary_constant_op!(Add, add, |lhs: &NumericConstant,
+                                    rhs: &NumericConstant|
+ -> Result<NumericConstant, EvalError> {
+	check_sign_match(lhs, rhs)?;
+
+	let mut result = NumericConstant::from_bigint(
+		lhs.to_bigint()? + rhs.to_bigint()?,
+		lhs.signedness()?,
+		lhs.width()?.max(rhs.width()?) + 1,
+	)?;
+	result.normalize();
+	Ok(result)
+});
+
+impl_binary_constant_op!(Sub, sub, |lhs: &NumericConstant,
+                                    rhs: &NumericConstant|
+ -> Result<NumericConstant, EvalError> {
+	check_sign_match(lhs, rhs)?;
+
+	let mut result = NumericConstant::from_bigint(
+		lhs.to_bigint()? - rhs.to_bigint()?,
+		lhs.signedness()?,
+		lhs.width()?.max(rhs.width()?) + 1,
+	)?;
+	result.normalize();
+	Ok(result)
+});
+
+impl_binary_constant_op!(Mul, mul, |lhs: &NumericConstant,
+                                    rhs: &NumericConstant|
+ -> Result<NumericConstant, EvalError> {
+	check_sign_match(lhs, rhs)?;
+
+	let mut result = NumericConstant::from_bigint(
+		lhs.to_bigint()? * rhs.to_bigint()?,
+		lhs.signedness()?,
+		lhs.width()? + rhs.width()?,
+	)?;
+	result.normalize();
+	Ok(result)
+});
+
 impl_binary_constant_op!(Div, div, |lhs: &NumericConstant,
                                     rhs: &NumericConstant|
  -> Result<NumericConstant, EvalError> {
@@ -867,11 +901,10 @@ impl_binary_constant_op!(Div, div, |lhs: &NumericConstant,
 		return Err(EvalError::DivisionByZero);
 	}
 
-	let width_expr = Expression::from(lhs.clone()) / rhs.clone().into();
 	let mut result = NumericConstant::from_bigint(
 		lhs.to_bigint()? / rhs.to_bigint()?,
 		lhs.signedness()?,
-		width_expr.width()?.const_narrow_eval()? as u64,
+		lhs.width()?,
 	)?;
 	result.normalize();
 	Ok(result)
@@ -886,11 +919,10 @@ impl_binary_constant_op!(Rem, rem, |lhs: &NumericConstant,
 		return Err(EvalError::DivisionByZero);
 	}
 
-	let width_expr = Expression::from(lhs.clone()) % rhs.clone().into();
 	let mut result = NumericConstant::from_bigint(
 		lhs.to_bigint()? % rhs.to_bigint()?,
 		lhs.signedness()?,
-		width_expr.width()?.const_narrow_eval()? as u64,
+		rhs.width()?,
 	)?;
 	result.normalize();
 	Ok(result)
@@ -901,11 +933,10 @@ impl_binary_constant_op!(BitAnd, bitand, |lhs: &NumericConstant,
  -> Result<NumericConstant, EvalError> {
 	check_sign_match(lhs, rhs)?;
 	check_width_match(lhs, rhs)?;
-	let width_expr = Expression::from(lhs.clone()) & rhs.clone().into();
 	let mut result = NumericConstant::new(
 		lhs.to_biguint()? & rhs.to_biguint()?,
 		lhs.signedness()?,
-		width_expr.width()?.const_narrow_eval()? as u64,
+		lhs.width()?
 	)?;
 	result.normalize();
 	Ok(result)
@@ -916,11 +947,10 @@ impl_binary_constant_op!(BitOr, bitor, |lhs: &NumericConstant,
  -> Result<NumericConstant, EvalError> {
 	check_sign_match(lhs, rhs)?;
 	check_width_match(lhs, rhs)?;
-	let width_expr = Expression::from(lhs.clone()) | rhs.clone().into();
 	let mut result = NumericConstant::new(
 		lhs.to_biguint()? | rhs.to_biguint()?,
 		lhs.signedness()?,
-		width_expr.width()?.const_narrow_eval()? as u64,
+		lhs.width()?
 	)?;
 	result.normalize();
 	Ok(result)
@@ -931,11 +961,10 @@ impl_binary_constant_op!(BitXor, bitxor, |lhs: &NumericConstant,
  -> Result<NumericConstant, EvalError> {
 	check_sign_match(lhs, rhs)?;
 	check_width_match(lhs, rhs)?;
-	let width_expr = Expression::from(lhs.clone()) ^ rhs.clone().into();
 	let mut result = NumericConstant::new(
 		lhs.to_biguint()? ^ rhs.to_biguint()?,
 		lhs.signedness()?,
-		width_expr.width()?.const_narrow_eval()? as u64,
+		lhs.width()?
 	)?;
 	result.normalize();
 	Ok(result)
@@ -943,6 +972,7 @@ impl_binary_constant_op!(BitXor, bitxor, |lhs: &NumericConstant,
 
 #[cfg(test)]
 mod test {
+	use rstest::rstest;
 	use super::*;
 
 	// TODO tests for error cases
@@ -983,140 +1013,239 @@ mod test {
 		);
 	}
 
-	#[test]
-	fn test_add() {
-		check_value(nc(0) + nc(0), 0, 2);
-		check_value(nc(5) + nc(3), 8, 5);
-		check_value_u(ncu(0) + ncu(0), 0, 2);
-		check_value_u(ncu(1024) + ncu(1), 1025, 12);
-		check_value_u(ncu(1024) + ncu(1024), 2048, 12);
+	#[rstest]
+	#[case(nc(0), nc(0), nc(0), 2)]
+	#[case(nc(5), nc(3), nc(8), 5)]
+	#[case(ncu(0), ncu(0), ncu(0), 2)]
+	#[case(ncu(1024), ncu(1), ncu(1025), 12)]
+	#[case(ncu(1024), ncu(1024), ncu(2048), 12)]
+	fn test_add(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs + rhs;
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(nc(4), nc(7), nc(-3), 5)]
+	#[case(nc(10), nc(9), nc(1), 6)]
+	#[case(nc(1), nc(1), nc(0), 3)]
+	#[case(ncu(1024), ncu(1024), ncu(0), 12)]
+	#[case(ncu(0), ncu(1), ncu(3), 2)]
+	#[case(ncu(127), ncu(128), ncu(511), 9)]
+	fn test_sub(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs - rhs;
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(nc(0), nc(0), nc(0), 2)]
+	#[case(nc(17), nc(-1), nc(-17), 7)] // 6b * 1b => 7b
+	#[case(nc(-1), nc(-1), nc(1), 2)]
+	#[case(nc(10), nc(10), nc(100), 10)]
+	#[case(ncu(10), ncu(10), ncu(100), 8)]
+	fn test_mul(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs * rhs;
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(nc(30), nc(3), nc(10), 6)]
+	#[case(nc(31), nc(-1), nc(-31), 6)]
+	#[case(nc(-31), nc(-1), nc(31), 6)]
+	#[case(ncu(255), ncu(2), ncu(127), 8)]
+	#[case(ncu(255), ncu(1), ncu(255), 8)]
+	#[case(ncu(30), ncu(3), ncu(10), 5)]
+	fn test_div(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs / rhs;
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(nc(-5), nc(3), nc(-5 % 3), 3)]
+	#[case(nc(-5), nc(-3), nc(-5 % -3), 3)]
+	#[case(nc(1247), nc(1), nc(0), 2)]
+	#[case(nc(1247), nc(1247), nc(0), 12)]
+	#[case(ncu(5), ncu(3), ncu(2), 2)]
+	#[case(ncu(560), ncu(33), ncu(560 % 33), 6)]
+	fn test_rem(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs % rhs;
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(ncu(0b1010), ncu(2), ncu(0b1000), 4)]
+	#[case(ncu(6), ncu(10), ncu(0), 3)]
+	#[case(ncu(5), ncu(1), ncu(2), 3)]
+	#[case(nc(15), ncu(1), nc(-2), 5)]
+	fn test_shl(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs.op_shl(rhs);
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(ncu(1024), ncu(10), ncu(1), 11)]
+	#[case(nc(-7), ncu(1), nc(4), 4)]
+	#[case(nc(-8), ncu(1), nc(4), 4)]
+	#[case(nc(-8), ncu(2), nc(2), 4)]
+	#[case(nc(-8), ncu(3), nc(1), 4)]
+	#[case(nc(-8), ncu(4), nc(0), 4)]
+	fn test_lsr(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs.op_lsr(rhs);
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(ncu(6), ncu(3), ncu(0), 3)]
+	#[case(ncu(6), ncu(3), ncu(0), 3)]
+	#[case(ncu(1024), ncu(10), ncu(1), 11)]
+	#[case(nc(-8), ncu(1), nc(-4), 4)]
+	#[case(nc(-8), ncu(2), nc(-2), 4)]
+	#[case(nc(-8), ncu(3), nc(-1), 4)]
+	#[case(nc(-8), ncu(4), nc(-1), 4)]
+	#[case(nc(-8), ncu(5), nc(-1), 4)]
+	fn test_shr(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs >> rhs;
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(ncu(1), ncu(10), ncu(1024), 11)]
+	#[case(ncu(213), ncu(7), ncu(213 * 128), 8 + 7)]
+	fn test_shl_expand(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs.op_shl_expand(rhs);
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(nc(10), ncu(50), nc(10), 50)]
+	#[case(nc(-14), ncu(500), nc(-14), 500)]
+	fn test_ext(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs.op_ext(rhs);
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(nc(10), ncu(50), nc(10), 50)]
+	#[case(nc(-10), ncu(50), nc(-10), 50)]
+	#[case(nc(-14), ncu(500), nc(-14), 500)]
+	fn test_sext(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs.op_sext(rhs);
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(nc(-10), ncu(8), nc(22), 8)]
+	fn test_zext(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs.op_zext(rhs);
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(ncu(5), ncu(5), ncu(45), 6)]
+	#[case(nc(3), nc(3), ncu(8 + 16 + 3), 6)] // TODO not sure, maybe join should preserve sign of the first arg?
+	fn test_join(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs.op_join(rhs);
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(ncu(5), ncu(2), ncu(45), 6)]
+	fn test_replicate(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs.op_replicate(rhs);
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(ncu(0b1010), ncu(0), ncu(0), 1)]
+	#[case(ncu(0b1010), ncu(1), ncu(1), 1)]
+	#[case(ncu(0b1010), ncu(2), ncu(0), 1)]
+	#[case(ncu(0b1010), ncu(3), ncu(1), 1)]
+	#[case(nc(-3), ncu(0), ncu(1), 1)]
+	#[case(nc(-3), ncu(1), ncu(0), 1)]
+	#[case(nc(-3), ncu(2), ncu(1), 1)]
+	fn test_bit_select(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs.op_bit_select(rhs);
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(ncu(0b110011), ncu(1), ncu(4), ncu(9), 4)]
+	#[case(ncu(0b110011), ncu(0), ncu(0), ncu(1), 1)]
+	#[case(ncu(0b110011), ncu(2), ncu(2), ncu(0), 1)]
+	#[case(ncu(0b110011), ncu(0), ncu(5), ncu(0b110011), 6)]
+	#[case(nc(-3), ncu(0), ncu(2), nc(-3), 3)]
+	#[case(nc(-3), ncu(0), ncu(1), nc(1), 2)]
+	fn test_bus_select(#[case] lhs: NumericConstant, #[case] lsb: NumericConstant, #[case] msb: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs.op_bus_select(lsb, msb);
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(ncu(0b1010), ncu(0b1100), ncu(0b1000), 4)]
+	#[case(nc(0b1010), nc(0b1100), nc(0b1000), 5)]
+	fn test_bitwise_and(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs & rhs;
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(ncu(0b1010), ncu(0b1100), ncu(0b1110), 4)]
+	#[case(nc(0b1010), nc(0b1100), nc(0b1110), 5)]
+	fn test_bitwise_or(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs | rhs;
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(ncu(0b1010), ncu(0b1100), ncu(0b0110), 4)]
+	#[case(nc(0b1010), nc(0b1100), nc(0b0110), 5)]
+	fn test_bitwise_xor(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+		let result = lhs ^ rhs;
+		assert_eq!(result, expected);
+		assert_eq!(result.width().unwrap(), width);
+	}
+
+	#[rstest]
+	#[case(nc(-1), nc(1), true)]
+	#[case(nc(-1), nc(-1), false)]
+	#[case(nc(1), nc(1), false)]
+	#[case(nc(0), nc(0), false)]
+	#[case(nc(-1), nc(0), true)]
+	#[case(nc(-1000), nc(-999), true)]
+	#[case(nc(-999), nc(-1000), false)]
+	#[case(nc(-1024), nc(1024), true)]
+	#[case(ncu(1023), ncu(1024), true)]
+	fn test_lt(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: bool) {
+		let result = lhs.op_lt(&rhs);
+		assert_eq!(result, expected.into());
+		assert_eq!(result.width().unwrap(), 1);
+		assert_eq!(result.signedness().unwrap(), SignalSignedness::Unsigned);
 	}
 
 	#[test]
-	fn test_sub() {
-		check_value(nc(4) - nc(7), -3, 5);
-		check_value(nc(10) - nc(9), 1, 6);
-		check_value(nc(1) - nc(1), 0, 3);
-		check_value_u(ncu(1024) - ncu(1024), 0, 12);
-		check_value_u(ncu(0) - ncu(1), 3, 2);
-		check_value_u(ncu(127) - ncu(128), 511, 9);
+	fn test_rel() {
+		check_value_u(nc(-1).op_lt(&nc(1)), 1, 1);
+		check_value_u(nc(-1).op_lt(&nc(1)), 1, 1);
+		check_value_u(nc(1).op_gt(&nc(-1)), 1, 1);
+		check_value_u(nc(1).op_ne(&nc(-1)), 1, 1);
 	}
-
-	#[test]
-	fn test_mul() {
-		check_value(nc(0) * nc(0), 0, 2);
-		check_value(nc(17) * nc(-1), -17, 7); // 6b * 1b => 7b
-		check_value(nc(-1) * nc(-1), 1, 2);
-		check_value(nc(10) * nc(10), 100, 10);
-		check_value(ncu(10) * ncu(10), 100, 8);
-	}
-
-	#[test]
-	fn test_div() {
-		check_value(nc(30) / nc(3), 10, 6);
-		check_value(nc(31) / nc(-1), -31, 6);
-		check_value(nc(-31) / nc(-1), 31, 6);
-		check_value_u(ncu(255) / ncu(2), 127, 8);
-		check_value_u(ncu(255) / ncu(1), 255, 8);
-		check_value_u(ncu(30) / ncu(3), 10, 5);
-	}
-
-	#[test]
-	fn test_rem() {
-		check_value(nc(-5) % nc(3), -5 % 3, 3);
-		check_value(nc(-5) % nc(-3), -5 % -3, 3);
-		check_value(nc(1247) % nc(1), 0, 2);
-		check_value(nc(1247) % nc(1247), 0, 12);
-		check_value_u(ncu(5) % ncu(3), 2, 2);
-		check_value_u(ncu(560) % ncu(33), 560 % 33, 6);
-	}
-
-	#[test]
-	fn test_shift_logic() {
-		check_value_u(ncu(0b1010) << ncu(2), 0b1000, 4);
-		check_value_u(ncu(6) << ncu(10), 0, 3);
-		check_value_u(ncu(6) >> ncu(3), 0, 3);
-		check_value_u(ncu(6) >> ncu(3), 0, 3);
-		check_value_u(ncu(5) << ncu(1), 2, 3);
-		check_value_u(ncu(1024) >> ncu(10), 1, 11);
-
-		check_value(nc(-7).op_lsr(ncu(1)), 4, 4);
-		check_value(nc(15) << ncu(1), -2, 5);
-	}
-
-	#[test]
-	fn test_shift_expand() {
-		check_value_u(ncu(1).op_shl_expand(ncu(10)), 1024, 11);
-		check_value_u(ncu(213).op_shl_expand(ncu(7)), 213 * 128, 8 + 7);
-	}
-
-	#[test]
-	fn test_shift_arith() {
-		check_value(nc(-8) >> ncu(1), -4, 4);
-		check_value(nc(-8) >> ncu(2), -2, 4);
-		check_value(nc(-8) >> ncu(3), -1, 4);
-		check_value(nc(-8) >> ncu(4), -1, 4);
-		check_value(nc(-8) << ncu(1), 0, 4);
-	}
-
-	#[test]
-	fn test_ext() {
-		check_value(nc(10).op_ext(ncu(50)), 10, 50);
-		check_value(nc(-10).op_ext(ncu(50)), -10, 50);
-		check_value(nc(-10).op_sext(ncu(50)), -10, 50);
-		check_value(nc(-10).op_zext(ncu(8)), 22, 8);
-	}
-
-	#[test]
-	fn test_join() {
-		check_value(ncu(5).op_join(ncu(5)), 45, 6);
-	}
-
-	#[test]
-	fn test_replicate() {
-		check_value(ncu(5).op_replicate(ncu(2)), 45, 6);
-	}
-
-	#[test]
-	fn test_bit_select() {
-		check_value_u(ncu(0b1010).op_bit_select(ncu(0)), 0, 1);
-		check_value_u(ncu(0b1010).op_bit_select(ncu(1)), 1, 1);
-		check_value_u(ncu(0b1010).op_bit_select(ncu(2)), 0, 1);
-		check_value_u(ncu(0b1010).op_bit_select(ncu(3)), 1, 1);
-	}
-
-	#[test]
-	fn test_bus_select() {
-		check_value_u(ncu(0b110011).op_bus_select(ncu(1), ncu(4)), 9, 4);
-		check_value_u(ncu(0b110011).op_bus_select(ncu(0), ncu(0)), 1, 1);
-		check_value_u(ncu(0b110011).op_bus_select(ncu(2), ncu(2)), 0, 1);
-		check_value_u(ncu(0b110011).op_bus_select(ncu(0), ncu(5)), 0b110011, 6);
-	}
-
-	#[test]
-	fn test_bitwise_and() {
-		check_value_u(ncu(0b1010) & ncu(0b1100), 0b1000, 4);
-	}
-
-	#[test]
-	fn test_bitwise_or() {
-		check_value_u(ncu(0b1010) | ncu(0b1100), 0b1110, 4);
-	}
-
-	#[test]
-	fn test_bitwise_xor() {
-		check_value_u(ncu(0b1010) ^ ncu(0b1100), 0b0110, 4);
-	}
-
-	// FIXME enable back after merging #309 - this fails due to overly restrictive
-	// width rules, which has already been relaxed on that branch.
-	// #[test]
-	// fn test_rel() {
-	// 	check_value_u(nc(-1).op_lt(&nc(1)), 1, 1);
-	// 	check_value_u(nc(-1).op_lt(&nc(1)), 1, 1);
-	// 	check_value_u(nc(1).op_gt(&nc(-1)), 1, 1);
-	// 	check_value_u(nc(1).op_ne(&nc(-1)), 1, 1);
-	// }
 
 	#[test]
 	fn test_logic() {
@@ -1132,5 +1261,8 @@ mod test {
 		assert_eq!(t.op_lor(&f), t);
 		assert_eq!(f.op_lor(&t), t);
 		assert_eq!(f.op_lor(&f), f);
+
+		assert_eq!(f.op_lnot(), t);
+		assert_eq!(t.op_lnot(), f);
 	}
 }

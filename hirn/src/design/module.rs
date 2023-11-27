@@ -56,6 +56,9 @@ pub struct Module {
 
 	/// Metadata comment
 	pub comment: Option<String>,
+
+	/// Flag indicating whether the module is an interface
+	should_elaborate: bool,
 }
 
 impl Module {
@@ -72,6 +75,7 @@ impl Module {
 			main_scope: ScopeId { id: 0 },
 			interface: vec![],
 			comment: None,
+			should_elaborate: true,
 		})
 	}
 
@@ -112,6 +116,14 @@ impl Module {
 			}
 		}
 		clocks
+	}
+
+	fn set_should_elaborate(&mut self, flag: bool) {
+		self.should_elaborate = flag;
+	}
+
+	fn should_elaborate(&self) -> bool {
+		self.should_elaborate
 	}
 }
 
@@ -177,6 +189,14 @@ impl ModuleHandle {
 
 	pub fn comment(&mut self, comment: &str) {
 		this_module_mut!(self).comment(comment);
+	}
+
+	pub fn set_should_elaborate(&mut self, flag: bool) {
+		this_module_mut!(self).set_should_elaborate(flag);
+	}
+
+	pub fn should_elaborate(&self) -> bool {
+		this_module!(self).should_elaborate()
 	}
 
 	/// Returns the ID of the scope

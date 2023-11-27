@@ -2,19 +2,17 @@ mod eval;
 mod expression_eval;
 mod expression_rust_ops;
 mod expression_validate;
-mod narrow_eval;
 mod numeric_constant;
 mod type_eval;
 mod width_expression;
 
 pub use eval::{EvalAssumptions, EvalContext, EvalError, EvalType, Evaluates, EvaluatesType};
 pub use expression_validate::ExpressionError;
-pub use narrow_eval::NarrowEval;
 pub use numeric_constant::NumericConstant;
 pub use width_expression::WidthExpression;
 
 use super::signal::{SignalSensitivity, SignalSlice, SignalSliceRange};
-use super::{DesignHandle, SignalId, SignalSignedness};
+use super::{SignalId, SignalSignedness};
 
 /// Binary operators
 #[derive(Clone, Copy, Debug)]

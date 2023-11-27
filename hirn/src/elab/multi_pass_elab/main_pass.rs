@@ -3,6 +3,7 @@ mod instance_elab;
 mod scope_elab;
 mod scope_pass;
 mod signal_drive;
+mod assignment;
 
 use log::{debug, error, info};
 use petgraph::graphmap::GraphMap;
@@ -85,6 +86,9 @@ struct MainPassCtx {
 	/// Counter for scope passes
 	scope_pass_counter: usize,
 
+	/// Module instance counter
+	instance_counter: usize,
+
 	/// Current scope pass ID recorded for each scope
 	current_pass: HashMap<ScopeId, ScopePassId>,
 
@@ -110,6 +114,7 @@ impl MainPassCtx {
 			config,
 			design,
 			scope_pass_counter: 0,
+			instance_counter: 0,
 			// signals: HashMap::new(),
 			comb_graph: GraphMap::new(),
 			// clock_graph: GraphMap::new(),

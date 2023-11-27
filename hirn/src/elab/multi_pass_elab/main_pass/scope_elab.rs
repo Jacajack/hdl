@@ -35,19 +35,13 @@ impl MainPassCtx {
 
 		// Process all non-generic assignments
 		for asmt in scope.assignments() {
-			let driven_bits = asmt.lhs.try_drive_bits().ok_or(ElabMessageKind::NotDrivable)?;
-			self.drive_signal(&driven_bits, assumptions.clone())?;
-
-			let read = asmt.dependencies_bits();
-			for range in &read {
-				self.read_signal(range, assumptions.clone())?;
-			}
-
-			// TODO actually check the binding (I need to write an assignment checker)
-			// this is gonna be fun
-
-			asmt.lhs.validate(&assumptions.clone(), &scope)?;
-			asmt.rhs.validate(&assumptions.clone(), &scope)?;
+			self.assign_signals(
+				scope.clone(), 
+				assumptions.clone(), 
+				&asmt.lhs, 
+				None, 
+				&asmt.rhs, 
+				None)?;
 		}
 
 		// Process expressions marked as unused
@@ -58,7 +52,7 @@ impl MainPassCtx {
 		}
 
 		for block in scope.blocks() {
-			self.elab_block(&block, assumptions.clone())?;
+			self.elab_block(scope.clone(), &block, assumptions.clone())?;
 		}
 
 		// TODO process submodule binding lists

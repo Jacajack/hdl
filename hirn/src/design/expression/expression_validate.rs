@@ -4,12 +4,12 @@ use thiserror::Error;
 
 use crate::design::{
 	BinaryOp, HasSensitivity, HasSignedness, ScopeHandle, SignalId, SignalSensitivity, SignalSignedness, SignalSlice,
-	UnaryOp,
+	UnaryOp, Evaluates,
 };
 
 use super::{
 	BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalAssumptions, EvalContext, EvalError,
-	EvaluatesType, Expression, NarrowEval, UnaryExpression, WidthExpression,
+	EvaluatesType, Expression, UnaryExpression, WidthExpression,
 };
 
 #[derive(Clone, Debug, Copy, Error)]
@@ -69,7 +69,7 @@ pub enum ExpressionError {
 impl UnaryExpression {
 	fn shallow_validate(&self, ctx: &dyn EvalAssumptions, _scope: &ScopeHandle) -> Result<(), EvalError> {
 		let expr_type = self.operand.eval_type(ctx)?;
-		let expr_width = self.operand.width()?.narrow_eval(ctx).ok();
+		let expr_width: Option<i64> = self.operand.width()?.try_eval_ignore_missing_into(ctx)?;
 
 		use UnaryOp::*;
 		match self.op {
@@ -103,8 +103,8 @@ impl BinaryExpression {
 	fn shallow_validate(&self, ctx: &dyn EvalAssumptions, _scope: &ScopeHandle) -> Result<(), EvalError> {
 		let lhs_type = self.lhs.eval_type(ctx)?;
 		let rhs_type = self.rhs.eval_type(ctx)?;
-		let lhs_width = self.lhs.width()?.narrow_eval(ctx).ok();
-		let rhs_width = self.rhs.width()?.narrow_eval(ctx).ok();
+		let lhs_width: Option<i64> = self.lhs.width()?.try_eval_ignore_missing_into(ctx)?;
+		let rhs_width: Option<i64> = self.rhs.width()?.try_eval_ignore_missing_into(ctx)?;
 
 		let does_width_match = || {
 			match (lhs_width, rhs_width) {
@@ -170,12 +170,14 @@ impl BuiltinOp {
 		use BuiltinOp::*;
 		match self {
 			// Extension width must be nonzero and generic
-			ZeroExtend { expr: _, width } | SignExtend { expr: _, width } => {
+			ZeroExtend { expr, width } | SignExtend { expr, width } => {
+				let operand_width = expr.width()?.try_eval_ignore_missing_into::<i64>(ctx)?;
 				let width_type = width.eval_type(ctx)?;
-				let width_val = width.narrow_eval(ctx).ok();
-				match (width_type.is_generic(), width_val) {
-					(false, _) => return Err(ExpressionError::InvalidExtensionWidth.into()),
-					(_, Some(w)) if w < 1 => return Err(ExpressionError::InvalidExtensionWidth.into()),
+				let width_val: Option<i64> = width.try_eval_ignore_missing_into(ctx)?;
+				match (width_type.is_generic(), width_val, operand_width) {
+					(false, _, _) => return Err(ExpressionError::InvalidExtensionWidth.into()),
+					(_, Some(w), _) if w < 1 => return Err(ExpressionError::InvalidExtensionWidth.into()),
+					(_, Some(w), Some(op_w)) if w < op_w => return Err(ExpressionError::InvalidExtensionWidth.into()),
 					(..) => {},
 				}
 			},
@@ -192,9 +194,9 @@ impl BuiltinOp {
 					return Err(ExpressionError::InvalidBitIndex.into());
 				}
 
-				let lsb_value = lsb.narrow_eval(ctx).ok();
-				let msb_value = msb.narrow_eval(ctx).ok();
-				let width = expr.width()?.narrow_eval(ctx).ok();
+				let lsb_value: Option<i64> = lsb.try_eval_ignore_missing_into(ctx)?;
+				let msb_value: Option<i64> = msb.try_eval_ignore_missing_into(ctx)?;
+				let width: Option<i64> = expr.width()?.try_eval_ignore_missing_into(ctx)?;
 
 				let index_err = match (width, lsb_value, msb_value) {
 					(Some(w), Some(lsb), _) if lsb >= w => true,
@@ -217,8 +219,8 @@ impl BuiltinOp {
 					return Err(ExpressionError::InvalidBitIndex.into());
 				}
 
-				let index_value = index.narrow_eval(ctx).ok();
-				let width = expr.width()?.narrow_eval(ctx).ok();
+				let index_value: Option<i64> = index.try_eval_ignore_missing_into(ctx)?;
+				let width: Option<i64> = expr.width()?.try_eval_ignore_missing_into(ctx)?;
 
 				let index_err = match (width, index_value) {
 					(_, Some(i)) if i < 0 => true,
@@ -234,7 +236,7 @@ impl BuiltinOp {
 			// Count must be generic and positive
 			Replicate { expr: _, count } => {
 				let count_type = count.eval_type(ctx)?;
-				let count_val = count.narrow_eval(ctx).ok();
+				let count_val: Option<i64> = count.try_eval_ignore_missing_into(ctx)?;
 				match (count_type.is_generic(), count_val) {
 					(false, _) => return Err(ExpressionError::InvalidReplicationCount.into()),
 					(_, Some(n)) if n < 1 => return Err(ExpressionError::InvalidReplicationCount.into()),
@@ -272,11 +274,11 @@ impl CastExpression {
 impl ConditionalExpression {
 	fn shallow_validate(&self, ctx: &dyn EvalAssumptions, _scope: &ScopeHandle) -> Result<(), EvalError> {
 		let result_type = self.default_value().eval_type(ctx)?;
-		let mut result_width = self.default_value().width()?.narrow_eval(ctx).ok();
+		let mut result_width: Option<i64> = self.default_value().width()?.try_eval_ignore_missing_into(ctx)?;
 
 		for b in self.branches() {
 			let branch_type = b.value().eval_type(ctx)?;
-			let branch_width = b.value().width()?.narrow_eval(ctx).ok();
+			let branch_width = b.value().width()?.try_eval_ignore_missing_into(ctx)?;
 
 			if branch_type.signedness != result_type.signedness {
 				return Err(ExpressionError::BranchTypeMismatch.into());
@@ -303,14 +305,14 @@ impl ConditionalExpression {
 		for b in self.branches() {
 			let cond_type = b.condition().eval_type(ctx)?;
 
-			let cond_width = b.condition().width()?.narrow_eval(ctx);
+			let cond_width: Option<i64> = b.condition().width()?.try_eval_ignore_missing_into(ctx)?;
 
 			use SignalSignedness::*;
 			match (cond_type.signedness, cond_width) {
 				(Signed, _) => return Err(ExpressionError::NonBooleanCondition.into()),
-				(Unsigned, Ok(1)) => {},
-				(Unsigned, Err(_)) => {}, // could not evaluate width but whatcha gonna do (it's probably generic)
-				(_, Ok(_)) => return Err(ExpressionError::NonBooleanCondition.into()),
+				(Unsigned, Some(1)) => {},
+				(Unsigned, None) => {}, // could not evaluate width but whatcha gonna do - it's generic
+				(_, Some(_)) => return Err(ExpressionError::NonBooleanCondition.into()),
 			}
 		}
 
