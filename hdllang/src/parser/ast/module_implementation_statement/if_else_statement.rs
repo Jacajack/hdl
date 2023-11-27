@@ -59,6 +59,7 @@ impl IfElseStatement {
 
 		let additional_ctx = crate::analyzer::AdditionalContext::new(
 			local_ctx.nc_widths.clone(),
+			local_ctx.ncs_to_be_exted.clone(),
 			local_ctx.array_or_bus.clone(),
 			local_ctx.casts.clone(),
 		);

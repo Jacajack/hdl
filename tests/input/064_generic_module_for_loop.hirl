@@ -1,0 +1,22 @@
+module Inner {
+	int a;
+	input async ubus<a> a_in;
+	output async ubus<a> a_out;
+}
+
+impl Inner {
+	a_out = a_in;
+}
+
+module Outer {}
+impl Outer {
+	for (i in [1:31]) {
+		const ubus<i> zzz = 0;
+		async ubus<i> xxx;
+		Inner inner {
+			a: i,
+			a_in: zzz,
+			a_out: xxx,
+		}
+	}	
+}

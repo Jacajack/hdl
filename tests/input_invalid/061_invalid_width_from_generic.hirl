@@ -1,0 +1,14 @@
+module Y{
+	uint WIDTH;
+	input const ubus<WIDTH> data;
+}
+
+impl Y{}
+
+module X {}
+impl X {
+	Y y {
+		WIDTH: 17u11,
+		data: 0u4,
+	}
+}

@@ -36,31 +36,30 @@ impl VariableKind {
 	}
 	pub fn evaluate_bus_width(
 		&mut self,
-		_scope: &ModuleImplementationScope,
-		_id_table: &IdTable,
-		_nc_table: &crate::lexer::NumericConstantTable,
+		scope: &ModuleImplementationScope,
+		id_table: &IdTable,
+		nc_table: &crate::lexer::NumericConstantTable,
 	) -> miette::Result<()> {
-		return Ok(());
-		//use VariableKind::*;
-		//match self {
-		//	Signal(sig) => {
-		//		use SignalType::*;
-		//		match &mut sig.signal_type {
-		//			Bus(bus) => match &mut bus.width {
-		//				Some(b) => {
-		//					b.eval(nc_table, id_table, scope)?;
-		//				},
-		//				None => (),
-		//			},
-		//			_ => (),
-		//		}
-		//		for dim in &mut sig.dimensions {
-		//			dim.eval(nc_table, id_table, scope)?;
-		//		}
-		//	},
-		//	_ => unreachable!(),
-		//}
-		//Ok(())
+		use VariableKind::*;
+		match self {
+			Signal(sig) => {
+				use SignalType::*;
+				match &mut sig.signal_type {
+					Bus(bus) => match &mut bus.width {
+						Some(b) => {
+							b.eval(nc_table, id_table, scope)?;
+						},
+						None => (),
+					},
+					_ => (),
+				}
+				for dim in &mut sig.dimensions {
+					dim.eval(nc_table, id_table, scope)?;
+				}
+			},
+			_ => unreachable!(),
+		}
+		Ok(())
 	}
 	pub fn is_generic(&self) -> bool {
 		use VariableKind::*;

@@ -179,7 +179,7 @@ impl VariableDefinition {
 							local_ctx,
 							lhs.clone(),
 							false,
-							direct_initializer.declarator.get_location(),
+							direct_initializer.get_location(),
 						)?;
 						debug!("Rhs is {:?}", rhs);
 						if rhs.is_array() {
@@ -231,7 +231,7 @@ impl VariableDefinition {
 							local_ctx,
 							lhs.clone(),
 							false,
-							direct_initializer.declarator.get_location(),
+							direct_initializer.get_location(),
 						)?;
 						debug!("Rhs is {:?}", rhs);
 						if rhs.is_array() {
@@ -306,54 +306,54 @@ impl VariableDefinition {
 		}
 		Ok(())
 	}
-	pub fn codegen_pass(
-		&self,
-		ctx: &mut GlobalAnalyzerContext,
-		local_ctx: &mut Box<LocalAnalyzerContext>,
-		api_scope: &mut ScopeHandle,
-	) -> miette::Result<()> {
-		use log::*;
-		let additional_ctx = AdditionalContext::new(
-			local_ctx.nc_widths.clone(),
-			local_ctx.array_or_bus.clone(),
-			local_ctx.casts.clone(),
-		);
-		let scope_id = local_ctx.scope_map.get(&self.location).unwrap().to_owned();
-		for direct_initializer in &self.initializer_list {
-			let variable = local_ctx
-				.scope
-				.get_variable_in_scope(scope_id, &direct_initializer.declarator.name)
-				.unwrap();
-			let api_id = variable.var.register(
-				ctx.nc_table,
-				ctx.id_table,
-				scope_id,
-				&local_ctx.scope,
-				Some(&additional_ctx),
-				api_scope
-					.new_signal(ctx.id_table.get_by_key(&variable.var.name).unwrap().as_str())
-					.unwrap(),
-			)?;
-			match &direct_initializer.expression {
-				Some(expr) => {
-					let rhs = expr.codegen(
-						ctx.nc_table,
-						ctx.id_table,
-						scope_id,
-						&local_ctx.scope,
-						Some(&additional_ctx),
-					)?;
-					debug!("Lhs is {:?}", hirn::design::Expression::Signal(api_id.into()));
-					debug!("Rhs is {:?}", rhs);
-					api_scope.assign(api_id.into(), rhs).unwrap()
-				},
-				None => (),
-			}
+	//pub fn codegen_pass(
+	//	&self,
+	//	ctx: &mut GlobalAnalyzerContext,
+	//	local_ctx: &mut Box<LocalAnalyzerContext>,
+	//	api_scope: &mut ScopeHandle,
+	//) -> miette::Result<()> {
+	//	use log::*;
+	//	let additional_ctx = AdditionalContext::new(
+	//		local_ctx.nc_widths.clone(),
+	//		local_ctx.array_or_bus.clone(),
+	//		local_ctx.casts.clone(),
+	//	);
+	//	let scope_id = local_ctx.scope_map.get(&self.location).unwrap().to_owned();
+	//	for direct_initializer in &self.initializer_list {
+	//		let variable = local_ctx
+	//			.scope
+	//			.get_variable_in_scope(scope_id, &direct_initializer.declarator.name)
+	//			.unwrap();
+	//		let api_id = variable.var.register(
+	//			ctx.nc_table,
+	//			ctx.id_table,
+	//			scope_id,
+	//			&local_ctx.scope,
+	//			Some(&additional_ctx),
+	//			api_scope
+	//				.new_signal(ctx.id_table.get_by_key(&variable.var.name).unwrap().as_str())
+	//				.unwrap(),
+	//		)?;
+	//		match &direct_initializer.expression {
+	//			Some(expr) => {
+	//				let rhs = expr.codegen(
+	//					ctx.nc_table,
+	//					ctx.id_table,
+	//					scope_id,
+	//					&local_ctx.scope,
+	//					Some(&additional_ctx),
+	//				)?;
+	//				debug!("Lhs is {:?}", hirn::design::Expression::Signal(api_id.into()));
+	//				debug!("Rhs is {:?}", rhs);
+	//				api_scope.assign(api_id.into(), rhs).unwrap()
+	//			},
+	//			None => (),
+	//		}
 
-			local_ctx.scope.insert_api_id(variable.id, api_id)
-		}
-		Ok(())
-	}
+	//		local_ctx.scope.insert_api_id(variable.id, api_id)
+	//	}
+	//	Ok(())
+	//}
 	pub fn codegen_passv2(
 		&self,
 		ctx: &mut GlobalAnalyzerContext,
@@ -363,6 +363,7 @@ impl VariableDefinition {
 		let scope_id = local_ctx.scope_map.get(&self.location).unwrap().to_owned();
 		let additional_ctx = AdditionalContext::new(
 			local_ctx.nc_widths.clone(),
+			local_ctx.ncs_to_be_exted.clone(),
 			local_ctx.array_or_bus.clone(),
 			local_ctx.casts.clone(),
 		);
