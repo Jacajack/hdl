@@ -28,7 +28,16 @@ fn neg_biguint(value: BigUint, width: u64) -> BigUint {
 
 fn signed_bigint_min_width(value: &BigInt) -> u64 {
 	let (sign, mag) = value.clone().into_parts();
-	max(1, mag.bits() + if mag.count_ones() == 1 && sign == num_bigint::Sign::Minus {0} else {1})
+	max(
+		1,
+		mag.bits()
+			+ if mag.count_ones() == 1 && sign == num_bigint::Sign::Minus {
+				0
+			}
+			else {
+				1
+			},
+	)
 }
 
 fn unsigned_bigint_min_width(value: &BigInt) -> u64 {
@@ -79,7 +88,7 @@ impl NumericConstant {
 			);
 			return Err(EvalError::NumericConstantWidthTooSmall);
 		}
-		
+
 		Self::new(
 			{
 				let (sign, mut mag) = value.into_parts();
@@ -98,11 +107,14 @@ impl NumericConstant {
 		if value.bits() > width {
 			error!(
 				"Invalid num. const - sign: {:?}, width: {}, value: {}, min width is {}",
-				signedness, width, value, value.bits()
+				signedness,
+				width,
+				value,
+				value.bits()
 			);
 			return Err(EvalError::NumericConstantWidthTooSmall);
 		}
-		
+
 		let mut nc = Self {
 			error: None,
 			value,
