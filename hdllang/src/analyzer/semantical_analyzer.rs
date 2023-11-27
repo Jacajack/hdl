@@ -347,6 +347,15 @@ fn to_report(
 				.build()
 		},
 
+		CombLoop {signals} => {
+			// FIXME this report is terrible
+			// Reporting signal references should be reworked, because it's very
+			// broken for arrays.
+			report
+				.help(format!("The combinational loop may involve some of these signals: {:?}", signals).as_str())
+				.build()
+		}
+
 		SignalNotDriven { signal, elab } => {
 			let variable_location = scope.get_variable_location(signal.signal());
 			let mask = elab.undriven_summary();

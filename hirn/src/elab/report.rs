@@ -136,8 +136,10 @@ pub enum ElabMessageKind {
 		elab: Box<ElabSignal>,
 	},
 
-	#[error("The design contains a combinational loop")]
-	CombLoop,
+	#[error("The module contains a combinational signal loop")]
+	CombLoop {
+		signals: Vec<GeneratedSignalRef>,
+	},
 
 	#[error("Assignment/binding of signals with different widths")]
 	WidthMismatch {
