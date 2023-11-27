@@ -155,7 +155,7 @@ impl NumericConstant {
 	/// (does not check if the value is representable)
 	fn is_width_valid(&self) -> bool {
 		if let Some(n) = self.width {
-			n > 0 && n <= 64
+			n > 0 && n < 65536 // TODO make this configurable
 		}
 		else {
 			true
