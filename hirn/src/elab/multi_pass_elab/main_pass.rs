@@ -56,6 +56,9 @@ pub struct MainPassResult {
 
 	/// Modules queued for elaboration
 	queued_modules: Vec<(ModuleHandle, Arc<dyn ElabAssumptionsBase>)>,
+
+	/// Combinational signal dependency graph
+	comb_graph: CombGraph,
 }
 
 impl MainPassResult {
@@ -74,7 +77,13 @@ impl MainPassResult {
 	pub fn queued_modules(&self) -> &[(ModuleHandle, Arc<dyn ElabAssumptionsBase>)] {
 		&self.queued_modules
 	}
+
+	pub fn comb_graph(&self) -> &CombGraph {
+		&self.comb_graph
+	}
 }
+
+pub type CombGraph = GraphMap<GeneratedSignalRef, (), Directed>;
 
 struct MainPassCtx {
 	/// Design handle
@@ -101,9 +110,9 @@ struct MainPassCtx {
 	/// Elaborated signals
 	elab_signals: HashMap<GeneratedSignalRef, ElabSignal>,
 
-	comb_graph: GraphMap<GeneratedSignalRef, (), Directed>,
-	// clock_graph: GraphMap<GeneratedSignalId, (), Undirected>,
-	// clock_groups: HashMap<GeneratedSignalId, usize>,
+	/// Combinational signal dependency graph
+	comb_graph: CombGraph,
+
 	/// Modules queued for elaboration
 	queued_modules: Vec<(ModuleHandle, Arc<dyn ElabAssumptionsBase>)>,
 }
@@ -173,7 +182,7 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for MainPass {
 
 	fn run(&mut self, mut full_ctx: FullElabCtx) -> Result<FullElabCtx, ElabError> {
 		info!("Running signal graph pass...");
-		let mut ctx = MainPassCtx::new(full_ctx.design().clone(), full_ctx.sig_graph_config.clone());
+		let mut ctx = MainPassCtx::new(full_ctx.design().clone(), full_ctx.main_pass_config.clone());
 		let module = full_ctx.module_handle();
 
 		let result = ctx.elab_module(module.clone(), full_ctx.assumptions());
@@ -188,11 +197,12 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for MainPass {
 		info!("Signal graph edge count: {}", ctx.comb_graph.edge_count());
 		info!("Elab signals registered: {}", ctx.elab_signals.len());
 
-		full_ctx.sig_graph_result = Some(MainPassResult {
+		full_ctx.main_pass_result = Some(MainPassResult {
 			signals: ctx.signals,
 			elab_signals: ctx.elab_signals,
 			pass_info: ctx.pass_info,
 			queued_modules: ctx.queued_modules,
+			comb_graph: ctx.comb_graph,
 		});
 		Ok(full_ctx)
 	}

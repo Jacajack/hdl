@@ -1,7 +1,7 @@
-use log::{error, info, warn};
+use log::info;
 
 use crate::elab::{
-	multi_pass_elab::ElabPassContext, DefaultSeverityPolicy, ElabError, ElabMessage, ElabMessageKind, SeverityPolicy,
+	 ElabError, ElabMessageKind,
 };
 
 use super::{
@@ -12,13 +12,10 @@ use super::{
 pub(super) struct SignalUsagePass;
 
 fn get_messages(ctx: &FullElabCtx) -> Vec<ElabMessageKind> {
-	let sig_graph = ctx.sig_graph_result.as_ref().unwrap();
+	let sig_graph = ctx.main_pass_result.as_ref().unwrap();
 	let mut messages = Vec::new();
 
 	for (sig_ref, elab_sig) in sig_graph.elab_signals() {
-		let sig = ctx.design().get_signal(sig_ref.signal()).unwrap();
-		let sig_name = sig.name();
-
 		if !elab_sig.is_fully_driven() {
 			if elab_sig.is_read() {
 				messages.push(ElabMessageKind::SignalNotDrivenAndUsed {

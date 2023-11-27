@@ -1,6 +1,7 @@
 mod full_elab;
 mod main_pass;
 mod signal_usage_pass;
+mod comb_verif_pass;
 
 pub use full_elab::FullElaborator;
 use log::info;

@@ -1,19 +1,18 @@
 use std::sync::{Arc, Mutex};
 
-use log::{debug, info};
+use log::info;
 
 use crate::{
 	design::{DesignHandle, EvalError, ModuleHandle, ModuleId},
 	elab::{
-		DefaultSeverityPolicy, ElabAssumptionsBase, ElabError, ElabMessage, ElabMessageKind, ElabReport, Elaborator,
-		SeverityPolicy,
+		ElabAssumptionsBase, ElabError, ElabMessage, ElabMessageKind, ElabReport, Elaborator,
 	},
 };
 
 use super::{
 	main_pass::{MainPass, MainPassConfig, MainPassResult},
 	signal_usage_pass::SignalUsagePass,
-	ElabPassContext, ElabQueueItem, MultiPassElaborator,
+	ElabPassContext, ElabQueueItem, MultiPassElaborator, comb_verif_pass::CombVerifPass,
 };
 
 pub(super) struct FullElabCtx {
@@ -21,10 +20,9 @@ pub(super) struct FullElabCtx {
 	module_id: ModuleId,
 	report: ElabReport,
 	assumptions: Arc<dyn ElabAssumptionsBase>,
-	severity_policy: Box<dyn SeverityPolicy>,
 
-	pub(super) sig_graph_result: Option<MainPassResult>,
-	pub(super) sig_graph_config: MainPassConfig,
+	pub(super) main_pass_result: Option<MainPassResult>,
+	pub(super) main_pass_config: MainPassConfig,
 }
 
 impl FullElabCtx {
@@ -65,14 +63,13 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 			module_id,
 			assumptions,
 			report: ElabReport::default(),
-			severity_policy: Box::new(DefaultSeverityPolicy),
-			sig_graph_config: MainPassConfig::default(),
-			sig_graph_result: None,
+			main_pass_config: MainPassConfig::default(),
+			main_pass_result: None,
 		}
 	}
 
 	fn queued(&self) -> Vec<ElabQueueItem> {
-		if let Some(result) = &self.sig_graph_result {
+		if let Some(result) = &self.main_pass_result {
 			result
 				.queued_modules()
 				.iter()
@@ -103,6 +100,7 @@ impl FullElaborator {
 		let mut elaborator = MultiPassElaborator::new(design);
 		elaborator.add_pass(Box::new(MainPass {}));
 		elaborator.add_pass(Box::new(SignalUsagePass {}));
+		elaborator.add_pass(Box::new(CombVerifPass {}));
 		Self { elaborator }
 	}
 }

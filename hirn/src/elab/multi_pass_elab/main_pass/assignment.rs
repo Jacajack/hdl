@@ -53,6 +53,15 @@ impl MainPassCtx {
 			});
 		}
 
+		if lhs_ext_instance.is_none() && rhs_ext_instance.is_none() {
+			for i in 0..lhs_sig.total_fields() {
+				self.comb_graph.add_edge(
+					lhs_ref.with_index(i as u32),
+					rhs_ref.with_index(i as u32),
+					());
+			}
+		}
+
 		if lhs_ext_instance.is_none() {
 			self.drive_signal(&lhs_slice_range, assumptions.clone())?;
 		}
@@ -61,7 +70,6 @@ impl MainPassCtx {
 			self.read_signal(&rhs_slice_range, assumptions.clone())?;
 		}
 
-		// TODO insert a lot of graph edges
 		Ok(())
 	}
 
@@ -122,6 +130,9 @@ impl MainPassCtx {
 			})
 			.collect();
 
+		// We should not have any LHS dependencies on non-generic signals
+		assert!(lhs_dependencies.is_empty(), "LHS shall not depend on a non-generic signal"); 
+
 		// Filter out generics from RHS dependencies
 		rhs_dependencies = rhs_dependencies
 			.into_iter()
@@ -174,7 +185,11 @@ impl MainPassCtx {
 		}
 
 		if !lhs_external && !rhs_external {
-			// TODO signal graph insert dependency
+			let lhs_gen_ref = self.get_generated_signal_ref(driven_bits.slice(), assumptions.clone())?;
+			for range in &rhs_dependencies {
+				let rhs_gen_ref = self.get_generated_signal_ref(range.slice(), assumptions.clone())?;
+				self.comb_graph.add_edge(lhs_gen_ref, rhs_gen_ref, ());
+			}
 		}
 
 		Ok(())

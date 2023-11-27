@@ -66,6 +66,13 @@ impl GeneratedSignalRef {
 	pub fn is_external(&self) -> bool {
 		self.id.is_external()
 	}
+
+	pub fn with_index(&self, index: u32) -> Self {
+		Self {
+			id: self.id,
+			index: Some(index),
+		}
+	}
 }
 
 /// Represents a generated signal (width + dimensions evaluated)
