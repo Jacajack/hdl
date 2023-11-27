@@ -1,7 +1,10 @@
+use std::cmp::max;
+
 use super::{NarrowEval, WidthExpression};
 use crate::design::{Expression, HasSignedness, SignalSignedness};
 
-use num_bigint::{BigInt, BigUint, ToBigInt};
+use log::error;
+use num_bigint::{BigInt, BigUint};
 
 use super::EvalError;
 
@@ -23,6 +26,15 @@ fn neg_biguint(value: BigUint, width: u64) -> BigUint {
 	not_biguint(value, width) + 1u32
 }
 
+fn signed_bigint_min_width(value: &BigInt) -> u64 {
+	let (sign, mag) = value.clone().into_parts();
+	max(1, mag.bits() + if mag.count_ones() == 1 && sign == num_bigint::Sign::Minus {0} else {1})
+}
+
+fn unsigned_bigint_min_width(value: &BigInt) -> u64 {
+	max(1, value.bits())
+}
+
 impl NumericConstant {
 	const MAX_SHIFT_WIDTH: u64 = 65535;
 
@@ -38,8 +50,7 @@ impl NumericConstant {
 
 	/// New signed constant with bit width optimal to store the provided value
 	pub fn new_signed(value: BigInt) -> Self {
-		let width = value.bits() + 1;
-		Self::from_bigint(value, SignalSignedness::Signed, width).unwrap()
+		Self::from_bigint(value.clone(), SignalSignedness::Signed, signed_bigint_min_width(&value)).unwrap()
 	}
 
 	/// New unsigned constant with bit width optimal to store the provided value
@@ -54,6 +65,21 @@ impl NumericConstant {
 	}
 
 	pub fn from_bigint(value: BigInt, signedness: SignalSignedness, width: u64) -> Result<Self, EvalError> {
+		let min_width = if signedness.is_signed() {
+			signed_bigint_min_width(&value)
+		}
+		else {
+			unsigned_bigint_min_width(&value)
+		};
+
+		if width < min_width {
+			error!(
+				"Invalid num. const - sign: {:?}, width: {}, value: {}, min width is {}",
+				signedness, width, value, min_width
+			);
+			return Err(EvalError::NumericConstantWidthTooSmall);
+		}
+		
 		Self::new(
 			{
 				let (sign, mut mag) = value.into_parts();
@@ -69,6 +95,14 @@ impl NumericConstant {
 
 	/// Creates a new NumericConstant from parts
 	pub fn new(value: BigUint, signedness: SignalSignedness, width: u64) -> Result<Self, EvalError> {
+		if value.bits() > width {
+			error!(
+				"Invalid num. const - sign: {:?}, width: {}, value: {}, min width is {}",
+				signedness, width, value, value.bits()
+			);
+			return Err(EvalError::NumericConstantWidthTooSmall);
+		}
+		
 		let mut nc = Self {
 			error: None,
 			value,
