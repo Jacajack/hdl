@@ -263,6 +263,7 @@ impl ModuleImplementationScope {
 		var.kind.add_name_to_clock(id);
 		self.variable_counter += 1;
 		let name = var.name.clone();
+		log::debug!("Defining variable {:?} with name {:?} in scope {:?}", id, name, scope_id);
 		let defined = VariableDefined {
 			var,
 			id,
@@ -381,7 +382,7 @@ impl ModuleImplementationScope {
 	}
 	pub fn second_pass(&mut self, ctx: &mut GlobalAnalyzerContext, graph: &mut DependencyGraph) -> miette::Result<()> {
 		for v in self.variables.values() {
-			log::debug!("Checking variable {:?}", v.id);
+			log::debug!("Checking variable {:?}", ctx.id_table.get_value(&v.var.name));
 			if let VariableKind::Signal(sig) = &v.var.kind {
 				if !sig.is_sensititivity_specified() {
 					return Err(miette::Report::new(

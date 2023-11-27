@@ -384,6 +384,7 @@ impl Expression {
 				let var = match scope.get_variable(scope_id, &id.id) {
 					Some(var) => var,
 					None => {
+						log::debug!("Scope id is {:?}", scope_id);
 						return Err(miette::Report::new(
 							SemanticError::VariableNotDeclared
 								.to_diagnostic_builder()
@@ -2892,6 +2893,7 @@ impl Expression {
 		match self {
 			Number(_) => vec![],
 			Identifier(id) => {
+				log::debug!("id: {:?}", id.id);
 				vec![local_ctx.get_variable(scope_id, &id.id).unwrap().id]
 			},
 			ParenthesizedExpression(expr) => expr.expression.get_dependencies(scope_id, local_ctx),
