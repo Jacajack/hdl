@@ -1,0 +1,4 @@
+module X {}
+impl X {
+    wire x = 11u4 == trunc(11s64);
+}
