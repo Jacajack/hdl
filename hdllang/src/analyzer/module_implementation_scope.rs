@@ -17,7 +17,7 @@ pub struct InternalVariableId {
 	id: usize,
 }
 #[derive(Debug, Clone, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
-pub struct ExpressionEntryId{
+pub struct ExpressionEntryId {
 	id: usize,
 }
 impl InternalVariableId {
@@ -118,7 +118,7 @@ impl ModuleImplementationScope {
 		}
 	}
 	pub fn add_expression(&mut self, scope_id: usize, expr: crate::parser::ast::Expression) -> ExpressionEntryId {
-		let id = ExpressionEntryId{
+		let id = ExpressionEntryId {
 			id: self.evaluated_expressions_counter,
 		};
 		self.evaluated_expressions_counter += 1;
@@ -126,7 +126,7 @@ impl ModuleImplementationScope {
 			.insert(id, EvaluatedEntry::new(expr, scope_id));
 		id
 	}
-	pub fn get_all_expressions(&self) -> HashMap<ExpressionEntryId,EvaluatedEntry> {
+	pub fn get_all_expressions(&self) -> HashMap<ExpressionEntryId, EvaluatedEntry> {
 		self.evaluated_expressions.clone()
 	}
 	pub fn get_expression(&self, id: ExpressionEntryId) -> &EvaluatedEntry {

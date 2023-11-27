@@ -5,14 +5,14 @@ mod signal_sensitivity;
 mod signal_signedness;
 mod variable_kind;
 
-use core::panic;
 use crate::analyzer::module_implementation_scope::ExpressionEntryId;
+use core::panic;
 pub use direction::*;
 pub use module_instance::*;
 pub use signal::*;
 pub use signal_sensitivity::*;
 pub use signal_signedness::*;
-use std::{hash::Hash, collections::HashMap};
+use std::{collections::HashMap, hash::Hash};
 pub use variable_kind::*;
 
 use hirn::design::{Expression, NumericConstant, SignalBuilder, SignalId};
@@ -244,8 +244,8 @@ impl Variable {
 pub enum BusWidth {
 	Evaluated(crate::core::NumericConstant), // in non generic modules
 	EvaluatedLocated(crate::core::NumericConstant, ExpressionEntryId), // in non generic modules
-	Evaluable(ExpressionEntryId),                   // in generic modules
-	WidthOf(ExpressionEntryId),                     // in generic modules
+	Evaluable(ExpressionEntryId),            // in generic modules
+	WidthOf(ExpressionEntryId),              // in generic modules
 }
 impl PartialEq for BusWidth {
 	fn eq(&self, other: &Self) -> bool {

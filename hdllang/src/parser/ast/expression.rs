@@ -1186,39 +1186,33 @@ impl Expression {
 							let op = match func_name.as_str() {
 								"zext" => hirn::design::BuiltinOp::ZeroExtend {
 									expr: Box::new(expr),
-									width: Box::new(
-										scope.get_expression(loc).expression.codegen(
-											nc_table,
-											id_table,
-											scope_id,
-											scope,
-											additional_ctx,
-										)?,
-									),
+									width: Box::new(scope.get_expression(loc).expression.codegen(
+										nc_table,
+										id_table,
+										scope_id,
+										scope,
+										additional_ctx,
+									)?),
 								},
 								"ext" => hirn::design::BuiltinOp::SignExtend {
 									expr: Box::new(expr),
-									width: Box::new(
-										scope.get_expression(loc).expression.codegen(
-											nc_table,
-											id_table,
-											scope_id,
-											scope,
-											additional_ctx,
-										)?,
-									),
+									width: Box::new(scope.get_expression(loc).expression.codegen(
+										nc_table,
+										id_table,
+										scope_id,
+										scope,
+										additional_ctx,
+									)?),
 								},
 								"sext" => hirn::design::BuiltinOp::SignExtend {
 									expr: Box::new(expr),
-									width: Box::new(
-										scope.get_expression(loc).expression.codegen(
-											nc_table,
-											id_table,
-											scope_id,
-											scope,
-											additional_ctx,
-										)?,
-									),
+									width: Box::new(scope.get_expression(loc).expression.codegen(
+										nc_table,
+										id_table,
+										scope_id,
+										scope,
+										additional_ctx,
+									)?),
 								},
 								_ => unreachable!(),
 							};
@@ -2006,10 +2000,7 @@ impl Expression {
 							Some(val) => {
 								match &val.get_value() {
 									Some(value) => {
-										let id = local_ctx.scope.add_expression(
-											scope_id,
-										self.clone(),
-										);
+										let id = local_ctx.scope.add_expression(scope_id, self.clone());
 										if let Some(begin_value) = &begin {
 											if &begin_value.value > value || begin_value.value < 0.into() {
 												return Err(miette::Report::new(
@@ -2069,7 +2060,7 @@ impl Expression {
 									},
 									None => (),
 								}
-								
+
 								Ok(expr)
 							},
 							None => {
@@ -2808,9 +2799,7 @@ impl Expression {
 								type_first.set_signedness(type_second.get_signedness(), self.get_location());
 							},
 						}
-						let id = local_ctx
-							.scope
-							.add_expression(scope_id, self.clone());
+						let id = local_ctx.scope.add_expression(scope_id, self.clone());
 						match (
 							&type_first.width().unwrap().get_value(),
 							&type_second.width().unwrap().get_value(),
@@ -2857,9 +2846,7 @@ impl Expression {
 								type_first.set_signedness(type_second.get_signedness(), self.get_location());
 							},
 						}
-						let id = local_ctx
-							.scope
-							.add_expression( scope_id, self.clone());
+						let id = local_ctx.scope.add_expression(scope_id, self.clone());
 						match (
 							&type_first.width().unwrap().get_value(),
 							&type_second.width().unwrap().get_value(),

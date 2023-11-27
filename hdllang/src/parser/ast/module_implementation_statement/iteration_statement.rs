@@ -79,9 +79,7 @@ impl IterationStatement {
 			},
 			_ => {
 				local_ctx.scope_map.insert(self.statement.get_location(), id);
-				let expr_id = local_ctx
-					.scope
-					.add_expression(scope_id,  *self.range.rhs.clone());
+				let expr_id = local_ctx.scope.add_expression(scope_id, *self.range.rhs.clone());
 				local_ctx.scope.define_variable(
 					id,
 					Variable::new(

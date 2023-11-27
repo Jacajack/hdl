@@ -78,10 +78,7 @@ impl VariableDeclarationStatement {
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_declarator.array_declarators {
 				let size = array_declarator.evaluate(nc_table, 0, scope)?;
-				let id = scope.add_expression(
-					0,
-					array_declarator.clone(),
-				);
+				let id = scope.add_expression(0, array_declarator.clone());
 				match &size {
 					Some(val) => {
 						if val.value <= num_bigint::BigInt::from(0) {

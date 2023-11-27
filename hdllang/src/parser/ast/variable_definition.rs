@@ -106,10 +106,7 @@ impl VariableDefinition {
 			}
 			for array_declarator in &direct_initializer.declarator.array_declarators {
 				let size = array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
-				let id = local_ctx.scope.add_expression(
-					scope_id,
-						array_declarator.clone(),
-					);
+				let id = local_ctx.scope.add_expression(scope_id, array_declarator.clone());
 				match &size {
 					Some(val) => {
 						if val.value <= num_bigint::BigInt::from(0) {
@@ -146,9 +143,7 @@ impl VariableDefinition {
 						if let VariableKind::Generic(GenericVariable { value, .. }) = &mut spec_kind {
 							value.replace(
 								if rhs_val.is_none() {
-									let id = local_ctx
-										.scope
-										.add_expression(scope_id,  expr.clone());
+									let id = local_ctx.scope.add_expression(scope_id, expr.clone());
 									BusWidth::Evaluable(id)
 								}
 								else {
