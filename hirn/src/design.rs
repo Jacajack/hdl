@@ -9,8 +9,8 @@ mod utils;
 pub use comment::HasComment;
 pub use expression::{
 	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, ConditionalExpressionBranch,
-	EvalAssumptions, EvalContext, EvalError, EvalType, Evaluates, EvaluatesType, Expression,
-	NumericConstant, UnaryExpression, UnaryOp, WidthExpression,
+	EvalAssumptions, EvalContext, EvalError, EvalType, Evaluates, EvaluatesType, Expression, NumericConstant,
+	UnaryExpression, UnaryOp, WidthExpression,
 };
 pub use functional_blocks::{
 	BlockInstance, HasInstanceName, ModuleInstance, ModuleInstanceBuilder, Register, RegisterBuilder,

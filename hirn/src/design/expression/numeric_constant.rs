@@ -1,5 +1,5 @@
-use std::cmp::max;
 use crate::design::{HasSignedness, SignalSignedness};
+use std::cmp::max;
 
 use log::error;
 use num_bigint::{BigInt, BigUint};
@@ -328,7 +328,7 @@ impl NumericConstant {
 				else {
 					Self::new_bool(self.is_zero())
 				}
-			}, 
+			},
 		}
 	}
 
@@ -710,7 +710,7 @@ impl TryFrom<NumericConstant> for i64 {
 
 	fn try_from(nc: NumericConstant) -> Result<Self, Self::Error> {
 		i64::try_from(nc.to_bigint()?).or(Err(EvalError::NarrowEvalRange))
-	}	
+	}
 }
 
 impl TryFrom<NumericConstant> for u64 {
@@ -718,7 +718,7 @@ impl TryFrom<NumericConstant> for u64 {
 
 	fn try_from(nc: NumericConstant) -> Result<Self, Self::Error> {
 		u64::try_from(nc.to_biguint()?).or(Err(EvalError::NarrowEvalRange))
-	}	
+	}
 }
 
 impl HasSignedness for NumericConstant {
@@ -801,7 +801,7 @@ impl PartialEq for NumericConstant {
 				else {
 					self.value == other.value
 				}
-			}
+			},
 		}
 	}
 }
@@ -901,11 +901,8 @@ impl_binary_constant_op!(Div, div, |lhs: &NumericConstant,
 		return Err(EvalError::DivisionByZero);
 	}
 
-	let mut result = NumericConstant::from_bigint(
-		lhs.to_bigint()? / rhs.to_bigint()?,
-		lhs.signedness()?,
-		lhs.width()?,
-	)?;
+	let mut result =
+		NumericConstant::from_bigint(lhs.to_bigint()? / rhs.to_bigint()?, lhs.signedness()?, lhs.width()?)?;
 	result.normalize();
 	Ok(result)
 });
@@ -919,11 +916,8 @@ impl_binary_constant_op!(Rem, rem, |lhs: &NumericConstant,
 		return Err(EvalError::DivisionByZero);
 	}
 
-	let mut result = NumericConstant::from_bigint(
-		lhs.to_bigint()? % rhs.to_bigint()?,
-		lhs.signedness()?,
-		rhs.width()?,
-	)?;
+	let mut result =
+		NumericConstant::from_bigint(lhs.to_bigint()? % rhs.to_bigint()?, lhs.signedness()?, rhs.width()?)?;
 	result.normalize();
 	Ok(result)
 });
@@ -933,11 +927,7 @@ impl_binary_constant_op!(BitAnd, bitand, |lhs: &NumericConstant,
  -> Result<NumericConstant, EvalError> {
 	check_sign_match(lhs, rhs)?;
 	check_width_match(lhs, rhs)?;
-	let mut result = NumericConstant::new(
-		lhs.to_biguint()? & rhs.to_biguint()?,
-		lhs.signedness()?,
-		lhs.width()?
-	)?;
+	let mut result = NumericConstant::new(lhs.to_biguint()? & rhs.to_biguint()?, lhs.signedness()?, lhs.width()?)?;
 	result.normalize();
 	Ok(result)
 });
@@ -947,11 +937,7 @@ impl_binary_constant_op!(BitOr, bitor, |lhs: &NumericConstant,
  -> Result<NumericConstant, EvalError> {
 	check_sign_match(lhs, rhs)?;
 	check_width_match(lhs, rhs)?;
-	let mut result = NumericConstant::new(
-		lhs.to_biguint()? | rhs.to_biguint()?,
-		lhs.signedness()?,
-		lhs.width()?
-	)?;
+	let mut result = NumericConstant::new(lhs.to_biguint()? | rhs.to_biguint()?, lhs.signedness()?, lhs.width()?)?;
 	result.normalize();
 	Ok(result)
 });
@@ -961,19 +947,15 @@ impl_binary_constant_op!(BitXor, bitxor, |lhs: &NumericConstant,
  -> Result<NumericConstant, EvalError> {
 	check_sign_match(lhs, rhs)?;
 	check_width_match(lhs, rhs)?;
-	let mut result = NumericConstant::new(
-		lhs.to_biguint()? ^ rhs.to_biguint()?,
-		lhs.signedness()?,
-		lhs.width()?
-	)?;
+	let mut result = NumericConstant::new(lhs.to_biguint()? ^ rhs.to_biguint()?, lhs.signedness()?, lhs.width()?)?;
 	result.normalize();
 	Ok(result)
 });
 
 #[cfg(test)]
 mod test {
-	use rstest::rstest;
 	use super::*;
+	use rstest::rstest;
 
 	// TODO tests for error cases
 
@@ -1019,7 +1001,12 @@ mod test {
 	#[case(ncu(0), ncu(0), ncu(0), 2)]
 	#[case(ncu(1024), ncu(1), ncu(1025), 12)]
 	#[case(ncu(1024), ncu(1024), ncu(2048), 12)]
-	fn test_add(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_add(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs + rhs;
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1032,7 +1019,12 @@ mod test {
 	#[case(ncu(1024), ncu(1024), ncu(0), 12)]
 	#[case(ncu(0), ncu(1), ncu(3), 2)]
 	#[case(ncu(127), ncu(128), ncu(511), 9)]
-	fn test_sub(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_sub(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs - rhs;
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1044,7 +1036,12 @@ mod test {
 	#[case(nc(-1), nc(-1), nc(1), 2)]
 	#[case(nc(10), nc(10), nc(100), 10)]
 	#[case(ncu(10), ncu(10), ncu(100), 8)]
-	fn test_mul(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_mul(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs * rhs;
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1057,7 +1054,12 @@ mod test {
 	#[case(ncu(255), ncu(2), ncu(127), 8)]
 	#[case(ncu(255), ncu(1), ncu(255), 8)]
 	#[case(ncu(30), ncu(3), ncu(10), 5)]
-	fn test_div(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_div(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs / rhs;
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1070,7 +1072,12 @@ mod test {
 	#[case(nc(1247), nc(1247), nc(0), 12)]
 	#[case(ncu(5), ncu(3), ncu(2), 2)]
 	#[case(ncu(560), ncu(33), ncu(560 % 33), 6)]
-	fn test_rem(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_rem(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs % rhs;
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1081,7 +1088,12 @@ mod test {
 	#[case(ncu(6), ncu(10), ncu(0), 3)]
 	#[case(ncu(5), ncu(1), ncu(2), 3)]
 	#[case(nc(15), ncu(1), nc(-2), 5)]
-	fn test_shl(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_shl(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs.op_shl(rhs);
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1094,7 +1106,12 @@ mod test {
 	#[case(nc(-8), ncu(2), nc(2), 4)]
 	#[case(nc(-8), ncu(3), nc(1), 4)]
 	#[case(nc(-8), ncu(4), nc(0), 4)]
-	fn test_lsr(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_lsr(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs.op_lsr(rhs);
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1109,7 +1126,12 @@ mod test {
 	#[case(nc(-8), ncu(3), nc(-1), 4)]
 	#[case(nc(-8), ncu(4), nc(-1), 4)]
 	#[case(nc(-8), ncu(5), nc(-1), 4)]
-	fn test_shr(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_shr(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs >> rhs;
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1118,7 +1140,12 @@ mod test {
 	#[rstest]
 	#[case(ncu(1), ncu(10), ncu(1024), 11)]
 	#[case(ncu(213), ncu(7), ncu(213 * 128), 8 + 7)]
-	fn test_shl_expand(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_shl_expand(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs.op_shl_expand(rhs);
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1127,7 +1154,12 @@ mod test {
 	#[rstest]
 	#[case(nc(10), ncu(50), nc(10), 50)]
 	#[case(nc(-14), ncu(500), nc(-14), 500)]
-	fn test_ext(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_ext(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs.op_ext(rhs);
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1137,7 +1169,12 @@ mod test {
 	#[case(nc(10), ncu(50), nc(10), 50)]
 	#[case(nc(-10), ncu(50), nc(-10), 50)]
 	#[case(nc(-14), ncu(500), nc(-14), 500)]
-	fn test_sext(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_sext(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs.op_sext(rhs);
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1145,7 +1182,12 @@ mod test {
 
 	#[rstest]
 	#[case(nc(-10), ncu(8), nc(22), 8)]
-	fn test_zext(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_zext(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs.op_zext(rhs);
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1154,7 +1196,12 @@ mod test {
 	#[rstest]
 	#[case(ncu(5), ncu(5), ncu(45), 6)]
 	#[case(nc(3), nc(3), ncu(8 + 16 + 3), 6)] // TODO not sure, maybe join should preserve sign of the first arg?
-	fn test_join(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_join(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs.op_join(rhs);
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1162,7 +1209,12 @@ mod test {
 
 	#[rstest]
 	#[case(ncu(5), ncu(2), ncu(45), 6)]
-	fn test_replicate(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_replicate(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs.op_replicate(rhs);
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1176,7 +1228,12 @@ mod test {
 	#[case(nc(-3), ncu(0), ncu(1), 1)]
 	#[case(nc(-3), ncu(1), ncu(0), 1)]
 	#[case(nc(-3), ncu(2), ncu(1), 1)]
-	fn test_bit_select(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_bit_select(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs.op_bit_select(rhs);
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1189,7 +1246,13 @@ mod test {
 	#[case(ncu(0b110011), ncu(0), ncu(5), ncu(0b110011), 6)]
 	#[case(nc(-3), ncu(0), ncu(2), nc(-3), 3)]
 	#[case(nc(-3), ncu(0), ncu(1), nc(1), 2)]
-	fn test_bus_select(#[case] lhs: NumericConstant, #[case] lsb: NumericConstant, #[case] msb: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_bus_select(
+		#[case] lhs: NumericConstant,
+		#[case] lsb: NumericConstant,
+		#[case] msb: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs.op_bus_select(lsb, msb);
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1198,7 +1261,12 @@ mod test {
 	#[rstest]
 	#[case(ncu(0b1010), ncu(0b1100), ncu(0b1000), 4)]
 	#[case(nc(0b1010), nc(0b1100), nc(0b1000), 5)]
-	fn test_bitwise_and(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_bitwise_and(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs & rhs;
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1207,7 +1275,12 @@ mod test {
 	#[rstest]
 	#[case(ncu(0b1010), ncu(0b1100), ncu(0b1110), 4)]
 	#[case(nc(0b1010), nc(0b1100), nc(0b1110), 5)]
-	fn test_bitwise_or(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_bitwise_or(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs | rhs;
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);
@@ -1216,7 +1289,12 @@ mod test {
 	#[rstest]
 	#[case(ncu(0b1010), ncu(0b1100), ncu(0b0110), 4)]
 	#[case(nc(0b1010), nc(0b1100), nc(0b0110), 5)]
-	fn test_bitwise_xor(#[case] lhs: NumericConstant, #[case] rhs: NumericConstant, #[case] expected: NumericConstant, #[case] width: u64) {
+	fn test_bitwise_xor(
+		#[case] lhs: NumericConstant,
+		#[case] rhs: NumericConstant,
+		#[case] expected: NumericConstant,
+		#[case] width: u64,
+	) {
 		let result = lhs ^ rhs;
 		assert_eq!(result, expected);
 		assert_eq!(result.width().unwrap(), width);

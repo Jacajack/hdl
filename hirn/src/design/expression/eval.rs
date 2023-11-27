@@ -94,7 +94,10 @@ pub trait Evaluates {
 		self.eval(&EvalContext::default())
 	}
 
-	fn eval_to<T: TryFrom<NumericConstant, Error = EvalError>>(&self, ctx: &dyn EvalAssumptions) -> Result<T, EvalError> {
+	fn eval_to<T: TryFrom<NumericConstant, Error = EvalError>>(
+		&self,
+		ctx: &dyn EvalAssumptions,
+	) -> Result<T, EvalError> {
 		self.eval(ctx)?.try_into()
 	}
 
@@ -106,9 +109,10 @@ pub trait Evaluates {
 		}
 	}
 
-	fn try_eval_ignore_missing_into
-		<T: TryFrom<NumericConstant, Error = EvalError>>(&self, ctx: &dyn EvalAssumptions)
-		-> Result<Option<T>, EvalError> {
+	fn try_eval_ignore_missing_into<T: TryFrom<NumericConstant, Error = EvalError>>(
+		&self,
+		ctx: &dyn EvalAssumptions,
+	) -> Result<Option<T>, EvalError> {
 		Ok(match self.try_eval_ignore_missing(ctx)? {
 			Some(value) => Some(value.try_into()?),
 			None => None,

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use log::{debug, error};
 
 use crate::{
-	design::{Evaluates, HasSensitivity, SignalId, SignalSlice, ScopeHandle, ModuleHandle},
+	design::{Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalId, SignalSlice},
 	elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
 
@@ -157,15 +157,15 @@ impl MainPassCtx {
 				gen_sig.dimensions.len(),
 				"Slice/signal rank mismatch"
 			);
-			
+
 			// Eval indices
 			let index_vals: Result<Vec<_>, _> = slice
-			.indices
+				.indices
 				.iter()
 				.map(|expr| expr.eval(&assumptions)?.try_into_i64().into())
 				.collect();
 			let index_vals = index_vals?;
-			
+
 			// Check for invalid array indices
 			for (index, size) in index_vals.iter().zip(gen_sig.dimensions.iter()) {
 				if *index < 0 || *index >= (*size as i64) {
@@ -173,22 +173,22 @@ impl MainPassCtx {
 					return Err(ElabMessageKind::InvalidArrayIndex);
 				}
 			}
-			
+
 			let gen_sig = self.signals.get(&gen_id).expect("Generated signal not registered");
 			let index = index_vals
-			.iter()
-			.zip(gen_sig.dimensions.iter())
-			.fold(0, |acc, (index, size)| -> u32 {
-				acc * (*size as u32) + (*index as u32)
-			});
-			
+				.iter()
+				.zip(gen_sig.dimensions.iter())
+				.fold(0, |acc, (index, size)| -> u32 {
+					acc * (*size as u32) + (*index as u32)
+				});
+
 			Ok(GeneratedSignalRef {
 				id: gen_id,
 				index: Some(index),
 			})
 		}
 	}
-	
+
 	pub fn get_generated_signal_ref(
 		&self,
 		slice: &SignalSlice,
@@ -233,11 +233,16 @@ impl MainPassCtx {
 		let sig = self.design.get_signal(id).expect("signal not in design");
 		// let pass_id = self.get_scope_pass_id(sig.parent_scope);
 		// let scope_handle = self.design.get_scope_handle(sig.parent_scope).unwrap();
-		
+
 		assert_ne!(pass_id.is_some(), ext_instance_id.is_some());
 		assert!(!sig.is_generic());
 
-		debug!("Signal '{}' declared in pass {:?} (instance: {:?}", sig.name(), pass_id, ext_instance_id);
+		debug!(
+			"Signal '{}' declared in pass {:?} (instance: {:?}",
+			sig.name(),
+			pass_id,
+			ext_instance_id
+		);
 
 		// Check signal rank
 		if sig.rank() > self.config.max_array_rank {
@@ -337,7 +342,6 @@ impl MainPassCtx {
 		Ok(gen_id)
 	}
 
-
 	pub fn declare_signal(
 		&mut self,
 		id: SignalId,
@@ -347,13 +351,7 @@ impl MainPassCtx {
 		let pass_id = self.get_scope_pass_id(sig.parent_scope);
 		let scope_handle = self.design.get_scope_handle(sig.parent_scope).unwrap();
 
-		self.declare_signal_impl(
-			id,
-			scope_handle,
-			Some(pass_id),
-			None,
-			assumptions
-		)
+		self.declare_signal_impl(id, scope_handle, Some(pass_id), None, assumptions)
 	}
 
 	pub fn declare_ext_interface_signal(
@@ -363,11 +361,6 @@ impl MainPassCtx {
 		instance_id: usize,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<GeneratedSignalId, ElabMessageKind> {
-		self.declare_signal_impl(
-			id,
-			module.scope(),
-			None,
-			Some(instance_id),
-			assumptions)
+		self.declare_signal_impl(id, module.scope(), None, Some(instance_id), assumptions)
 	}
 }

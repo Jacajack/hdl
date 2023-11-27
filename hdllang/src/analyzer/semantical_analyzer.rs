@@ -335,7 +335,11 @@ fn to_report(
 ) -> CompilerDiagnostic {
 	use ElabMessageKind::*;
 	match elab_report_kind {
-		WidthMismatch { lhs, lhs_width, rhs_width } => {
+		WidthMismatch {
+			lhs,
+			lhs_width,
+			rhs_width,
+		} => {
 			let lhs_location = scope.get_variable_location(lhs.signal());
 			report
 				.label(lhs_location, format!("Width of this signal is {}", lhs_width).as_str())
