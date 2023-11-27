@@ -192,36 +192,18 @@ pub fn parse_numeric_constant_str(s: &str) -> Result<NumericConstant, NumberPars
 	else if s.starts_with("0b") {
 		base = NumericConstantBase::Binary;
 		num_bits = num_bits.or(Some((digits_end - 2) as u32));
+		is_signed = is_signed.or(Some(false));
 
-		match is_signed {
-			Some(true) => {
-				if s.starts_with("0b1") {
-					let mut val = parse_pure_binary(&s[3..digits_end]).map_err(|e| NumberParseError {
-						kind: e.kind,
-						range: (0, token_len),
-					})?;
-					val = val - BigInt::from(2).pow((digits_end - 3) as u32);
-					val
-				}
-				else {
-					parse_pure_binary(&s[3..digits_end]).map_err(|e| NumberParseError {
-						kind: e.kind,
-						range: (0, token_len),
-					})?
-				}
-			},
-			Some(false) => parse_pure_binary(&s[2..digits_end]).map_err(|e| NumberParseError {
-				kind: e.kind,
-				range: (0, token_len),
-			})?,
-			None => {
-				is_signed = Some(false);
-				parse_pure_binary(&s[2..digits_end]).map_err(|e| NumberParseError {
-					kind: e.kind,
-					range: (0, token_len),
-				})?
-			},
+		let mut val = parse_pure_binary(&s[2..digits_end]).map_err(|e| NumberParseError {
+			kind: e.kind,
+			range: (0, token_len),
+		})?;
+
+		if is_signed.unwrap() && val != 0.into() && val.bit(num_bits.unwrap() as u64 - 1) {
+			val -= BigInt::from(1) << num_bits.unwrap();
 		}
+
+		val
 	}
 	else {
 		base = NumericConstantBase::Decimal;
@@ -266,7 +248,10 @@ mod tests {
 	#[case("0011", 11, None, None)]
 	#[case("000___00__000", 0, None, None)]
 	#[case("0", 0, None, None)]
-	#[case("0b1101____", 13, None, Some(false))]
+	#[case("0b1101____", 13, Some(4), Some(false))]
+	#[case("0b1101____s", 5-8, Some(4), Some(true))]
+	#[case("0b1101____s128", 13, Some(128), Some(true))]
+	#[case("0b1101____u128", 13, Some(128), Some(false))]
 	#[case("0x_f_f_", 255, Some(8), Some(false))]
 	#[case("0s", 0, None, Some(true))]
 	#[case("0u", 0, None, Some(false))]
