@@ -182,6 +182,7 @@ impl PortBindStatement {
 				let mut dimensions = Vec::new();
 				for array_declarator in direct_declarator.array_declarators.iter() {
 					let array_size = array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
+					let id  = local_ctx.scope.add_expression(scope_id, array_declarator.clone());
 					match &array_size {
 						Some(val) => {
 							if val.value <= num_bigint::BigInt::from(0) {
@@ -192,9 +193,9 @@ impl PortBindStatement {
 										.build(),
 								));
 							}
-							dimensions.push(BusWidth::EvaluatedLocated(val.clone(), array_declarator.get_location()));
+							dimensions.push(BusWidth::EvaluatedLocated(val.clone(), id));
 						},
-						None => dimensions.push(BusWidth::Evaluable(array_declarator.get_location())),
+						None => dimensions.push(BusWidth::Evaluable(id)),
 					}
 				}
 				new_war.add_dimenstions(dimensions);

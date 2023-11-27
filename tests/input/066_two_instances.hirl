@@ -1,0 +1,26 @@
+module Inner {
+	int a;
+	input async ubus<a> a_in;
+	output async ubus<a> a_out;
+}
+
+impl Inner {
+	a_out = a_in;
+}
+
+module Outer {}
+impl Outer {
+	ubus<4> xxx;
+	Inner in1{
+		a: 4s10,
+		a_in: 4u4,
+		a_out: xxx,
+	}
+
+	ubus<8> yyy;
+	Inner in2{
+		a: 8s10,
+		a_in: 8u8,
+		a_out: yyy,
+	}
+}

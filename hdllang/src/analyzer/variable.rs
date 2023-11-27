@@ -6,12 +6,13 @@ mod signal_signedness;
 mod variable_kind;
 
 use core::panic;
+use crate::analyzer::module_implementation_scope::ExpressionEntryId;
 pub use direction::*;
 pub use module_instance::*;
 pub use signal::*;
 pub use signal_sensitivity::*;
 pub use signal_signedness::*;
-use std::hash::Hash;
+use std::{hash::Hash, collections::HashMap};
 pub use variable_kind::*;
 
 use hirn::design::{Expression, NumericConstant, SignalBuilder, SignalId};
@@ -104,7 +105,7 @@ impl Variable {
 								Expression::Constant(hirn::design::NumericConstant::new_signed(value.clone().value))
 							},
 							EvaluatedLocated(_, location) => {
-								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+								let expr_ast = scope.get_expression(*location);
 								expr_ast.expression.codegen(
 									nc_table,
 									id_table,
@@ -115,7 +116,7 @@ impl Variable {
 							},
 							Evaluable(location) => {
 								log::debug!("Looking for expression at {:?}", location);
-								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+								let expr_ast = scope.get_expression(*location);
 								expr_ast.expression.codegen(
 									nc_table,
 									id_table,
@@ -125,7 +126,7 @@ impl Variable {
 								)?
 							},
 							WidthOf(location) => {
-								let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+								let expr_ast = scope.get_expression(*location);
 								let expr = expr_ast.expression.codegen(
 									nc_table,
 									id_table,
@@ -156,14 +157,14 @@ impl Variable {
 								.unwrap()
 						},
 						EvaluatedLocated(_, location) => {
-							let expr = scope.evaluated_expressions.get(location).unwrap();
+							let expr = scope.get_expression(*location);
 							let codegened =
 								expr.expression
 									.codegen(nc_table, id_table, expr.scope_id, scope, additional_ctx)?;
 							builder = builder.array(codegened).unwrap();
 						},
 						Evaluable(location) => {
-							let expr = scope.evaluated_expressions.get(location).unwrap().expression.codegen(
+							let expr = scope.get_expression(*location).expression.codegen(
 								nc_table,
 								id_table,
 								scope_id,
@@ -173,7 +174,7 @@ impl Variable {
 							builder = builder.array(expr).unwrap();
 						},
 						WidthOf(location) => {
-							let mut expr = scope.evaluated_expressions.get(location).unwrap().expression.codegen(
+							let mut expr = scope.get_expression(*location).expression.codegen(
 								nc_table,
 								id_table,
 								scope_id,
@@ -195,19 +196,19 @@ impl Variable {
 							Expression::Constant(hirn::design::NumericConstant::new_signed(value.clone().value))
 						},
 						EvaluatedLocated(_, location) => {
-							let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+							let expr_ast = scope.get_expression(*location);
 							expr_ast
 								.expression
 								.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
 						},
 						Evaluable(location) => {
-							let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+							let expr_ast = scope.get_expression(*location);
 							expr_ast
 								.expression
 								.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
 						},
 						WidthOf(location) => {
-							let expr_ast = scope.evaluated_expressions.get(&location).unwrap();
+							let expr_ast = scope.get_expression(*location);
 							let expr = expr_ast.expression.codegen(
 								nc_table,
 								id_table,
@@ -242,9 +243,9 @@ impl Variable {
 #[derive(Debug, Clone, Hash, Eq)]
 pub enum BusWidth {
 	Evaluated(crate::core::NumericConstant), // in non generic modules
-	EvaluatedLocated(crate::core::NumericConstant, SourceSpan), // in non generic modules
-	Evaluable(SourceSpan),                   // in generic modules
-	WidthOf(SourceSpan),                     // in generic modules
+	EvaluatedLocated(crate::core::NumericConstant, ExpressionEntryId), // in non generic modules
+	Evaluable(ExpressionEntryId),                   // in generic modules
+	WidthOf(ExpressionEntryId),                     // in generic modules
 }
 impl PartialEq for BusWidth {
 	fn eq(&self, other: &Self) -> bool {
@@ -259,7 +260,7 @@ impl PartialEq for BusWidth {
 	}
 }
 impl BusWidth {
-	pub fn get_location(&self) -> Option<SourceSpan> {
+	pub fn get_location(&self) -> Option<ExpressionEntryId> {
 		use BusWidth::*;
 		match self {
 			EvaluatedLocated(_, location) => Some(*location),
@@ -282,13 +283,14 @@ impl BusWidth {
 		nc_table: &crate::core::NumericConstantTable,
 		id_table: &id_table::IdTable,
 		scope: &ModuleImplementationScope,
+		ids: &HashMap<ExpressionEntryId, ExpressionEntryId>,
 	) -> miette::Result<()> {
 		use BusWidth::*;
 		match self {
 			Evaluated(_) => (),
 			EvaluatedLocated(..) => (),
 			Evaluable(location) => {
-				let expr_ast = scope.evaluated_expressions.get(location).unwrap();
+				let expr_ast = scope.get_expression(*location);
 				let expr = expr_ast.expression.evaluate(nc_table, expr_ast.scope_id, scope)?;
 				match expr {
 					Some(expr) => {
@@ -298,6 +300,34 @@ impl BusWidth {
 				}
 			},
 			WidthOf(_) => (),
+		}
+		Ok(())
+	}
+	pub fn remap(
+		&mut self,
+		nc_table: &crate::core::NumericConstantTable,
+		id_table: &id_table::IdTable,
+		scope: &ModuleImplementationScope,
+		ids: &HashMap<ExpressionEntryId, ExpressionEntryId>,
+	) -> miette::Result<()> {
+		use BusWidth::*;
+		match self {
+			Evaluated(_) => (),
+			EvaluatedLocated(_, loc) => {
+				loc.clone_from(ids.get(&loc).unwrap());
+			},
+			Evaluable(location) => {
+				let expr_ast = scope.get_expression(*location);
+				location.clone_from(ids.get(&location).unwrap());
+				let expr = expr_ast.expression.evaluate(nc_table, expr_ast.scope_id, scope)?;
+				match expr {
+					Some(expr) => {
+						*self = EvaluatedLocated(expr, *location);
+					},
+					None => (),
+				}
+			},
+			WidthOf(location) => location.clone_from(ids.get(&location).unwrap()),
 		}
 		Ok(())
 	}
