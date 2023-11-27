@@ -170,12 +170,14 @@ impl BuiltinOp {
 		use BuiltinOp::*;
 		match self {
 			// Extension width must be nonzero and generic
-			ZeroExtend { expr: _, width } | SignExtend { expr: _, width } => {
+			ZeroExtend { expr, width } | SignExtend { expr, width } => {
+				let operand_width = expr.width()?.try_eval_ignore_missing_into::<i64>(ctx)?;
 				let width_type = width.eval_type(ctx)?;
 				let width_val: Option<i64> = width.try_eval_ignore_missing_into(ctx)?;
-				match (width_type.is_generic(), width_val) {
-					(false, _) => return Err(ExpressionError::InvalidExtensionWidth.into()),
-					(_, Some(w)) if w < 1 => return Err(ExpressionError::InvalidExtensionWidth.into()),
+				match (width_type.is_generic(), width_val, operand_width) {
+					(false, _, _) => return Err(ExpressionError::InvalidExtensionWidth.into()),
+					(_, Some(w), _) if w < 1 => return Err(ExpressionError::InvalidExtensionWidth.into()),
+					(_, Some(w), Some(op_w)) if w < op_w => return Err(ExpressionError::InvalidExtensionWidth.into()),
 					(..) => {},
 				}
 			},
