@@ -1,11 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-use super::expression::NarrowEval;
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::{SignalBuilder, SignalSliceRange};
 use super::{
 	DesignError, DesignHandle, EvalContext, EvaluatesType, HasComment, HasSensitivity, HasSignedness, ModuleId,
-	RegisterBuilder, ScopeId, SignalId, WidthExpression,
+	RegisterBuilder, ScopeId, SignalId, WidthExpression, Evaluates,
 };
 use super::{Expression, ModuleHandle};
 
@@ -274,7 +273,7 @@ impl ScopeHandle {
 			return Err(DesignError::InvalidIfCondition);
 		}
 
-		match condition.width()?.narrow_eval(&eval_ctx).ok() {
+		match condition.width()?.try_eval_ignore_missing_into::<i64>(&eval_ctx)? {
 			Some(1) => {},
 			Some(_) => return Err(DesignError::InvalidIfCondition),
 			None => {},
