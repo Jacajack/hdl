@@ -264,10 +264,12 @@ impl InstantiationStatement {
 			}
 			Ok(())
 		};
+		// FIXME this is changed with 387
 		for entry in scope.evaluated_expressions.values() {
 			let prev_loc = entry.expression.get_location();
 			let mut entry_copy = entry.clone();
 			entry_copy.expression.transform(f).unwrap();
+			entry_copy.scope_id = scope_id;
 			local_ctx.scope.evaluated_expressions.insert(prev_loc, entry_copy.clone());
 			log::debug!("Inserted entry at {:?}", prev_loc);
 		}

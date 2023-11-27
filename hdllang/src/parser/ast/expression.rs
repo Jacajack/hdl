@@ -821,10 +821,20 @@ impl Expression {
 						let value:BigInt = constant.value.clone();
 						let width_loc = scope.evaluated_expressions.get(loc).unwrap().clone();
 						let width = width_loc.expression.codegen(nc_table, id_table, width_loc.scope_id, scope, additional_ctx)?;
-						let signed = match constant.signed {
-							Some(s) => s,
-							None => true,
+						let signed = if let Some(nc) = ncs.nc_widths.get(&self.get_location()){
+							log::debug!("We will read sign!");
+							match nc.signed {
+								Some(s) => s,
+								None => true,
+							}
+						}
+						else{
+							match constant.signed {
+								Some(s) => s,
+								None => true,
+							}
 						};
+						log::debug!("Sign is {:?}", signed);
 						let constant = hirn::design::Expression::Constant(
 							hirn::design::NumericConstant::from_bigint(
 								constant.value.clone(),
@@ -834,14 +844,23 @@ impl Expression {
 								else {
 									hirn::design::SignalSignedness::Unsigned
 								},
-								(value.bits() + BigInt::from(1)).to_u64().unwrap()
+								max(value.bits() + if signed {1} else {0},1)
 							)
 							.unwrap(),
 						);
-						return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::SignExtend {
-							expr: Box::new(constant),
-							width: Box::new(width),
-						}));
+						if signed{
+							return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::SignExtend {
+								expr: Box::new(constant),
+								width: Box::new(width),
+							}));
+						}
+						else {
+							return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::ZeroExtend {
+								expr: Box::new(constant),
+								width: Box::new(width),
+							}));
+						}
+
 					}
 					if let Some(nc) = ncs.nc_widths.get(&num.location) {
 						return Ok(hirn::design::Expression::Constant(
@@ -863,34 +882,34 @@ impl Expression {
 							.unwrap(),
 						));
 					}
-					if let Some(loc) = ncs.ncs_to_be_exted.get(&self.get_location()){
-						debug!("Found a constant to be extended {:?}", loc);
-						let constant = nc_table.get_by_key(&num.key).unwrap();
-						let value:BigInt = constant.value.clone();
-						let width_loc = scope.evaluated_expressions.get(loc).unwrap().clone();
-						let width = width_loc.expression.codegen(nc_table, id_table, width_loc.scope_id, scope, additional_ctx)?;
-						let signed = match constant.signed {
-							Some(s) => s,
-							None => true,
-						};
-						let constant = hirn::design::Expression::Constant(
-							hirn::design::NumericConstant::from_bigint(
-								constant.value.clone(),
-								if signed {
-									hirn::design::SignalSignedness::Signed
-								}
-								else {
-									hirn::design::SignalSignedness::Unsigned
-								},
-								(value.bits() + BigInt::from(1)).to_u64().unwrap()
-							)
-							.unwrap(),
-						);
-						return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::SignExtend {
-							expr: Box::new(constant),
-							width: Box::new(width),
-						}));
-					}
+					//if let Some(loc) = ncs.ncs_to_be_exted.get(&self.get_location()){
+					//	debug!("Found a constant to be extended {:?}", loc);
+					//	let constant = nc_table.get_by_key(&num.key).unwrap();
+					//	let value:BigInt = constant.value.clone();
+					//	let width_loc = scope.evaluated_expressions.get(loc).unwrap().clone();
+					//	let width = width_loc.expression.codegen(nc_table, id_table, width_loc.scope_id, scope, additional_ctx)?;
+					//	let signed = match constant.signed {
+					//		Some(s) => s,
+					//		None => true,
+					//	};
+					//	let constant = hirn::design::Expression::Constant(
+					//		hirn::design::NumericConstant::from_bigint(
+					//			constant.value.clone(),
+					//			if signed {
+					//				hirn::design::SignalSignedness::Signed
+					//			}
+					//			else {
+					//				hirn::design::SignalSignedness::Unsigned
+					//			},
+					//			(value.bits() + BigInt::from(1)).to_u64().unwrap()
+					//		)
+					//		.unwrap(),
+					//	);
+					//	return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::SignExtend {
+					//		expr: Box::new(constant),
+					//		width: Box::new(width),
+					//	}));
+					//}
 				}
 				let constant = nc_table.get_by_key(&num.key).unwrap();
 				let signed = match constant.signed {
@@ -1523,8 +1542,8 @@ impl Expression {
 					(Some(val), None) => {
 						debug!("Setting width of {:?} to {:?} in local_ctx", constant, val);
 						match val.get_value(){
-								Some(val) => {
-									constant.width = Some(val.to_u32().unwrap());
+								Some(value) => {
+									constant.width = Some(value.to_u32().unwrap());
 									sig.set_width(
 									BusWidth::Evaluated(NumericConstant::from_u64(
 										constant.width.unwrap() as u64,
@@ -1536,6 +1555,9 @@ impl Expression {
 									location,
 								);
 								local_ctx.nc_widths.insert(self.get_location(), constant.clone());
+								if let Some(loc) = val.get_location(){
+									local_ctx.ncs_to_be_exted.insert(self.get_location(), loc);
+								}
 							},
 							None => {
 								log::debug!("Inserting {:?} to be extended", self.get_location());
@@ -1593,6 +1615,7 @@ impl Expression {
 						},
 						(Unsigned(loc), NoSignedness) => {
 							constant.signed = Some(false);
+							log::debug!("Setting signedness of unsigned");
 							sig.set_signedness(SignalSignedness::Unsigned(loc), loc);
 							local_ctx.nc_widths.insert(self.get_location(), constant.clone());
 						},
