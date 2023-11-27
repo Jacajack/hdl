@@ -318,11 +318,17 @@ impl NumericConstant {
 			.unwrap_or_else(|| Self::new_bool(self.is_nonzero() || rhs.is_nonzero()))
 	}
 
-	// FIXME as trait
 	pub fn op_lnot(&self) -> Self {
 		match self.is_valid() {
 			false => self.clone(),
-			true => Self::new_bool(self.is_nonzero()), // FIXME ensure boolean operand
+			true => {
+				if self.is_signed() || self.width != 1 {
+					Self::new_invalid(EvalError::NonBooleanOperand)
+				}
+				else {
+					Self::new_bool(self.is_zero())
+				}
+			}, 
 		}
 	}
 
@@ -1255,5 +1261,8 @@ mod test {
 		assert_eq!(t.op_lor(&f), t);
 		assert_eq!(f.op_lor(&t), t);
 		assert_eq!(f.op_lor(&f), f);
+
+		assert_eq!(f.op_lnot(), t);
+		assert_eq!(t.op_lnot(), f);
 	}
 }
