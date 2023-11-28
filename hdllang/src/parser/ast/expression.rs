@@ -1608,13 +1608,13 @@ impl Expression {
 				if coupling_type.is_signedness_specified() {
 					match (coupling_type.get_signedness(), sig.get_signedness()) {
 						(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
-						(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc1), Signed(loc2)) => {
+						(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
 							return Err(miette::Report::new(
 								SemanticError::SignednessMismatch
 									.to_diagnostic_builder()
 									.label(location, "Signedness of this expression does not match")
-									.label(loc1, "Signedness of this signal")
-									.label(loc2, "Signedness of this expression")
+									.label(loc1, "This is signed")
+									.label(loc2, "This is unsigned")
 									.build(),
 							))
 						},
@@ -2576,11 +2576,30 @@ impl Expression {
 							.build(),
 					));
 				}
+				if !expr.is_width_specified() {
+					report_unknown_width(unary.expression.get_location())?;
+				}
 				use crate::parser::ast::UnaryOpcode::*;
 				match unary.code {
 					BitwiseNot => (),
-					LogicalNot => (),
-					Minus => todo!(), // FIXME ???
+					LogicalNot => {
+						unary
+						.expression
+						.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_wire(self.get_location()), is_lhs, location)?;
+					},
+					Minus => {
+						if expr.get_signedness().is_unsigned(){
+							return Err(miette::Report::new(
+								SemanticError::SignednessMismatch
+									.to_diagnostic_builder()
+									.label(
+										unary.expression.get_location(),
+										"This expression is unsigned, but it should be signed",
+									)
+									.build(),
+							));
+						}
+					}
 					Plus => (),
 				}
 				Ok(expr)
