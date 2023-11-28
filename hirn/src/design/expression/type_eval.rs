@@ -1,5 +1,3 @@
-use log::error;
-
 use super::{
 	eval::EvalAssumptions, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalContext, EvalError,
 	EvalType, EvaluatesType, NumericConstant, UnaryExpression,
@@ -149,7 +147,7 @@ impl EvaluatesType for BuiltinOp {
 				let types = types_res?;
 
 				for t in &types {
-					sensitivity = sensitivity.or_worse(&t.sensitivity);
+					sensitivity = sensitivity.or_worse(&t.sensitivity); // FIXME
 				}
 
 				EvalType {

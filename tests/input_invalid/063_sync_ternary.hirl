@@ -1,0 +1,24 @@
+module X {}
+impl X{
+    clock clk = (clock wire)0u1;
+    sync(clk) wire a;
+    reg aaa {
+        clk,
+        nreset: 0u1,
+        en: 0u1,
+        next: 0u1,
+        data: a,
+    }
+
+    sync(clk) wire b;
+    reg bbb {
+        clk,
+        nreset: 0u1,
+        en: 0u1,
+        next: 0u1,
+        data: b,
+    }
+
+    sync(clk) wire xxx = false;
+    sync(clk) wire c = xxx ? a : b; // Should be illegal
+}

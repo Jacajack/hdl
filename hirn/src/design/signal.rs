@@ -210,7 +210,7 @@ impl SignalSensitivity {
 			(Comb(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
 			(Comb(lhs), Const | Generic) | (Const | Generic, Comb(lhs)) => Comb(lhs.clone()),
 			(Sync(lhs), Const | Generic) | (Const | Generic, Sync(lhs)) => Comb(lhs.clone()),
-			(Clock, _) | (_, Clock) => None?,
+			(Clock, _) | (_, Clock) => Async,
 			(Const, Const) | (Const, Generic) | (Generic, Const) => Const,
 			(Generic, Generic) => Generic,
 		})
