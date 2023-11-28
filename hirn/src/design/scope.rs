@@ -345,9 +345,27 @@ impl ScopeHandle {
 	fn assign_impl(&mut self, lhs: Expression, rhs: Expression, comment: Option<&str>) -> Result<(), DesignError> {
 		lhs.validate_no_assumptions(&self)?;
 		rhs.validate_no_assumptions(&self)?;
-		// TODO assert no indexing if LHS is generic
-		// TODO assert LHS drivable
-		// TODO assert that scope is unconditional relative to the declaration if LSH is generic
+		
+		// Check if the LHS is drivable
+		lhs.try_drive().ok_or(DesignError::ExpressionNotDrivable)?;
+
+		// Validate types (not clock-aware)
+		let lhs_type = lhs.eval_type(&EvalContext::without_assumptions(self.design().clone()))?;
+		let rhs_type = rhs.eval_type(&EvalContext::without_assumptions(self.design().clone()))?;
+
+		if lhs_type.is_signed() != rhs_type.is_signed() {
+			return Err(DesignError::IncompatibleSignedness{
+				lhs_signedness: lhs_type.signedness(),
+				rhs_signedness: rhs_type.signedness(),
+			});
+		}
+
+		if !rhs_type.sensitivity().can_drive(&lhs_type.sensitivity()) {
+			return Err(DesignError::IncompatibleSensitivity{
+				lhs_sensitivity: lhs_type.sensitivity().clone(),
+				rhs_sensitivity: rhs_type.sensitivity().clone(),
+			});
+		}
 
 		// Save the assignment
 		this_scope!(self).assignments.push(Assignment::new(lhs, rhs));

@@ -374,6 +374,18 @@ pub enum DesignError {
 		interface_type: EvalType,
 	},
 
+	#[error("Incompatible signedness in assignment")]
+	IncompatibleSignedness {
+		lhs_signedness: SignalSignedness,
+		rhs_signedness: SignalSignedness,
+	},
+
+	#[error("Incompatible sensitivity in assignment")]
+	IncompatibleSensitivity {
+		lhs_sensitivity: SignalSensitivity,
+		rhs_sensitivity: SignalSensitivity,
+	},
+
 	#[error("Signal width must be a constant expression")]
 	VariableSignalWidth,
 
