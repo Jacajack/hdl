@@ -3,8 +3,8 @@ use std::collections::{HashMap, HashSet};
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::{SignalBuilder, SignalSliceRange};
 use super::{
-	DesignError, DesignHandle, EvalContext, EvaluatesType, HasComment, HasSensitivity, HasSignedness, ModuleId,
-	RegisterBuilder, ScopeId, SignalId, WidthExpression, Evaluates,
+	DesignError, DesignHandle, EvalContext, Evaluates, EvaluatesType, HasComment, HasSensitivity, HasSignedness,
+	ModuleId, RegisterBuilder, ScopeId, SignalId, WidthExpression,
 };
 use super::{Expression, ModuleHandle};
 

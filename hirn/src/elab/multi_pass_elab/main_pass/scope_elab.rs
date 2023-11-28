@@ -35,13 +35,7 @@ impl MainPassCtx {
 
 		// Process all non-generic assignments
 		for asmt in scope.assignments() {
-			self.assign_signals(
-				scope.clone(), 
-				assumptions.clone(), 
-				&asmt.lhs, 
-				None, 
-				&asmt.rhs, 
-				None)?;
+			self.assign_signals(scope.clone(), assumptions.clone(), &asmt.lhs, None, &asmt.rhs, None)?;
 		}
 
 		// Process expressions marked as unused

@@ -3,7 +3,7 @@ use std::sync::Arc;
 use assumptions::{ElabAssumptions, ElabAssumptionsBase};
 
 use crate::{
-	design::{BlockInstance, HasSensitivity, ModuleInstance, Register, SignalId, InterfaceSignal, ScopeHandle},
+	design::{BlockInstance, HasSensitivity, InterfaceSignal, ModuleInstance, Register, ScopeHandle, SignalId},
 	elab::{assumptions, ElabMessageKind},
 };
 
@@ -84,7 +84,6 @@ impl MainPassCtx {
 		let mut inner_assumptions = ElabAssumptions::new(Some(self.design.clone()));
 		let mut interface_assumptions = ElabAssumptions::new_with_parent(assumptions.clone());
 
-
 		// First, we resolve all generic assignments and make new assumptions
 		for (port_name, sig_id) in instance.get_bindings() {
 			let interface_sig = module_handle
@@ -93,7 +92,9 @@ impl MainPassCtx {
 			let inner_sig_id = interface_sig.signal();
 			let inner_sig = module_handle.design().get_signal(inner_sig_id).unwrap();
 
-			if !inner_sig.is_generic() {continue;}
+			if !inner_sig.is_generic() {
+				continue;
+			}
 			assert!(interface_sig.is_input());
 
 			let assumption_value = assumptions
@@ -104,7 +105,7 @@ impl MainPassCtx {
 			inner_assumptions.assume(inner_sig_id, assumption_value.clone());
 			interface_assumptions.assume(inner_sig_id, assumption_value);
 		}
-	
+
 		// Pack interface assumptions into Arc
 		let interface_assumptions = Arc::new(interface_assumptions);
 
@@ -115,21 +116,23 @@ impl MainPassCtx {
 			let inner_sig_id = interface_sig.signal();
 			let inner_sig = module_handle.design().get_signal(inner_sig_id).unwrap();
 
-			if inner_sig.is_generic() {continue;}
+			if inner_sig.is_generic() {
+				continue;
+			}
 
 			self.declare_ext_interface_signal(
 				module_handle.clone(),
-				inner_sig_id, 
+				inner_sig_id,
 				self.instance_counter,
-				interface_assumptions.clone()
+				interface_assumptions.clone(),
 			)?;
 
 			self.elab_instance_port(
-				scope.clone(), 
-				&interface_sig, 
+				scope.clone(),
+				&interface_sig,
 				*sig_id,
 				self.instance_counter,
-				interface_assumptions.clone()
+				interface_assumptions.clone(),
 			)?;
 		}
 
@@ -154,6 +157,5 @@ impl MainPassCtx {
 			BlockInstance::Register(reg) => self.elab_register(reg, assumptions),
 			BlockInstance::Module(module) => self.elab_module_instance(scope, module, assumptions),
 		}
-
 	}
 }

@@ -3,10 +3,12 @@ use crate::analyzer::{BusWidth, ModuleImplementationScope};
 /// Per module context for semantic analysis
 use crate::{core::*, parser::ast::*, SourceSpan};
 use std::collections::HashMap;
+
+use super::module_implementation_scope::ExpressionEntryId;
 pub struct LocalAnalyzerContext {
 	pub scope: ModuleImplementationScope,
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
-	pub ncs_to_be_exted: HashMap<SourceSpan, SourceSpan>,
+	pub ncs_to_be_exted: HashMap<SourceSpan, ExpressionEntryId>,
 	pub array_or_bus: HashMap<SourceSpan, bool>, // to distinguish between array and bus in index expr
 	pub widths_map: HashMap<SourceSpan, BusWidth>,
 	pub scope_map: HashMap<SourceSpan, usize>,
@@ -38,6 +40,7 @@ impl LocalAnalyzerContext {
 		self.module_id
 	}
 	pub fn add_branch(&mut self, branch: bool) {
+		log::debug!("Adding branch: {}", branch);
 		self.are_we_in_true_branch.push(branch);
 	}
 	pub fn pop_branch(&mut self) {
@@ -46,9 +49,11 @@ impl LocalAnalyzerContext {
 	pub fn are_we_in_true_branch(&self) -> bool {
 		for branch in self.are_we_in_true_branch.iter().rev() {
 			if !*branch {
+				log::debug!("We are not in true branch");
 				return false;
 			}
 		}
+		log::debug!("We are in true branch");
 		true
 	}
 	pub fn always_true_branch(&self) -> bool {
@@ -65,14 +70,14 @@ impl LocalAnalyzerContext {
 /// To be deleted and replaced by LocalAnalyzerContext
 pub struct AdditionalContext {
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,
-	pub ncs_to_be_exted: HashMap<SourceSpan, SourceSpan>,
+	pub ncs_to_be_exted: HashMap<SourceSpan, ExpressionEntryId>,
 	pub array_or_bus: HashMap<SourceSpan, bool>, // to distinguish between array and bus in index expr
 	pub casts: HashMap<SourceSpan, Cast>,
 }
 impl AdditionalContext {
 	pub fn new(
 		nc_widths: HashMap<SourceSpan, NumericConstant>,
-		ncs_to_be_exted: HashMap<SourceSpan, SourceSpan>,
+		ncs_to_be_exted: HashMap<SourceSpan, ExpressionEntryId>,
 		array_or_bus: HashMap<SourceSpan, bool>,
 		casts: HashMap<SourceSpan, Cast>,
 	) -> Self {

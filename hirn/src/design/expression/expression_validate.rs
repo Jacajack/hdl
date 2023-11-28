@@ -3,8 +3,8 @@ use std::{cell::RefCell, collections::HashSet, rc::Rc};
 use thiserror::Error;
 
 use crate::design::{
-	BinaryOp, HasSensitivity, HasSignedness, ScopeHandle, SignalId, SignalSensitivity, SignalSignedness, SignalSlice,
-	UnaryOp, Evaluates,
+	BinaryOp, Evaluates, HasSensitivity, HasSignedness, ScopeHandle, SignalId, SignalSensitivity, SignalSignedness,
+	SignalSlice, UnaryOp,
 };
 
 use super::{
@@ -175,7 +175,7 @@ impl BuiltinOp {
 				let width_type = width.eval_type(ctx)?;
 				let width_val: Option<i64> = width.try_eval_ignore_missing_into(ctx)?;
 				match (width_type.is_generic(), width_val, operand_width) {
-					(false, _, _) => return Err(ExpressionError::InvalidExtensionWidth.into()),
+					(false, ..) => return Err(ExpressionError::InvalidExtensionWidth.into()),
 					(_, Some(w), _) if w < 1 => return Err(ExpressionError::InvalidExtensionWidth.into()),
 					(_, Some(w), Some(op_w)) if w < op_w => return Err(ExpressionError::InvalidExtensionWidth.into()),
 					(..) => {},

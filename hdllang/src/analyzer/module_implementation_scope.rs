@@ -16,7 +16,10 @@ use super::{
 pub struct InternalVariableId {
 	id: usize,
 }
-
+#[derive(Debug, Clone, PartialEq, Eq, Copy, Hash, PartialOrd, Ord)]
+pub struct ExpressionEntryId {
+	id: usize,
+}
 impl InternalVariableId {
 	pub fn new(id: usize) -> Self {
 		Self { id }
@@ -36,7 +39,8 @@ use crate::analyzer::BusWidth;
 #[derive(Debug, Clone)]
 pub struct ModuleImplementationScope {
 	pub widths: HashMap<SourceSpan, BusWidth>,
-	pub evaluated_expressions: HashMap<SourceSpan, EvaluatedEntry>,
+	evaluated_expressions_counter: usize,
+	evaluated_expressions: HashMap<ExpressionEntryId, EvaluatedEntry>,
 	pub enriched_constants: HashMap<SourceSpan, crate::core::NumericConstant>,
 	scopes: Vec<InternalScope>,
 	is_generic: bool,
@@ -113,9 +117,21 @@ impl ModuleImplementationScope {
 			}
 		}
 	}
-	pub fn add_expression(&mut self, span: SourceSpan, scope_id: usize, expr: crate::parser::ast::Expression) {
+	pub fn add_expression(&mut self, scope_id: usize, expr: crate::parser::ast::Expression) -> ExpressionEntryId {
+		let id = ExpressionEntryId {
+			id: self.evaluated_expressions_counter,
+		};
+		self.evaluated_expressions_counter += 1;
 		self.evaluated_expressions
-			.insert(span, EvaluatedEntry::new(expr, scope_id));
+			.insert(id, EvaluatedEntry::new(expr, scope_id));
+		id
+	}
+	pub fn get_all_expressions(&self) -> HashMap<ExpressionEntryId, EvaluatedEntry> {
+		self.evaluated_expressions.clone()
+	}
+	pub fn get_expression(&self, id: ExpressionEntryId) -> &EvaluatedEntry {
+		log::debug!("Getting expression {:?}", id);
+		self.evaluated_expressions.get(&id).unwrap()
 	}
 	pub fn transorm_to_generic(&mut self) {
 		return;
@@ -174,6 +190,7 @@ impl ModuleImplementationScope {
 			enriched_constants: HashMap::new(),
 			variables: HashMap::new(),
 			intermediate_signals: HashMap::new(),
+			evaluated_expressions_counter: 0,
 		}
 	}
 	pub fn new_scope(&mut self, parent_scope: Option<usize>) -> usize {

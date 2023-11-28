@@ -31,7 +31,7 @@ impl IfElseStatement {
 		)?;
 		let if_scope = local_ctx.scope.new_scope(Some(scope_id));
 		log::debug!("Condition is {:?}", condition_type);
-		let cond = condition_type.map_or_else(|| true, |val| val.value != 0.into());
+		let cond = condition_type.map_or_else(|| false, |val| val.value != 0.into());
 		local_ctx.add_branch(cond);
 		self.if_statement.first_pass(ctx, local_ctx, if_scope)?;
 		local_ctx.pop_branch();

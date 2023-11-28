@@ -819,7 +819,7 @@ impl Expression {
 						debug!("Found a constant to be extended {:?}", loc);
 						let constant = nc_table.get_by_key(&num.key).unwrap();
 						let value: BigInt = constant.value.clone();
-						let width_loc = scope.evaluated_expressions.get(loc).unwrap().clone();
+						let width_loc = scope.get_expression(*loc);
 						let width = width_loc.expression.codegen(
 							nc_table,
 							id_table,
@@ -1102,7 +1102,7 @@ impl Expression {
 							let op = hirn::design::BuiltinOp::BusSelect {
 								expr: Box::new(expr),
 								msb: Box::new(
-									scope.evaluated_expressions.get(&loc).unwrap().expression.codegen(
+									scope.get_expression(loc).expression.codegen(
 										nc_table,
 										id_table,
 										scope_id,
@@ -1186,39 +1186,33 @@ impl Expression {
 							let op = match func_name.as_str() {
 								"zext" => hirn::design::BuiltinOp::ZeroExtend {
 									expr: Box::new(expr),
-									width: Box::new(
-										scope.evaluated_expressions.get(&loc).unwrap().expression.codegen(
-											nc_table,
-											id_table,
-											scope_id,
-											scope,
-											additional_ctx,
-										)?,
-									),
+									width: Box::new(scope.get_expression(loc).expression.codegen(
+										nc_table,
+										id_table,
+										scope_id,
+										scope,
+										additional_ctx,
+									)?),
 								},
 								"ext" => hirn::design::BuiltinOp::SignExtend {
 									expr: Box::new(expr),
-									width: Box::new(
-										scope.evaluated_expressions.get(&loc).unwrap().expression.codegen(
-											nc_table,
-											id_table,
-											scope_id,
-											scope,
-											additional_ctx,
-										)?,
-									),
+									width: Box::new(scope.get_expression(loc).expression.codegen(
+										nc_table,
+										id_table,
+										scope_id,
+										scope,
+										additional_ctx,
+									)?),
 								},
 								"sext" => hirn::design::BuiltinOp::SignExtend {
 									expr: Box::new(expr),
-									width: Box::new(
-										scope.evaluated_expressions.get(&loc).unwrap().expression.codegen(
-											nc_table,
-											id_table,
-											scope_id,
-											scope,
-											additional_ctx,
-										)?,
-									),
+									width: Box::new(scope.get_expression(loc).expression.codegen(
+										nc_table,
+										id_table,
+										scope_id,
+										scope,
+										additional_ctx,
+									)?),
 								},
 								_ => unreachable!(),
 							};
@@ -2006,6 +2000,7 @@ impl Expression {
 							Some(val) => {
 								match &val.get_value() {
 									Some(value) => {
+										let id = local_ctx.scope.add_expression(scope_id, self.clone());
 										if let Some(begin_value) = &begin {
 											if &begin_value.value > value || begin_value.value < 0.into() {
 												return Err(miette::Report::new(
@@ -2049,7 +2044,7 @@ impl Expression {
 											}
 											else {
 												expr.set_width(
-													crate::analyzer::BusWidth::Evaluable(range.location),
+													crate::analyzer::BusWidth::Evaluable(id),
 													bus.signedness.clone(),
 													range.location,
 												);
@@ -2057,7 +2052,7 @@ impl Expression {
 										}
 										else {
 											expr.set_width(
-												crate::analyzer::BusWidth::Evaluable(range.location),
+												crate::analyzer::BusWidth::Evaluable(id),
 												bus.signedness.clone(),
 												range.location,
 											);
@@ -2065,13 +2060,7 @@ impl Expression {
 									},
 									None => (),
 								}
-								local_ctx.scope.evaluated_expressions.insert(
-									range.location,
-									crate::analyzer::module_implementation_scope::EvaluatedEntry::new(
-										self.clone(),
-										scope_id,
-									),
-								);
+
 								Ok(expr)
 							},
 							None => {
@@ -2377,8 +2366,8 @@ impl Expression {
 							expression: self.clone(),
 							scope_id,
 						};
-						local_ctx.scope.evaluated_expressions.insert(self.get_location(), entry);
-						let mut width = BusWidth::WidthOf(self.get_location());
+						let id = local_ctx.scope.add_expression(scope_id, self.clone());
+						let mut width = BusWidth::WidthOf(id);
 						if let Some(count) =
 							function.argument_list[1].evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?
 						{
@@ -2569,10 +2558,6 @@ impl Expression {
 								unary.location,
 								"This expression is an array, it is not allowed in binary expression",
 							)
-							.label(
-								expr.dimensions[0].get_location().unwrap(),
-								"Type declared as an array here",
-							)
 							.build(),
 					));
 				}
@@ -2586,7 +2571,7 @@ impl Expression {
 				Ok(expr)
 			},
 			UnaryCastExpression(cast) => {
-				if cast.type_name.array_declarators.len() > 0 {
+				if cast.type_name.array_declarators.len() != 0 {
 					return Err(miette::Report::new(
 						SemanticError::BadCast
 							.to_diagnostic_builder()
@@ -2602,7 +2587,7 @@ impl Expression {
 					global_ctx,
 					scope_id,
 					local_ctx,
-					Signal::new_empty(),
+					Signal::new_bus(coupling_type.width(), SignalSignedness::NoSignedness, location),
 					is_lhs,
 					location,
 				)?;
@@ -2732,10 +2717,6 @@ impl Expression {
 								binop.lhs.get_location(),
 								"This expression is an array, it is not allowed in binary expression",
 							)
-							.label(
-								type_first.dimensions[0].get_location().unwrap(),
-								"Left hand side declared as an array here",
-							)
 							.build(),
 					));
 				}
@@ -2779,10 +2760,6 @@ impl Expression {
 								binop.rhs.get_location(),
 								"This expression is an array, it is not allowed in binary expression",
 							)
-							.label(
-								type_second.dimensions[0].get_location().unwrap(),
-								"Left hand side declared as an array here",
-							)
 							.build(),
 					));
 				}
@@ -2822,16 +2799,14 @@ impl Expression {
 								type_first.set_signedness(type_second.get_signedness(), self.get_location());
 							},
 						}
-						local_ctx
-							.scope
-							.add_expression(self.get_location(), scope_id, self.clone());
+						let id = local_ctx.scope.add_expression(scope_id, self.clone());
 						match (
 							&type_first.width().unwrap().get_value(),
 							&type_second.width().unwrap().get_value(),
 						) {
-							(None, None) => BusWidth::WidthOf(self.get_location()),
-							(None, Some(_)) => BusWidth::WidthOf(self.get_location()),
-							(Some(_), None) => BusWidth::WidthOf(self.get_location()),
+							(None, None) => BusWidth::WidthOf(id),
+							(None, Some(_)) => BusWidth::WidthOf(id),
+							(Some(_), None) => BusWidth::WidthOf(id),
 							(Some(v1), Some(v2)) => BusWidth::Evaluated(NumericConstant::new_from_value(v1 + v2)),
 						}
 					},
@@ -2871,16 +2846,14 @@ impl Expression {
 								type_first.set_signedness(type_second.get_signedness(), self.get_location());
 							},
 						}
-						local_ctx
-							.scope
-							.add_expression(self.get_location(), scope_id, self.clone());
+						let id = local_ctx.scope.add_expression(scope_id, self.clone());
 						match (
 							&type_first.width().unwrap().get_value(),
 							&type_second.width().unwrap().get_value(),
 						) {
-							(None, None) => BusWidth::WidthOf(self.get_location()),
-							(None, Some(_)) => BusWidth::WidthOf(self.get_location()),
-							(Some(_), None) => BusWidth::WidthOf(self.get_location()),
+							(None, None) => BusWidth::WidthOf(id),
+							(None, Some(_)) => BusWidth::WidthOf(id),
+							(Some(_), None) => BusWidth::WidthOf(id),
 							(Some(v1), Some(v2)) => {
 								BusWidth::Evaluated(NumericConstant::new_from_value(max(v1, v2) + BigInt::from(1)))
 							},

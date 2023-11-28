@@ -1,0 +1,17 @@
+module X {}
+
+impl X{
+	clock clk1 = (clock wire)0, clk2 = (clock wire)0;
+	clock clk;
+
+	sync(clk1) wire a = 0;
+	sync(clk) wire b;
+
+	if (false) {
+		clk = clk1;
+	} else {
+		clk = clk2;
+	}
+	
+	b = a;
+}
