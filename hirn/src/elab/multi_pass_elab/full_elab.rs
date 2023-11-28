@@ -1,12 +1,11 @@
 use std::sync::{Arc, Mutex};
 
-use log::{debug, info};
+use log::info;
 
 use crate::{
 	design::{DesignHandle, EvalError, ModuleHandle, ModuleId},
 	elab::{
-		DefaultSeverityPolicy, ElabAssumptionsBase, ElabError, ElabMessage, ElabMessageKind, ElabReport, Elaborator,
-		SeverityPolicy,
+		ElabAssumptionsBase, ElabError, ElabMessage, ElabMessageKind, ElabReport, Elaborator,
 	},
 };
 
@@ -21,7 +20,6 @@ pub(super) struct FullElabCtx {
 	module_id: ModuleId,
 	report: ElabReport,
 	assumptions: Arc<dyn ElabAssumptionsBase>,
-	severity_policy: Box<dyn SeverityPolicy>,
 
 	pub(super) sig_graph_result: Option<MainPassResult>,
 	pub(super) sig_graph_config: MainPassConfig,
@@ -65,7 +63,6 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 			module_id,
 			assumptions,
 			report: ElabReport::default(),
-			severity_policy: Box::new(DefaultSeverityPolicy),
 			sig_graph_config: MainPassConfig::default(),
 			sig_graph_result: None,
 		}
@@ -107,7 +104,7 @@ impl FullElaborator {
 	}
 }
 
-impl Elaborator for FullElaborator {
+impl Elaborator<ElabReport> for FullElaborator {
 	fn elaborate(
 		&mut self,
 		id: ModuleId,
