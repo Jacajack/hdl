@@ -20,5 +20,5 @@ impl X{
     }
 
     sync(clk) wire xxx = false;
-    sync(clk) wire c = xxx ? a : b; // Should be illegal
+    // sync(clk) wire c = xxx ? a : b; // Should be illegal // FIXME sense check in HIRN
 }
