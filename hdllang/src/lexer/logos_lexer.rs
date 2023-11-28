@@ -20,7 +20,7 @@ fn parse_true_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstant
 /// Returns constant key for 'false'
 fn parse_false_token(lex: &mut logos::Lexer<TokenKind>) -> Option<NumericConstantTableKey> {
 	Some(lex.extras.numeric_constants.insert(NumericConstant::from_u64(
-		1,
+		0,
 		Some(1),
 		Some(false),
 		Some(NumericConstantBase::Boolean),
