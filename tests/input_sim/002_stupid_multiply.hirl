@@ -10,11 +10,9 @@ module stupid_multiply {
 		}
 	} 
 
-	output sync(clk) {
-		wire output_valid;
-		wire input_ready;
-		unsigned bus<16> c;
-	}
+	output comb(clk) wire output_valid;
+	output comb(clk) wire input_ready;
+	output sync(clk) unsigned bus<16> c;
 }
 
 
