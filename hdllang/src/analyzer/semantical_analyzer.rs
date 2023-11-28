@@ -145,8 +145,8 @@ impl<'a> SemanticalAnalyzer<'a> {
 				Arc::new(ElabToplevelAssumptions::new(self.ctx.design.clone())),
 			);
 			match elab_result {
-				Ok(elab_report) => {
-					for msg in elab_report.messages() {
+				Ok(elab_res) => {
+					for msg in elab_res.report().messages() {
 						let id = msg.module_id();
 						log::debug!("Module id: {:?}", id);
 						log::debug!("Scopes: {:?}", scopes.keys());

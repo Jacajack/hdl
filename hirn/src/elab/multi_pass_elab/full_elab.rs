@@ -1,4 +1,4 @@
-use std::sync::{Arc, Mutex};
+use std::{sync::{Arc, Mutex}, collections::VecDeque};
 
 use log::info;
 
@@ -9,16 +9,12 @@ use crate::{
 	},
 };
 
-use super::{
-	main_pass::{MainPass, MainPassConfig, MainPassResult},
-	signal_usage_pass::SignalUsagePass,
-	ElabPassContext, ElabQueueItem, MultiPassElaborator, comb_verif_pass::CombVerifPass,
-};
+use super::{main_pass::{MainPassConfig, MainPassResult, MainPass}, ElabPassContext, ElabQueueItem, signal_usage_pass, comb_verif_pass, ElabPass};
 
 pub(super) struct FullElabCtx {
 	design: DesignHandle,
 	module_id: ModuleId,
-	report: ElabReport,
+	result: FullElabResult,
 	assumptions: Arc<dyn ElabAssumptionsBase>,
 
 	pub(super) main_pass_result: Option<MainPassResult>,
@@ -27,7 +23,7 @@ pub(super) struct FullElabCtx {
 
 impl FullElabCtx {
 	pub(super) fn add_message(&mut self, kind: ElabMessageKind) {
-		self.report
+		self.result.report_mut()
 			.add_message(ElabMessage::new(kind, self.module_id, self.assumptions.clone()));
 	}
 
@@ -62,7 +58,7 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 			design,
 			module_id,
 			assumptions,
-			report: ElabReport::default(),
+			result: FullElabResult::default(),
 			main_pass_config: MainPassConfig::default(),
 			main_pass_result: None,
 		}
@@ -85,36 +81,90 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 	}
 
 	fn report(&self) -> &ElabReport {
+		self.result.report()
+	}
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct FullElabResult {
+	report: ElabReport,
+}
+
+impl FullElabResult {
+	fn combine(mut self, other: FullElabResult) -> Self {
+		self.report.extend(&other.report);
+		self
+	}
+
+	pub fn report(&self) -> &ElabReport {
 		&self.report
+	}
+
+	fn report_mut(&mut self) -> &mut ElabReport {
+		&mut self.report
 	}
 }
 
 /// Multi-pass elaborator with all passes
 pub struct FullElaborator {
-	elaborator: MultiPassElaborator<FullElabCtx, Arc<Mutex<FullElabCache>>>,
+	design: DesignHandle,
+	queue: VecDeque<ElabQueueItem>,
 }
 
 impl FullElaborator {
-	/// Create a new FullElaborator and add all passes
 	pub fn new(design: DesignHandle) -> Self {
-		let mut elaborator = MultiPassElaborator::new(design);
-		elaborator.add_pass(Box::new(MainPass {}));
-		elaborator.add_pass(Box::new(SignalUsagePass {}));
-		elaborator.add_pass(Box::new(CombVerifPass {}));
-		Self { elaborator }
+		Self {
+			design,
+			queue: VecDeque::new(),
+		}
+	}
+
+	/// Runs elaboration on all modules in the queue
+	fn run_queue(&mut self) -> Result<FullElabResult, ElabError> {
+		let mut result = FullElabResult::default();
+		while let Some(item) = self.queue.pop_front() {
+			result = result.combine(self.elab_module(item.module, item.assumptions)?);
+		}
+		Ok(result)
+	}
+
+	/// Runs all elaboration passes on the specified module
+	fn elab_module(
+		&mut self,
+		id: ModuleId,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
+	) -> Result<FullElabResult, ElabError> {
+		let mut ctx = FullElabCtx::new_context(self.design.clone(), id, assumptions, Default::default());
+
+		let mut main_pass = MainPass{};
+		ctx = main_pass.init(ctx)?;
+		ctx = main_pass.run(ctx)?;
+
+		let mut signal_usage_pass = signal_usage_pass::SignalUsagePass{};
+		ctx = signal_usage_pass.init(ctx)?;
+		ctx = signal_usage_pass.run(ctx)?;
+
+		let mut comb_verif_pass = comb_verif_pass::CombVerifPass{};
+		ctx = comb_verif_pass.init(ctx)?;
+		ctx = comb_verif_pass.run(ctx)?;
+
+		self.queue.extend(ctx.queued().into_iter());
+		Ok(ctx.result)
 	}
 }
 
-impl Elaborator<ElabReport> for FullElaborator {
+impl Elaborator<FullElabResult> for FullElaborator {
 	fn elaborate(
 		&mut self,
 		id: ModuleId,
 		assumptions: Arc<dyn super::ElabAssumptionsBase>,
-	) -> Result<ElabReport, ElabError> {
+	) -> Result<FullElabResult, ElabError> {
 		if assumptions.design().is_none() {
 			return Err(EvalError::NoDesign.into());
 		}
 		info!("Starting full elab module {:?}", id);
-		self.elaborator.elaborate(id, assumptions)
+
+		self.queue.push_back(ElabQueueItem::new(id, assumptions));
+		self.run_queue()
 	}
 }
