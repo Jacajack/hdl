@@ -381,6 +381,7 @@ pub struct ElabSignal {
 	conflict_mask: SignalMask,
 	driven_mask: SignalMask,
 	read_mask: SignalMask,
+	unused_mask: SignalMask,
 }
 
 impl ElabSignal {
@@ -389,6 +390,7 @@ impl ElabSignal {
 			conflict_mask: SignalMask::new(width),
 			driven_mask: SignalMask::new(width),
 			read_mask: SignalMask::new(width),
+			unused_mask: SignalMask::new(width),
 		}
 	}
 
@@ -402,6 +404,10 @@ impl ElabSignal {
 		self.read_mask.set_all();
 	}
 
+	pub fn unuse(&mut self) {
+		self.unused_mask.set_all();
+	}
+
 	pub fn drive_bits(&mut self, lsb: u32, msb: u32) -> SignalMask {
 		let conflict = self.driven_mask.set_bits(lsb, msb);
 		self.conflict_mask.combine(&conflict);
@@ -412,14 +418,22 @@ impl ElabSignal {
 		self.read_mask.set_bits(lsb, msb);
 	}
 
+	pub fn unuse_bits(&mut self, lsb: u32, msb: u32) {
+		self.unused_mask.set_bits(lsb, msb);
+	}
+
 	pub fn mark(&mut self, action: ElabSignalMarkAction) -> SignalMask {
 		use ElabSignalMarkAction::*;
 		match action {
 			Drive => self.drive(),
-			Read | Unuse => { // FIXME unused
+			Read => {
 				self.read();
 				SignalMask::new(self.width())
-			}
+			},
+			Unuse => { 
+				self.unuse();
+				SignalMask::new(self.width())
+			},
 		}
 	}
 
@@ -427,8 +441,12 @@ impl ElabSignal {
 		use ElabSignalMarkAction::*;
 		match action {
 			Drive => self.drive_bits(lsb, msb),
-			Read | Unuse => { // FIXME unused
+			Read => { 
 				self.read_bits(lsb, msb);
+				SignalMask::new(self.width())
+			}
+			Unuse => { 
+				self.unuse_bits(lsb, msb);
 				SignalMask::new(self.width())
 			}
 		}
@@ -483,7 +501,8 @@ impl ElabSignal {
 	}
 
 	pub fn unread_summary(&self) -> SignalMaskSummary {
-		self.read_mask.zeros_summary()
+		// actually_read = unused | read = !(~unused & ~read)
+		self.unused_mask.negated().and(self.read_mask().negated()).ones_summary()
 	}
 }
 
