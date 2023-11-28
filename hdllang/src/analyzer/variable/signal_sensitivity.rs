@@ -2,13 +2,18 @@ use crate::{analyzer::SemanticError, core::CompilerDiagnosticBuilder, ProvidesCo
 
 use super::{module_implementation_scope::InternalVariableId, GlobalAnalyzerContext};
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Debug, PartialOrd, Ord)]
+#[derive(Clone, Copy, Eq, Debug, Hash, PartialOrd, Ord)]
 pub struct EdgeSensitivity {
 	pub clock_signal: InternalVariableId,
 	pub on_rising: bool,
 	pub location: SourceSpan,
 }
 
+impl PartialEq for EdgeSensitivity {
+	fn eq(&self, other: &Self) -> bool {
+		self.clock_signal == other.clock_signal && self.on_rising == other.on_rising
+	}
+}
 /// Determines sensitivity of a signal to certain clocks
 #[derive(Clone, Debug, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct ClockSensitivityList {
@@ -115,7 +120,13 @@ impl SignalSensitivity {
 				(Comb(..), Const(_)) => (),
 				(_, NoSensitivity) => (),
 				(Sync(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
-				(Sync(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
+				(Sync(l1, _), Sync(l2, _)) =>{
+					if l1 == l2 {
+						*self = Sync(l1.clone(), location);
+					} else {
+						*self = Comb(l1.combine_two(l2), location);
+					}
+				},
 				(Sync(..), Clock(..)) => *self = sens.clone(),
 				(Sync(..), Const(_)) => (),
 				(Clock(loc1, Some(id1)), Clock(loc2, Some(id2))) => {

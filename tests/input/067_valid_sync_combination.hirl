@@ -1,0 +1,9 @@
+module X {}
+
+impl X{
+	clock clk;
+	sync(clk) wire a = 0, b = 0;
+	sync(clk) ubus<2> c;
+	c[0] =a;
+	c[1] =b;
+}
