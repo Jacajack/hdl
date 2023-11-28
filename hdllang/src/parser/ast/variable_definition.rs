@@ -205,15 +205,15 @@ impl VariableDefinition {
 						var.var.kind = VariableKind::Signal(lhs);
 						local_ctx.scope.redeclare_variable(var);
 						let entries = expr.get_sensitivity_entry(ctx, local_ctx, scope_id);
-						if local_ctx.are_we_in_true_branch(){
+						if local_ctx.are_we_in_true_branch() {
 							local_ctx
-							.sensitivity_graph
-							.add_edges(
-								entries,
-								crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.location),
-								expr.get_location(),
-							)
-							.map_err(|e| e.build())?;
+								.sensitivity_graph
+								.add_edges(
+									entries,
+									crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.location),
+									expr.get_location(),
+								)
+								.map_err(|e| e.build())?;
 						}
 					}
 					else {
@@ -266,20 +266,19 @@ impl VariableDefinition {
 							},
 						)?;
 						let entries = expr.get_sensitivity_entry(ctx, local_ctx, scope_id);
-						if local_ctx.are_we_in_true_branch(){
+						if local_ctx.are_we_in_true_branch() {
 							local_ctx
-							.sensitivity_graph
-							.add_edges(
-								entries,
-								crate::analyzer::SensitivityGraphEntry::Signal(
-									id,
-									direct_initializer.declarator.get_location(),
-								),
-								direct_initializer.location,
-							)
-							.map_err(|e| e.build())?;
+								.sensitivity_graph
+								.add_edges(
+									entries,
+									crate::analyzer::SensitivityGraphEntry::Signal(
+										id,
+										direct_initializer.declarator.get_location(),
+									),
+									direct_initializer.location,
+								)
+								.map_err(|e| e.build())?;
 						}
-						
 					}
 				},
 				None => {

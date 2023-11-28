@@ -120,10 +120,11 @@ impl SignalSensitivity {
 				(Comb(..), Const(_)) => (),
 				(_, NoSensitivity) => (),
 				(Sync(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
-				(Sync(l1, _), Sync(l2, _)) =>{
+				(Sync(l1, _), Sync(l2, _)) => {
 					if l1 == l2 {
 						*self = Sync(l1.clone(), location);
-					} else {
+					}
+					else {
 						*self = Comb(l1.combine_two(l2), location);
 					}
 				},

@@ -416,7 +416,7 @@ impl SensitivityGraph {
 		let mut visited = HashSet::new();
 		let mut sens_nodes = HashMap::new();
 		let mut clock_graph = ClockGraph::new();
-		if scope.is_generic(){
+		if scope.is_generic() {
 			clock_graph.mark_as_generic();
 		}
 		// deduce sensitivities
