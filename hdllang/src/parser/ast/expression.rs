@@ -40,7 +40,6 @@ pub use postfix_with_args::PostfixWithArgs;
 pub use postfix_with_id::PostfixWithId;
 pub use postfix_with_index::PostfixWithIndex;
 pub use postfix_with_range::PostfixWithRange;
-use serde::de;
 use std::cmp::max;
 use std::collections::HashMap;
 use std::fmt::{Debug, Error, Formatter};
@@ -2964,35 +2963,6 @@ impl Expression {
 						(BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(1))), SignalSignedness::Unsigned(self.get_location()))
 					},
 					NotEqual | Equal | Less | Greater | LessEqual | GreaterEqual  => {
-						match (type_first.width(), type_second.width()){
-    					    (None, None) => {
-								report_unknown_width(self.get_location())?;
-							},
-    					    (None, Some(w)) => {
-								binop.lhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_bus(Some(w), type_second.get_signedness(), location), is_lhs, location)?;
-							},
-    					    (Some(w), None) => {
-								log::debug!("Rhs has unknown width");
-								binop.rhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_bus(Some(w), type_first.get_signedness(), location), is_lhs, location)?;
-							},
-    					    (Some(w1), Some(w2)) => {
-								if w1 != w2{
-									return Err(miette::Report::new(
-										SemanticError::WidthMismatch
-											.to_diagnostic_builder()
-											.label(
-												binop.lhs.get_location(),
-												"Width of this expression does not match",
-											)
-											.label(
-												binop.rhs.get_location(),
-												"Width of this expression does not match",
-											)
-											.build(),
-									));
-								}
-							},
-    					}
 						use SignalSignedness::*;
 						match (&type_first.get_signedness(), &type_second.get_signedness()) {
 							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
