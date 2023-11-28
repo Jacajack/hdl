@@ -149,8 +149,15 @@ impl BinaryExpression {
 				}
 			},
 
-			// Relational operators require matching signedness and width
-			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual | Max | Min => {
+			// Relational operators only require matching signedness
+			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual => {
+				if lhs_type.is_signed() != rhs_type.is_signed() {
+					return Err(ExpressionError::MixedSignedness.into());
+				}
+			},
+
+			// Min & max require matching signedness and width
+			Max | Min => {
 				if lhs_type.is_signed() != rhs_type.is_signed() {
 					return Err(ExpressionError::MixedSignedness.into());
 				}
