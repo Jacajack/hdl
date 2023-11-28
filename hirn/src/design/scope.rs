@@ -1,5 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
+use log::error;
+
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::{SignalBuilder, SignalSliceRange};
 use super::{
@@ -361,6 +363,8 @@ impl ScopeHandle {
 		}
 
 		if !rhs_type.sensitivity().can_drive(&lhs_type.sensitivity()) {
+			error!("Assigning {:?} = {:?}", lhs, rhs);
+			error!("Assigning {:?} = {:?}", lhs_type, rhs_type);
 			return Err(DesignError::IncompatibleSensitivity{
 				lhs_sensitivity: lhs_type.sensitivity().clone(),
 				rhs_sensitivity: rhs_type.sensitivity().clone(),
