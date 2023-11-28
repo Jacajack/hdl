@@ -1,8 +1,8 @@
 use super::{
-	eval::EvalAssumptions, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalContext, EvalError,
+	eval::EvalAssumptions, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalError,
 	EvalType, EvaluatesType, NumericConstant, UnaryExpression,
 };
-use crate::design::{BinaryOp, Expression, SignalId, SignalSensitivity, SignalSignedness, SignalSlice};
+use crate::design::{BinaryOp, Expression, SignalId, SignalSensitivity, SignalSignedness, SignalSlice, HasSensitivity};
 
 impl EvaluatesType for NumericConstant {
 	fn eval_type(&self, _ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError> {
@@ -57,10 +57,7 @@ impl EvaluatesType for BinaryExpression {
 		};
 
 		Ok(EvalType {
-			sensitivity: lhs
-				.sensitivity
-				.combine(&rhs.sensitivity)
-				.ok_or(EvalError::InvalidSensitivityCombination)?,
+			sensitivity: lhs.sensitivity.combine(&rhs.sensitivity),
 			signedness,
 		})
 	}
@@ -88,12 +85,21 @@ impl EvaluatesType for ConditionalExpression {
 		}
 
 		let mut sensitivity = default_type.sensitivity;
-		for t in &branch_types {
-			sensitivity = sensitivity.or_worse(&t.sensitivity);
-		}
+		let all_conditions_generic = condition_types.iter().all(|t| t.sensitivity.is_generic());
 
-		for t in &condition_types {
-			sensitivity = sensitivity.or_worse(&t.sensitivity);
+		if all_conditions_generic {
+			for t in &branch_types {
+				sensitivity = sensitivity.connect(&t.sensitivity);
+			}
+		}
+		else {
+			for t in &branch_types {
+				sensitivity = sensitivity.combine(&t.sensitivity);
+			}
+	
+			for t in &condition_types {
+				sensitivity = sensitivity.combine(&t.sensitivity);
+			}
 		}
 
 		Ok(EvalType {
@@ -147,7 +153,7 @@ impl EvaluatesType for BuiltinOp {
 				let types = types_res?;
 
 				for t in &types {
-					sensitivity = sensitivity.or_worse(&t.sensitivity); // FIXME
+					sensitivity = sensitivity.connect(&t.sensitivity);
 				}
 
 				EvalType {
