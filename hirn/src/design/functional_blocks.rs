@@ -275,26 +275,9 @@ impl ModuleInstance {
 			return Err(DesignError::InvalidInterfaceSignalName(self.module.id()));
 		}
 
-		// This int_sig_ids has the same ordering as interface bindings
-		let mut clock_map = HashMap::new();
-		let int_sig_ids = int_sig_ids_opt.unwrap();
-		assert_eq!(int_sig_ids.len(), self.bindings.len());
-
-		// Find all clocks and build a clock map
-		for (int_sig_id, (_int_name, ext_signal_id)) in int_sig_ids.iter().zip(self.bindings.iter()) {
-			let design_handle = self.module.design();
-			let design = design_handle.borrow();
-			let int_sig = design.get_signal(*int_sig_id).expect("interface signal not in design");
-			if int_sig.is_clock() {
-				clock_map.insert(*int_sig_id, *ext_signal_id);
-			}
-		}
-
-		debug!("Binding clock map: {clock_map:?}");
-
 		// After the clock map is built, verify all bindings with the clock map
 		for (name, signal) in &self.bindings {
-			self.verify_binding(name, *signal, &clock_map)?;
+			self.verify_binding(name, *signal)?;
 
 			// Catch duplicate bindings
 			if names.contains(name) {
@@ -311,7 +294,6 @@ impl ModuleInstance {
 		&self,
 		name: &str,
 		extern_sig: SignalId,
-		clock_map: &HashMap<SignalId, SignalId>,
 	) -> Result<(), DesignError> {
 		debug!("Checking binding '{}' <-> {:?}", name, extern_sig);
 		let intern_sig = self
@@ -319,13 +301,11 @@ impl ModuleInstance {
 			.get_interface_signal_by_name(name)
 			.ok_or(DesignError::InvalidInterfaceSignalName(self.module.id()))?;
 
-		// TODO defer this logic to assignment checker
 		let eval_ctx = EvalContext::without_assumptions(self.module.design());
 		let intern_type = intern_sig.signal.eval_type(&eval_ctx)?;
-		let mut extern_type = extern_sig.eval_type(&eval_ctx)?;
+		let extern_type = extern_sig.eval_type(&eval_ctx)?;
 		debug!("Interface type: {:?}", intern_type);
 		debug!("Binding type: {:?}", extern_type);
-		extern_type.sensitivity.substitute_clocks(clock_map);
 
 		let lhs_type;
 		let rhs_type;
@@ -354,52 +334,6 @@ impl ModuleInstance {
 	pub fn get_bindings(&self) -> &Vec<(String, SignalId)> {
 		&self.bindings
 	}
-
-	// FIXME Leaving this here for now cause it has some useful logic
-	/*
-	fn verify_binding(&self, name: &str, expr: &Expression) -> Result<(), DesignError> {
-		let sig = self
-			.module
-			.get_interface_signal_by_name(name)
-			.ok_or(DesignError::InvalidInterfaceSignalName(self.module.id()))?;
-
-		// TODO defer this logic to assignment checker
-		let eval_ctx = EvalContext::without_assumptions(self.module.design());
-		let expr_type = expr.eval_type(&eval_ctx)?;
-		let sig_type = sig.signal.eval_type(&eval_ctx)?;
-
-		if sig.direction == SignalDirection::Output {
-			// Interface drives the expression
-
-			if expr.try_drive().is_none() {
-				return Err(DesignError::ExpressionNotDriveable);
-			}
-
-			if !sig_type.can_drive(&expr_type) {
-				return Err(DesignError::IncompatibleBindingType {
-					module: self.module.id(),
-					signal: sig.signal,
-					interface_type: sig_type,
-					binding_type: expr_type,
-				});
-			}
-		}
-		else {
-			if !expr_type.can_drive(&sig_type) {
-				return Err(DesignError::IncompatibleBindingType {
-					module: self.module.id(),
-					signal: sig.signal,
-					interface_type: sig_type,
-					binding_type: expr_type,
-				});
-			}
-		}
-
-		Ok(())
-	}
-
-
-	*/
 }
 
 #[derive(Debug)]
