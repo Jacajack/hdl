@@ -106,13 +106,7 @@ impl VariableDefinition {
 			}
 			for array_declarator in &direct_initializer.declarator.array_declarators {
 				let size = array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
-				local_ctx.scope.evaluated_expressions.insert(
-					array_declarator.get_location(),
-					crate::analyzer::module_implementation_scope::EvaluatedEntry::new(
-						array_declarator.clone(),
-						scope_id,
-					),
-				);
+				let id = local_ctx.scope.add_expression(scope_id, array_declarator.clone());
 				match &size {
 					Some(val) => {
 						if val.value <= num_bigint::BigInt::from(0) {
@@ -123,9 +117,9 @@ impl VariableDefinition {
 									.build(),
 							));
 						}
-						dimensions.push(BusWidth::EvaluatedLocated(val.clone(), array_declarator.get_location()));
+						dimensions.push(BusWidth::EvaluatedLocated(val.clone(), id));
 					},
-					None => dimensions.push(BusWidth::Evaluable(array_declarator.get_location())),
+					None => dimensions.push(BusWidth::Evaluable(id)),
 				}
 			}
 			spec_kind.add_dimenstions(dimensions);
@@ -149,10 +143,8 @@ impl VariableDefinition {
 						if let VariableKind::Generic(GenericVariable { value, .. }) = &mut spec_kind {
 							value.replace(
 								if rhs_val.is_none() {
-									local_ctx
-										.scope
-										.add_expression(expr.get_location(), scope_id, expr.clone());
-									BusWidth::Evaluable(expr.get_location())
+									let id = local_ctx.scope.add_expression(scope_id, expr.clone());
+									BusWidth::Evaluable(id)
 								}
 								else {
 									BusWidth::Evaluated(rhs_val.unwrap())
@@ -213,14 +205,16 @@ impl VariableDefinition {
 						var.var.kind = VariableKind::Signal(lhs);
 						local_ctx.scope.redeclare_variable(var);
 						let entries = expr.get_sensitivity_entry(ctx, local_ctx, scope_id);
-						local_ctx
-							.sensitivity_graph
-							.add_edges(
-								entries,
-								crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.location),
-								expr.get_location(),
-							)
-							.map_err(|e| e.build())?;
+						if local_ctx.are_we_in_true_branch() {
+							local_ctx
+								.sensitivity_graph
+								.add_edges(
+									entries,
+									crate::analyzer::SensitivityGraphEntry::Signal(id, direct_initializer.location),
+									expr.get_location(),
+								)
+								.map_err(|e| e.build())?;
+						}
 					}
 					else {
 						let mut lhs = spec_kind.to_signal().expect("This was checked during analysis");
@@ -272,17 +266,19 @@ impl VariableDefinition {
 							},
 						)?;
 						let entries = expr.get_sensitivity_entry(ctx, local_ctx, scope_id);
-						local_ctx
-							.sensitivity_graph
-							.add_edges(
-								entries,
-								crate::analyzer::SensitivityGraphEntry::Signal(
-									id,
-									direct_initializer.declarator.get_location(),
-								),
-								direct_initializer.location,
-							)
-							.map_err(|e| e.build())?;
+						if local_ctx.are_we_in_true_branch() {
+							local_ctx
+								.sensitivity_graph
+								.add_edges(
+									entries,
+									crate::analyzer::SensitivityGraphEntry::Signal(
+										id,
+										direct_initializer.declarator.get_location(),
+									),
+									direct_initializer.location,
+								)
+								.map_err(|e| e.build())?;
+						}
 					}
 				},
 				None => {

@@ -201,33 +201,34 @@ impl HasSensitivity for SignalSensitivity {
 impl SignalSensitivity {
 	/// Determines sensitivity of a signal resulting form combining two signals
 	/// with combinational logic
-	pub fn combine(&self, other: &SignalSensitivity) -> Option<Self> {
+	pub fn combine(&self, other: &SignalSensitivity) -> Self {
 		use SignalSensitivity::*;
-		Some(match (self, other) {
+		match (self, other) {
 			(Async, _) | (_, Async) => Async,
+			(Clock, _) | (_, Clock) => Async,
 			(Sync(lhs), Sync(rhs)) => Comb(lhs.combine(rhs)),
 			(Sync(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
 			(Comb(lhs), Sync(rhs)) => Comb(lhs.combine(rhs)),
 			(Comb(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
 			(Comb(lhs), Const | Generic) | (Const | Generic, Comb(lhs)) => Comb(lhs.clone()),
 			(Sync(lhs), Const | Generic) | (Const | Generic, Sync(lhs)) => Comb(lhs.clone()),
-			(Clock, _) | (_, Clock) => None?,
 			(Const, Const) | (Const, Generic) | (Generic, Const) => Const,
 			(Generic, Generic) => Generic,
-		})
+		}
 	}
 
 	/// Returns worse of two signal sensitivities
-	pub fn or_worse(&self, other: &SignalSensitivity) -> Self {
+	pub fn connect(&self, other: &SignalSensitivity) -> Self {
 		use SignalSensitivity::*;
 		match (self, other) {
 			(Async, _) | (_, Async) => Async,
-			(Comb(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
+			(Clock, _) | (_, Clock) => Async,
 			(Sync(lhs), Sync(rhs)) => Sync(lhs.combine(rhs)),
-			(Sync(lhs), Comb(rhs)) | (Comb(lhs), Sync(rhs)) => Comb(lhs.combine(rhs)),
+			(Comb(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
+			(Sync(lhs), Comb(rhs)) => Comb(lhs.combine(rhs)),
+			(Comb(lhs), Sync(rhs)) => Comb(lhs.combine(rhs)),
 			(Comb(sen), _) | (_, Comb(sen)) => Comb(sen.clone()),
 			(Sync(sen), _) | (_, Sync(sen)) => Sync(sen.clone()),
-			(Clock, _) | (_, Clock) => Clock,
 			(Const, _) | (_, Const) => Const,
 			(Generic, Generic) => Generic,
 		}

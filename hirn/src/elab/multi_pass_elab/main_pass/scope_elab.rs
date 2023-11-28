@@ -54,7 +54,7 @@ impl MainPassCtx {
 		for expr in scope.unused_expressions() {
 			expr.validate(&assumptions.clone(), &scope)?;
 			let unused_bits = expr.try_drive_bits().ok_or(ElabMessageKind::NotDrivable)?;
-			self.read_signal(&unused_bits, assumptions.clone())?;
+			self.unused_signal(&unused_bits, assumptions.clone())?;
 		}
 
 		for block in scope.blocks() {
@@ -153,6 +153,9 @@ impl MainPassCtx {
 		for cond_scope in scope.conditional_subscopes() {
 			self.elab_conditional_scope(&cond_scope, assumptions_arc.clone())?;
 			visited_scopes.insert(cond_scope.scope);
+			if let Some(else_scope_id) = cond_scope.else_scope {
+				visited_scopes.insert(else_scope_id);
+			}
 		}
 
 		for child_scope in scope.subscopes() {
@@ -205,8 +208,6 @@ impl MainPassCtx {
 		let begin_val = range_scope.iterator_begin.eval(&assumptions)?;
 		let end_val = range_scope.iterator_end.eval(&assumptions)?;
 		let iter_count = (end_val - begin_val.clone()).try_into_i64()?;
-
-		// TODO validate expressions
 
 		if iter_count > self.config.max_for_iters {
 			error!(

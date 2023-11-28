@@ -4,7 +4,6 @@ use hirn::design::ScopeHandle;
 
 use super::ImportPath;
 use super::PortBindStatement;
-use crate::analyzer::module_implementation_scope::EvaluatedEntry;
 use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
 use crate::parser::ast::SourceLocation;
 use crate::SourceSpan;
@@ -216,15 +215,8 @@ impl InstantiationStatement {
 							gen.value = match new_sig {
 								Some(sig) => Some(BusWidth::Evaluated(sig)),
 								None => {
-									let entry = EvaluatedEntry {
-										expression: id_expr.expression.clone(),
-										scope_id,
-									};
-									local_ctx
-										.scope
-										.evaluated_expressions
-										.insert(id_expr.expression.get_location(), entry);
-									Some(BusWidth::Evaluable(id_expr.expression.get_location()))
+									let id = local_ctx.scope.add_expression(scope_id, id_expr.expression.clone());
+									Some(BusWidth::Evaluable(id))
 								},
 							}
 						},
@@ -264,17 +256,13 @@ impl InstantiationStatement {
 			}
 			Ok(())
 		};
-		// FIXME this is changed with 387
-		for entry in scope.evaluated_expressions.values() {
-			let prev_loc = entry.expression.get_location();
+		let mut ids_map = HashMap::new();
+		for (key, entry) in scope.get_all_expressions() {
 			let mut entry_copy = entry.clone();
 			entry_copy.expression.transform(f).unwrap();
-			entry_copy.scope_id = scope_id;
-			local_ctx
-				.scope
-				.evaluated_expressions
-				.insert(prev_loc, entry_copy.clone());
-			log::debug!("Inserted entry at {:?}", prev_loc);
+			let id = local_ctx.scope.add_expression(scope_id, entry_copy.expression);
+			ids_map.insert(key, id);
+			log::debug!("Inserted entry at {:?}", id);
 		}
 		debug!("Binding clocks!");
 		for stmt in &self.port_bind {
@@ -289,8 +277,12 @@ impl InstantiationStatement {
 			interface_variable
 				.var
 				.kind
-				.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table)?;
+				.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table, &ids_map)?;
 			scope.redeclare_variable(interface_variable.clone());
+			interface_variable
+				.var
+				.kind
+				.remap_bus_widths(&scope, &ctx.id_table, ctx.nc_table, &ids_map)?;
 			debug!("Interface variable is {:?}", interface_variable.var.kind);
 			let clk_type = interface_variable
 				.var
@@ -364,8 +356,12 @@ impl InstantiationStatement {
 			interface_variable
 				.var
 				.kind
-				.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table)?;
+				.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table, &ids_map)?;
 			scope.redeclare_variable(interface_variable.clone());
+			interface_variable
+				.var
+				.kind
+				.remap_bus_widths(&scope, &ctx.id_table, ctx.nc_table, &ids_map)?;
 			// translate clocks
 			let mut interface_signal = interface_variable
 				.var

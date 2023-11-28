@@ -105,7 +105,7 @@ impl FullElaborator {
 	}
 }
 
-impl Elaborator for FullElaborator {
+impl Elaborator<ElabReport> for FullElaborator {
 	fn elaborate(
 		&mut self,
 		id: ModuleId,

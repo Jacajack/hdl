@@ -118,7 +118,7 @@ where
 
 /// Elaborator trait implementation for MultiPassElaborator
 /// adds a module to the queue and elaborates the entire queue
-impl<Ctx, Cache> Elaborator for MultiPassElaborator<Ctx, Cache>
+impl<Ctx, Cache> Elaborator<ElabReport> for MultiPassElaborator<Ctx, Cache>
 where
 	Ctx: ElabPassContext<Cache>,
 	Cache: Default + Clone,

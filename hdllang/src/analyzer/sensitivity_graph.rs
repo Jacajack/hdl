@@ -24,13 +24,18 @@ pub struct ClockGraphEntry {
 pub struct ClockGraph {
 	graph: UnGraph<ClockGraphEntry, ()>,
 	graph_entries: BiHashMap<SenstivityGraphIndex, ClockGraphEntry>,
+	is_generic: bool,
 }
 impl ClockGraph {
 	pub fn new() -> Self {
 		Self {
 			graph: UnGraph::default(),
 			graph_entries: BiHashMap::new(),
+			is_generic: false,
 		}
+	}
+	pub fn mark_as_generic(&mut self) {
+		self.is_generic = true;
 	}
 	pub fn insert_or_get_index(&mut self, entry: ClockGraphEntry) -> petgraph::stable_graph::NodeIndex {
 		match self.graph_entries.get_by_right(&entry) {
@@ -57,6 +62,9 @@ impl ClockGraph {
 		assert!(self.are_clocks_connected(from, to));
 	}
 	pub fn is_at_least_one_an_alias(&mut self, lhs: Vec<InternalVariableId>, rhs: &InternalVariableId) -> bool {
+		if self.is_generic {
+			return true;
+		}
 		log::debug!("Checking if {:?} is an alias of {:?}", lhs, rhs);
 		log::debug!("Graph is {:?}", self.graph);
 		for lhs in lhs {
@@ -408,6 +416,9 @@ impl SensitivityGraph {
 		let mut visited = HashSet::new();
 		let mut sens_nodes = HashMap::new();
 		let mut clock_graph = ClockGraph::new();
+		if scope.is_generic() {
+			clock_graph.mark_as_generic();
+		}
 		// deduce sensitivities
 		for node in self.graph.raw_nodes() {
 			let mut visited_deduction = HashSet::new();

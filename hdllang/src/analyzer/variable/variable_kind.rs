@@ -1,6 +1,8 @@
+use std::collections::HashMap;
+
 use crate::{
 	analyzer::{
-		module_implementation_scope::EvaluatedEntry, SemanticError, SignalSensitivity, SignalSignedness, SignalType,
+		module_implementation_scope::ExpressionEntryId, SemanticError, SignalSensitivity, SignalSignedness, SignalType,
 	},
 	core::CompilerDiagnosticBuilder,
 	lexer::IdTable,
@@ -39,6 +41,7 @@ impl VariableKind {
 		scope: &ModuleImplementationScope,
 		id_table: &IdTable,
 		nc_table: &crate::lexer::NumericConstantTable,
+		ids: &HashMap<ExpressionEntryId, ExpressionEntryId>,
 	) -> miette::Result<()> {
 		use VariableKind::*;
 		match self {
@@ -47,14 +50,42 @@ impl VariableKind {
 				match &mut sig.signal_type {
 					Bus(bus) => match &mut bus.width {
 						Some(b) => {
-							b.eval(nc_table, id_table, scope)?;
+							b.eval(nc_table, id_table, scope, ids)?;
 						},
 						None => (),
 					},
 					_ => (),
 				}
 				for dim in &mut sig.dimensions {
-					dim.eval(nc_table, id_table, scope)?;
+					dim.eval(nc_table, id_table, scope, ids)?;
+				}
+			},
+			_ => unreachable!(),
+		}
+		Ok(())
+	}
+	pub fn remap_bus_widths(
+		&mut self,
+		scope: &ModuleImplementationScope,
+		id_table: &IdTable,
+		nc_table: &crate::lexer::NumericConstantTable,
+		ids: &HashMap<ExpressionEntryId, ExpressionEntryId>,
+	) -> miette::Result<()> {
+		use VariableKind::*;
+		match self {
+			Signal(sig) => {
+				use SignalType::*;
+				match &mut sig.signal_type {
+					Bus(bus) => match &mut bus.width {
+						Some(b) => {
+							b.remap(nc_table, id_table, scope, ids)?;
+						},
+						None => (),
+					},
+					_ => (),
+				}
+				for dim in &mut sig.dimensions {
+					dim.remap(nc_table, id_table, scope, ids)?;
 				}
 			},
 			_ => unreachable!(),
@@ -256,10 +287,8 @@ impl VariableKind {
 							.build(),
 					));
 				}
-				scope.evaluated_expressions.insert(
-					bus.width.get_location(),
-					EvaluatedEntry::new(*bus.width.clone(), current_scope),
-				);
+				let id = scope.add_expression(current_scope, *bus.width.clone());
+
 				let width = bus.width.evaluate(nc_table, current_scope, scope)?;
 				// I do not know why I wanted to do it differently before
 				let w = match &width {
@@ -272,9 +301,9 @@ impl VariableKind {
 									.build(),
 							));
 						}
-						BusWidth::EvaluatedLocated(val.clone(), bus.width.get_location())
+						BusWidth::EvaluatedLocated(val.clone(), id)
 					},
-					None => BusWidth::Evaluable(bus.width.get_location()),
+					None => BusWidth::Evaluable(id),
 				};
 
 				Ok(VariableKind::Signal(Signal {

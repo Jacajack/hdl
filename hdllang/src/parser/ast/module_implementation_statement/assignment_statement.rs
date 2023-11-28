@@ -36,15 +36,12 @@ impl AssignmentStatement {
 		}
 		if self.lhs.is_generic(ctx, scope_id, local_ctx)? {
 			debug!("Lhs is generic");
+			let id = local_ctx.scope.add_expression(scope_id, self.rhs.clone());
 			match self.rhs.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)? {
-				Some(val) => self.lhs.assign(
-					BusWidth::EvaluatedLocated(val, self.rhs.get_location()),
-					local_ctx,
-					scope_id,
-				),
-				None => self
+				Some(val) => self
 					.lhs
-					.assign(BusWidth::Evaluable(self.rhs.get_location()), local_ctx, scope_id),
+					.assign(BusWidth::EvaluatedLocated(val, id), local_ctx, scope_id),
+				None => self.lhs.assign(BusWidth::Evaluable(id), local_ctx, scope_id),
 			}
 			.map_err(|e| e.label(self.location, "This self is invalid").build())?;
 			//return Ok(());
@@ -95,15 +92,17 @@ impl AssignmentStatement {
 			.evaluate_type(ctx, scope_id, local_ctx, rhs_type, true, self.location)?;
 		let (left_id, loc) = self.lhs.get_internal_id(&local_ctx.scope, scope_id);
 		let entries = self.rhs.get_sensitivity_entry(ctx, local_ctx, scope_id);
-		debug!("Adding edges {:?} to {:?}", entries, left_id);
-		local_ctx
-			.sensitivity_graph
-			.add_edges(
-				entries,
-				crate::analyzer::SensitivityGraphEntry::Signal(left_id, loc),
-				self.location,
-			)
-			.map_err(|e| e.build())?;
+		if local_ctx.are_we_in_true_branch() {
+			debug!("Adding edges {:?} to {:?}", entries, left_id);
+			local_ctx
+				.sensitivity_graph
+				.add_edges(
+					entries,
+					crate::analyzer::SensitivityGraphEntry::Signal(left_id, loc),
+					self.location,
+				)
+				.map_err(|e| e.build())?;
+		}
 		info!("Lhs type at the and: {:?}", new_lhs);
 		Ok(())
 	}

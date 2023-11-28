@@ -355,8 +355,6 @@ fn shallow_validate_slice(
 		}
 	}
 
-	// TODO we could potentially check for static out-of-bounds access here
-
 	Ok(())
 }
 
@@ -379,6 +377,8 @@ impl Expression {
 
 	/// Validates the expression
 	pub fn validate(&self, ctx: &dyn EvalAssumptions, scope: &ScopeHandle) -> Result<(), EvalError> {
+		self.eval_type(ctx)?;
+		
 		let mut is_root_level = true;
 		self.traverse(&mut |e| -> Result<bool, EvalError> {
 			// Check if all variables used in the expression are a subset of the ones
