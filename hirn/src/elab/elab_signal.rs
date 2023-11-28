@@ -245,8 +245,8 @@ impl SignalMask {
 			(Full { .. }, Full { .. }) => Self::new(self.width()),
 			(Full { set: true, .. }, Sparse(m)) => Self::Sparse(m),
 			(Sparse(m), Full { set: true, .. }) => Self::Sparse(m.clone()),
-			(Full { set: false, .. }, Sparse(m)) => Self::new(self.width()),
-			(Sparse(m), Full { set: false, .. }) => Self::new(self.width()),
+			(Full { set: false, .. }, Sparse(_m)) => Self::new(self.width()),
+			(Sparse(_m), Full { set: false, .. }) => Self::new(self.width()),
 			(Sparse(lhs_mask), Sparse(rhs_mask)) => Self::Sparse(lhs_mask.clone().and(&rhs_mask)),
 		}
 	}
@@ -369,6 +369,13 @@ impl SignalMaskSummary {
 	}
 }
 
+#[derive(Clone, Debug, Copy, PartialEq, Eq)]
+pub enum ElabSignalMarkAction {
+	Read,
+	Drive,
+	Unuse,
+}
+
 #[derive(Clone, Debug)]
 pub struct ElabSignal {
 	conflict_mask: SignalMask,
@@ -403,6 +410,28 @@ impl ElabSignal {
 
 	pub fn read_bits(&mut self, lsb: u32, msb: u32) {
 		self.read_mask.set_bits(lsb, msb);
+	}
+
+	pub fn mark(&mut self, action: ElabSignalMarkAction) -> SignalMask {
+		use ElabSignalMarkAction::*;
+		match action {
+			Drive => self.drive(),
+			Read | Unuse => { // FIXME unused
+				self.read();
+				SignalMask::new(self.width())
+			}
+		}
+	}
+
+	pub fn mark_bits(&mut self, action: ElabSignalMarkAction, lsb: u32, msb: u32) -> SignalMask {
+		use ElabSignalMarkAction::*;
+		match action {
+			Drive => self.drive_bits(lsb, msb),
+			Read | Unuse => { // FIXME unused
+				self.read_bits(lsb, msb);
+				SignalMask::new(self.width())
+			}
+		}
 	}
 
 	pub fn is_fully_driven(&self) -> bool {

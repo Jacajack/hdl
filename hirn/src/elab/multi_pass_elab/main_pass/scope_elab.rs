@@ -48,7 +48,7 @@ impl MainPassCtx {
 		for expr in scope.unused_expressions() {
 			expr.validate(&assumptions.clone(), &scope)?;
 			let unused_bits = expr.try_drive_bits().ok_or(ElabMessageKind::NotDrivable)?;
-			self.read_signal(&unused_bits, assumptions.clone())?;
+			self.unused_signal(&unused_bits, assumptions.clone())?;
 		}
 
 		for block in scope.blocks() {

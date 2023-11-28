@@ -355,8 +355,6 @@ fn shallow_validate_slice(
 		}
 	}
 
-	// TODO we could potentially check for static out-of-bounds access here
-
 	Ok(())
 }
 
