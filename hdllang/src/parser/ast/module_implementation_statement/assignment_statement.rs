@@ -92,8 +92,9 @@ impl AssignmentStatement {
 			.evaluate_type(ctx, scope_id, local_ctx, rhs_type, true, self.location)?;
 		let (left_id, loc) = self.lhs.get_internal_id(&local_ctx.scope, scope_id);
 		let entries = self.rhs.get_sensitivity_entry(ctx, local_ctx, scope_id);
-		debug!("Adding edges {:?} to {:?}", entries, left_id);
-		local_ctx
+		if local_ctx.are_we_in_true_branch(){
+			debug!("Adding edges {:?} to {:?}", entries, left_id);
+			local_ctx
 			.sensitivity_graph
 			.add_edges(
 				entries,
@@ -101,6 +102,7 @@ impl AssignmentStatement {
 				self.location,
 			)
 			.map_err(|e| e.build())?;
+		}
 		info!("Lhs type at the and: {:?}", new_lhs);
 		Ok(())
 	}

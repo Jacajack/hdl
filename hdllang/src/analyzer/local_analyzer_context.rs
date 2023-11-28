@@ -40,6 +40,7 @@ impl LocalAnalyzerContext {
 		self.module_id
 	}
 	pub fn add_branch(&mut self, branch: bool) {
+		log::debug!("Adding branch: {}", branch);
 		self.are_we_in_true_branch.push(branch);
 	}
 	pub fn pop_branch(&mut self) {
@@ -48,9 +49,11 @@ impl LocalAnalyzerContext {
 	pub fn are_we_in_true_branch(&self) -> bool {
 		for branch in self.are_we_in_true_branch.iter().rev() {
 			if !*branch {
+				log::debug!("We are not in true branch");
 				return false;
 			}
 		}
+		log::debug!("We are in true branch");
 		true
 	}
 	pub fn always_true_branch(&self) -> bool {

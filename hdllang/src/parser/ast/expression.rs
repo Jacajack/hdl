@@ -2571,7 +2571,7 @@ impl Expression {
 				Ok(expr)
 			},
 			UnaryCastExpression(cast) => {
-				if cast.type_name.array_declarators.len() > 0 {
+				if cast.type_name.array_declarators.len() != 0 {
 					return Err(miette::Report::new(
 						SemanticError::BadCast
 							.to_diagnostic_builder()
@@ -2587,7 +2587,7 @@ impl Expression {
 					global_ctx,
 					scope_id,
 					local_ctx,
-					Signal::new_empty(),
+					Signal::new_bus(coupling_type.width(), SignalSignedness::NoSignedness, location),
 					is_lhs,
 					location,
 				)?;

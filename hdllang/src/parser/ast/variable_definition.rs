@@ -205,7 +205,8 @@ impl VariableDefinition {
 						var.var.kind = VariableKind::Signal(lhs);
 						local_ctx.scope.redeclare_variable(var);
 						let entries = expr.get_sensitivity_entry(ctx, local_ctx, scope_id);
-						local_ctx
+						if local_ctx.are_we_in_true_branch(){
+							local_ctx
 							.sensitivity_graph
 							.add_edges(
 								entries,
@@ -213,6 +214,7 @@ impl VariableDefinition {
 								expr.get_location(),
 							)
 							.map_err(|e| e.build())?;
+						}
 					}
 					else {
 						let mut lhs = spec_kind.to_signal().expect("This was checked during analysis");
@@ -264,7 +266,8 @@ impl VariableDefinition {
 							},
 						)?;
 						let entries = expr.get_sensitivity_entry(ctx, local_ctx, scope_id);
-						local_ctx
+						if local_ctx.are_we_in_true_branch(){
+							local_ctx
 							.sensitivity_graph
 							.add_edges(
 								entries,
@@ -275,6 +278,8 @@ impl VariableDefinition {
 								direct_initializer.location,
 							)
 							.map_err(|e| e.build())?;
+						}
+						
 					}
 				},
 				None => {
