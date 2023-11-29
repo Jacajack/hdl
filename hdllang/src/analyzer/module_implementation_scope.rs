@@ -39,6 +39,7 @@ use crate::analyzer::BusWidth;
 #[derive(Debug, Clone)]
 pub struct ModuleImplementationScope {
 	pub widths: HashMap<SourceSpan, BusWidth>,
+	pub ext_signedness: HashMap<SourceSpan, bool>, // true means signed
 	evaluated_expressions_counter: usize,
 	evaluated_expressions: HashMap<ExpressionEntryId, EvaluatedEntry>,
 	pub enriched_constants: HashMap<SourceSpan, crate::core::NumericConstant>,
@@ -181,6 +182,7 @@ impl ModuleImplementationScope {
 	pub fn new() -> Self {
 		Self {
 			widths: HashMap::new(),
+			ext_signedness: HashMap::new(),
 			evaluated_expressions: HashMap::new(),
 			scopes: vec![InternalScope::new(None)],
 			api_ids: BiHashMap::new(),

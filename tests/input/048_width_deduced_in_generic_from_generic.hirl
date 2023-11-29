@@ -10,7 +10,7 @@ module x{
 
 impl x{
 	y mm{
-		a: a*2,
+		a: a*2s4,
 		d: const auto dd
 	}
 	dd = 17;
