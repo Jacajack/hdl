@@ -95,6 +95,10 @@ impl SignalSensitivity {
 		use SignalSensitivity::*;
 		for sens in others {
 			match (&self, &sens) {
+				(NoSensitivity, _) => *self = sens.clone(),
+				(_, NoSensitivity) => (),
+				(Clock(..), _) => *self = Async(location),
+				(_, Clock(..)) => *self = Async(location),
 				(Async(_), _) => return,
 				(_, Async(_)) => *self = sens.clone(),
 				(Sync(l, _), Const(..)) | (Const(..), Sync(l, _)) => {

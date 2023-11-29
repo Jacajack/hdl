@@ -2,6 +2,5 @@ module X{}
 impl X{
 	clock wire a = (clock wire)0u1, b = (clock wire)0u1, c = (clock wire)0u1;
 	comb(a,b) wire d = 0;
-	wire e = d & c;
-	async wire f = d & c;
+	comb(a, b, c) wire e = d & c;
 }
