@@ -1,8 +1,6 @@
 use log::info;
 
-use crate::elab::{
-	 ElabError, ElabMessageKind,
-};
+use crate::elab::{ElabError, ElabMessageKind};
 
 use super::{
 	full_elab::{FullElabCacheHandle, FullElabCtx},

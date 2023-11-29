@@ -1,7 +1,7 @@
-mod main_pass;
-mod signal_usage_pass;
 mod comb_verif_pass;
 mod full_elab;
+mod main_pass;
+mod signal_usage_pass;
 
 pub use full_elab::FullElaborator;
 pub use main_pass::{GeneratedSignal, GeneratedSignalId, GeneratedSignalRef, ScopePassId, ScopePassInfo};

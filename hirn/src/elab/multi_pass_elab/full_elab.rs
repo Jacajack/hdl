@@ -1,15 +1,20 @@
-use std::{sync::{Arc, Mutex}, collections::VecDeque};
+use std::{
+	collections::VecDeque,
+	sync::{Arc, Mutex},
+};
 
 use log::info;
 
 use crate::{
 	design::{DesignHandle, EvalError, ModuleHandle, ModuleId},
-	elab::{
-		ElabAssumptionsBase, ElabError, ElabMessage, ElabMessageKind, ElabReport, Elaborator,
-	},
+	elab::{ElabAssumptionsBase, ElabError, ElabMessage, ElabMessageKind, ElabReport, Elaborator},
 };
 
-use super::{main_pass::{MainPassConfig, MainPassResult, MainPass}, ElabPassContext, ElabQueueItem, signal_usage_pass, comb_verif_pass, ElabPass};
+use super::{
+	comb_verif_pass,
+	main_pass::{MainPass, MainPassConfig, MainPassResult},
+	signal_usage_pass, ElabPass, ElabPassContext, ElabQueueItem,
+};
 
 pub(super) struct FullElabCtx {
 	design: DesignHandle,
@@ -23,7 +28,8 @@ pub(super) struct FullElabCtx {
 
 impl FullElabCtx {
 	pub(super) fn add_message(&mut self, kind: ElabMessageKind) {
-		self.result.report_mut()
+		self.result
+			.report_mut()
 			.add_message(ElabMessage::new(kind, self.module_id, self.assumptions.clone()));
 	}
 
@@ -136,15 +142,15 @@ impl FullElaborator {
 	) -> Result<FullElabResult, ElabError> {
 		let mut ctx = FullElabCtx::new_context(self.design.clone(), id, assumptions, Default::default());
 
-		let mut main_pass = MainPass{};
+		let mut main_pass = MainPass {};
 		ctx = main_pass.init(ctx)?;
 		ctx = main_pass.run(ctx)?;
 
-		let mut signal_usage_pass = signal_usage_pass::SignalUsagePass{};
+		let mut signal_usage_pass = signal_usage_pass::SignalUsagePass {};
 		ctx = signal_usage_pass.init(ctx)?;
 		ctx = signal_usage_pass.run(ctx)?;
 
-		let mut comb_verif_pass = comb_verif_pass::CombVerifPass{};
+		let mut comb_verif_pass = comb_verif_pass::CombVerifPass {};
 		ctx = comb_verif_pass.init(ctx)?;
 		ctx = comb_verif_pass.run(ctx)?;
 

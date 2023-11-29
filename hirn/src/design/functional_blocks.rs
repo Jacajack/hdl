@@ -288,11 +288,7 @@ impl ModuleInstance {
 		Ok(())
 	}
 
-	fn verify_binding(
-		&self,
-		name: &str,
-		extern_sig: SignalId,
-	) -> Result<(), DesignError> {
+	fn verify_binding(&self, name: &str, extern_sig: SignalId) -> Result<(), DesignError> {
 		debug!("Checking binding '{}' <-> {:?}", name, extern_sig);
 		let intern_sig = self
 			.module

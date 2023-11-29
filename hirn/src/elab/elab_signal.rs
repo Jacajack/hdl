@@ -430,7 +430,7 @@ impl ElabSignal {
 				self.read();
 				SignalMask::new(self.width())
 			},
-			Unuse => { 
+			Unuse => {
 				self.unuse();
 				SignalMask::new(self.width())
 			},
@@ -441,14 +441,14 @@ impl ElabSignal {
 		use ElabSignalMarkAction::*;
 		match action {
 			Drive => self.drive_bits(lsb, msb),
-			Read => { 
+			Read => {
 				self.read_bits(lsb, msb);
 				SignalMask::new(self.width())
-			}
-			Unuse => { 
+			},
+			Unuse => {
 				self.unuse_bits(lsb, msb);
 				SignalMask::new(self.width())
-			}
+			},
 		}
 	}
 
@@ -502,7 +502,10 @@ impl ElabSignal {
 
 	pub fn unread_summary(&self) -> SignalMaskSummary {
 		// actually_read = unused | read = !(~unused & ~read)
-		self.unused_mask.negated().and(self.read_mask().negated()).ones_summary()
+		self.unused_mask
+			.negated()
+			.and(self.read_mask().negated())
+			.ones_summary()
 	}
 }
 

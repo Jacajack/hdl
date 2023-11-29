@@ -1,18 +1,19 @@
 use std::collections::HashMap;
 
-use log::{info, error, warn};
+use log::{error, info, warn};
 
-use crate::{elab::{
-	ElabError, ElabMessageKind,
-}, design::{ModuleHandle, SignalDirection}};
+use crate::{
+	design::{ModuleHandle, SignalDirection},
+	elab::{ElabError, ElabMessageKind},
+};
 
 use super::{
 	full_elab::{FullElabCacheHandle, FullElabCtx},
-	ElabPass, main_pass::CombGraph, GeneratedSignalRef, GeneratedSignalId, GeneratedSignal,
+	main_pass::CombGraph,
+	ElabPass, GeneratedSignal, GeneratedSignalId, GeneratedSignalRef,
 };
 
 pub(super) struct CombVerifPass;
-
 
 fn find_comb_loop_global(g: &CombGraph) -> Vec<ElabMessageKind> {
 	let mut messages = vec![];
@@ -41,7 +42,10 @@ fn check_comb_loops(g: &CombGraph) -> Vec<ElabMessageKind> {
 	if petgraph::algo::is_cyclic_directed(g) {
 		error!("Comb loop check failed - found loops");
 		let msgs = find_comb_loop_global(g);
-		assert!(!msgs.is_empty(), "petgraph says there are cycles, but we didn't find any");
+		assert!(
+			!msgs.is_empty(),
+			"petgraph says there are cycles, but we didn't find any"
+		);
 		msgs
 	}
 	else {
@@ -65,7 +69,7 @@ fn check_interface_loops(g: &CombGraph, sigs: &HashMap<GeneratedSignalId, Genera
 		else {
 			refs.push(GeneratedSignalRef::new(*id, None))
 		}
-		
+
 		match sig.direction() {
 			None => {},
 			Some(SignalDirection::Tristate) => unreachable!("tristate ZBBd"),
@@ -75,12 +79,22 @@ fn check_interface_loops(g: &CombGraph, sigs: &HashMap<GeneratedSignalId, Genera
 	}
 
 	let total_possible_paths = input_refs.len() * output_refs.len();
-	if total_possible_paths > 1000 { // FIXME configuration
-		info!("Skipping interface check - too many paths to check ({} > 1000)", total_possible_paths);
-		return vec![ElabMessageKind::ComplexInterface { num_inputs: input_refs.len(), num_outputs: output_refs.len() }]
+	if total_possible_paths > 1000 {
+		// FIXME configuration
+		info!(
+			"Skipping interface check - too many paths to check ({} > 1000)",
+			total_possible_paths
+		);
+		return vec![ElabMessageKind::ComplexInterface {
+			num_inputs: input_refs.len(),
+			num_outputs: output_refs.len(),
+		}];
 	}
 
-	info!("Checking {} possible interface-passtghrough paths", total_possible_paths);
+	info!(
+		"Checking {} possible interface-passtghrough paths",
+		total_possible_paths
+	);
 
 	let mut messages = vec![];
 	for input_ref in &input_refs {
@@ -88,11 +102,11 @@ fn check_interface_loops(g: &CombGraph, sigs: &HashMap<GeneratedSignalId, Genera
 			let path_exists = petgraph::algo::has_path_connecting(g, *output_ref, *input_ref, None);
 			if path_exists {
 				warn!("Interface comb path from {:?} to {:?}", input_ref, output_ref);
-				
+
 				// TODO Improvement area - report the entire path
 				messages.push(ElabMessageKind::CombInterfaceLoop {
 					from: Box::new(*input_ref),
-					to: Box::new(*output_ref) 
+					to: Box::new(*output_ref),
 				});
 			}
 		}
@@ -120,7 +134,7 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for CombVerifPass {
 
 		let messages = check_comb_graph(
 			full_ctx.main_pass_result.as_ref().unwrap().comb_graph(),
-			full_ctx.main_pass_result.as_ref().unwrap().signals()
+			full_ctx.main_pass_result.as_ref().unwrap().signals(),
 		);
 
 		for msg in messages {

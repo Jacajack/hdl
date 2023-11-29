@@ -4,7 +4,10 @@ use log::{debug, error};
 
 use crate::{
 	design::{Evaluates, HasSensitivity, SignalId, SignalSliceRange},
-	elab::{multi_pass_elab::main_pass::GeneratedSignalRef, ElabAssumptionsBase, ElabMessageKind, ElabSignal, elab_signal::ElabSignalMarkAction},
+	elab::{
+		elab_signal::ElabSignalMarkAction, multi_pass_elab::main_pass::GeneratedSignalRef, ElabAssumptionsBase,
+		ElabMessageKind, ElabSignal,
+	},
 };
 
 use super::MainPassCtx;

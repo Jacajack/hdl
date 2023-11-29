@@ -7,7 +7,7 @@ use log::{debug, error, info};
 use petgraph::graphmap::DiGraphMap;
 
 use crate::{
-	design::{ConditionalScope, Evaluates, HasSensitivity, RangeScope, ScopeHandle, SignalId, SignalDirection},
+	design::{ConditionalScope, Evaluates, HasSensitivity, RangeScope, ScopeHandle, SignalDirection, SignalId},
 	elab::{ElabAssumptions, ElabAssumptionsBase, ElabMessageKind},
 };
 

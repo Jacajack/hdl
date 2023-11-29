@@ -3,7 +3,9 @@ use std::sync::Arc;
 use log::{debug, error};
 
 use crate::{
-	design::{Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalId, SignalSlice, DesignHandle, SignalDirection},
+	design::{
+		DesignHandle, Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalDirection, SignalId, SignalSlice,
+	},
 	elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
 
@@ -126,7 +128,11 @@ impl GeneratedSignal {
 	}
 }
 
-pub fn format_generated_signal_ref(design: DesignHandle, gen_sig: &GeneratedSignal, gen_ref: &GeneratedSignalRef) -> String {
+pub fn format_generated_signal_ref(
+	design: DesignHandle,
+	gen_sig: &GeneratedSignal,
+	gen_ref: &GeneratedSignalRef,
+) -> String {
 	let sig_name = design.get_signal(gen_ref.signal()).unwrap().name().to_string();
 	if let Some(index) = gen_ref.index() {
 		let indices = gen_sig.index_to_indices(index);
