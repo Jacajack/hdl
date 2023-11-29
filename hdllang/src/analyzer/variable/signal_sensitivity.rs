@@ -106,26 +106,7 @@ impl SignalSensitivity {
 				},
 				(Comb(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
 				(Comb(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
-				(Comb(l, _), Clock(loc, Some(id))) => {
-					let mut new_list = l.clone();
-					new_list.add_clock(EdgeSensitivity {
-						clock_signal: *id,
-						on_rising: true,
-						location: *loc,
-					});
-					*self = Comb(new_list, location);
-				},
-				(Clock(loc, Some(id)), Comb(l, _)) => {
-					let mut new_list = l.clone();
-					new_list.add_clock(EdgeSensitivity {
-						clock_signal: *id,
-						on_rising: true,
-						location: *loc,
-					});
-					*self = Comb(new_list, location);
-				},
 				(Comb(..), Const(_)) => (),
-				(_, NoSensitivity) => (),
 				(Sync(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
 				(Sync(l1, _), Sync(l2, _)) => {
 					if l1 == l2 {
@@ -135,19 +116,8 @@ impl SignalSensitivity {
 						*self = Comb(l1.combine_two(l2), location);
 					}
 				},
-				(Sync(..), Clock(..)) => *self = sens.clone(),
-				(Sync(..), Const(_)) => (),
-				(Clock(loc1, Some(id1)), Clock(loc2, Some(id2))) => {
-					let list = ClockSensitivityList::new()
-						.with_clock(*id1, true, *loc1)
-						.with_clock(*id2, true, *loc2);
-					*self = Comb(list, location);
-				},
-				(Clock(..), _) => (),
 				(Const(_), Const(_)) => (),
 				(Const(_), _) => *self = sens.clone(),
-				(NoSensitivity, _) => *self = sens.clone(),
-				_ => (),
 			}
 		}
 	}
