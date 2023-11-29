@@ -28,9 +28,7 @@ fn find_comb_loop_global(g: &CombGraph) -> Vec<ElabMessageKind> {
 		if component.len() == 1 {
 			let node = component[0];
 			if g.neighbors(node).any(|n| n == node) {
-				messages.push(ElabMessageKind::CombLoop {
-					signals: vec![node],
-				});
+				messages.push(ElabMessageKind::CombLoop { signals: vec![node] });
 			}
 		}
 		else {
