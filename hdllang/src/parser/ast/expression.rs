@@ -1194,7 +1194,7 @@ impl Expression {
 										additional_ctx,
 									)?),
 								},
-								"ext" => match scope.ext_signedness.get(&self.get_location()).unwrap(){
+								"ext" => match scope.ext_signedness.get(&self.get_location()).unwrap() {
 									true => hirn::design::BuiltinOp::SignExtend {
 										expr: Box::new(expr),
 										width: Box::new(scope.get_expression(loc).expression.codegen(
@@ -2295,8 +2295,8 @@ impl Expression {
 							"zext" => SignalSignedness::Unsigned(self.get_location()),
 							"ext" => {
 								use SignalSignedness::*;
-								match expr.get_signedness(){
-									NoSignedness =>
+								match expr.get_signedness() {
+									NoSignedness => {
 										return Err(miette::Report::new(
 											SemanticError::SignednessMismatch
 												.to_diagnostic_builder()
@@ -2305,12 +2305,13 @@ impl Expression {
 													"Signedness of this expression is unknown",
 												)
 												.build(),
-										)),
+										))
+									},
 									Signed(_) => local_ctx.scope.ext_signedness.insert(self.get_location(), true),
 									Unsigned(_) => local_ctx.scope.ext_signedness.insert(self.get_location(), false),
 								};
 								expr.get_signedness()
-							}
+							},
 							"sext" => SignalSignedness::Signed(self.get_location()),
 							_ => unreachable!(),
 						};
