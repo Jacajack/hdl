@@ -240,12 +240,12 @@ impl SignalSensitivity {
 		use SignalSensitivity::*;
 		match (dest, self) {
 			(Generic, Generic) => true,
-			
+
 			(Const, Generic) => true,
 			(Const, Const) => true,
-			
+
 			(Clock, Clock) => true,
-			
+
 			(Sync(_), Generic) => true,
 			(Sync(_), Const) => true,
 			(Sync(_), Sync(_)) => true,

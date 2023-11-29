@@ -347,7 +347,7 @@ impl ScopeHandle {
 	fn assign_impl(&mut self, lhs: Expression, rhs: Expression, comment: Option<&str>) -> Result<(), DesignError> {
 		lhs.validate_no_assumptions(&self)?;
 		rhs.validate_no_assumptions(&self)?;
-		
+
 		// Check if the LHS is drivable
 		lhs.try_drive().ok_or(DesignError::ExpressionNotDrivable)?;
 
@@ -356,7 +356,7 @@ impl ScopeHandle {
 		let rhs_type = rhs.eval_type(&EvalContext::without_assumptions(self.design().clone()))?;
 
 		if lhs_type.is_signed() != rhs_type.is_signed() {
-			return Err(DesignError::IncompatibleSignedness{
+			return Err(DesignError::IncompatibleSignedness {
 				lhs_signedness: lhs_type.signedness(),
 				rhs_signedness: rhs_type.signedness(),
 			});
@@ -365,7 +365,7 @@ impl ScopeHandle {
 		if !rhs_type.sensitivity().can_drive(&lhs_type.sensitivity()) {
 			error!("Assigning {:?} = {:?}", lhs, rhs);
 			error!("Assigning {:?} = {:?}", lhs_type, rhs_type);
-			return Err(DesignError::IncompatibleSensitivity{
+			return Err(DesignError::IncompatibleSensitivity {
 				lhs_sensitivity: lhs_type.sensitivity().clone(),
 				rhs_sensitivity: rhs_type.sensitivity().clone(),
 			});

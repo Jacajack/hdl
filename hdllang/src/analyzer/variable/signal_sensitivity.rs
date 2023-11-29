@@ -97,9 +97,9 @@ impl SignalSensitivity {
 			match (&self, &sens) {
 				(Async(_), _) => return,
 				(_, Async(_)) => *self = sens.clone(),
-				(Sync(l,_), Const(..)) | (Const(..), Sync(l,_)) =>{
+				(Sync(l, _), Const(..)) | (Const(..), Sync(l, _)) => {
 					*self = Comb(l.clone(), location);
-				}
+				},
 				(Comb(l1, _), Comb(l2, _)) => *self = Comb(l1.combine_two(l2), location),
 				(Comb(l1, _), Sync(l2, _)) => *self = Comb(l1.combine_two(l2), location),
 				(Comb(l, _), Clock(loc, Some(id))) => {
@@ -205,7 +205,7 @@ impl SignalSensitivity {
 			| (Sync(..), Sync(..))
 			| (Const(_), Const(_))
 			| (Clock(..), Clock(..)) => (),
-			
+
 			(NoSensitivity, _) => *self = rhs.clone(),
 			(Comb(curent, _), Comb(incoming, _)) => {
 				for value in &incoming.list {
