@@ -24,15 +24,21 @@ fn find_comb_loop_global(g: &CombGraph) -> Vec<ElabMessageKind> {
 	info!("Searching for comb loops in {} SCCs", scc.len());
 
 	for component in scc {
-		assert!(!component.is_empty());
-		if component.len() < 2 {
-			continue;
+		// Self-loop corner case
+		if component.len() == 1 {
+			let node = component[0];
+			if g.neighbors(node).any(|n| n == node) {
+				messages.push(ElabMessageKind::CombLoop {
+					signals: vec![node],
+				});
+			}
 		}
-
-		// Note: the signals are not necessarily in topological order
-		messages.push(ElabMessageKind::CombLoop {
-			signals: component.clone(),
-		});
+		else {
+			// Note: the signals are not necessarily in topological order
+			messages.push(ElabMessageKind::CombLoop {
+				signals: component.clone(),
+			});
+		}
 	}
 
 	messages

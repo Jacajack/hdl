@@ -1,0 +1,17 @@
+module X{
+	input clock clk;
+	input async nreset;
+}
+impl X {
+	wire x[4];
+	x[3] = x[2];
+	x[2] = x[1];
+	x[1] = x[0];
+	
+	reg r {
+		clk, nreset,
+		en: true,
+		next: x[3],
+		data: x[0],
+	}
+}
