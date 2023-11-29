@@ -222,6 +222,8 @@ impl InstantiationStatement {
 						},
 						_ => unreachable!(),
 					}
+					let sig = interface_variable.var.kind.to_signal().unwrap();
+					id_expr.expression.evaluate_type(ctx, scope_id, local_ctx, sig, true, stmt.get_location())?;
 					let new_var = Variable::new(new_name, stmt.location(), interface_variable.var.kind.clone());
 					scope.redeclare_variable(interface_variable);
 					let id = local_ctx.scope.define_intermidiate_signal(new_var, scope_id)?;
