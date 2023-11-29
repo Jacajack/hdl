@@ -1,0 +1,17 @@
+module X {
+	input async wire i[1024];
+	input async wire am[4096];
+	input async wire a[1024];
+	output async wire big[1024];
+	output async wire boy[4096];
+}
+
+impl X {
+	for (j in [0:<1024]) {
+		big[j] = i[j];
+	}
+
+	for (j in [0:<4096]) {
+		boy[j] = am[j];
+	}
+}

@@ -1,0 +1,7 @@
+module X {}
+impl X {
+    const wire x = true;
+    const wire y = false;
+    const wire z;
+    z = x | y | z;
+}
