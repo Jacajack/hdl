@@ -7,7 +7,7 @@ use log::{debug, error, info};
 use petgraph::graphmap::DiGraphMap;
 
 use crate::{
-	design::{ConditionalScope, Evaluates, HasSensitivity, RangeScope, ScopeHandle, SignalId},
+	design::{ConditionalScope, Evaluates, HasSensitivity, RangeScope, ScopeHandle, SignalId, SignalDirection},
 	elab::{ElabAssumptions, ElabAssumptionsBase, ElabMessageKind},
 };
 
@@ -29,7 +29,19 @@ impl MainPassCtx {
 		for sig_id in scope.signals() {
 			let sig = scope.design().get_signal(sig_id).unwrap();
 			if !sig.is_generic() {
-				self.declare_signal(sig_id, assumptions.clone())?;
+				if let Some(dir) = sig.direction() {
+					// Interface signals are treated specially
+					self.declare_main_interface_signal(sig_id, dir, assumptions.clone())?;
+
+					// Drive or read signal depending on interface direction
+					match dir == SignalDirection::Input {
+						true => self.drive_signal(&sig_id.into(), assumptions.clone()),
+						false => self.read_signal(&sig_id.into(), assumptions.clone()),
+					}?;
+				}
+				else {
+					self.declare_signal(sig_id, assumptions.clone())?;
+				}
 			}
 		}
 
@@ -42,14 +54,13 @@ impl MainPassCtx {
 		for expr in scope.unused_expressions() {
 			expr.validate(&assumptions.clone(), &scope)?;
 			let unused_bits = expr.try_drive_bits().ok_or(ElabMessageKind::NotDrivable)?;
-			self.read_signal(&unused_bits, assumptions.clone())?;
+			self.unused_signal(&unused_bits, assumptions.clone())?;
 		}
 
 		for block in scope.blocks() {
 			self.elab_block(scope.clone(), &block, assumptions.clone())?;
 		}
 
-		// TODO process submodule binding lists
 		Ok(())
 	}
 
@@ -142,6 +153,9 @@ impl MainPassCtx {
 		for cond_scope in scope.conditional_subscopes() {
 			self.elab_conditional_scope(&cond_scope, assumptions_arc.clone())?;
 			visited_scopes.insert(cond_scope.scope);
+			if let Some(else_scope_id) = cond_scope.else_scope {
+				visited_scopes.insert(else_scope_id);
+			}
 		}
 
 		for child_scope in scope.subscopes() {
@@ -194,8 +208,6 @@ impl MainPassCtx {
 		let begin_val = range_scope.iterator_begin.eval(&assumptions)?;
 		let end_val = range_scope.iterator_end.eval(&assumptions)?;
 		let iter_count = (end_val - begin_val.clone()).try_into_i64()?;
-
-		// TODO validate expressions
 
 		if iter_count > self.config.max_for_iters {
 			error!(

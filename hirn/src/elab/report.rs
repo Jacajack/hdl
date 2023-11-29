@@ -3,9 +3,9 @@ use std::{fmt::Display, sync::Arc};
 use log::debug;
 use thiserror::Error;
 
-use crate::design::{ModuleId, SignalId};
+use crate::design::{ModuleId};
 
-use super::{ElabAssumptionsBase, ElabSignal, GeneratedSignalRef, SignalMask};
+use super::{ElabAssumptionsBase, ElabSignal, GeneratedSignalRef};
 
 pub trait SeverityPolicy {
 	fn severity(&self, kind: &ElabMessageKind) -> ElabMessageSeverity;
@@ -21,8 +21,10 @@ impl SeverityPolicy for DefaultSeverityPolicy {
 			SignalUnused { .. } => Warning,
 			SignalNotDriven { .. } => Warning,
 			SignalNotDrivenAndUsed { .. } => Error,
-			CombLoop => Error,
-			WidthMismatch => Error,
+			CombLoop{..} => Error,
+			CombInterfaceLoop{..} => Warning,
+			ComplexInterface{ .. } => Warning,
+			WidthMismatch{..} => Error,
 			Notice(_) => Info,
 			MaxForIterCount => Error,
 			CyclicGenericDependency => Error,
@@ -136,8 +138,22 @@ pub enum ElabMessageKind {
 		elab: Box<ElabSignal>,
 	},
 
-	#[error("The design contains a combinational loop")]
-	CombLoop,
+	#[error("The module contains a combinational signal loop")]
+	CombLoop {
+		signals: Vec<GeneratedSignalRef>,
+	},
+
+	#[error("A combinational path exists between module inputs and outputs")]
+	CombInterfaceLoop {
+		from: Box<GeneratedSignalRef>,
+		to: Box<GeneratedSignalRef>,
+	},
+
+	#[error("Effective module interface is quite large")]
+	ComplexInterface {
+		num_inputs: usize,
+		num_outputs: usize,
+	},
 
 	#[error("Assignment/binding of signals with different widths")]
 	WidthMismatch {

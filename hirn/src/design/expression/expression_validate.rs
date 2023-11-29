@@ -149,8 +149,15 @@ impl BinaryExpression {
 				}
 			},
 
-			// Relational operators require matching signedness and width
-			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual | Max | Min => {
+			// Relational operators only require matching signedness
+			Equal | NotEqual | Less | LessEqual | Greater | GreaterEqual => {
+				if lhs_type.is_signed() != rhs_type.is_signed() {
+					return Err(ExpressionError::MixedSignedness.into());
+				}
+			},
+
+			// Min & max require matching signedness and width
+			Max | Min => {
 				if lhs_type.is_signed() != rhs_type.is_signed() {
 					return Err(ExpressionError::MixedSignedness.into());
 				}
@@ -355,8 +362,6 @@ fn shallow_validate_slice(
 		}
 	}
 
-	// TODO we could potentially check for static out-of-bounds access here
-
 	Ok(())
 }
 
@@ -379,6 +384,8 @@ impl Expression {
 
 	/// Validates the expression
 	pub fn validate(&self, ctx: &dyn EvalAssumptions, scope: &ScopeHandle) -> Result<(), EvalError> {
+		self.eval_type(ctx)?;
+		
 		let mut is_root_level = true;
 		self.traverse(&mut |e| -> Result<bool, EvalError> {
 			// Check if all variables used in the expression are a subset of the ones
