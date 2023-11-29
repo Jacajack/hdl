@@ -71,7 +71,7 @@ impl IfElseStatement {
 			&local_ctx.scope,
 			Some(&additional_ctx),
 		)?;
-
+		log::debug!("Condition is {:?}", condition_expr);
 		match self.else_statement {
 			Some(ref else_stmt) => {
 				let (mut if_scope, mut else_scope) = api_scope.if_else_scope(condition_expr).map_err(|err| {

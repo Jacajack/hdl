@@ -14,7 +14,7 @@ mod tuple;
 mod unary_cast_expression;
 mod unary_operator_expression;
 
-use crate::analyzer::module_implementation_scope::{EvaluatedEntry, InternalVariableId};
+use crate::analyzer::module_implementation_scope::InternalVariableId;
 use crate::analyzer::{
 	AdditionalContext, AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContext,
 	ModuleImplementationScope, ModuleInstanceKind, SemanticError, Signal, SignalSensitivity, SignalSignedness,
@@ -1542,10 +1542,21 @@ impl Expression {
 		use Expression::*;
 		match self {
 			Number(num) => {
+				debug!("Number is {:?}", num.location);
 				// if coupling type is none, width must be known
 				let width = coupling_type.width();
 				let key = &num.key;
-				let mut constant = global_ctx.nc_table.get_by_key(key).unwrap().clone();
+				let mut constant = match local_ctx.nc_widths.get(&self.get_location()) {
+						Some(nc) => {
+							if local_ctx.ncs_to_be_exted.contains_key(&self.get_location()){
+								global_ctx.nc_table.get_by_key(key).unwrap().clone()
+							}
+							else {
+								nc.clone()
+							}
+						}
+						None => global_ctx.nc_table.get_by_key(key).unwrap().clone(),
+					};
 				let mut sig = Signal::new_from_constant(&constant, num.location);
 				match (width, sig.width()) {
 					(None, None) => {},
@@ -1555,6 +1566,7 @@ impl Expression {
 						match val.get_value() {
 							Some(value) => {
 								constant.width = Some(value.to_u32().unwrap());
+								log::debug!("NC is now {:?}", constant);
 								sig.set_width(
 									BusWidth::Evaluated(NumericConstant::from_u64(
 										constant.width.unwrap() as u64,
@@ -1567,6 +1579,7 @@ impl Expression {
 								);
 								local_ctx.nc_widths.insert(self.get_location(), constant.clone());
 								if let Some(loc) = val.get_location() {
+									log::debug!("Inserting {:?} to be extended", loc);
 									local_ctx.ncs_to_be_exted.insert(self.get_location(), loc);
 								}
 							},
@@ -1603,18 +1616,12 @@ impl Expression {
 					},
 				}
 				use crate::analyzer::SignalSignedness::*;
+				log::debug!("After width constant is {:?}", constant);
 				if coupling_type.is_signedness_specified() {
 					match (coupling_type.get_signedness(), sig.get_signedness()) {
 						(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
-						(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc1), Signed(loc2)) => {
-							return Err(miette::Report::new(
-								SemanticError::SignednessMismatch
-									.to_diagnostic_builder()
-									.label(location, "Signedness of this expression does not match")
-									.label(loc1, "Signedness of this signal")
-									.label(loc2, "Signedness of this expression")
-									.build(),
-							))
+						(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
+							report_signedness_mismatch(loc1, loc2)?;
 						},
 						(NoSignedness, _) => (),
 						(Signed(loc), NoSignedness) => {
@@ -1626,6 +1633,7 @@ impl Expression {
 							constant.signed = Some(false);
 							log::debug!("Setting signedness of unsigned");
 							sig.set_signedness(SignalSignedness::Unsigned(loc), loc);
+							log::debug!("Constant is now {:?}", constant);
 							local_ctx.nc_widths.insert(self.get_location(), constant.clone());
 						},
 					}
@@ -1680,12 +1688,7 @@ impl Expression {
 					location,
 				)?;
 				if val.is_array() {
-					return Err(miette::Report::new(
-						SemanticError::ArrayInExpression
-							.to_diagnostic_builder()
-							.label(self.get_location(), "Match expression cannot be used on arrays")
-							.build(),
-					));
+					report_array(match_expr.value.get_location())?;
 				}
 				let mut res = Signal::new_empty();
 				let mut present_already = HashMap::new();
@@ -1827,19 +1830,7 @@ impl Expression {
 				debug!("false branch: {:?}", false_branch_type);
 				match (true_branch_type.width(), false_branch_type.width()) {
 					(None, None) => {
-						return Err(miette::Report::new(
-							SemanticError::WidthNotKnown
-								.to_diagnostic_builder()
-								.label(
-									ternary.true_branch.get_location(),
-									"Width of this expression is unknown",
-								)
-								.label(
-									ternary.false_branch.get_location(),
-									"Width of this expression is unknown",
-								)
-								.build(),
-						))
+						report_unknown_width(self.get_location())?;
 					},
 					(None, Some(_)) => {
 						ternary.true_branch.evaluate_type(
@@ -2105,26 +2096,30 @@ impl Expression {
 				match func_name.as_str() {
 					"zeros" | "ones" => {
 						match function.argument_list.len() {
-							//0 => { // FIXME
-							//	Ok(coupling_type.clone())
-							//},
 							1 => {
-								let expr = function.argument_list[0]
+								let width = match function.argument_list[0]
 									.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?
-									.expect("This panics in generic modules implementatation"); // FIXME
-								if expr.value < 0.into() {
-									return Err(miette::Report::new(
-										SemanticError::NegativeBusWidth // FIXME this error name
-											.to_diagnostic_builder()
-											.label(
-												function.argument_list[0].get_location(),
-												"This argument cannot be negative",
-											)
-											.build(),
-									));
-								}
+									{
+										Some(nc) => {
+											if nc.value < 0.into() {
+												return Err(miette::Report::new(
+													SemanticError::NegativeBusWidth // FIXME this error name
+														.to_diagnostic_builder()
+														.label(
+															function.argument_list[0].get_location(),
+															"This argument cannot be negative",
+														)
+														.build(),
+												));
+											}
+											BusWidth::Evaluated(nc.clone())
+										},
+										None =>{
+											BusWidth::Evaluable(local_ctx.scope.add_expression(scope_id, self.clone()))
+										},
+									};
 								let expr = Signal::new_bus(
-									Some(BusWidth::Evaluated(expr)),
+									Some(width),
 									SignalSignedness::Unsigned(self.get_location()),
 									self.get_location(),
 								);
@@ -2199,16 +2194,9 @@ impl Expression {
 						use SignalSignedness::*;
 						match (expr.get_signedness(), coupling_type.get_signedness()) {
 							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
-							(Signed(loc_signed), Unsigned(loc_unsigned))
-							| (Unsigned(loc_unsigned), Signed(loc_signed)) => {
-								return Err(miette::Report::new(
-									SemanticError::SignednessMismatch
-										.to_diagnostic_builder()
-										.label(self.get_location(), "Signedness of this expression does not match")
-										.label(loc_signed, "This signedness is signed")
-										.label(loc_unsigned, "This signedness is unsigned")
-										.build(),
-								))
+							(Signed(loc1), Unsigned(loc2))
+							| (Unsigned(loc2), Signed(loc1)) => {
+								report_signedness_mismatch(loc1, loc2)?;
 							},
 							(_, NoSignedness) => (), //FIXME
 							(NoSignedness, _) => {
@@ -2339,12 +2327,7 @@ impl Expression {
 								location,
 							)?;
 							if n_sig.is_array() {
-								return Err(miette::Report::new(
-									SemanticError::ArrayInExpression
-										.to_diagnostic_builder()
-										.label(sig.get_location(), "This function cannot be applied to an array")
-										.build(),
-								));
+								report_array(sig.get_location())?;
 							}
 							use SignalSignedness::*;
 							if let Signed(loc) = n_sig.get_signedness() {
@@ -2393,10 +2376,6 @@ impl Expression {
 							is_lhs,
 							location,
 						)?;
-						let entry = EvaluatedEntry {
-							expression: self.clone(),
-							scope_id,
-						};
 						let id = local_ctx.scope.add_expression(scope_id, self.clone());
 						let mut width = BusWidth::WidthOf(id);
 						if let Some(count) =
@@ -2420,15 +2399,7 @@ impl Expression {
 							}
 						}
 						if expr.is_array() {
-							return Err(miette::Report::new(
-								SemanticError::ArrayInExpression
-									.to_diagnostic_builder()
-									.label(
-										function.argument_list[0].get_location(),
-										"This function cannot be applied to an array",
-									)
-									.build(),
-							));
+							report_array(function.argument_list[0].get_location())?;
 						}
 						if !expr.is_width_specified() {
 							return Err(miette::Report::new(
@@ -2462,15 +2433,7 @@ impl Expression {
 							location,
 						)?;
 						if arg_type.is_array() {
-							return Err(miette::Report::new(
-								SemanticError::ArrayInExpression
-									.to_diagnostic_builder()
-									.label(
-										function.argument_list[0].get_location(),
-										"This function cannot be applied to an array",
-									)
-									.build(),
-							));
+							report_array(function.argument_list[0].get_location())?;
 						}
 						if !arg_type.is_bus() {
 							return Err(miette::Report::new(
@@ -2582,21 +2545,32 @@ impl Expression {
 						.expression
 						.evaluate_type(global_ctx, scope_id, local_ctx, coupling_type, is_lhs, location)?;
 				if expr.is_array() {
-					return Err(miette::Report::new(
-						SemanticError::ArrayInExpression
-							.to_diagnostic_builder()
-							.label(
-								unary.location,
-								"This expression is an array, it is not allowed in binary expression",
-							)
-							.build(),
-					));
+					report_array(unary.expression.get_location())?;
+				}
+				if !expr.is_width_specified() {
+					report_unknown_width(unary.expression.get_location())?;
 				}
 				use crate::parser::ast::UnaryOpcode::*;
 				match unary.code {
 					BitwiseNot => (),
-					LogicalNot => (),
-					Minus => todo!(), // FIXME ???
+					LogicalNot => {
+						unary
+						.expression
+						.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_wire(self.get_location()), is_lhs, location)?;
+					},
+					Minus => {
+						if expr.get_signedness().is_unsigned(){
+							return Err(miette::Report::new(
+								SemanticError::SignednessMismatch
+									.to_diagnostic_builder()
+									.label(
+										unary.expression.get_location(),
+										"This expression is unsigned, but it should be signed",
+									)
+									.build(),
+							));
+						}
+					}
 					Plus => (),
 				}
 				Ok(expr)
@@ -2728,31 +2702,11 @@ impl Expression {
 					is_lhs,
 					binop.location,
 				)?;
-				if !type_first.is_width_specified() {
-					return Err(miette::Report::new(
-						SemanticError::WidthNotKnown
-							.to_diagnostic_builder()
-							.label(
-								binop.lhs.get_location(),
-								"Width of this expression is not known, but it should be",
-							)
-							.label(location, "Cannot perform addition, width is not known")
-							.build(),
-					));
-				}
 				if type_first.is_array() {
-					return Err(miette::Report::new(
-						SemanticError::ArrayInExpression
-							.to_diagnostic_builder()
-							.label(
-								binop.lhs.get_location(),
-								"This expression is an array, it is not allowed in binary expression",
-							)
-							.build(),
-					));
+					report_array(binop.lhs.get_location())?;
 				}
 				debug!("type_first: {:?}", type_first);
-				let type_second = match binop.code.do_widths_have_to_match() {
+				let mut type_second = match binop.code.do_widths_have_to_match() {
 					true => binop.rhs.evaluate_type(
 						global_ctx,
 						scope_id,
@@ -2771,42 +2725,23 @@ impl Expression {
 					)?,
 				};
 				debug!("type_second: {:?}", type_second);
-				if !type_second.is_width_specified() {
-					return Err(miette::Report::new(
-						SemanticError::WidthNotKnown
-							.to_diagnostic_builder()
-							.label(
-								binop.rhs.get_location(),
-								"Width of this expression is not known, but it should be",
-							)
-							.label(location, "Cannot perform addition, width is not known")
-							.build(),
-					));
-				}
 				if type_second.is_array() {
-					return Err(miette::Report::new(
-						SemanticError::ArrayInExpression
-							.to_diagnostic_builder()
-							.label(
-								binop.rhs.get_location(),
-								"This expression is an array, it is not allowed in binary expression",
-							)
-							.build(),
-					));
+					report_array(binop.rhs.get_location())?;
 				}
-				let w = match &binop.code {
+				log::debug!("Code: {:?}", binop.code);
+				let (w, s) = match &binop.code {
 					Multiplication => {
+						if !type_first.is_width_specified(){
+							report_unknown_width(binop.lhs.get_location())?;
+						}
+						if !type_second.is_width_specified(){
+							report_unknown_width(binop.rhs.get_location())?;
+						}
 						use SignalSignedness::*;
-						match (&type_first.get_signedness(), &type_second.get_signedness()) {
+						match (type_first.get_signedness(), type_second.get_signedness()) {
 							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
 							(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
-								return Err(miette::Report::new(
-									SemanticError::SignednessMismatch
-										.to_diagnostic_builder()
-										.label(*loc1, "This signal is signed")
-										.label(*loc2, "This signal is unsigned")
-										.build(),
-								));
+								report_signedness_mismatch(loc1, loc2)?;
 							},
 							(_, NoSignedness) => {
 								binop.rhs.evaluate_type(
@@ -2835,25 +2770,31 @@ impl Expression {
 							&type_first.width().unwrap().get_value(),
 							&type_second.width().unwrap().get_value(),
 						) {
-							(None, None) => BusWidth::WidthOf(id),
-							(None, Some(_)) => BusWidth::WidthOf(id),
-							(Some(_), None) => BusWidth::WidthOf(id),
-							(Some(v1), Some(v2)) => BusWidth::Evaluated(NumericConstant::new_from_value(v1 + v2)),
+							(None, None) => (BusWidth::WidthOf(id), type_first.get_signedness()),
+							(None, Some(_)) => (BusWidth::WidthOf(id), type_first.get_signedness()),
+							(Some(_), None) => (BusWidth::WidthOf(id), type_first.get_signedness()),
+							(Some(v1), Some(v2)) => (BusWidth::Evaluated(NumericConstant::new_from_value(v1 + v2)), type_first.get_signedness()),
 						}
 					},
-					Division => type_first.width().clone().unwrap(),
+					Division => {
+						type_first = binop.lhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_bus(coupling_type.width(), coupling_type.get_signedness(), location), is_lhs, location)?;
+						if !type_first.is_width_specified(){
+							report_unknown_width(binop.lhs.get_location())?;
+						}
+						(type_first.width().unwrap(), type_first.get_signedness())
+					},
 					Addition | Subtraction => {
 						use SignalSignedness::*;
-						match (&type_first.get_signedness(), &type_second.get_signedness()) {
+						if !type_first.is_width_specified(){
+							report_unknown_width(binop.lhs.get_location())?;
+						}
+						if !type_second.is_width_specified(){
+							report_unknown_width(binop.rhs.get_location())?;
+						}
+						match (type_first.get_signedness(), type_second.get_signedness()) {
 							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
 							(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
-								return Err(miette::Report::new(
-									SemanticError::SignednessMismatch
-										.to_diagnostic_builder()
-										.label(*loc1, "This signal is signed")
-										.label(*loc2, "This signal is unsigned")
-										.build(),
-								));
+								report_signedness_mismatch(loc1, loc2)?;
 							},
 							(_, NoSignedness) => {
 								binop.rhs.evaluate_type(
@@ -2882,59 +2823,136 @@ impl Expression {
 							&type_first.width().unwrap().get_value(),
 							&type_second.width().unwrap().get_value(),
 						) {
-							(None, None) => BusWidth::WidthOf(id),
-							(None, Some(_)) => BusWidth::WidthOf(id),
-							(Some(_), None) => BusWidth::WidthOf(id),
+							(None, None) => (BusWidth::WidthOf(id), type_first.get_signedness()),
+							(None, Some(_)) => (BusWidth::WidthOf(id), type_first.get_signedness()),
+							(Some(_), None) => (BusWidth::WidthOf(id), type_first.get_signedness()),
 							(Some(v1), Some(v2)) => {
-								BusWidth::Evaluated(NumericConstant::new_from_value(max(v1, v2) + BigInt::from(1)))
+								(BusWidth::Evaluated(NumericConstant::new_from_value(max(v1, v2) + BigInt::from(1))), type_first.get_signedness())
 							},
 						}
 					},
-					Modulo => type_second.width().clone().unwrap(),
-					LShift | RShift => type_first.width().clone().unwrap(),
+					Modulo => {
+						type_second = binop.rhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_bus(coupling_type.width(), coupling_type.get_signedness(), location), is_lhs, location)?;
+						if !type_second.is_width_specified(){
+							report_unknown_width(binop.rhs.get_location())?;
+						}
+						(type_second.width().unwrap(), type_second.get_signedness())
+					},
+					LShift | RShift => {
+						binop.rhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_bus(None, SignalSignedness::Unsigned(self.get_location()), location), is_lhs, location)?;
+						if type_second.get_signedness().is_signed(){
+							return Err(miette::Report::new(
+								SemanticError::SignednessMismatch
+									.to_diagnostic_builder()
+									.label(*type_second.get_signedness().location().unwrap(), "This signal is signed")
+									.build(),
+							));
+						}
+						if !type_first.is_width_specified() {
+							report_unknown_width(binop.lhs.get_location())?;
+						}
+						(type_first.width().clone().unwrap(), type_first.get_signedness())
+					}
 					BitwiseAnd | BitwiseOr | BitwiseXor => {
-						use SignalType::*;
-						match (&type_first.signal_type, &type_second.signal_type) {
-							(Bus(bus1), Bus(bus2)) => {
-								let v1 = bus2.width.clone().unwrap().get_value().unwrap();
-								let v2 = bus1.width.clone().unwrap().get_value().unwrap();
-								if v1 != v2 {
+						binop.lhs.evaluate_type(global_ctx, scope_id, local_ctx, coupling_type, is_lhs, location)?;
+						match (type_first.width(), type_second.width()){
+    					    (None, None) => {
+								report_unknown_width(self.get_location())?;
+							},
+    					    (None, Some(w)) => {
+								binop.lhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_bus(Some(w), type_first.get_signedness(), location), is_lhs, location)?;
+							},
+    					    (Some(w), None) => {
+								binop.rhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_bus(Some(w), type_second.get_signedness(), location), is_lhs, location)?;
+							},
+    					    (Some(w1), Some(w2)) => {
+								if w1 != w2{
 									return Err(miette::Report::new(
 										SemanticError::WidthMismatch
 											.to_diagnostic_builder()
-											.label(binop.location, "Cannot perform bitwise operation - width mismatch")
-											.label(binop.location, format!("Widths are: {} and {}", v1, v2).as_str())
+											.label(
+												binop.lhs.get_location(),
+												"Width of this expression does not match",
+											)
+											.label(
+												binop.rhs.get_location(),
+												"Width of this expression does not match",
+											)
 											.build(),
 									));
 								}
-								BusWidth::Evaluated(NumericConstant::new_from_value(v1))
 							},
-							(Wire(_), Bus(bus)) | (Bus(bus), Wire(_)) => {
-								let w = bus.width.clone().unwrap().get_value().unwrap();
-								if w != 1.into() {
-									return Err(miette::Report::new(
-										SemanticError::WidthMismatch
-											.to_diagnostic_builder()
-											.label(binop.location, "Cannot perform bitwise operation - width mismatch")
-											.label(binop.location, format!("Widths are: {} and {}", w, 1).as_str())
-											.build(),
-									));
-								}
-								BusWidth::Evaluated(NumericConstant::new_from_value(1.into()))
+    					}
+						use SignalSignedness::*;
+						match (type_first.get_signedness(), type_second.get_signedness()) {
+							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
+							(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
+								report_signedness_mismatch(loc1, loc2)?;
 							},
-							(Wire(_), Wire(_)) => BusWidth::Evaluated(NumericConstant::new_from_value(1.into())),
-							(..) => unreachable!(),
+							(_, NoSignedness) => {
+								binop.rhs.evaluate_type(
+									global_ctx,
+									scope_id,
+									local_ctx,
+									Signal::new_bus(None, type_first.get_signedness(), self.get_location()),
+									is_lhs,
+									location,
+								)?;
+							},
+							(NoSignedness, _) => {
+								binop.lhs.evaluate_type(
+									global_ctx,
+									scope_id,
+									local_ctx,
+									Signal::new_bus(None, type_second.get_signedness(), self.get_location()),
+									is_lhs,
+									location,
+								)?;
+								type_first.set_signedness(type_second.get_signedness(), self.get_location());
+							},
 						}
+						(type_first.width().unwrap(), type_first.get_signedness())
 					},
-					NotEqual | Equal | Less | Greater | LessEqual | GreaterEqual | LogicalAnd | LogicalOr => {
-						type_first.set_signedness(SignalSignedness::Unsigned(self.get_location()), self.get_location());
-						debug!("type_first: {:?}", type_first);
-						BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(1)))
+					LogicalAnd | LogicalOr => {
+						binop.lhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_wire(self.get_location()), is_lhs, location)?;
+						binop.rhs.evaluate_type(global_ctx, scope_id, local_ctx, Signal::new_wire(self.get_location()), is_lhs, location)?;
+						(BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(1))), SignalSignedness::Unsigned(self.get_location()))
+					},
+					NotEqual | Equal | Less | Greater | LessEqual | GreaterEqual  => {
+						use SignalSignedness::*;
+						match (type_first.get_signedness(), type_second.get_signedness()) {
+							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
+							(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
+								report_signedness_mismatch(loc1, loc2)?;
+							},
+							(_, NoSignedness) => {
+								binop.rhs.evaluate_type(
+									global_ctx,
+									scope_id,
+									local_ctx,
+									Signal::new_bus(None, type_first.get_signedness(), self.get_location()),
+									is_lhs,
+									location,
+								)?;
+							},
+							(NoSignedness, _) => {
+								binop.lhs.evaluate_type(
+									global_ctx,
+									scope_id,
+									local_ctx,
+									Signal::new_bus(None, type_second.get_signedness(), self.get_location()),
+									is_lhs,
+									location,
+								)?;
+								type_first.set_signedness(type_second.get_signedness(), self.get_location());
+							},
+						}
+						(BusWidth::Evaluated(NumericConstant::new_from_value(BigInt::from(1))), SignalSignedness::Unsigned(self.get_location()))
 					},
 				};
 				Ok(Signal::new_bus(
 					Some(w),
-					type_first.get_signedness(),
+					s,
 					self.get_location(),
 				))
 			},
@@ -3073,6 +3091,34 @@ fn report_not_allowed_expression(span: SourceSpan, expr_name: &str) -> miette::R
 				)
 				.as_str(),
 			)
+			.build(),
+	))
+}
+
+fn report_unknown_width(span: SourceSpan) -> miette::Result<Signal> {
+	Err(miette::Report::new(
+		SemanticError::WidthNotKnown
+			.to_diagnostic_builder()
+			.label(span, "Width of this expression is not known, but it should be")
+			.build(),
+	))
+}
+
+fn report_array(span: SourceSpan) -> miette::Result<Signal> {
+	Err(miette::Report::new(
+		SemanticError::ArrayInExpression
+			.to_diagnostic_builder()
+			.label(span, "This expression is an array, it is not allowed in expression")
+			.build(),
+	))
+}
+
+fn report_signedness_mismatch(span_signed: SourceSpan, span_unsigned: SourceSpan) -> miette::Result<Signal> {
+	Err(miette::Report::new(
+		SemanticError::SignednessMismatch
+			.to_diagnostic_builder()
+			.label(span_signed, "This signal is signed")
+			.label(span_unsigned, "This signal is unsigned")
 			.build(),
 	))
 }

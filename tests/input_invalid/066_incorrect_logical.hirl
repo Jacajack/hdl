@@ -1,0 +1,4 @@
+module X {}
+impl X {
+    wire y = 255u8 && 0u8; // bad width
+}

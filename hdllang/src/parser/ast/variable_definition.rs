@@ -139,6 +139,14 @@ impl VariableDefinition {
 						));
 					}
 					if spec_kind.is_generic() {
+						expr.evaluate_type(
+							ctx,
+							scope_id,
+							local_ctx,
+							crate::analyzer::Signal::new_empty(),
+							false,
+							direct_initializer.get_location(),
+						)?;
 						let rhs_val = expr.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
 						if let VariableKind::Generic(GenericVariable { value, .. }) = &mut spec_kind {
 							value.replace(

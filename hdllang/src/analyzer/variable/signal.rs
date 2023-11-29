@@ -275,7 +275,7 @@ impl Signal {
 		use SignalType::*;
 		match &self.signal_type {
 			Bus(bus) => bus.signedness.clone(),
-			Auto(_) => panic!("Auto type has no signedness"),
+			Auto(_) => SignalSignedness::NoSignedness,
 			Wire(loc) => SignalSignedness::Unsigned(*loc),
 		}
 	}
