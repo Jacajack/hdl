@@ -1,6 +1,6 @@
 module X{}
 impl X{
 	clock wire a = (clock wire)0u1, b = (clock wire)0u1;
-	comb(a,b) wire c;
+	async wire c; // FIXME HIRN should deduce async
 	c = a & b;
 }

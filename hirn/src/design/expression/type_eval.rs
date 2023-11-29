@@ -1,8 +1,8 @@
 use super::{
-	eval::EvalAssumptions, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalError, EvalType,
-	EvaluatesType, NumericConstant, UnaryExpression,
+	eval::EvalAssumptions, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalError,
+	EvalType, EvaluatesType, NumericConstant, UnaryExpression,
 };
-use crate::design::{BinaryOp, Expression, HasSensitivity, SignalId, SignalSensitivity, SignalSignedness, SignalSlice};
+use crate::design::{BinaryOp, Expression, SignalId, SignalSensitivity, SignalSignedness, SignalSlice, HasSensitivity};
 
 impl EvaluatesType for NumericConstant {
 	fn eval_type(&self, _ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError> {
@@ -96,7 +96,7 @@ impl EvaluatesType for ConditionalExpression {
 			for t in &branch_types {
 				sensitivity = sensitivity.combine(&t.sensitivity);
 			}
-
+	
 			for t in &condition_types {
 				sensitivity = sensitivity.combine(&t.sensitivity);
 			}
