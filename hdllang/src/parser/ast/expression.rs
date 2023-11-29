@@ -2053,7 +2053,9 @@ impl Expression {
 						match range.range.code {
 							Colon => (),
 							PlusColon => {
-								end = NumericConstant::new_from_binary(end.clone(), begin.clone(), |e1, e2| e1 + e2 - BigInt::from(1))
+								end = NumericConstant::new_from_binary(end.clone(), begin.clone(), |e1, e2| {
+									e1 + e2 - BigInt::from(1)
+								})
 							},
 							ColonLessThan => {
 								end = NumericConstant::new_from_binary(
