@@ -4,7 +4,8 @@ use log::{debug, error};
 
 use crate::{
 	design::{
-		DesignHandle, Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalDirection, SignalId, SignalSlice, SignalSliceRange,
+		DesignHandle, Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalDirection, SignalId, SignalSlice,
+		SignalSliceRange,
 	},
 	elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
@@ -381,9 +382,9 @@ impl MainPassCtx {
 						let clk_id = clk.clock_id();
 						self.read_signal(&clk_id.into(), assumptions.clone())?;
 					}
-				}
+				},
 
-				_ => {}
+				_ => {},
 			}
 		}
 

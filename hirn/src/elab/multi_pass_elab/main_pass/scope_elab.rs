@@ -7,7 +7,7 @@ use log::{debug, error, info};
 use petgraph::graphmap::DiGraphMap;
 
 use crate::{
-	design::{ConditionalScope, Evaluates, HasSensitivity, RangeScope, ScopeHandle, SignalDirection, SignalId, Signal},
+	design::{ConditionalScope, Evaluates, HasSensitivity, RangeScope, ScopeHandle, Signal, SignalDirection, SignalId},
 	elab::{ElabAssumptions, ElabAssumptionsBase, ElabMessageKind},
 };
 
@@ -21,7 +21,9 @@ impl MainPassCtx {
 		sig: &Signal,
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<(), ElabMessageKind> {
-		if sig.is_generic() {return Ok(());}
+		if sig.is_generic() {
+			return Ok(());
+		}
 
 		if let Some(dir) = sig.direction() {
 			// Interface signals are treated specially
