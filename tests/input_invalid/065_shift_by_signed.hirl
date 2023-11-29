@@ -1,0 +1,4 @@
+module X {}
+impl X {
+    const ubus<16> x = 1u16 << 7s4;
+}

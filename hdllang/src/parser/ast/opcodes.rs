@@ -39,7 +39,7 @@ impl BinaryOpcode {
 	pub fn do_widths_have_to_match(&self) -> bool {
 		use self::BinaryOpcode::*;
 		match *self {
-			Less | Greater | LessEqual | GreaterEqual | Equal | NotEqual | BitwiseAnd | BitwiseOr | BitwiseXor => true,
+			BitwiseAnd | BitwiseOr | BitwiseXor => true,
 			_ => false,
 		}
 	}

@@ -1,0 +1,4 @@
+module X {}
+impl X {
+    wire w = 1s1 && 0s1; // signed, not a boolean
+}

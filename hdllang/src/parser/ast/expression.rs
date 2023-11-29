@@ -14,7 +14,7 @@ mod tuple;
 mod unary_cast_expression;
 mod unary_operator_expression;
 
-use crate::analyzer::module_implementation_scope::{EvaluatedEntry, InternalVariableId};
+use crate::analyzer::module_implementation_scope::InternalVariableId;
 use crate::analyzer::{
 	AdditionalContext, AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContext,
 	ModuleImplementationScope, ModuleInstanceKind, SemanticError, Signal, SignalSensitivity, SignalSignedness,
@@ -1609,14 +1609,7 @@ impl Expression {
 					match (coupling_type.get_signedness(), sig.get_signedness()) {
 						(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
 						(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
-							return Err(miette::Report::new(
-								SemanticError::SignednessMismatch
-									.to_diagnostic_builder()
-									.label(location, "Signedness of this expression does not match")
-									.label(loc1, "This is signed")
-									.label(loc2, "This is unsigned")
-									.build(),
-							))
+							report_signedness_mismatch(loc1, loc2)?;
 						},
 						(NoSignedness, _) => (),
 						(Signed(loc), NoSignedness) => {
@@ -1682,12 +1675,7 @@ impl Expression {
 					location,
 				)?;
 				if val.is_array() {
-					return Err(miette::Report::new(
-						SemanticError::ArrayInExpression
-							.to_diagnostic_builder()
-							.label(self.get_location(), "Match expression cannot be used on arrays")
-							.build(),
-					));
+					report_array(match_expr.value.get_location())?;
 				}
 				let mut res = Signal::new_empty();
 				let mut present_already = HashMap::new();
@@ -1829,19 +1817,7 @@ impl Expression {
 				debug!("false branch: {:?}", false_branch_type);
 				match (true_branch_type.width(), false_branch_type.width()) {
 					(None, None) => {
-						return Err(miette::Report::new(
-							SemanticError::WidthNotKnown
-								.to_diagnostic_builder()
-								.label(
-									ternary.true_branch.get_location(),
-									"Width of this expression is unknown",
-								)
-								.label(
-									ternary.false_branch.get_location(),
-									"Width of this expression is unknown",
-								)
-								.build(),
-						))
+						report_unknown_width(self.get_location())?;
 					},
 					(None, Some(_)) => {
 						ternary.true_branch.evaluate_type(
@@ -2107,26 +2083,30 @@ impl Expression {
 				match func_name.as_str() {
 					"zeros" | "ones" => {
 						match function.argument_list.len() {
-							//0 => { // FIXME
-							//	Ok(coupling_type.clone())
-							//},
 							1 => {
-								let expr = function.argument_list[0]
+								let width = match function.argument_list[0]
 									.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?
-									.expect("This panics in generic modules implementatation"); // FIXME
-								if expr.value < 0.into() {
-									return Err(miette::Report::new(
-										SemanticError::NegativeBusWidth // FIXME this error name
-											.to_diagnostic_builder()
-											.label(
-												function.argument_list[0].get_location(),
-												"This argument cannot be negative",
-											)
-											.build(),
-									));
-								}
+									{
+										Some(nc) => {
+											if nc.value < 0.into() {
+												return Err(miette::Report::new(
+													SemanticError::NegativeBusWidth // FIXME this error name
+														.to_diagnostic_builder()
+														.label(
+															function.argument_list[0].get_location(),
+															"This argument cannot be negative",
+														)
+														.build(),
+												));
+											}
+											BusWidth::Evaluated(nc.clone())
+										},
+										None =>{
+											BusWidth::Evaluable(local_ctx.scope.add_expression(scope_id, self.clone()))
+										},
+									};
 								let expr = Signal::new_bus(
-									Some(BusWidth::Evaluated(expr)),
+									Some(width),
 									SignalSignedness::Unsigned(self.get_location()),
 									self.get_location(),
 								);
@@ -2201,16 +2181,9 @@ impl Expression {
 						use SignalSignedness::*;
 						match (expr.get_signedness(), coupling_type.get_signedness()) {
 							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
-							(Signed(loc_signed), Unsigned(loc_unsigned))
-							| (Unsigned(loc_unsigned), Signed(loc_signed)) => {
-								return Err(miette::Report::new(
-									SemanticError::SignednessMismatch
-										.to_diagnostic_builder()
-										.label(self.get_location(), "Signedness of this expression does not match")
-										.label(loc_signed, "This signedness is signed")
-										.label(loc_unsigned, "This signedness is unsigned")
-										.build(),
-								))
+							(Signed(loc1), Unsigned(loc2))
+							| (Unsigned(loc2), Signed(loc1)) => {
+								report_signedness_mismatch(loc1, loc2)?;
 							},
 							(_, NoSignedness) => (), //FIXME
 							(NoSignedness, _) => {
@@ -2323,12 +2296,7 @@ impl Expression {
 								location,
 							)?;
 							if n_sig.is_array() {
-								return Err(miette::Report::new(
-									SemanticError::ArrayInExpression
-										.to_diagnostic_builder()
-										.label(sig.get_location(), "This function cannot be applied to an array")
-										.build(),
-								));
+								report_array(sig.get_location())?;
 							}
 							use SignalSignedness::*;
 							if let Signed(loc) = n_sig.get_signedness() {
@@ -2377,10 +2345,6 @@ impl Expression {
 							is_lhs,
 							location,
 						)?;
-						let entry = EvaluatedEntry {
-							expression: self.clone(),
-							scope_id,
-						};
 						let id = local_ctx.scope.add_expression(scope_id, self.clone());
 						let mut width = BusWidth::WidthOf(id);
 						if let Some(count) =
@@ -2404,15 +2368,7 @@ impl Expression {
 							}
 						}
 						if expr.is_array() {
-							return Err(miette::Report::new(
-								SemanticError::ArrayInExpression
-									.to_diagnostic_builder()
-									.label(
-										function.argument_list[0].get_location(),
-										"This function cannot be applied to an array",
-									)
-									.build(),
-							));
+							report_array(function.argument_list[0].get_location())?;
 						}
 						if !expr.is_width_specified() {
 							return Err(miette::Report::new(
@@ -2446,15 +2402,7 @@ impl Expression {
 							location,
 						)?;
 						if arg_type.is_array() {
-							return Err(miette::Report::new(
-								SemanticError::ArrayInExpression
-									.to_diagnostic_builder()
-									.label(
-										function.argument_list[0].get_location(),
-										"This function cannot be applied to an array",
-									)
-									.build(),
-							));
+							report_array(function.argument_list[0].get_location())?;
 						}
 						if !arg_type.is_bus() {
 							return Err(miette::Report::new(
@@ -2566,15 +2514,7 @@ impl Expression {
 						.expression
 						.evaluate_type(global_ctx, scope_id, local_ctx, coupling_type, is_lhs, location)?;
 				if expr.is_array() {
-					return Err(miette::Report::new(
-						SemanticError::ArrayInExpression
-							.to_diagnostic_builder()
-							.label(
-								unary.location,
-								"This expression is an array, it is not allowed in binary expression",
-							)
-							.build(),
-					));
+					report_array(unary.expression.get_location())?;
 				}
 				if !expr.is_width_specified() {
 					report_unknown_width(unary.expression.get_location())?;
@@ -2732,15 +2672,7 @@ impl Expression {
 					binop.location,
 				)?;
 				if type_first.is_array() {
-					return Err(miette::Report::new(
-						SemanticError::ArrayInExpression
-							.to_diagnostic_builder()
-							.label(
-								binop.lhs.get_location(),
-								"This expression is an array, it is not allowed in binary expression",
-							)
-							.build(),
-					));
+					report_array(binop.lhs.get_location())?;
 				}
 				debug!("type_first: {:?}", type_first);
 				let mut type_second = match binop.code.do_widths_have_to_match() {
@@ -2763,15 +2695,7 @@ impl Expression {
 				};
 				debug!("type_second: {:?}", type_second);
 				if type_second.is_array() {
-					return Err(miette::Report::new(
-						SemanticError::ArrayInExpression
-							.to_diagnostic_builder()
-							.label(
-								binop.rhs.get_location(),
-								"This expression is an array, it is not allowed in binary expression",
-							)
-							.build(),
-					));
+					report_array(binop.rhs.get_location())?;
 				}
 				log::debug!("Code: {:?}", binop.code);
 				let (w, s) = match &binop.code {
@@ -2783,16 +2707,10 @@ impl Expression {
 							report_unknown_width(binop.rhs.get_location())?;
 						}
 						use SignalSignedness::*;
-						match (&type_first.get_signedness(), &type_second.get_signedness()) {
+						match (type_first.get_signedness(), type_second.get_signedness()) {
 							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
 							(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
-								return Err(miette::Report::new(
-									SemanticError::SignednessMismatch
-										.to_diagnostic_builder()
-										.label(*loc1, "This signal is signed")
-										.label(*loc2, "This signal is unsigned")
-										.build(),
-								));
+								report_signedness_mismatch(loc1, loc2)?;
 							},
 							(_, NoSignedness) => {
 								binop.rhs.evaluate_type(
@@ -2842,16 +2760,10 @@ impl Expression {
 						if !type_second.is_width_specified(){
 							report_unknown_width(binop.rhs.get_location())?;
 						}
-						match (&type_first.get_signedness(), &type_second.get_signedness()) {
+						match (type_first.get_signedness(), type_second.get_signedness()) {
 							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
 							(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
-								return Err(miette::Report::new(
-									SemanticError::SignednessMismatch
-										.to_diagnostic_builder()
-										.label(*loc1, "This signal is signed")
-										.label(*loc2, "This signal is unsigned")
-										.build(),
-								));
+								report_signedness_mismatch(loc1, loc2)?;
 							},
 							(_, NoSignedness) => {
 								binop.rhs.evaluate_type(
@@ -2941,16 +2853,10 @@ impl Expression {
 							},
     					}
 						use SignalSignedness::*;
-						match (&type_first.get_signedness(), &type_second.get_signedness()) {
+						match (type_first.get_signedness(), type_second.get_signedness()) {
 							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
 							(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
-								return Err(miette::Report::new(
-									SemanticError::SignednessMismatch
-										.to_diagnostic_builder()
-										.label(*loc1, "This signal is signed")
-										.label(*loc2, "This signal is unsigned")
-										.build(),
-								));
+								report_signedness_mismatch(loc1, loc2)?;
 							},
 							(_, NoSignedness) => {
 								binop.rhs.evaluate_type(
@@ -2983,16 +2889,10 @@ impl Expression {
 					},
 					NotEqual | Equal | Less | Greater | LessEqual | GreaterEqual  => {
 						use SignalSignedness::*;
-						match (&type_first.get_signedness(), &type_second.get_signedness()) {
+						match (type_first.get_signedness(), type_second.get_signedness()) {
 							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
 							(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
-								return Err(miette::Report::new(
-									SemanticError::SignednessMismatch
-										.to_diagnostic_builder()
-										.label(*loc1, "This signal is signed")
-										.label(*loc2, "This signal is unsigned")
-										.build(),
-								));
+								report_signedness_mismatch(loc1, loc2)?;
 							},
 							(_, NoSignedness) => {
 								binop.rhs.evaluate_type(
@@ -3169,6 +3069,25 @@ fn report_unknown_width(span: SourceSpan) -> miette::Result<Signal> {
 		SemanticError::WidthNotKnown
 			.to_diagnostic_builder()
 			.label(span, "Width of this expression is not known, but it should be")
+			.build(),
+	))
+}
+
+fn report_array(span: SourceSpan) -> miette::Result<Signal> {
+	Err(miette::Report::new(
+		SemanticError::ArrayInExpression
+			.to_diagnostic_builder()
+			.label(span, "This expression is an array, it is not allowed in expression")
+			.build(),
+	))
+}
+
+fn report_signedness_mismatch(span_signed: SourceSpan, span_unsigned: SourceSpan) -> miette::Result<Signal> {
+	Err(miette::Report::new(
+		SemanticError::SignednessMismatch
+			.to_diagnostic_builder()
+			.label(span_signed, "This signal is signed")
+			.label(span_unsigned, "This signal is unsigned")
 			.build(),
 	))
 }
