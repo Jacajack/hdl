@@ -1073,7 +1073,7 @@ impl Expression {
 				use RangeOpcode::*;
 				match range.range.code {
 					Colon => (),
-					PlusColon => msb = msb + lsb.clone(),
+					PlusColon => msb = msb + lsb.clone() - hirn::design::Expression::Constant(hirn::design::NumericConstant::new_signed(1.into())),
 					ColonLessThan => {
 						msb = msb
 							- hirn::design::Expression::Constant(hirn::design::NumericConstant::new_signed(1.into()))
@@ -1998,7 +1998,7 @@ impl Expression {
 						match range.range.code {
 							Colon => (),
 							PlusColon => {
-								end = NumericConstant::new_from_binary(end.clone(), begin.clone(), |e1, e2| e1 + e2)
+								end = NumericConstant::new_from_binary(end.clone(), begin.clone(), |e1, e2| e1 + e2 - BigInt::from(1))
 							},
 							ColonLessThan => {
 								end = NumericConstant::new_from_binary(

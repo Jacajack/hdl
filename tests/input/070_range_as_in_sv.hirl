@@ -1,0 +1,5 @@
+
+module x{}
+impl x{
+	bus<8> x = 17u64[0+:8];
+}
