@@ -1071,12 +1071,17 @@ impl Expression {
 					.lhs
 					.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
 				use RangeOpcode::*;
+				let signed_one = scope.ext_signedness.get(&self.get_location()).unwrap();
+				let one = match signed_one {
+					true => hirn::design::Expression::Constant(hirn::design::NumericConstant::new_signed(1.into())),
+					false => hirn::design::Expression::Constant(hirn::design::NumericConstant::new_unsigned(1.into())),
+				};
 				match range.range.code {
 					Colon => (),
-					PlusColon => msb = msb + lsb.clone() - hirn::design::Expression::Constant(hirn::design::NumericConstant::new_signed(1.into())),
+					PlusColon => msb = msb + lsb.clone() - one,
 					ColonLessThan => {
 						msb = msb
-							- hirn::design::Expression::Constant(hirn::design::NumericConstant::new_signed(1.into()))
+							- one
 					},
 				}
 				Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::BusSelect {
@@ -1990,6 +1995,56 @@ impl Expression {
 								.range
 								.lhs
 								.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
+						let mut begin_type = range.range.lhs.evaluate_type(
+							global_ctx,
+							scope_id,
+							local_ctx,
+							Signal::new_empty(),
+							is_lhs,
+							location,
+						)?;
+						let mut end_type = range.range.rhs.evaluate_type(
+							global_ctx,
+							scope_id,
+							local_ctx,
+							Signal::new_empty(),
+							is_lhs,
+							location,
+						)?;
+						use SignalSignedness::*;
+						match (begin_type.get_signedness(), end_type.get_signedness()) {
+							(Signed(_), Signed(_)) | (Unsigned(_), Unsigned(_)) => (),
+							(Signed(loc1), Unsigned(loc2)) | (Unsigned(loc2), Signed(loc1)) => {
+								report_signedness_mismatch(loc1, loc2)?;
+							},
+							(_, NoSignedness) => {
+								log::debug!("Sign of rhs is to be deduced from lhs");
+								range.range.rhs.evaluate_type(
+									global_ctx,
+									scope_id,
+									local_ctx,
+									Signal::new_bus(None, begin_type.get_signedness(), self.get_location()),
+									is_lhs,
+									location,
+								)?;
+							},
+							(NoSignedness, _) => {
+								begin_type = range.range.lhs.evaluate_type(
+									global_ctx,
+									scope_id,
+									local_ctx,
+									Signal::new_bus(None, end_type.get_signedness(), self.get_location()),
+									is_lhs,
+									location,
+								)?;
+							},
+						}
+						if begin_type.get_signedness().is_unsigned(){
+							local_ctx.scope.ext_signedness.insert(self.get_location(), false);
+						}
+						else {
+							local_ctx.scope.ext_signedness.insert(self.get_location(), true);
+						}
 						let mut end = range
 							.range
 							.rhs
