@@ -1,0 +1,8 @@
+
+module x{}
+impl x{
+const auto x;
+wire c = false;
+auto v = c ? 0b1101u : x;
+x = ext(false);
+}
