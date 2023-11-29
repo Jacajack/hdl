@@ -1,35 +1,35 @@
-use std::sync::{Arc, Mutex};
+use std::{
+	collections::VecDeque,
+	sync::{Arc, Mutex},
+};
 
-use log::{debug, info};
+use log::info;
 
 use crate::{
 	design::{DesignHandle, EvalError, ModuleHandle, ModuleId},
-	elab::{
-		DefaultSeverityPolicy, ElabAssumptionsBase, ElabError, ElabMessage, ElabMessageKind, ElabReport, Elaborator,
-		SeverityPolicy,
-	},
+	elab::{ElabAssumptionsBase, ElabError, ElabMessage, ElabMessageKind, ElabReport, Elaborator},
 };
 
 use super::{
+	comb_verif_pass,
 	main_pass::{MainPass, MainPassConfig, MainPassResult},
-	signal_usage_pass::SignalUsagePass,
-	ElabPassContext, ElabQueueItem, MultiPassElaborator,
+	signal_usage_pass, ElabPass, ElabPassContext, ElabQueueItem,
 };
 
 pub(super) struct FullElabCtx {
 	design: DesignHandle,
 	module_id: ModuleId,
-	report: ElabReport,
+	result: FullElabResult,
 	assumptions: Arc<dyn ElabAssumptionsBase>,
-	severity_policy: Box<dyn SeverityPolicy>,
 
-	pub(super) sig_graph_result: Option<MainPassResult>,
-	pub(super) sig_graph_config: MainPassConfig,
+	pub(super) main_pass_result: Option<MainPassResult>,
+	pub(super) main_pass_config: MainPassConfig,
 }
 
 impl FullElabCtx {
 	pub(super) fn add_message(&mut self, kind: ElabMessageKind) {
-		self.report
+		self.result
+			.report_mut()
 			.add_message(ElabMessage::new(kind, self.module_id, self.assumptions.clone()));
 	}
 
@@ -64,15 +64,14 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 			design,
 			module_id,
 			assumptions,
-			report: ElabReport::default(),
-			severity_policy: Box::new(DefaultSeverityPolicy),
-			sig_graph_config: MainPassConfig::default(),
-			sig_graph_result: None,
+			result: FullElabResult::default(),
+			main_pass_config: MainPassConfig::default(),
+			main_pass_result: None,
 		}
 	}
 
 	fn queued(&self) -> Vec<ElabQueueItem> {
-		if let Some(result) = &self.sig_graph_result {
+		if let Some(result) = &self.main_pass_result {
 			result
 				.queued_modules()
 				.iter()
@@ -88,35 +87,90 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 	}
 
 	fn report(&self) -> &ElabReport {
+		self.result.report()
+	}
+}
+
+#[derive(Clone, Debug, Default)]
+pub struct FullElabResult {
+	report: ElabReport,
+}
+
+impl FullElabResult {
+	fn combine(mut self, other: FullElabResult) -> Self {
+		self.report.extend(&other.report);
+		self
+	}
+
+	pub fn report(&self) -> &ElabReport {
 		&self.report
+	}
+
+	fn report_mut(&mut self) -> &mut ElabReport {
+		&mut self.report
 	}
 }
 
 /// Multi-pass elaborator with all passes
 pub struct FullElaborator {
-	elaborator: MultiPassElaborator<FullElabCtx, Arc<Mutex<FullElabCache>>>,
+	design: DesignHandle,
+	queue: VecDeque<ElabQueueItem>,
 }
 
 impl FullElaborator {
-	/// Create a new FullElaborator and add all passes
 	pub fn new(design: DesignHandle) -> Self {
-		let mut elaborator = MultiPassElaborator::new(design);
-		elaborator.add_pass(Box::new(MainPass {}));
-		elaborator.add_pass(Box::new(SignalUsagePass {}));
-		Self { elaborator }
+		Self {
+			design,
+			queue: VecDeque::new(),
+		}
+	}
+
+	/// Runs elaboration on all modules in the queue
+	fn run_queue(&mut self) -> Result<FullElabResult, ElabError> {
+		let mut result = FullElabResult::default();
+		while let Some(item) = self.queue.pop_front() {
+			result = result.combine(self.elab_module(item.module, item.assumptions)?);
+		}
+		Ok(result)
+	}
+
+	/// Runs all elaboration passes on the specified module
+	fn elab_module(
+		&mut self,
+		id: ModuleId,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
+	) -> Result<FullElabResult, ElabError> {
+		let mut ctx = FullElabCtx::new_context(self.design.clone(), id, assumptions, Default::default());
+
+		let mut main_pass = MainPass {};
+		ctx = main_pass.init(ctx)?;
+		ctx = main_pass.run(ctx)?;
+
+		let mut signal_usage_pass = signal_usage_pass::SignalUsagePass {};
+		ctx = signal_usage_pass.init(ctx)?;
+		ctx = signal_usage_pass.run(ctx)?;
+
+		let mut comb_verif_pass = comb_verif_pass::CombVerifPass {};
+		ctx = comb_verif_pass.init(ctx)?;
+		ctx = comb_verif_pass.run(ctx)?;
+
+		self.queue.extend(ctx.queued().into_iter());
+		Ok(ctx.result)
 	}
 }
 
-impl Elaborator for FullElaborator {
+impl Elaborator<FullElabResult> for FullElaborator {
 	fn elaborate(
 		&mut self,
 		id: ModuleId,
 		assumptions: Arc<dyn super::ElabAssumptionsBase>,
-	) -> Result<ElabReport, ElabError> {
+	) -> Result<FullElabResult, ElabError> {
 		if assumptions.design().is_none() {
 			return Err(EvalError::NoDesign.into());
 		}
 		info!("Starting full elab module {:?}", id);
-		self.elaborator.elaborate(id, assumptions)
+
+		self.queue.push_back(ElabQueueItem::new(id, assumptions));
+		self.run_queue()
 	}
 }

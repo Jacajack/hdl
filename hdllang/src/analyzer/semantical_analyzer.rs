@@ -145,8 +145,8 @@ impl<'a> SemanticalAnalyzer<'a> {
 				Arc::new(ElabToplevelAssumptions::new(self.ctx.design.clone())),
 			);
 			match elab_result {
-				Ok(elab_report) => {
-					for msg in elab_report.messages() {
+				Ok(elab_res) => {
+					for msg in elab_res.report().messages() {
 						let id = msg.module_id();
 						log::debug!("Module id: {:?}", id);
 						log::debug!("Scopes: {:?}", scopes.keys());
@@ -346,6 +346,31 @@ fn to_report(
 				.help(format!("Cannot assign {} bits to {} bit signal", rhs_width, lhs_width).as_str())
 				.build()
 		},
+
+		CombLoop {signals} => {
+			// FIXME this report is terrible
+			// Reporting signal references should be reworked, because it's very
+			// broken for arrays.
+			report
+				.help(format!("The combinational loop may involve some of these signals: {:?}", signals).as_str())
+				.build()
+		}
+
+		CombInterfaceLoop { from, to } => {
+			let from_location = scope.get_variable_location(from.signal());
+			let to_location = scope.get_variable_location(to.signal());
+			report
+				.label(from_location, "Combinational path starts here")
+				.label(to_location, "and ends here")
+				.help("This path may cause combinational loop, please consider using registers to drive module outputs")
+				.build()
+		}
+
+		ComplexInterface { num_inputs, num_outputs } => {
+			report
+				.help(format!("Module interface is quite complex (effective {} inputs and {} outputs). Some elab checks might have been skipped.", num_inputs, num_outputs).as_str())
+				.build()
+		}
 
 		SignalNotDriven { signal, elab } => {
 			let variable_location = scope.get_variable_location(signal.signal());

@@ -1,0 +1,20 @@
+module X {}
+impl X {
+    const wire x, y;
+    if (true) {
+        x = false;
+    }
+    else {
+        x = true;
+    }
+
+    if (false) {
+        y = false;
+    }
+    else {
+        y = true;
+    }
+
+    const wire use_me = x;
+    const wire use_me_too = y;
+}

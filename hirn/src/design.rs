@@ -226,6 +226,11 @@ impl DesignCore {
 		self.signals.get(signal.id - 1)
 	}
 
+	/// Returns a mutable reference to the signal with the given ID
+	fn get_signal_mut(&mut self, signal: SignalId) -> Option<&mut Signal> {
+		self.signals.get_mut(signal.id - 1)
+	}
+
 	/// Returns a list of signals in the given scope
 	fn get_scope_signals(&self, scope: ScopeId) -> Option<&Vec<SignalId>> {
 		self.scope_signals.get(&scope)

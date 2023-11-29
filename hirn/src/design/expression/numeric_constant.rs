@@ -959,7 +959,7 @@ mod test {
 
 	// TODO tests for error cases
 
-	fn check_value(nc: NumericConstant, val: i64, width: u64) {
+	fn _check_value(nc: NumericConstant, val: i64, width: u64) {
 		assert!(matches!(nc.get_error(), None));
 		assert_eq!(nc.to_bigint().unwrap(), BigInt::from(val));
 		assert_eq!(nc.width().unwrap(), width.into());

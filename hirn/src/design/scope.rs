@@ -128,7 +128,7 @@ impl HasComment for Assignment {
 #[derive(Debug)]
 pub struct Scope {
 	/// Self-reference
-	pub(super) id: ScopeId,
+	pub(super) _id: ScopeId,
 
 	/// Parent scope (optional)
 	parent: Option<ScopeId>,
@@ -165,7 +165,7 @@ impl Scope {
 	/// Creates a new scope
 	pub(super) fn new(id: ScopeId, module: ModuleId, parent_scope: Option<ScopeId>) -> Self {
 		Self {
-			id,
+			_id: id,
 			module,
 			parent: parent_scope,
 			assignments: vec![],

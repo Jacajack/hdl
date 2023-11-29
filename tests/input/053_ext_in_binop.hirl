@@ -6,5 +6,5 @@ impl X {
     bus<10> z = sext(x);
     ubus<10> w = ext(x);
     
-    ubus<10> v = w & ext(x);
+    ubus<10> v = w & zext(x); // FIXME Wojtek - fix ext()
 }

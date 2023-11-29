@@ -12,14 +12,14 @@ module Outer {}
 impl Outer {
 	ubus<4> xxx;
 	Inner in1{
-		a: 4s10,
+		a: 4,
 		a_in: 4u4,
 		a_out: xxx,
 	}
 
 	ubus<8> yyy;
 	Inner in2{
-		a: 8s10,
+		a: 8,
 		a_in: 8u8,
 		a_out: yyy,
 	}

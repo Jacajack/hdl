@@ -6,6 +6,7 @@ use super::EvaluatesType;
 use super::Expression;
 use super::HasComment;
 use super::ScopeId;
+use super::SignalDirection;
 use super::SignalId;
 use std::collections::HashMap;
 use std::collections::HashSet;
@@ -400,6 +401,9 @@ pub struct Signal {
 
 	/// Source code comment
 	comment: Option<String>,
+
+	/// Direction (only for main interface signals)
+	direction: Option<SignalDirection>,
 }
 
 impl HasComment for Signal {
@@ -438,6 +442,7 @@ impl Signal {
 			class,
 			sensitivity,
 			comment,
+			direction: None,
 		})
 	}
 
@@ -471,6 +476,14 @@ impl Signal {
 
 	pub fn width(&self) -> Expression {
 		self.class.width().clone()
+	}
+
+	pub fn direction(&self) -> Option<SignalDirection> {
+		self.direction
+	}
+
+	pub(crate) fn set_direction(&mut self, direction: SignalDirection) {
+		self.direction = Some(direction);
 	}
 
 	pub fn comment(&mut self, comment: &str) {

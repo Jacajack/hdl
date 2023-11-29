@@ -1,18 +1,10 @@
-use std::{collections::HashMap, sync::Arc};
+use std::sync::Arc;
 
-use crate::design::{ModuleHandle, ModuleId};
+use crate::design::ModuleId;
 
-use super::{ElabAssumptionsBase, ElabError, ElabMessage, ElabReport, GenericVar};
+use super::{ElabAssumptionsBase, ElabError};
 
 /// Trait which must be implemented by all elaborators
-pub trait Elaborator {
-	fn elaborate(&mut self, id: ModuleId, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<ElabReport, ElabError>;
-
-	fn elaborate_bind_interface(
-		&mut self,
-		_module: ModuleHandle,
-		_bindings: &HashMap<String, GenericVar>,
-	) -> Result<Vec<ElabMessage>, ElabError> {
-		todo!();
-	}
+pub trait Elaborator<R> {
+	fn elaborate(&mut self, id: ModuleId, assumptions: Arc<dyn ElabAssumptionsBase>) -> Result<R, ElabError>;
 }
