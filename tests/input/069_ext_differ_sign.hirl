@@ -1,0 +1,5 @@
+module Y {}
+impl Y {
+    const sbus<40> a = ext(11s32);
+    const ubus<40> b = ext(11u32);
+}

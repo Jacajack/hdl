@@ -1194,15 +1194,27 @@ impl Expression {
 										additional_ctx,
 									)?),
 								},
-								"ext" => hirn::design::BuiltinOp::SignExtend {
-									expr: Box::new(expr),
-									width: Box::new(scope.get_expression(loc).expression.codegen(
-										nc_table,
-										id_table,
-										scope_id,
-										scope,
-										additional_ctx,
-									)?),
+								"ext" => match scope.ext_signedness.get(&self.get_location()).unwrap(){
+									true => hirn::design::BuiltinOp::SignExtend {
+										expr: Box::new(expr),
+										width: Box::new(scope.get_expression(loc).expression.codegen(
+											nc_table,
+											id_table,
+											scope_id,
+											scope,
+											additional_ctx,
+										)?),
+									},
+									false => hirn::design::BuiltinOp::ZeroExtend {
+										expr: Box::new(expr),
+										width: Box::new(scope.get_expression(loc).expression.codegen(
+											nc_table,
+											id_table,
+											scope_id,
+											scope,
+											additional_ctx,
+										)?),
+									},
 								},
 								"sext" => hirn::design::BuiltinOp::SignExtend {
 									expr: Box::new(expr),
@@ -2282,17 +2294,21 @@ impl Expression {
 						let signedness = match func_name.as_str() {
 							"zext" => SignalSignedness::Unsigned(self.get_location()),
 							"ext" => {
-								if expr.get_signedness().is_none(){
-									return Err(miette::Report::new(
-										SemanticError::SignednessMismatch
-											.to_diagnostic_builder()
-											.label(
-												function.argument_list[0].get_location(),
-												"Signedness of this expression is unknown",
-											)
-											.build(),
-									));
-								}
+								use SignalSignedness::*;
+								match expr.get_signedness(){
+									NoSignedness =>
+										return Err(miette::Report::new(
+											SemanticError::SignednessMismatch
+												.to_diagnostic_builder()
+												.label(
+													function.argument_list[0].get_location(),
+													"Signedness of this expression is unknown",
+												)
+												.build(),
+										)),
+									Signed(_) => local_ctx.scope.ext_signedness.insert(self.get_location(), true),
+									Unsigned(_) => local_ctx.scope.ext_signedness.insert(self.get_location(), false),
+								};
 								expr.get_signedness()
 							}
 							"sext" => SignalSignedness::Signed(self.get_location()),
