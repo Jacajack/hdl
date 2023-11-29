@@ -1238,11 +1238,19 @@ impl Expression {
 										hirn::design::NumericConstant::new_unsigned(val.clone()),
 									)),
 								},
-								"ext" => hirn::design::BuiltinOp::SignExtend {
-									expr: Box::new(expr),
-									width: Box::new(hirn::design::Expression::Constant(
-										hirn::design::NumericConstant::new_unsigned(val.clone()),
-									)),
+								"ext" => match scope.ext_signedness.get(&self.get_location()).unwrap() {
+									true => hirn::design::BuiltinOp::SignExtend {
+										expr: Box::new(expr),
+										width: Box::new(hirn::design::Expression::Constant(
+											hirn::design::NumericConstant::new_unsigned(val.clone()),
+										)),
+									},
+									false => hirn::design::BuiltinOp::ZeroExtend {
+										expr: Box::new(expr),
+										width: Box::new(hirn::design::Expression::Constant(
+											hirn::design::NumericConstant::new_unsigned(val.clone()),
+										)),
+									},
 								},
 								"sext" => hirn::design::BuiltinOp::SignExtend {
 									expr: Box::new(expr),
@@ -2297,6 +2305,7 @@ impl Expression {
 									Signed(_) => local_ctx.scope.ext_signedness.insert(self.get_location(), true),
 									Unsigned(_) => local_ctx.scope.ext_signedness.insert(self.get_location(), false),
 								};
+								debug!("ext signedness is {:?}", expr.get_signedness());
 								expr.get_signedness()
 							},
 							"sext" => SignalSignedness::Signed(self.get_location()),
