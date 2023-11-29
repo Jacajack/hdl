@@ -102,6 +102,12 @@ pub struct EdgeSensitivity {
 	pub on_rising: bool,
 }
 
+impl EdgeSensitivity {
+	pub fn clock_id(&self) -> SignalId {
+		self.clock_signal
+	}
+}
+
 /// Determines sensitivity of a signal to certain clocks
 #[derive(Clone, Default, Debug)]
 pub struct ClockSensitivityList(HashSet<EdgeSensitivity>);
@@ -139,6 +145,15 @@ impl ClockSensitivityList {
 				on_rising: e.on_rising,
 			})
 			.collect();
+	}
+}
+
+impl IntoIterator for ClockSensitivityList {
+	type Item = EdgeSensitivity;
+	type IntoIter = std::collections::hash_set::IntoIter<Self::Item>;
+
+	fn into_iter(self) -> Self::IntoIter {
+		self.0.into_iter()
 	}
 }
 

@@ -7,13 +7,39 @@ use log::{debug, error, info};
 use petgraph::graphmap::DiGraphMap;
 
 use crate::{
-	design::{ConditionalScope, Evaluates, HasSensitivity, RangeScope, ScopeHandle, SignalDirection, SignalId},
+	design::{ConditionalScope, Evaluates, HasSensitivity, RangeScope, ScopeHandle, SignalDirection, SignalId, Signal},
 	elab::{ElabAssumptions, ElabAssumptionsBase, ElabMessageKind},
 };
 
 use super::MainPassCtx;
 
 impl MainPassCtx {
+	/// Processess all non-generic declarations
+	fn elab_declaration(
+		&mut self,
+		sig_id: SignalId,
+		sig: &Signal,
+		assumptions: Arc<dyn ElabAssumptionsBase>,
+	) -> Result<(), ElabMessageKind> {
+		if sig.is_generic() {return Ok(());}
+
+		if let Some(dir) = sig.direction() {
+			// Interface signals are treated specially
+			self.declare_main_interface_signal(sig_id, dir, assumptions.clone())?;
+
+			// Drive or read signal depending on interface direction
+			match dir == SignalDirection::Input {
+				true => self.drive_signal(&sig_id.into(), assumptions.clone()),
+				false => self.read_signal(&sig_id.into(), assumptions.clone()),
+			}?;
+		}
+		else {
+			self.declare_signal(sig_id, assumptions.clone())?;
+		}
+
+		Ok(())
+	}
+
 	/// Analyzes scope contents (non-recursively)
 	fn elab_scope_content(
 		&mut self,
@@ -25,23 +51,19 @@ impl MainPassCtx {
 		debug!("Pass info: {:?}", self.pass_info.get(&pass_id));
 		assert!(assumptions.design().is_some());
 
-		// Process all non-generic declarations
+		// First, process all clock declarations
 		for sig_id in scope.signals() {
 			let sig = scope.design().get_signal(sig_id).unwrap();
-			if !sig.is_generic() {
-				if let Some(dir) = sig.direction() {
-					// Interface signals are treated specially
-					self.declare_main_interface_signal(sig_id, dir, assumptions.clone())?;
+			if sig.is_clock() {
+				self.elab_declaration(sig_id, &sig, assumptions.clone())?;
+			}
+		}
 
-					// Drive or read signal depending on interface direction
-					match dir == SignalDirection::Input {
-						true => self.drive_signal(&sig_id.into(), assumptions.clone()),
-						false => self.read_signal(&sig_id.into(), assumptions.clone()),
-					}?;
-				}
-				else {
-					self.declare_signal(sig_id, assumptions.clone())?;
-				}
+		// Process remainig declarations
+		for sig_id in scope.signals() {
+			let sig = scope.design().get_signal(sig_id).unwrap();
+			if !sig.is_clock() {
+				self.elab_declaration(sig_id, &sig, assumptions.clone())?;
 			}
 		}
 

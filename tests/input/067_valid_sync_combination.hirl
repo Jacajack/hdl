@@ -1,7 +1,7 @@
 module X {}
 
 impl X{
-	clock clk;
+	clock clk = (clock wire)0u1;
 	sync(clk) wire a = 0, b = 0;
 	sync(clk) ubus<2> c;
 	c[0] =a;

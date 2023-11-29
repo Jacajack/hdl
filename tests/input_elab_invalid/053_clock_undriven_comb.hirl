@@ -1,0 +1,5 @@
+module X{}
+impl X {
+	clock clk; // intentionally not driven
+	comb(!clk) wire a = 0u1; // uses the undriven clock
+}

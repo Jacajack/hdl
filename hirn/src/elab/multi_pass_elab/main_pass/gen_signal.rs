@@ -4,7 +4,7 @@ use log::{debug, error};
 
 use crate::{
 	design::{
-		DesignHandle, Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalDirection, SignalId, SignalSlice,
+		DesignHandle, Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalDirection, SignalId, SignalSlice, SignalSliceRange,
 	},
 	elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
@@ -279,8 +279,6 @@ impl MainPassCtx {
 		assumptions: Arc<dyn ElabAssumptionsBase>,
 	) -> Result<GeneratedSignalId, ElabMessageKind> {
 		let sig = self.design.get_signal(id).expect("signal not in design");
-		// let pass_id = self.get_scope_pass_id(sig.parent_scope);
-		// let scope_handle = self.design.get_scope_handle(sig.parent_scope).unwrap();
 
 		assert_ne!(pass_id.is_some(), ext_instance_id.is_some());
 		assert!(!sig.is_generic());
@@ -373,6 +371,19 @@ impl MainPassCtx {
 					!sig_existed,
 					"An elab signal already exists for this generated signal ref"
 				)
+			}
+
+			// Mark clocks referenced by the type as used
+			use crate::design::SignalSensitivity::*;
+			match sig.sensitivity() {
+				Comb(list) | Sync(list) => {
+					for clk in list.clone().into_iter() {
+						let clk_id = clk.clock_id();
+						self.read_signal(&clk_id.into(), assumptions.clone())?;
+					}
+				}
+
+				_ => {}
 			}
 		}
 
