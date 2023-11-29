@@ -158,6 +158,7 @@ impl VariableKind {
 							signedness: gen.signedness.clone(),
 							location: gen.location,
 						});
+						log::debug!("Generic with value - constant: {:?}", t);
 						Ok(Signal {
 							signal_type: t,
 							dimensions: Vec::new(),

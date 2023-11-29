@@ -10,11 +10,11 @@ impl Inner {
 
 module Outer {}
 impl Outer {
-	int i = 32s10;
+	int i = 32s64;
 	const ubus<i> zzz = 0;
 	async ubus<i> xxx;
 	Inner inner {
-		a: i, // Okay width 32s10
+		a: i,
 		a_in: zzz,
 		a_out: xxx,
 	}

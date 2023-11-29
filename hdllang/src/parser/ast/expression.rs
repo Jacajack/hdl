@@ -1637,6 +1637,7 @@ impl Expression {
 					err.label(self.get_location(), "This identifier cannot represents a signal")
 						.build()
 				})?;
+				debug!("Identifier {:?} is {:?}", identifier.id, sig);
 				sig.evaluate_as_lhs(is_lhs, global_ctx, coupling_type, location)?;
 				if var.var.kind == crate::analyzer::VariableKind::Signal(sig.clone()) {
 					return Ok(sig);
@@ -2280,7 +2281,20 @@ impl Expression {
 							.insert(function.location, coupling_type.width().unwrap());
 						let signedness = match func_name.as_str() {
 							"zext" => SignalSignedness::Unsigned(self.get_location()),
-							"ext" => expr.get_signedness(),
+							"ext" => {
+								if expr.get_signedness().is_none(){
+									return Err(miette::Report::new(
+										SemanticError::SignednessMismatch
+											.to_diagnostic_builder()
+											.label(
+												function.argument_list[0].get_location(),
+												"Signedness of this expression is unknown",
+											)
+											.build(),
+									));
+								}
+								expr.get_signedness()
+							}
 							"sext" => SignalSignedness::Signed(self.get_location()),
 							_ => unreachable!(),
 						};
