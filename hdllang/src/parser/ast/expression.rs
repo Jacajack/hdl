@@ -1079,10 +1079,7 @@ impl Expression {
 				match range.range.code {
 					Colon => (),
 					PlusColon => msb = msb + lsb.clone() - one,
-					ColonLessThan => {
-						msb = msb
-							- one
-					},
+					ColonLessThan => msb = msb - one,
 				}
 				Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::BusSelect {
 					expr: Box::new(expr),
@@ -2039,7 +2036,7 @@ impl Expression {
 								)?;
 							},
 						}
-						if begin_type.get_signedness().is_unsigned(){
+						if begin_type.get_signedness().is_unsigned() {
 							local_ctx.scope.ext_signedness.insert(self.get_location(), false);
 						}
 						else {
