@@ -1,0 +1,8 @@
+module X {
+    int N;
+}
+
+impl X {
+    int K = N / 2;
+    const ubus<16> x[K]; // Fine with N
+}

@@ -464,6 +464,18 @@ impl ModuleImplementationScope {
 						deps.extend(entry.expression.get_dependencies(entry.scope_id, &self));
 					},
 				}
+				for dim in sig.dimensions.iter() {
+					match dim{
+        				Evaluated(_) => (),
+						EvaluatedLocated(_, loc) | Evaluable(loc) | WidthOf(loc) => {
+							let entry = self.evaluated_expressions.get(&loc).unwrap();
+							if !self.is_child_of(v.scope_id, entry.scope_id) {
+								panic!("Variable redeclaration needed") // FIXME
+							}
+							deps.extend(entry.expression.get_dependencies(entry.scope_id, &self));
+						},
+   					}
+				}
 				graph.add_node(v.id);
 				graph.add_edges(deps, v.id)
 			}
