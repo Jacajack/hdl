@@ -6,7 +6,7 @@ use hirn::design::ModuleHandle;
 pub use variable_block_declaration::*;
 pub use variable_declaration_statement::*;
 
-use crate::analyzer::*;
+use crate::{analyzer::*};
 use crate::lexer::IdTable;
 use crate::parser::ast::SourceLocation;
 use crate::SourceSpan;
@@ -24,6 +24,7 @@ impl ModuleDeclarationStatement {
 		&self,
 		already_created: AlreadyCreated,
 		nc_table: &crate::core::NumericConstantTable,
+		comment_table: &crate::lexer::CommentTable,
 		id_table: &IdTable,
 		scope: &mut ModuleImplementationScope,
 		handle: &mut ModuleHandle,
@@ -31,10 +32,10 @@ impl ModuleDeclarationStatement {
 		use ModuleDeclarationStatement::*;
 		match self {
 			VariableDeclarationStatement(declaration) => {
-				declaration.create_variable_declaration(already_created, nc_table, id_table, scope, handle)
+				declaration.create_variable_declaration(already_created, nc_table, id_table, comment_table, scope, handle)
 			},
 			VariableBlock(block) => {
-				block.create_variable_declaration(already_created, nc_table, id_table, scope, handle)
+				block.create_variable_declaration(already_created, nc_table, id_table, comment_table, scope, handle)
 			},
 		}
 	}

@@ -43,6 +43,7 @@ impl ModuleImplementationBlockStatement {
 			&local_ctx.depenency_graph,
 			ctx.nc_table,
 			ctx.id_table,
+			ctx.comment_table,
 			Some(&additional_ctx),
 			scope_id,
 			&mut subscope,

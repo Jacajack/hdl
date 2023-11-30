@@ -2,6 +2,7 @@ use hirn::design::ModuleHandle;
 
 use crate::analyzer::*;
 use crate::core::NumericConstant;
+use crate::core::comment_table;
 use crate::lexer::CommentTableKey;
 use crate::lexer::IdTable;
 use crate::parser::ast::SourceLocation;
@@ -24,6 +25,7 @@ impl VariableDeclarationStatement {
 		already_created: AlreadyCreated,
 		nc_table: &NumericConstantTable,
 		id_table: &IdTable,
+		comment_table: &crate::lexer::CommentTable,
 		scope: &mut ModuleImplementationScope,
 		handle: &mut ModuleHandle,
 	) -> miette::Result<()> {
@@ -109,12 +111,13 @@ impl VariableDeclarationStatement {
 			};
 			variables.push(Variable {
 				name: direct_declarator.name,
+				metadata_comment: self.metadata.clone(),
 				location: direct_declarator.get_location(),
 				kind: spec_kind,
 			});
 		}
 		for var in &variables {
-			scope.declare_variable(var.clone(), nc_table, id_table, handle)?;
+			scope.declare_variable(var.clone(), nc_table, id_table, comment_table, handle)?;
 		}
 		Ok(())
 	}

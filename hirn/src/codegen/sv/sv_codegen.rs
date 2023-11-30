@@ -251,6 +251,7 @@ impl<'a> SVCodegen<'a> {
 		// Sanity check: the design must be valid
 		assert!(generic_bindings.len() + electric_bindings.len() == interface.len());
 
+		self.emit_metadata_comment(instance)?;
 		emit!(self, "{}", instance.module.name())?;
 		if !generic_bindings.is_empty() {
 			emit!(self, " #(\n")?;
@@ -312,6 +313,8 @@ impl<'a> SVCodegen<'a> {
 		let nreset_str = self.translate_expression(&reg.input_nreset.into(), true)?;
 		let reset_cond_str = self.translate_expression(&reset_cond, true)?;
 
+		self.emit_metadata_comment(reg)?;
+
 		if input_signal.is_wire() {
 			emitln!(self, "reg {} = '0;", reg_name)?;
 		}
@@ -365,6 +368,8 @@ impl<'a> SVCodegen<'a> {
 			}
 			self.begin_indent();
 		}
+
+		self.emit_metadata_comment(&scope)?;
 
 		// I very much don't like this code.
 		let mut emitted_any_localparam = false;
@@ -427,6 +432,7 @@ impl<'a> SVCodegen<'a> {
 			match asmt.lhs.try_drive() {
 				Some(slice) => {
 					if !self.design.get_signal(slice.signal).unwrap().is_generic() {
+						self.emit_metadata_comment(&asmt)?;
 						self.emit_assignment(&asmt.lhs, &asmt.rhs)?;
 						emitted_any_assignemnts = true;
 					}
