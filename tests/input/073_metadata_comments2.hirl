@@ -6,8 +6,16 @@ module X {
 /// And it goes woo
 impl X {
     /// Internal clock
+    /// It can be multiline
+    /// which is very cool
     wire clk2 = clk, clk3=clk, clk4=clk;
     
+
+    /// Localparams 
+    /// get 
+    /// theirs
+    /// tooo
+    uint tramwaj = 123u44;
 
     /// Dummy register
     reg r {

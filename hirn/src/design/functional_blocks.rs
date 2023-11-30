@@ -119,7 +119,7 @@ impl RegisterBuilder {
 	}
 
 	pub fn comment(mut self, comment: &str) -> Self {
-		self.name = comment.into();
+		self.comment = Some(comment.into());
 		self
 	}
 

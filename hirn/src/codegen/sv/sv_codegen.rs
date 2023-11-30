@@ -432,6 +432,7 @@ impl<'a> SVCodegen<'a> {
 			match asmt.lhs.try_drive() {
 				Some(slice) => {
 					if !self.design.get_signal(slice.signal).unwrap().is_generic() {
+						self.emit_metadata_comment(&asmt)?;
 						self.emit_assignment(&asmt.lhs, &asmt.rhs)?;
 						emitted_any_assignemnts = true;
 					}

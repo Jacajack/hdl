@@ -12,7 +12,8 @@ impl X {
 		wire clk3 = clk2;
 	}
 
-	//auto reg_data;
+	/// Reg output
+	ubus<16> reg_data;
 
 	/// Dummy register
 	reg r {
@@ -20,6 +21,6 @@ impl X {
 		en: true,
 		nreset: true,
 		next: 0u16,
-		data: auto asddata
+		data: reg_data
 	}
 }
