@@ -42,6 +42,7 @@ fn compile(mut code: String, file_name: String, output: &mut dyn Write, elab: bo
 	let (_, global_ctx, modules) = hdllang::analyzer::combine(
 		&mut ctx.id_table,
 		&ctx.numeric_constants,
+		&ctx.comment_table,
 		&root,
 		String::from("."),
 		&mut map,

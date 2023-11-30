@@ -65,6 +65,7 @@ impl InstantiationStatement {
 						self, scope_id, ctx, local_ctx,
 					)?),
 				}),
+				Vec::new()
 			);
 			local_ctx.scope.define_variable(scope_id, v)?;
 			return Ok(());
@@ -195,7 +196,7 @@ impl InstantiationStatement {
 								));
 							}
 							gen2.value = gen1.value.clone();
-							let new_var = Variable::new(new_name, stmt.location(), interface_variable.var.kind.clone());
+							let new_var = Variable::new(new_name, stmt.location(), interface_variable.var.kind.clone(), Vec::new());
 							scope.redeclare_variable(interface_variable);
 							let id = local_ctx.scope.define_intermidiate_signal(new_var, scope_id)?;
 							module_instance
@@ -227,7 +228,7 @@ impl InstantiationStatement {
 					id_expr
 						.expression
 						.evaluate_type(ctx, scope_id, local_ctx, sig, true, stmt.get_location())?;
-					let new_var = Variable::new(new_name, stmt.location(), interface_variable.var.kind.clone());
+					let new_var = Variable::new(new_name, stmt.location(), interface_variable.var.kind.clone(), Vec::new());
 					scope.redeclare_variable(interface_variable);
 					let id = local_ctx.scope.define_intermidiate_signal(new_var, scope_id)?;
 					module_instance
@@ -304,7 +305,7 @@ impl InstantiationStatement {
 				coming.evaluate_as_lhs(false, ctx, clk_type.clone(), stmt.location())?;
 				debug!("Adding variable {:?}", new_name_str);
 				let new_id = local_ctx.scope.define_intermidiate_signal(
-					Variable::new(new_name, stmt.location(), interface_variable.var.kind),
+					Variable::new(new_name, stmt.location(), interface_variable.var.kind, Vec::new()),
 					scope_id,
 				)?;
 				debug!(
@@ -382,7 +383,7 @@ impl InstantiationStatement {
 			};
 			let _ = stmt.get_type(ctx, local_ctx, scope_id, interface_signal.clone(), is_output)?;
 			let new_id = local_ctx.scope.define_intermidiate_signal(
-				Variable::new(new_name, stmt.location(), VariableKind::Signal(interface_signal)),
+				Variable::new(new_name, stmt.location(), VariableKind::Signal(interface_signal),Vec::new()),
 				scope_id,
 			)?;
 			if is_output {
@@ -464,6 +465,7 @@ impl InstantiationStatement {
 				location: self.location,
 				kind: crate::analyzer::ModuleInstanceKind::Module(module_instance),
 			}),
+			Vec::new()
 		);
 		local_ctx.scope.define_variable(scope_id, v)?;
 		return Ok(());
@@ -488,10 +490,17 @@ impl InstantiationStatement {
 			let r = local_ctx.scope.get_variable(scope_id, &self.instance_name).unwrap();
 			if let VariableKind::ModuleInstance(m) = &r.var.kind {
 				if let ModuleInstanceKind::Register(reg) = &m.kind {
-					let builder = hirn::design::RegisterBuilder::new(
+					let mut builder = hirn::design::RegisterBuilder::new(
 						api_scope.clone(),
 						&ctx.id_table.get_value(&self.instance_name),
 					);
+					if !self.metadata.is_empty(){
+						let mut comment = String::new();
+						for com in self.metadata.iter(){
+							comment.push_str(&ctx.comment_table.get_value(com).as_str());
+						}
+						builder = builder.comment(comment.as_str());
+					}
 					let clk_id = local_ctx.scope.get_api_id_by_internal_id(reg.clk).unwrap();
 					let next_id = local_ctx.scope.get_api_id_by_internal_id(reg.next).unwrap();
 					let enable_id = local_ctx.scope.get_api_id_by_internal_id(reg.enable).unwrap();
@@ -599,6 +608,13 @@ impl InstantiationStatement {
 					.label(self.location, "Error occured here")
 					.build()
 			})?;
+		if !self.metadata.is_empty(){
+			let mut comment = String::new();
+			for com in self.metadata.iter(){
+				comment.push_str(&ctx.comment_table.get_value(com).as_str());
+			}
+			//builder = builder.comment(comment.as_str());
+		}
 		debug!("Codegen for variables");
 		for stmt in &self.port_bind {
 			let interface_variable = scope.get_variable(0, &stmt.get_id()).expect("This was checked");
@@ -761,7 +777,7 @@ fn create_register(
 
 	debug!("Clk type is {:?}", clk_type);
 	let clk_var_id = local_ctx.scope.define_intermidiate_signal(
-		Variable::new(clk_name, next_stmt.unwrap().location(), VariableKind::Signal(clk_type)),
+		Variable::new(clk_name, next_stmt.unwrap().location(), VariableKind::Signal(clk_type), Vec::new()),
 		scope_id,
 	)?;
 	let mut data_type = data_stmt
@@ -884,7 +900,7 @@ fn create_register(
 	);
 	debug!("En type is {:?}", en_type);
 	let en_var_id = local_ctx.scope.define_intermidiate_signal(
-		Variable::new(en_name, en_stmt.unwrap().location(), VariableKind::Signal(en_type)),
+		Variable::new(en_name, en_stmt.unwrap().location(), VariableKind::Signal(en_type), Vec::new()),
 		scope_id,
 	)?;
 	debug!("Nreset type is {:?}", nreset_type);
@@ -892,7 +908,7 @@ fn create_register(
 		Variable::new(
 			nreset_name,
 			nreset_stmt.unwrap().location(),
-			VariableKind::Signal(nreset_type),
+			VariableKind::Signal(nreset_type), Vec::new()
 		),
 		scope_id,
 	)?;
@@ -901,7 +917,7 @@ fn create_register(
 		Variable::new(
 			data_name,
 			data_stmt.unwrap().location(),
-			VariableKind::Signal(data_type.clone()),
+			VariableKind::Signal(data_type.clone()), Vec::new()
 		),
 		scope_id,
 	)?;
@@ -910,7 +926,7 @@ fn create_register(
 		Variable::new(
 			next_name,
 			next_stmt.unwrap().location(),
-			VariableKind::Signal(next_type),
+			VariableKind::Signal(next_type), Vec::new()
 		),
 		scope_id,
 	)?;

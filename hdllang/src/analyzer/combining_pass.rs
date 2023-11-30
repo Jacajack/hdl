@@ -8,6 +8,7 @@ use crate::{core::*, parser::ast::*, ProvidesCompilerDiagnostic, SourceSpan};
 pub fn combine<'a>(
 	id_table: &'a mut IdTable,
 	nc_table: &'a crate::lexer::NumericConstantTable,
+	comment_table: &'a crate::lexer::CommentTable,
 	ast: &'a Root,
 	mut path_from_root: String,
 	present_files: &mut HashMap<String, String>,
@@ -32,7 +33,7 @@ pub fn combine<'a>(
 		use crate::parser::ast::TopDefinition::*;
 		match def {
 			ModuleDeclaration(declaration) => {
-				declaration.analyze(&mut design, id_table, nc_table, &mut modules_declared)?
+				declaration.analyze(&mut design, id_table, nc_table, comment_table, &mut modules_declared)?
 			},
 			ModuleImplementation(implementation) => {
 				debug!(
@@ -103,6 +104,7 @@ pub fn combine<'a>(
 	let ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext {
 		id_table,
 		nc_table,
+		comment_table,
 		modules_declared,
 		generic_modules,
 		design,

@@ -5,7 +5,7 @@ mod signal_sensitivity;
 mod signal_signedness;
 mod variable_kind;
 
-use crate::analyzer::module_implementation_scope::ExpressionEntryId;
+use crate::{analyzer::module_implementation_scope::ExpressionEntryId, core::CommentTableKey};
 use core::panic;
 pub use direction::*;
 pub use module_instance::*;
@@ -31,11 +31,12 @@ pub struct Variable {
 	pub name: IdTableKey,
 	/// location of the variable declaration
 	pub location: SourceSpan,
+	pub metadata_comment: Vec<CommentTableKey>,
 	pub kind: VariableKind,
 }
 impl Variable {
-	pub fn new(name: IdTableKey, location: SourceSpan, kind: VariableKind) -> Self {
-		Self { name, location, kind }
+	pub fn new(name: IdTableKey, location: SourceSpan, kind: VariableKind, metadata_comment: Vec<CommentTableKey>) -> Self {
+		Self { name, location, kind, metadata_comment }
 	}
 	pub fn is_clock(&self) -> bool {
 		use SignalSensitivity::*;
@@ -63,6 +64,7 @@ impl Variable {
 		&self,
 		nc_table: &crate::lexer::NumericConstantTable,
 		id_table: &id_table::IdTable,
+		comment_table: &crate::lexer::CommentTable,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
 		additional_ctx: Option<&AdditionalContext>,
@@ -73,6 +75,13 @@ impl Variable {
 			id_table.get_by_key(&self.name).unwrap(),
 			self
 		);
+		if !self.metadata_comment.is_empty() {
+			let mut comment = String::new();
+			for com in &self.metadata_comment {
+				comment.push_str(comment_table.get_by_key(&com).unwrap());
+			}
+			builder = builder.comment(comment.as_str());
+		}
 		let id: SignalId;
 		use VariableKind::*;
 		match &self.kind {

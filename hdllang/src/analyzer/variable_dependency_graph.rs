@@ -2,6 +2,8 @@ use bimap::BiHashMap;
 use hirn::design::ScopeHandle;
 use petgraph::prelude::DiGraph;
 
+use crate::core::comment_table;
+
 use super::{
 	module_implementation_scope::{InternalVariableId, ModuleImplementationScope},
 	AdditionalContext,
@@ -86,6 +88,7 @@ impl DependencyGraph {
 		&self,
 		nc_table: &crate::core::NumericConstantTable,
 		id_table: &crate::core::IdTable,
+		comment_table: &comment_table::CommentTable,
 		additional_ctx: Option<&AdditionalContext>,
 		scope: &mut ModuleImplementationScope,
 		scope_id: usize,
@@ -118,6 +121,7 @@ impl DependencyGraph {
 				self.register(
 					nc_table,
 					id_table,
+					comment_table,
 					additional_ctx,
 					scope,
 					scope_id,
@@ -133,7 +137,7 @@ impl DependencyGraph {
 		let builder = scope_handle.new_signal(&id_table.get_value(&var.var.name)).unwrap();
 		let api_id = var
 			.var
-			.register(nc_table, id_table, scope_id, scope, additional_ctx, builder)
+			.register(nc_table, id_table, comment_table, scope_id, scope, additional_ctx, builder)
 			.unwrap();
 		scope.insert_api_id(id, api_id);
 		//scope.register_variable(id);

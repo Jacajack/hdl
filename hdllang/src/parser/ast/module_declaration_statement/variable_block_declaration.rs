@@ -20,6 +20,7 @@ impl ModuleDeclarationVariableBlock {
 		mut already_created: AlreadyCreated,
 		nc_table: &crate::core::NumericConstantTable,
 		id_table: &IdTable,
+		comment_table: &crate::lexer::CommentTable,
 		declaration_scope: &mut ModuleImplementationScope,
 		handle: &mut ModuleHandle,
 	) -> miette::Result<()> {
@@ -28,6 +29,7 @@ impl ModuleDeclarationVariableBlock {
 			statement.create_variable_declaration(
 				already_created.clone(),
 				nc_table,
+				comment_table,
 				id_table,
 				declaration_scope,
 				handle,
