@@ -6,7 +6,7 @@ use log::*;
 
 use crate::{
 	lexer::{IdTable, IdTableKey},
-	ProvidesCompilerDiagnostic, SourceSpan,
+	ProvidesCompilerDiagnostic, SourceSpan, core::comment_table,
 };
 
 use super::{
@@ -336,6 +336,7 @@ impl ModuleImplementationScope {
 		mut var: Variable,
 		nc_table: &crate::lexer::NumericConstantTable,
 		id_table: &IdTable,
+		comment_table: &crate::lexer::CommentTable,
 		handle: &mut ModuleHandle,
 	) -> miette::Result<()> {
 		match self.is_declared(0, &var.name) {
@@ -360,6 +361,7 @@ impl ModuleImplementationScope {
 			var.register(
 				nc_table,
 				id_table,
+				comment_table,
 				0,
 				&self,
 				None,
@@ -510,6 +512,7 @@ impl ModuleImplementationScope {
 		depedency_graph: &DependencyGraph,
 		nc_table: &crate::core::NumericConstantTable,
 		id_table: &crate::core::IdTable,
+		comment_table: &crate::lexer::CommentTable,
 		additional_ctx: Option<&AdditionalContext>,
 		scope_id: usize,
 		scope_handle: &mut ScopeHandle,
@@ -517,7 +520,7 @@ impl ModuleImplementationScope {
 		log::debug!("Registering all variables in scope {:?}", scope_id);
 		let variables = self.get_all_variables_declared_in_scope(scope_id);
 		for var in variables {
-			depedency_graph.register(nc_table, id_table, additional_ctx, self, scope_id, scope_handle, var);
+			depedency_graph.register(nc_table, id_table, comment_table, additional_ctx, self, scope_id, scope_handle, var);
 		}
 	}
 	pub fn register_variable(&mut self, id: InternalVariableId, scope: &mut ScopeHandle) {

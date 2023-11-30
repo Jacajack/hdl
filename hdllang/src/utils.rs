@@ -169,6 +169,7 @@ pub fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Re
 		let (paths, ..) = crate::analyzer::combine(
 			&mut ctx.id_table,
 			&ctx.numeric_constants,
+			&ctx.comment_table,
 			&root,
 			String::from(current_directory),
 			&mut map,
@@ -196,6 +197,7 @@ pub fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) 
 	let (_, global_ctx, modules) = crate::analyzer::combine(
 		&mut ctx.id_table,
 		&ctx.numeric_constants,
+		&ctx.comment_table,
 		&root,
 		String::from("."),
 		&mut map,
@@ -225,6 +227,7 @@ pub fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>
 	let (_, global_ctx, modules) = crate::analyzer::combine(
 		&mut ctx.id_table,
 		&ctx.numeric_constants,
+		&ctx.comment_table,
 		&root,
 		String::from("."),
 		&mut map,
@@ -255,6 +258,7 @@ pub fn analyse(mut code: String, file_name: String, mut output: Box<dyn Write>) 
 	let (_, global_ctx, modules) = crate::analyzer::combine(
 		&mut ctx.id_table,
 		&ctx.numeric_constants,
+		&ctx.comment_table,
 		&root,
 		String::from("."),
 		&mut map,

@@ -1,3 +1,5 @@
+use hirn::design::HasComment;
+
 use crate::analyzer::{AdditionalContext, GlobalAnalyzerContext, LocalAnalyzerContext};
 use crate::core::{CommentTableKey, IdTableKey, SourceSpan};
 use crate::parser::ast::ModuleImplementationStatement;
@@ -61,14 +63,23 @@ impl ModuleImplementation {
 			"Codegen pass for module implementation {}",
 			ctx.id_table.get_by_key(&self.id).unwrap()
 		);
-
-		let mut api_scope = ctx
+		let mut handle = ctx
 			.modules_declared
 			.get_mut(&local_ctx.module_id())
 			.unwrap()
-			.handle
-			.scope();
-
+			.handle.clone();
+		let mut api_scope = handle.scope();
+		if !self.metadata.is_empty() {
+			let mut comment = handle.get_comment().unwrap_or(String::new());
+			log::debug!("Declaration comment: {} END", comment);
+			for com in self.metadata.iter() {
+				log::debug!("Read comment: {} END", ctx.comment_table.get_by_key(com).unwrap());
+				comment.push_str(ctx.comment_table.get_by_key(com).unwrap());
+				log::debug!("Comment after append: {}", comment);
+			}
+			log::debug!("Whole comment: {}", comment);
+			handle.comment(comment.as_str());
+		}
 		use crate::parser::ast::ModuleImplementationStatement::*;
 		match &self.statement {
 			ModuleImplementationBlockStatement(block) => {
@@ -82,6 +93,7 @@ impl ModuleImplementation {
 					&local_ctx.depenency_graph,
 					ctx.nc_table,
 					ctx.id_table,
+					ctx.comment_table,
 					Some(&additional_ctx),
 					0,
 					&mut api_scope,

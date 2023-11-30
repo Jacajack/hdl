@@ -1,0 +1,20 @@
+/// This is a super cool module
+module X {
+    /// System clock input
+    input clock clk;
+}
+/// And it goes woo
+impl X {
+    /// Internal clock
+    wire clk2 = clk, clk3=clk, clk4=clk;
+    
+
+    /// Dummy register
+    reg r {
+        clk: clk,
+        en: true,
+        nreset: true,
+        next: 0u,
+        data: ubus<16> asddata
+    }
+}

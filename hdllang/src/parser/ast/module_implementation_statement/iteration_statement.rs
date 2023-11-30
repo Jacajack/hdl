@@ -61,6 +61,7 @@ impl IterationStatement {
 								signedness: crate::analyzer::SignalSignedness::Signed(self.location),
 								location: self.location,
 							}),
+							Vec::new(),
 						),
 					)?;
 					match self.statement.as_ref() {
@@ -93,6 +94,7 @@ impl IterationStatement {
 							signedness: crate::analyzer::SignalSignedness::Signed(self.location),
 							location: self.location,
 						}),
+						Vec::new()
 					),
 				)?;
 				match self.statement.as_ref() {
@@ -176,6 +178,7 @@ impl IterationStatement {
 					&local_ctx.depenency_graph,
 					ctx.nc_table,
 					ctx.id_table,
+					ctx.comment_table,
 					Some(&additional_ctx),
 					scope_id,
 					&mut for_scope,

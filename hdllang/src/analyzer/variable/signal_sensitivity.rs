@@ -393,10 +393,11 @@ mod tests {
 	use crate::lexer::NumericConstantTable;
 	use paste::paste;
 	use std::collections::HashMap;
-	fn ctx<'a>(id_table: &'a mut IdTable, nc_table: &'a NumericConstantTable) -> GlobalAnalyzerContext<'a> {
+	fn ctx<'a>(id_table: &'a mut IdTable, nc_table: &'a NumericConstantTable, comment_table: &'a crate::lexer::CommentTable) -> GlobalAnalyzerContext<'a> {
 		GlobalAnalyzerContext {
 			id_table,
 			nc_table,
+			comment_table,
 			modules_declared: HashMap::new(),
 			generic_modules: HashMap::new(),
 			design: hirn::design::DesignHandle::new(),
@@ -426,8 +427,9 @@ mod tests {
 			paste! {
 				let mut id_table = IdTable::new();
 				let nc_table = NumericConstantTable::new();
-				assert!([<$name1 _sensitivity>]().can_drive(&[<$name2 _sensitivity>](), span(),&ctx(&mut id_table, &nc_table)).is_ok());
-				assert!([<$name2 _sensitivity>]().can_drive(&[<$name1 _sensitivity>](), span(),&ctx(&mut id_table, &nc_table)).is_err());
+				let comment_table = crate::lexer::CommentTable::new();
+				assert!([<$name1 _sensitivity>]().can_drive(&[<$name2 _sensitivity>](), span(),&ctx(&mut id_table, &nc_table, &comment_table)).is_ok());
+				assert!([<$name2 _sensitivity>]().can_drive(&[<$name1 _sensitivity>](), span(),&ctx(&mut id_table, &nc_table, &comment_table)).is_err());
 			}
 		};
 	}

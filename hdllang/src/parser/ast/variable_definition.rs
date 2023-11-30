@@ -165,6 +165,7 @@ impl VariableDefinition {
 						let id = local_ctx.scope.define_variable(
 							scope_id,
 							Variable {
+								metadata_comment: self.metadata.clone(),
 								name: direct_initializer.declarator.name,
 								kind: spec_kind,
 								location: direct_initializer.declarator.get_location(),
@@ -269,6 +270,7 @@ impl VariableDefinition {
 							scope_id,
 							Variable {
 								name: direct_initializer.declarator.name,
+								metadata_comment: self.metadata.clone(),
 								kind: spec_kind,
 								location: direct_initializer.declarator.get_location(),
 							},
@@ -294,6 +296,7 @@ impl VariableDefinition {
 						scope_id,
 						Variable {
 							name: direct_initializer.declarator.name,
+							metadata_comment: self.metadata.clone(),
 							kind: spec_kind,
 							location: direct_initializer.declarator.get_location(),
 						},

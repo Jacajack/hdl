@@ -7,6 +7,7 @@ use std::collections::HashMap;
 pub struct GlobalAnalyzerContext<'a> {
 	pub id_table: &'a mut IdTable,
 	pub nc_table: &'a NumericConstantTable,
+	pub comment_table: &'a crate::lexer::CommentTable,
 	/// represents all declared modules
 	pub modules_declared: HashMap<IdTableKey, ModuleDeclared>,
 	/// represents all implemented generic modules

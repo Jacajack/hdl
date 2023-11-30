@@ -212,7 +212,7 @@ impl PortBindStatement {
 				);
 				local_ctx.scope.define_variable(
 					scope_id,
-					Variable::new(direct_declarator.name, id_decl.location, new_war),
+					Variable::new(direct_declarator.name, id_decl.location, new_war, Vec::new()),
 				)?;
 				Ok(sig)
 			},
