@@ -6,3 +6,10 @@ impl X {
     int K = N / 2;
     const ubus<16> x[K]; // Fine with N
 }
+
+module m{}
+impl m{
+    X x{
+        N:2,
+    }
+}
