@@ -137,7 +137,15 @@ impl DependencyGraph {
 		let builder = scope_handle.new_signal(&id_table.get_value(&var.var.name)).unwrap();
 		let api_id = var
 			.var
-			.register(nc_table, id_table, comment_table, scope_id, scope, additional_ctx, builder)
+			.register(
+				nc_table,
+				id_table,
+				comment_table,
+				scope_id,
+				scope,
+				additional_ctx,
+				builder,
+			)
 			.unwrap();
 		scope.insert_api_id(id, api_id);
 		//scope.register_variable(id);

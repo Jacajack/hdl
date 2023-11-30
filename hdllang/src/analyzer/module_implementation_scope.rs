@@ -5,8 +5,9 @@ use hirn::design::{ModuleHandle, ScopeHandle, SignalId};
 use log::*;
 
 use crate::{
+	core::comment_table,
 	lexer::{IdTable, IdTableKey},
-	ProvidesCompilerDiagnostic, SourceSpan, core::comment_table,
+	ProvidesCompilerDiagnostic, SourceSpan,
 };
 
 use super::{
@@ -520,7 +521,16 @@ impl ModuleImplementationScope {
 		log::debug!("Registering all variables in scope {:?}", scope_id);
 		let variables = self.get_all_variables_declared_in_scope(scope_id);
 		for var in variables {
-			depedency_graph.register(nc_table, id_table, comment_table, additional_ctx, self, scope_id, scope_handle, var);
+			depedency_graph.register(
+				nc_table,
+				id_table,
+				comment_table,
+				additional_ctx,
+				self,
+				scope_id,
+				scope_handle,
+				var,
+			);
 		}
 	}
 	pub fn register_variable(&mut self, id: InternalVariableId, scope: &mut ScopeHandle) {

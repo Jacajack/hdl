@@ -40,9 +40,9 @@ impl ModuleDeclaration {
 		let mut handle = design_handle
 			.new_module(id_table.get_by_key(&self.id).unwrap())
 			.unwrap();
-		if !self.metadata.is_empty(){
-			let mut comment  = String::new();
-			for com in &self.metadata{
+		if !self.metadata.is_empty() {
+			let mut comment = String::new();
+			for com in &self.metadata {
 				comment.push_str(comment_table.get_by_key(&com).unwrap());
 			}
 			handle.comment(comment.as_str());

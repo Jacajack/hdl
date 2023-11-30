@@ -393,7 +393,11 @@ mod tests {
 	use crate::lexer::NumericConstantTable;
 	use paste::paste;
 	use std::collections::HashMap;
-	fn ctx<'a>(id_table: &'a mut IdTable, nc_table: &'a NumericConstantTable, comment_table: &'a crate::lexer::CommentTable) -> GlobalAnalyzerContext<'a> {
+	fn ctx<'a>(
+		id_table: &'a mut IdTable,
+		nc_table: &'a NumericConstantTable,
+		comment_table: &'a crate::lexer::CommentTable,
+	) -> GlobalAnalyzerContext<'a> {
 		GlobalAnalyzerContext {
 			id_table,
 			nc_table,

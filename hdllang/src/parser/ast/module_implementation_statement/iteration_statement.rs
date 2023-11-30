@@ -94,7 +94,7 @@ impl IterationStatement {
 							signedness: crate::analyzer::SignalSignedness::Signed(self.location),
 							location: self.location,
 						}),
-						Vec::new()
+						Vec::new(),
 					),
 				)?;
 				match self.statement.as_ref() {

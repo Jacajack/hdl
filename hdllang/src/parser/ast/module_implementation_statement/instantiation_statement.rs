@@ -65,7 +65,7 @@ impl InstantiationStatement {
 						self, scope_id, ctx, local_ctx,
 					)?),
 				}),
-				Vec::new()
+				Vec::new(),
 			);
 			local_ctx.scope.define_variable(scope_id, v)?;
 			return Ok(());
@@ -196,7 +196,12 @@ impl InstantiationStatement {
 								));
 							}
 							gen2.value = gen1.value.clone();
-							let new_var = Variable::new(new_name, stmt.location(), interface_variable.var.kind.clone(), Vec::new());
+							let new_var = Variable::new(
+								new_name,
+								stmt.location(),
+								interface_variable.var.kind.clone(),
+								Vec::new(),
+							);
 							scope.redeclare_variable(interface_variable);
 							let id = local_ctx.scope.define_intermidiate_signal(new_var, scope_id)?;
 							module_instance
@@ -228,7 +233,12 @@ impl InstantiationStatement {
 					id_expr
 						.expression
 						.evaluate_type(ctx, scope_id, local_ctx, sig, true, stmt.get_location())?;
-					let new_var = Variable::new(new_name, stmt.location(), interface_variable.var.kind.clone(), Vec::new());
+					let new_var = Variable::new(
+						new_name,
+						stmt.location(),
+						interface_variable.var.kind.clone(),
+						Vec::new(),
+					);
 					scope.redeclare_variable(interface_variable);
 					let id = local_ctx.scope.define_intermidiate_signal(new_var, scope_id)?;
 					module_instance
@@ -383,7 +393,12 @@ impl InstantiationStatement {
 			};
 			let _ = stmt.get_type(ctx, local_ctx, scope_id, interface_signal.clone(), is_output)?;
 			let new_id = local_ctx.scope.define_intermidiate_signal(
-				Variable::new(new_name, stmt.location(), VariableKind::Signal(interface_signal),Vec::new()),
+				Variable::new(
+					new_name,
+					stmt.location(),
+					VariableKind::Signal(interface_signal),
+					Vec::new(),
+				),
 				scope_id,
 			)?;
 			if is_output {
@@ -465,7 +480,7 @@ impl InstantiationStatement {
 				location: self.location,
 				kind: crate::analyzer::ModuleInstanceKind::Module(module_instance),
 			}),
-			Vec::new()
+			Vec::new(),
 		);
 		local_ctx.scope.define_variable(scope_id, v)?;
 		return Ok(());
@@ -494,9 +509,9 @@ impl InstantiationStatement {
 						api_scope.clone(),
 						&ctx.id_table.get_value(&self.instance_name),
 					);
-					if !self.metadata.is_empty(){
+					if !self.metadata.is_empty() {
 						let mut comment = String::new();
-						for com in self.metadata.iter(){
+						for com in self.metadata.iter() {
 							comment.push_str(&ctx.comment_table.get_value(com).as_str());
 						}
 						builder = builder.comment(comment.as_str());
@@ -608,9 +623,9 @@ impl InstantiationStatement {
 					.label(self.location, "Error occured here")
 					.build()
 			})?;
-		if !self.metadata.is_empty(){
+		if !self.metadata.is_empty() {
 			let mut comment = String::new();
-			for com in self.metadata.iter(){
+			for com in self.metadata.iter() {
 				comment.push_str(&ctx.comment_table.get_value(com).as_str());
 			}
 			//builder = builder.comment(comment.as_str());
@@ -777,7 +792,12 @@ fn create_register(
 
 	debug!("Clk type is {:?}", clk_type);
 	let clk_var_id = local_ctx.scope.define_intermidiate_signal(
-		Variable::new(clk_name, next_stmt.unwrap().location(), VariableKind::Signal(clk_type), Vec::new()),
+		Variable::new(
+			clk_name,
+			next_stmt.unwrap().location(),
+			VariableKind::Signal(clk_type),
+			Vec::new(),
+		),
 		scope_id,
 	)?;
 	let mut data_type = data_stmt
@@ -900,7 +920,12 @@ fn create_register(
 	);
 	debug!("En type is {:?}", en_type);
 	let en_var_id = local_ctx.scope.define_intermidiate_signal(
-		Variable::new(en_name, en_stmt.unwrap().location(), VariableKind::Signal(en_type), Vec::new()),
+		Variable::new(
+			en_name,
+			en_stmt.unwrap().location(),
+			VariableKind::Signal(en_type),
+			Vec::new(),
+		),
 		scope_id,
 	)?;
 	debug!("Nreset type is {:?}", nreset_type);
@@ -908,7 +933,8 @@ fn create_register(
 		Variable::new(
 			nreset_name,
 			nreset_stmt.unwrap().location(),
-			VariableKind::Signal(nreset_type), Vec::new()
+			VariableKind::Signal(nreset_type),
+			Vec::new(),
 		),
 		scope_id,
 	)?;
@@ -917,7 +943,8 @@ fn create_register(
 		Variable::new(
 			data_name,
 			data_stmt.unwrap().location(),
-			VariableKind::Signal(data_type.clone()), Vec::new()
+			VariableKind::Signal(data_type.clone()),
+			Vec::new(),
 		),
 		scope_id,
 	)?;
@@ -926,7 +953,8 @@ fn create_register(
 		Variable::new(
 			next_name,
 			next_stmt.unwrap().location(),
-			VariableKind::Signal(next_type), Vec::new()
+			VariableKind::Signal(next_type),
+			Vec::new(),
 		),
 		scope_id,
 	)?;

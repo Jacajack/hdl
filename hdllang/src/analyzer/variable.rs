@@ -35,8 +35,18 @@ pub struct Variable {
 	pub kind: VariableKind,
 }
 impl Variable {
-	pub fn new(name: IdTableKey, location: SourceSpan, kind: VariableKind, metadata_comment: Vec<CommentTableKey>) -> Self {
-		Self { name, location, kind, metadata_comment }
+	pub fn new(
+		name: IdTableKey,
+		location: SourceSpan,
+		kind: VariableKind,
+		metadata_comment: Vec<CommentTableKey>,
+	) -> Self {
+		Self {
+			name,
+			location,
+			kind,
+			metadata_comment,
+		}
 	}
 	pub fn is_clock(&self) -> bool {
 		use SignalSensitivity::*;

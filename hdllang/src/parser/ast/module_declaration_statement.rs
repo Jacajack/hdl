@@ -6,7 +6,7 @@ use hirn::design::ModuleHandle;
 pub use variable_block_declaration::*;
 pub use variable_declaration_statement::*;
 
-use crate::{analyzer::*};
+use crate::analyzer::*;
 use crate::lexer::IdTable;
 use crate::parser::ast::SourceLocation;
 use crate::SourceSpan;
@@ -31,9 +31,14 @@ impl ModuleDeclarationStatement {
 	) -> miette::Result<()> {
 		use ModuleDeclarationStatement::*;
 		match self {
-			VariableDeclarationStatement(declaration) => {
-				declaration.create_variable_declaration(already_created, nc_table, id_table, comment_table, scope, handle)
-			},
+			VariableDeclarationStatement(declaration) => declaration.create_variable_declaration(
+				already_created,
+				nc_table,
+				id_table,
+				comment_table,
+				scope,
+				handle,
+			),
 			VariableBlock(block) => {
 				block.create_variable_declaration(already_created, nc_table, id_table, comment_table, scope, handle)
 			},

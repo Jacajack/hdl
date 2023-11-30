@@ -67,7 +67,8 @@ impl ModuleImplementation {
 			.modules_declared
 			.get_mut(&local_ctx.module_id())
 			.unwrap()
-			.handle.clone();
+			.handle
+			.clone();
 		let mut api_scope = handle.scope();
 		if !self.metadata.is_empty() {
 			let mut comment = handle.get_comment().unwrap_or(String::new());

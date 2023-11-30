@@ -1,8 +1,8 @@
 use hirn::design::ModuleHandle;
 
 use crate::analyzer::*;
-use crate::core::NumericConstant;
 use crate::core::comment_table;
+use crate::core::NumericConstant;
 use crate::lexer::CommentTableKey;
 use crate::lexer::IdTable;
 use crate::parser::ast::SourceLocation;
