@@ -1,8 +1,8 @@
-use std::{collections::HashMap, rc::Rc, sync::Arc};
+use std::{collections::HashMap, sync::Arc};
 
 use dyn_clone::DynClone;
 
-use crate::design::{self, DesignHandle, EvalAssumptions, NumericConstant, SignalId};
+use crate::design::{DesignHandle, EvalAssumptions, NumericConstant, SignalId};
 
 use super::GenericVar;
 

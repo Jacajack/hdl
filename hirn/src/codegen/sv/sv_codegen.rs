@@ -41,10 +41,10 @@ fn expr_sub_one(design: DesignHandle, expr: &Expression) -> Expression {
 		.eval_type(&EvalContext::without_assumptions(design))
 		.expect("All variables must be in design");
 	if expr_type.is_signed() {
-		(expr.clone() - 1i64.into()).into()
+		expr.clone() - 1i64.into()
 	}
 	else {
-		(expr.clone() - 1u64.into()).into()
+		expr.clone() - 1u64.into()
 	}
 }
 
@@ -99,7 +99,7 @@ impl<'a> SVCodegen<'a> {
 			array_size_str = format!(
 				"{}[{}]",
 				array_size_str,
-				self.translate_expression_try_eval(&dim, false)?
+				self.translate_expression_try_eval(dim, false)?
 			);
 		}
 
@@ -117,7 +117,7 @@ impl<'a> SVCodegen<'a> {
 			Generic => Ok(format!(
 				"{}",
 				self.format_param_declaration_impl(
-					sig.name().into(),
+					sig.name(),
 					&sig.class(),
 					&[],
 					&Some(sig.value().clone()),
@@ -126,7 +126,7 @@ impl<'a> SVCodegen<'a> {
 			)),
 			_ => Ok(format!(
 				"{} = {}",
-				self.format_signal_declaration_impl(sig.name(), &sig.class(), &vec![])?,
+				self.format_signal_declaration_impl(sig.name(), &sig.class(), &[])?,
 				self.translate_expression(&sig.value().clone(), false)?,
 			)),
 		}
@@ -152,7 +152,7 @@ impl<'a> SVCodegen<'a> {
 			array_size_str = format!(
 				"{}[{}]",
 				array_size_str,
-				self.translate_expression_try_eval(&dim, false)?
+				self.translate_expression_try_eval(dim, false)?
 			);
 		}
 
@@ -193,7 +193,7 @@ impl<'a> SVCodegen<'a> {
 		value: &Option<Expression>,
 	) -> Result<String, CodegenError> {
 		let sig = self.design.get_signal(sig_id).unwrap();
-		self.format_param_declaration_impl(sig.name().into(), &sig.class, &sig.dimensions, value, true)
+		self.format_param_declaration_impl(sig.name(), &sig.class, &sig.dimensions, value, true)
 	}
 
 	fn module_interface_definition(&mut self, _m: ModuleHandle, s: InterfaceSignal) -> Result<String, CodegenError> {
@@ -218,8 +218,8 @@ impl<'a> SVCodegen<'a> {
 	}
 
 	fn emit_assignment(&mut self, lhs: &Expression, rhs: &Expression) -> Result<(), CodegenError> {
-		let lhs_str = self.translate_expression(&lhs, true)?;
-		let rhs_str = self.translate_expression(&rhs, true)?;
+		let lhs_str = self.translate_expression(lhs, true)?;
+		let rhs_str = self.translate_expression(rhs, true)?;
 		emitln!(self, "assign {} = {};", lhs_str, rhs_str)?;
 		Ok(())
 	}
@@ -239,10 +239,10 @@ impl<'a> SVCodegen<'a> {
 			for (binding_name, external_sig) in bindings {
 				if binding_name == internal_sig.name() {
 					if internal_sig.is_generic() {
-						generic_bindings.insert(binding_name, external_sig.clone());
+						generic_bindings.insert(binding_name, *external_sig);
 					}
 					else {
-						electric_bindings.insert(binding_name, external_sig.clone());
+						electric_bindings.insert(binding_name, *external_sig);
 					}
 				}
 			}
@@ -374,38 +374,36 @@ impl<'a> SVCodegen<'a> {
 		// I very much don't like this code.
 		let mut emitted_any_localparam = false;
 		for sig_id in scope.signals() {
-			if !skip_signals.contains(&sig_id) {
-				if self.design.get_signal(sig_id).unwrap().is_generic() {
-					fn search_scope(design: DesignHandle, scope: ScopeHandle, sig_id: SignalId) -> Option<Expression> {
-						for asmt in scope.assignments() {
-							match asmt.lhs.try_drive() {
-								Some(lhs_slice) => {
-									if lhs_slice.signal == sig_id {
-										return Some(asmt.rhs);
-									}
-								},
-								None => {},
-							}
-						}
+			if !skip_signals.contains(&sig_id) && self.design.get_signal(sig_id).unwrap().is_generic() {
+   					fn search_scope(design: DesignHandle, scope: ScopeHandle, sig_id: SignalId) -> Option<Expression> {
+   						for asmt in scope.assignments() {
+   							match asmt.lhs.try_drive() {
+   								Some(lhs_slice) => {
+   									if lhs_slice.signal == sig_id {
+   										return Some(asmt.rhs);
+   									}
+   								},
+   								None => {},
+   							}
+   						}
 
-						for subscope_id in scope.subscopes() {
-							let subscope = design.get_scope_handle(subscope_id).unwrap();
-							if let Some(expr) = search_scope(design.clone(), subscope, sig_id) {
-								return Some(expr);
-							}
-						}
+   						for subscope_id in scope.subscopes() {
+   							let subscope = design.get_scope_handle(subscope_id).unwrap();
+   							if let Some(expr) = search_scope(design.clone(), subscope, sig_id) {
+   								return Some(expr);
+   							}
+   						}
 
-						return None;
-					}
+   						None
+   					}
 
-					let rhs_expr = search_scope(self.design.clone(), scope.clone(), sig_id);
-					self.emit_metadata_comment(&self.design.get_signal(sig_id).unwrap())?;
-					let localparam_str = self.format_localparam_declaration(sig_id, &rhs_expr)?;
-					emitln!(self, "{};", localparam_str)?;
-					skip_signals.insert(sig_id);
-					emitted_any_localparam = true;
-				}
-			}
+   					let rhs_expr = search_scope(self.design.clone(), scope.clone(), sig_id);
+   					self.emit_metadata_comment(&self.design.get_signal(sig_id).unwrap())?;
+   					let localparam_str = self.format_localparam_declaration(sig_id, &rhs_expr)?;
+   					emitln!(self, "{};", localparam_str)?;
+   					skip_signals.insert(sig_id);
+   					emitted_any_localparam = true;
+   				}
 		}
 
 		if emitted_any_localparam {

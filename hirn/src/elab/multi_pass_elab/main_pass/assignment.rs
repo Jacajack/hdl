@@ -21,9 +21,9 @@ impl MainPassCtx {
 		let lhs_slice_range = lhs.try_drive_bits().ok_or(ElabMessageKind::NotDrivable)?;
 		let rhs_slice_range = rhs.try_drive_bits().ok_or(ElabMessageKind::NotDrivable)?;
 		let lhs_ref =
-			self.get_int_ext_generated_signal_ref(&lhs_slice_range.slice(), lhs_ext_instance, assumptions.clone())?;
+			self.get_int_ext_generated_signal_ref(lhs_slice_range.slice(), lhs_ext_instance, assumptions.clone())?;
 		let rhs_ref =
-			self.get_int_ext_generated_signal_ref(&rhs_slice_range.slice(), rhs_ext_instance, assumptions.clone())?;
+			self.get_int_ext_generated_signal_ref(rhs_slice_range.slice(), rhs_ext_instance, assumptions.clone())?;
 
 		if lhs_slice_range.slice().rank() != 0 || rhs_slice_range.slice().rank() != 0 {
 			error!("Array assignment with non-zero rank");
@@ -117,16 +117,13 @@ impl MainPassCtx {
 		}
 
 		// Filter out generics from LHS dependencies
-		lhs_dependencies = lhs_dependencies
-			.into_iter()
-			.filter(|range| {
+		lhs_dependencies.retain(|range| {
 				let sig = self
 					.design
 					.get_signal(range.signal())
 					.expect("LHS dependency not in design");
 				!sig.is_generic()
-			})
-			.collect();
+			});
 
 		// We should not have any LHS dependencies on non-generic signals
 		assert!(
@@ -135,16 +132,13 @@ impl MainPassCtx {
 		);
 
 		// Filter out generics from RHS dependencies
-		rhs_dependencies = rhs_dependencies
-			.into_iter()
-			.filter(|range| {
+		rhs_dependencies.retain(|range| {
 				let sig = self
 					.design
 					.get_signal(range.signal())
 					.expect("RHS dependency not in design");
 				!sig.is_generic()
-			})
-			.collect();
+			});
 
 		// debug!("LHS width: {:?}", lhs.width());
 		// debug!("RHS width: {:?}", rhs.width());

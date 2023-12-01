@@ -87,7 +87,7 @@ impl MainPassCtx {
 		// First, we resolve all generic assignments and make new assumptions
 		for (port_name, sig_id) in instance.get_bindings() {
 			let interface_sig = module_handle
-				.get_interface_signal_by_name(&port_name)
+				.get_interface_signal_by_name(port_name)
 				.expect("Invalid port name");
 			let inner_sig_id = interface_sig.signal();
 			let inner_sig = module_handle.design().get_signal(inner_sig_id).unwrap();
@@ -111,7 +111,7 @@ impl MainPassCtx {
 
 		for (port_name, sig_id) in instance.get_bindings() {
 			let interface_sig = module_handle
-				.get_interface_signal_by_name(&port_name)
+				.get_interface_signal_by_name(port_name)
 				.expect("Invalid port name");
 			let inner_sig_id = interface_sig.signal();
 			let inner_sig = module_handle.design().get_signal(inner_sig_id).unwrap();

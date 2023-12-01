@@ -24,8 +24,7 @@ impl Evaluates for SignalId {
 			return Err(EvalError::NoDesign);
 		}
 
-		ctx.scalar_signal(*self)
-			.map(|v| v.clone())
+		ctx.scalar_signal(*self).cloned()
 			.ok_or(EvalError::MissingAssumption(*self))
 	}
 }
@@ -38,8 +37,7 @@ impl Evaluates for SignalSlice {
 			indices.push(index.eval(ctx)?.try_into_i64().or(Err(EvalError::InvalidIndex))?);
 		}
 
-		ctx.signal(self.signal, &indices)
-			.map(|v| v.clone())
+		ctx.signal(self.signal, &indices).cloned()
 			.ok_or(EvalError::MissingAssumption(self.signal))
 	}
 }
@@ -163,10 +161,10 @@ impl Evaluates for BuiltinOp {
 				Expression::Signal(ref slice) => {
 					if let Some(design_handle) = ctx.design() {
 						let sig = design_handle.get_signal(slice.signal).expect("signal not in design");
-						return Ok(sig.width().cast_unsigned().eval(ctx)?);
+						sig.width().cast_unsigned().eval(ctx)
 					}
 					else {
-						return Err(EvalError::NoDesign);
+						Err(EvalError::NoDesign)
 					}
 				},
 

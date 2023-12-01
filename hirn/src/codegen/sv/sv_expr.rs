@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use super::SVCodegen;
+
 use crate::{
 	codegen::CodegenError,
 	design::{
@@ -100,8 +100,8 @@ impl SVExpressionCodegen {
 	}
 
 	fn translate_conditional_expression(&mut self, expr: &ConditionalExpression) -> Result<String, CodegenError> {
-		if expr.branches().len() == 0 {
-			return Ok(self.translate_expression_no_preprocess(expr.default_value())?);
+		if expr.branches().is_empty() {
+			return self.translate_expression_no_preprocess(expr.default_value());
 		}
 
 		let mut str: String = "".into();
@@ -109,8 +109,8 @@ impl SVExpressionCodegen {
 			str = format!(
 				"{} ({}) ? ({}) : ",
 				str,
-				self.translate_expression_no_preprocess(&br.condition())?,
-				self.translate_expression_no_preprocess(&br.value())?
+				self.translate_expression_no_preprocess(br.condition())?,
+				self.translate_expression_no_preprocess(br.value())?
 			);
 		}
 		Ok(format!(
@@ -312,7 +312,7 @@ impl SVExpressionCodegen {
 	fn translate_signal_slice(&mut self, slice: &SignalSlice) -> Result<String, CodegenError> {
 		let mut str: String = self.translate_signal_id(slice.signal);
 		for index_expr in &slice.indices {
-			str = format!("{}[{}]", str, self.translate_expression_no_preprocess(&index_expr)?);
+			str = format!("{}[{}]", str, self.translate_expression_no_preprocess(index_expr)?);
 		}
 		Ok(str)
 	}
@@ -356,10 +356,10 @@ impl SVExpressionCodegen {
 			},
 
 			BitSelect { expr, index } => {
-				let (expr_str, add_suffix) = self.translate_suffix_op_lhs(&expr)?;
+				let (expr_str, add_suffix) = self.translate_suffix_op_lhs(expr)?;
 				if add_suffix {
 					self.push_width_casts(false);
-					let index_str = self.translate_expression_try_eval(&index)?;
+					let index_str = self.translate_expression_try_eval(index)?;
 					self.pop_width_casts();
 					format!("{}[{}]", expr_str, index_str)
 				}
@@ -369,11 +369,11 @@ impl SVExpressionCodegen {
 			},
 
 			BusSelect { expr, msb, lsb } => {
-				let (expr_str, add_suffix) = self.translate_suffix_op_lhs(&expr)?;
+				let (expr_str, add_suffix) = self.translate_suffix_op_lhs(expr)?;
 				if add_suffix {
 					self.push_width_casts(false);
-					let msb_str = self.translate_expression_try_eval(&msb)?;
-					let lsb_str = self.translate_expression_try_eval(&lsb)?;
+					let msb_str = self.translate_expression_try_eval(msb)?;
+					let lsb_str = self.translate_expression_try_eval(lsb)?;
 					self.pop_width_casts();
 					format!("{}[{}:{}]", expr_str, msb_str, lsb_str)
 				}
@@ -383,9 +383,9 @@ impl SVExpressionCodegen {
 			},
 
 			Replicate { expr, count } => {
-				let expr_str = self.translate_expression_no_preprocess(&expr)?;
+				let expr_str = self.translate_expression_no_preprocess(expr)?;
 				self.push_width_casts(false);
-				let count_str = self.translate_expression_try_eval(&count)?;
+				let count_str = self.translate_expression_try_eval(count)?;
 				self.pop_width_casts();
 				format!("{{ {} {{ {} }} }}", count_str, expr_str)
 			},
@@ -396,7 +396,7 @@ impl SVExpressionCodegen {
 					str = format!(
 						"{}{}{}",
 						str,
-						self.translate_expression_no_preprocess(&expr)?,
+						self.translate_expression_no_preprocess(expr)?,
 						if index == exprs.len() - 1 { "" } else { ", " }
 					);
 				}

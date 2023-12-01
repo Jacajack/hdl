@@ -240,7 +240,7 @@ impl HasComment for ModuleInstance {
 impl ModuleInstance {
 	fn new(module: ModuleHandle, name: &str, bindings: Vec<(String, SignalId)>) -> Result<Self, DesignError> {
 		let new = Self {
-			module: module.clone(),
+			module,
 			name: name.into(),
 			bindings,
 			comment: None,
@@ -313,7 +313,7 @@ impl ModuleInstance {
 		}
 
 		// Interface drives the expression
-		if !rhs_type.can_drive(&lhs_type) {
+		if !rhs_type.can_drive(lhs_type) {
 			return Err(DesignError::IncompatibleBindingType {
 				module: self.module.id(),
 				signal: intern_sig.signal,

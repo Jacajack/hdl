@@ -268,7 +268,7 @@ impl ScopeHandle {
 
 	/// Validates if condition to be generic boolean
 	fn validate_if_condition(&self, condition: &Expression) -> Result<(), DesignError> {
-		let eval_ctx = EvalContext::without_assumptions(self.design().clone());
+		let eval_ctx = EvalContext::without_assumptions(self.design());
 		condition.validate(&eval_ctx, self)?;
 		let cond_type = condition.eval_type(&eval_ctx)?;
 		if !cond_type.is_generic() || !cond_type.is_unsigned() {
@@ -313,7 +313,7 @@ impl ScopeHandle {
 		from: Expression,
 		to: Expression,
 	) -> Result<(ScopeHandle, SignalId), DesignError> {
-		let eval_ctx = EvalContext::without_assumptions(self.design().clone());
+		let eval_ctx = EvalContext::without_assumptions(self.design());
 		from.validate(&eval_ctx, self)?;
 		to.validate(&eval_ctx, self)?;
 		let from_type = from.eval_type(&eval_ctx)?;
@@ -345,15 +345,15 @@ impl ScopeHandle {
 	}
 
 	fn assign_impl(&mut self, lhs: Expression, rhs: Expression, comment: Option<&str>) -> Result<(), DesignError> {
-		lhs.validate_no_assumptions(&self)?;
-		rhs.validate_no_assumptions(&self)?;
+		lhs.validate_no_assumptions(self)?;
+		rhs.validate_no_assumptions(self)?;
 
 		// Check if the LHS is drivable
 		lhs.try_drive().ok_or(DesignError::ExpressionNotDrivable)?;
 
 		// Validate types (not clock-aware)
-		let lhs_type = lhs.eval_type(&EvalContext::without_assumptions(self.design().clone()))?;
-		let rhs_type = rhs.eval_type(&EvalContext::without_assumptions(self.design().clone()))?;
+		let lhs_type = lhs.eval_type(&EvalContext::without_assumptions(self.design()))?;
+		let rhs_type = rhs.eval_type(&EvalContext::without_assumptions(self.design()))?;
 
 		if lhs_type.is_signed() != rhs_type.is_signed() {
 			return Err(DesignError::IncompatibleSignedness {
@@ -362,7 +362,7 @@ impl ScopeHandle {
 			});
 		}
 
-		if !rhs_type.sensitivity().can_drive(&lhs_type.sensitivity()) {
+		if !rhs_type.sensitivity().can_drive(lhs_type.sensitivity()) {
 			error!("Assigning {:?} = {:?}", lhs, rhs);
 			error!("Assigning {:?} = {:?}", lhs_type, rhs_type);
 			return Err(DesignError::IncompatibleSensitivity {
@@ -488,7 +488,7 @@ impl ScopeHandle {
 			// defined directly in this scope
 			let shadowed_signals: HashSet<SignalId> = int_sig_names
 				.iter()
-				.filter_map(|name| ext_sig_names.get(name).map(|id| *id))
+				.filter_map(|name| ext_sig_names.get(name).copied())
 				.collect();
 
 			signals.extend(ext_signals.difference(&shadowed_signals));

@@ -57,7 +57,7 @@ impl SignalId {
 	// TODO implement as trait
 	pub fn index(&self, index: Expression) -> SignalSlice {
 		SignalSlice {
-			signal: self.clone(),
+			signal: *self,
 			indices: vec![index],
 		}
 	}
@@ -465,11 +465,11 @@ mod test {
 
 		scope2
 			.new_register("fancy_reg")?
-			.clk(sig.into())
+			.clk(sig)
 			.nreset(sig_fancy_reg_nreset)
 			.next(sig_fancy_reg_next)
 			.en(sig_fancy_reg_en)
-			.output(sig2.into())
+			.output(sig2)
 			.build()?;
 
 		scope2.assign(sig2.into(), expr)?;
@@ -573,7 +573,7 @@ mod test {
 			.sync(clk, true)
 			.build()?;
 
-		let _register = m
+		m
 			.scope()
 			.new_register("useless_reg")?
 			.clk(clk)
@@ -601,7 +601,7 @@ mod test {
 		m_parent
 			.scope()
 			.new_module(m, "child_module")?
-			.bind("clk", m_parent_clk.into())
+			.bind("clk", m_parent_clk)
 			.build()?;
 
 		Ok(())
@@ -622,7 +622,7 @@ mod test {
 		let err = m_parent
 			.scope()
 			.new_module(m, "disappointing_child")?
-			.bind("clk", m_parent_async.into())
+			.bind("clk", m_parent_async)
 			.build();
 
 		assert!(matches!(err, Err(DesignError::IncompatibleBindingType { .. })));

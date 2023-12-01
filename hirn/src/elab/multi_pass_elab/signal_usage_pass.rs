@@ -17,13 +17,13 @@ fn get_messages(ctx: &FullElabCtx) -> Vec<ElabMessageKind> {
 		if !elab_sig.is_fully_driven() {
 			if elab_sig.is_read() {
 				messages.push(ElabMessageKind::SignalNotDrivenAndUsed {
-					signal: Box::new(sig_ref.clone()),
+					signal: Box::new(*sig_ref),
 					elab: Box::new((*elab_sig).clone()),
 				});
 			}
 			else {
 				messages.push(ElabMessageKind::SignalNotDriven {
-					signal: Box::new(sig_ref.clone()),
+					signal: Box::new(*sig_ref),
 					elab: Box::new((*elab_sig).clone()),
 				});
 			}
@@ -32,7 +32,7 @@ fn get_messages(ctx: &FullElabCtx) -> Vec<ElabMessageKind> {
 		if !elab_sig.is_fully_read() {
 			// warn!("Signal {} is not fully read: {:?}", sig_name, elab_sig.unread_summary());
 			messages.push(ElabMessageKind::SignalUnused {
-				signal: Box::new(sig_ref.clone()),
+				signal: Box::new(*sig_ref),
 				elab: Box::new((*elab_sig).clone()),
 			});
 		}
@@ -40,7 +40,7 @@ fn get_messages(ctx: &FullElabCtx) -> Vec<ElabMessageKind> {
 		if elab_sig.has_conflicts() {
 			// error!("Signal {} has conflicts: {:?}", sig_name, elab_sig.conflict_summary());
 			messages.push(ElabMessageKind::SignalConflict {
-				signal: Box::new(sig_ref.clone()),
+				signal: Box::new(*sig_ref),
 				elab: Box::new((*elab_sig).clone()),
 			});
 		}

@@ -165,17 +165,15 @@ impl NumericConstant {
 		if self.signedness()? == SignalSignedness::Unsigned {
 			Ok(BigInt::from_biguint(num_bigint::Sign::Plus, self.value.clone()))
 		}
-		else {
-			if self.msb()? {
-				Ok(BigInt::from_biguint(
-					num_bigint::Sign::Minus,
-					neg_biguint(self.value.clone(), self.width),
-				))
-			}
-			else {
-				Ok(BigInt::from_biguint(num_bigint::Sign::Plus, self.value.clone()))
-			}
-		}
+		else if self.msb()? {
+  				Ok(BigInt::from_biguint(
+  					num_bigint::Sign::Minus,
+  					neg_biguint(self.value.clone(), self.width),
+  				))
+  			}
+  			else {
+  				Ok(BigInt::from_biguint(num_bigint::Sign::Plus, self.value.clone()))
+  			}
 	}
 
 	fn to_biguint(&self) -> Result<&BigUint, EvalError> {
@@ -197,14 +195,14 @@ impl NumericConstant {
 
 	pub fn to_hex_str(&self) -> Result<String, EvalError> {
 		match self.get_error() {
-			Some(e) => Err(e.clone()),
+			Some(e) => Err(e),
 			None => Ok(format!("{:x}", self.value)),
 		}
 	}
 
 	pub fn to_dec_str(&self) -> Result<String, EvalError> {
 		match self.get_error() {
-			Some(e) => Err(e.clone()),
+			Some(e) => Err(e),
 			None => Ok(format!("{}", self.value)),
 		}
 	}
@@ -962,13 +960,13 @@ mod test {
 	fn _check_value(nc: NumericConstant, val: i64, width: u64) {
 		assert!(matches!(nc.get_error(), None));
 		assert_eq!(nc.to_bigint().unwrap(), BigInt::from(val));
-		assert_eq!(nc.width().unwrap(), width.into());
+		assert_eq!(nc.width().unwrap(), width);
 	}
 
 	fn check_value_u(nc: NumericConstant, val: u64, width: u64) {
 		assert!(matches!(nc.get_error(), None));
 		assert_eq!(*nc.to_biguint().unwrap(), BigUint::from(val));
-		assert_eq!(nc.width().unwrap(), width.into());
+		assert_eq!(nc.width().unwrap(), width);
 	}
 
 	fn nc(v: i64) -> NumericConstant {
