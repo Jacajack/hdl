@@ -1,5 +1,5 @@
 use super::eval::EvalAssumptions;
-use super::{eval::Evaluates, EvalError, Expression, NumericConstant, SignalId, SignalSlice, WidthExpression};
+use super::{eval::Evaluates, EvalError, Expression, NumericConstant, SignalSlice, WidthExpression};
 use super::{
 	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, SignalSignedness, UnaryExpression,
 	UnaryOp,
@@ -8,24 +8,6 @@ use super::{
 impl Evaluates for NumericConstant {
 	fn eval(&self, _ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError> {
 		Ok(self.clone())
-	}
-}
-
-impl Evaluates for SignalId {
-	fn eval(&self, ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError> {
-		if let Some(design) = ctx.design() {
-			let signal = design.get_signal(*self).unwrap();
-
-			if !signal.is_scalar() {
-				return Err(EvalError::NonScalar);
-			}
-		}
-		else {
-			return Err(EvalError::NoDesign);
-		}
-
-		ctx.scalar_signal(*self).cloned()
-			.ok_or(EvalError::MissingAssumption(*self))
 	}
 }
 
