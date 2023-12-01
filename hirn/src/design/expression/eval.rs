@@ -81,18 +81,10 @@ impl EvalAssumptions for EvalContext {
 /// A trait for evaluating signedness and sensitivity level of expressions
 pub trait EvaluatesType {
 	fn eval_type(&self, ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError>;
-
-	fn const_eval_type(&self) -> Result<EvalType, EvalError> {
-		self.eval_type(&EvalContext::default())
-	}
 }
 
 pub trait Evaluates {
 	fn eval(&self, ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError>;
-
-	fn const_eval(&self) -> Result<NumericConstant, EvalError> {
-		self.eval(&EvalContext::default())
-	}
 
 	fn eval_to<T: TryFrom<NumericConstant, Error = EvalError>>(
 		&self,
@@ -132,7 +124,6 @@ pub enum AssumptionError {
 	SignednessMismatch,
 }
 
-// TODO shrink this type
 #[derive(Debug, Clone, Error)]
 pub enum EvalError {
 	#[error("Value of signal was not assumed, cannot evaluate")]
@@ -158,9 +149,6 @@ pub enum EvalError {
 
 	#[error("Could not get signal info from design (no design in eval context)")]
 	NoDesign,
-
-	#[error("Incompatible type assignment/binding")]
-	IncompatibleType(EvalType, EvalType),
 
 	#[error("Invalid array index")]
 	InvalidIndex,

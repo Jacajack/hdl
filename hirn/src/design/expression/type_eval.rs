@@ -172,7 +172,7 @@ impl EvaluatesType for BuiltinOp {
 impl EvaluatesType for CastExpression {
 	fn eval_type(&self, ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError> {
 		let src_type = self.src.eval_type(ctx)?;
-		let signedness = self.signedness.clone().unwrap_or(src_type.signedness);
+		let signedness = self.signedness.unwrap_or(src_type.signedness);
 		let sensitivity = self.sensitivity.clone().unwrap_or(src_type.sensitivity);
 
 		Ok(EvalType {

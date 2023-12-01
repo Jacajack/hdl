@@ -1,5 +1,5 @@
 use super::eval::EvalAssumptions;
-use super::{eval::Evaluates, EvalError, Expression, NumericConstant, SignalId, SignalSlice, WidthExpression};
+use super::{eval::Evaluates, EvalError, Expression, NumericConstant, SignalSlice, WidthExpression};
 use super::{
 	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, SignalSignedness, UnaryExpression,
 	UnaryOp,
@@ -11,25 +11,6 @@ impl Evaluates for NumericConstant {
 	}
 }
 
-impl Evaluates for SignalId {
-	fn eval(&self, ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError> {
-		if let Some(design) = ctx.design() {
-			let signal = design.get_signal(*self).unwrap();
-
-			if !signal.is_scalar() {
-				return Err(EvalError::NonScalar);
-			}
-		}
-		else {
-			return Err(EvalError::NoDesign);
-		}
-
-		ctx.scalar_signal(*self)
-			.map(|v| v.clone())
-			.ok_or(EvalError::MissingAssumption(*self))
-	}
-}
-
 impl Evaluates for SignalSlice {
 	fn eval(&self, ctx: &dyn EvalAssumptions) -> Result<NumericConstant, EvalError> {
 		// Evaluate indices
@@ -38,8 +19,7 @@ impl Evaluates for SignalSlice {
 			indices.push(index.eval(ctx)?.try_into_i64().or(Err(EvalError::InvalidIndex))?);
 		}
 
-		ctx.signal(self.signal, &indices)
-			.map(|v| v.clone())
+		ctx.signal(self.signal, &indices).cloned()
 			.ok_or(EvalError::MissingAssumption(self.signal))
 	}
 }
@@ -163,10 +143,10 @@ impl Evaluates for BuiltinOp {
 				Expression::Signal(ref slice) => {
 					if let Some(design_handle) = ctx.design() {
 						let sig = design_handle.get_signal(slice.signal).expect("signal not in design");
-						return Ok(sig.width().cast_unsigned().eval(ctx)?);
+						sig.width().cast_unsigned().eval(ctx)
 					}
 					else {
-						return Err(EvalError::NoDesign);
+						Err(EvalError::NoDesign)
 					}
 				},
 
@@ -196,16 +176,5 @@ impl Evaluates for Expression {
 			Signal(signal) => signal.eval(ctx),
 			Builtin(builtin) => builtin.eval(ctx),
 		}
-	}
-}
-
-#[cfg(test)]
-mod test {
-	use super::*;
-
-	#[test]
-	fn test_basic_eval() {
-		let expr = Expression::from(5) + Expression::from(2) * 3.into();
-		assert_eq!(expr.const_eval().unwrap(), 11.into());
 	}
 }

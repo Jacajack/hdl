@@ -5,6 +5,7 @@ mod module;
 mod scope;
 mod signal;
 mod utils;
+mod design_error;
 
 pub use comment::HasComment;
 pub use expression::{
@@ -22,11 +23,11 @@ pub use signal::{
 	ClockSensitivityList, EdgeSensitivity, HasSensitivity, HasSignedness, Signal, SignalBuilder, SignalClass,
 	SignalSensitivity, SignalSignedness, SignalSlice, SignalSliceRange,
 };
+pub use design_error::*;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::rc::{Rc, Weak};
-use thiserror::Error;
 
 /// References a module in a design
 #[derive(Clone, Copy, Hash, PartialEq, Eq, Ord, PartialOrd, Debug)]
@@ -57,7 +58,7 @@ impl SignalId {
 	// TODO implement as trait
 	pub fn index(&self, index: Expression) -> SignalSlice {
 		SignalSlice {
-			signal: self.clone(),
+			signal: *self,
 			indices: vec![index],
 		}
 	}
@@ -93,22 +94,6 @@ pub struct DesignCore {
 }
 
 impl DesignCore {
-	/// Creates a new empty design
-	pub fn new() -> Self {
-		Self {
-			weak: Weak::<RefCell<DesignCore>>::new(),
-			modules: Vec::new(),
-			scopes: Vec::new(),
-			signals: Vec::new(),
-			next_module_id: 1,
-			next_scope_id: 1,
-			next_signal_id: 1,
-			scope_signals: HashMap::new(),
-			scope_scopes: HashMap::new(),
-			module_scopes: HashMap::new(),
-		}
-	}
-
 	fn get_handle(&self) -> DesignHandle {
 		self.weak.upgrade().unwrap().into()
 	}
@@ -146,11 +131,11 @@ impl DesignCore {
 		for id in self.get_scope_signals(sig.parent_scope).unwrap_or(&vec![]) {
 			let other = self.get_signal(*id).unwrap();
 			if other.name == sig.name {
-				return Err(DesignError::SignalNameConflict {
+				Err(SignalNameConflictError{
 					scope: sig.parent_scope,
 					first: other.id,
 					second: sig.id,
-				});
+				})?;
 			}
 		}
 
@@ -180,10 +165,10 @@ impl DesignCore {
 		// FIXME this ignores namespaces for now
 		for other in &self.modules {
 			if other.name == m.name {
-				return Err(DesignError::ModuleNameConflict {
+				Err(ModuleNameConflictError {
 					first: other.id,
 					second: m.id,
-				});
+				})?;
 			}
 		}
 
@@ -197,7 +182,7 @@ impl DesignCore {
 	}
 
 	/// Returns a reference to the scope with the given ID
-	fn get_scope(&self, scope: ScopeId) -> Option<&Scope> {
+	fn _get_scope(&self, scope: ScopeId) -> Option<&Scope> {
 		self.scopes.get(scope.id - 1)
 	}
 
@@ -250,6 +235,23 @@ impl DesignCore {
 	}
 }
 
+impl Default for DesignCore {
+	fn default() -> Self {
+		Self {
+			weak: Weak::<RefCell<DesignCore>>::new(),
+			modules: Vec::new(),
+			scopes: Vec::new(),
+			signals: Vec::new(),
+			next_module_id: 1,
+			next_scope_id: 1,
+			next_signal_id: 1,
+			scope_signals: HashMap::new(),
+			scope_scopes: HashMap::new(),
+			module_scopes: HashMap::new(),
+		}
+	}
+}
+
 /// Represents a hardware design
 #[derive(Clone)]
 pub struct DesignHandle {
@@ -267,7 +269,7 @@ impl DesignHandle {
 	/// Creates a new HIRN design
 	pub fn new() -> Self {
 		let d = Self {
-			handle: Rc::new(RefCell::new(DesignCore::new())),
+			handle: Rc::new(RefCell::new(DesignCore::default())),
 		};
 
 		d.handle.borrow_mut().weak = Rc::downgrade(&d.handle);
@@ -304,110 +306,6 @@ impl From<Rc<RefCell<DesignCore>>> for DesignHandle {
 	fn from(handle: Rc<RefCell<DesignCore>>) -> Self {
 		Self { handle }
 	}
-}
-
-/// Represents an error that can occur during design construction.
-/// Elaboration errors are not accounted for here.
-#[derive(Clone, Debug, Error)]
-pub enum DesignError {
-	#[error("This object is not part of any HIRN Design.")]
-	NotInDesign,
-
-	#[error("Provided scope is not part of any HIRN design.")]
-	ScopeNotInDesign,
-
-	#[error("Provided scope already has a parent scope assigned.")]
-	ScopeAlreadyOwned,
-
-	#[error("Invalid name")]
-	InvalidName,
-
-	#[error("Invalid module ID")]
-	InvalidModuleId(ModuleId),
-
-	#[error("Duplicate module interface binding")]
-	DuplicateInterfaceBinding(ModuleId),
-
-	#[error("Invalid interface signal name")]
-	InvalidInterfaceSignalName(ModuleId),
-
-	#[error("Signal width not specified")]
-	SignalWidthNotSpecified,
-
-	#[error("Signal class not specified")]
-	SignalClassNotSpecified,
-
-	#[error("Cannot evaluate width of numeric constant without making assumptions")]
-	CannotEvaluateNumericConstantWidth(EvalError),
-
-	#[error("Numeric constant width evaluated to a large, unsupported value")]
-	NumericConstantWidthTooLarge,
-
-	#[error("Numeric constant width is not sufficient to store the provided value")]
-	NumericConstantWidthTooSmall,
-
-	#[error(transparent)]
-	EvalError(#[from] EvalError),
-
-	#[error("Expression cannot be driven - cannot bind to an output or use in assignment LHS")]
-	ExpressionNotDrivable, // TODO more details
-
-	#[error("Signal sensitivity not specified")]
-	SignalSensitivityNotSpecified,
-
-	#[error("Conflicting signal sensitivity")]
-	ConflictingSignalSensitivity,
-
-	#[error("Required register signal is not connected")]
-	RequiredRegisterSignalNotConnected(functional_blocks::ReqiuredRegisterSignal),
-
-	#[error("Signal name conflict in scope")]
-	SignalNameConflict {
-		scope: ScopeId,
-		first: SignalId,
-		second: SignalId,
-	},
-
-	#[error("Module name conflict")]
-	ModuleNameConflict { first: ModuleId, second: ModuleId },
-
-	#[error("Incompatible types in binding")]
-	IncompatibleBindingType {
-		module: ModuleId,
-		signal: SignalId,
-		binding_type: EvalType,
-		interface_type: EvalType,
-	},
-
-	#[error("Incompatible signedness in assignment")]
-	IncompatibleSignedness {
-		lhs_signedness: SignalSignedness,
-		rhs_signedness: SignalSignedness,
-	},
-
-	#[error("Incompatible sensitivity in assignment")]
-	IncompatibleSensitivity {
-		lhs_sensitivity: SignalSensitivity,
-		rhs_sensitivity: SignalSensitivity,
-	},
-
-	#[error("Signal width must be a constant expression")]
-	VariableSignalWidth,
-
-	#[error("Invalid signal width (must be positive)")]
-	InvalidSignalWidth,
-
-	#[error("Array dimensions must be constant expressions")]
-	VariableArrayDimension,
-
-	#[error("Invalid array dimension (must be positive)")]
-	InvalidArrayDimension,
-
-	#[error("Loop range bounds must be signed and generic")]
-	InvalidLoopRange,
-
-	#[error("If condition must be generic boolean (1-bit unsigned)")]
-	InvalidIfCondition,
 }
 
 #[cfg(test)]
@@ -465,11 +363,11 @@ mod test {
 
 		scope2
 			.new_register("fancy_reg")?
-			.clk(sig.into())
+			.clk(sig)
 			.nreset(sig_fancy_reg_nreset)
 			.next(sig_fancy_reg_next)
 			.en(sig_fancy_reg_en)
-			.output(sig2.into())
+			.output(sig2)
 			.build()?;
 
 		scope2.assign(sig2.into(), expr)?;
@@ -573,7 +471,7 @@ mod test {
 			.sync(clk, true)
 			.build()?;
 
-		let _register = m
+		m
 			.scope()
 			.new_register("useless_reg")?
 			.clk(clk)
@@ -601,7 +499,7 @@ mod test {
 		m_parent
 			.scope()
 			.new_module(m, "child_module")?
-			.bind("clk", m_parent_clk.into())
+			.bind("clk", m_parent_clk)
 			.build()?;
 
 		Ok(())
@@ -622,7 +520,7 @@ mod test {
 		let err = m_parent
 			.scope()
 			.new_module(m, "disappointing_child")?
-			.bind("clk", m_parent_async.into())
+			.bind("clk", m_parent_async)
 			.build();
 
 		assert!(matches!(err, Err(DesignError::IncompatibleBindingType { .. })));

@@ -114,13 +114,13 @@ pub struct ClockSensitivityList(HashSet<EdgeSensitivity>);
 
 impl ClockSensitivityList {
 	pub fn new(edge: &EdgeSensitivity) -> Self {
-		let mut list = Self { 0: HashSet::new() };
+		let mut list = Self(HashSet::new());
 		list.push(*edge);
 		list
 	}
 	pub fn new_empty() -> Self {
-		let list = Self { 0: HashSet::new() };
-		list
+		
+		Self(HashSet::new())
 	}
 	pub fn push(&mut self, edge: EdgeSensitivity) {
 		self.0.insert(edge);
@@ -704,8 +704,7 @@ impl SignalBuilder {
 		// Check if width is positive
 		let width_value = width_expr
 			.try_eval_ignore_missing(&eval_ctx)?
-			.map(|v| v.try_into_i64().ok())
-			.flatten();
+			.and_then(|v| v.try_into_i64().ok());
 
 		match width_value {
 			Some(w) if w < 1 => return Err(DesignError::InvalidSignalWidth),
@@ -723,8 +722,7 @@ impl SignalBuilder {
 
 			let dim_value = dim
 				.try_eval_ignore_missing(&eval_ctx)?
-				.map(|v| v.try_into_i64().ok())
-				.flatten();
+				.and_then(|v| v.try_into_i64().ok());
 
 			// Check if dimension is positive
 			match dim_value {

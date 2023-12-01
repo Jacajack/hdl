@@ -5,7 +5,6 @@ use log::{debug, error};
 use crate::{
 	design::{
 		DesignHandle, Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalDirection, SignalId, SignalSlice,
-		SignalSliceRange,
 	},
 	elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
@@ -97,7 +96,7 @@ impl GeneratedSignal {
 	}
 
 	pub fn is_array(&self) -> bool {
-		self.dimensions.len() > 0
+		!self.dimensions.is_empty()
 	}
 
 	pub fn dimensions(&self) -> &[usize] {
@@ -152,7 +151,7 @@ pub fn format_generated_signal_ref(
 
 impl MainPassCtx {
 	pub fn get_generated_signal(&self, id: &GeneratedSignalId) -> &GeneratedSignal {
-		self.signals.get(&id).expect("Generated signal not registered")
+		self.signals.get(id).expect("Generated signal not registered")
 	}
 
 	/// Returns a generated signal ID based on design signal ID and scope pass ID
@@ -210,7 +209,7 @@ impl MainPassCtx {
 			let index_vals: Result<Vec<_>, _> = slice
 				.indices
 				.iter()
-				.map(|expr| expr.eval(&assumptions)?.try_into_i64().into())
+				.map(|expr| expr.eval(&assumptions)?.try_into_i64())
 				.collect();
 			let index_vals = index_vals?;
 
@@ -337,7 +336,7 @@ impl MainPassCtx {
 
 		// Insert all array fields into the graph and elab signal array if the signal is internal
 		if ext_instance_id.is_none() {
-			if dimensions.len() > 0 {
+			if !dimensions.is_empty() {
 				debug!("Array signal - will insert total of {} signal nodes", total_fields);
 				for i in 0..total_fields {
 					let sig_ref = GeneratedSignalRef {
@@ -397,7 +396,7 @@ impl MainPassCtx {
 			main_interface_dir,
 		};
 
-		let sig_exists = self.signals.insert(gen_id.clone(), gen_sig).is_some();
+		let sig_exists = self.signals.insert(gen_id, gen_sig).is_some();
 		assert!(!sig_exists, "Generated signal already exists!");
 
 		Ok(gen_id)

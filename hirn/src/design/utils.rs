@@ -17,17 +17,17 @@ mod test {
 
 	#[test]
 	fn test_valid_names() {
-		assert_eq!(true, is_name_valid("test"));
-		assert_eq!(true, is_name_valid("test222"));
-		assert_eq!(true, is_name_valid("test222iiasdia____7"));
-		assert_eq!(true, is_name_valid("_lorem__ipsum_22_33_whatever"));
+		assert!(is_name_valid("test"));
+		assert!(is_name_valid("test222"));
+		assert!(is_name_valid("test222iiasdia____7"));
+		assert!(is_name_valid("_lorem__ipsum_22_33_whatever"));
 	}
 
 	#[test]
 	fn test_invalid_names() {
-		assert_eq!(false, is_name_valid("$$fff"));
-		assert_eq!(false, is_name_valid("1horse"));
-		assert_eq!(false, is_name_valid("hor!se"));
-		assert_eq!(false, is_name_valid("hor se"));
+		assert!(!is_name_valid("$$fff"));
+		assert!(!is_name_valid("1horse"));
+		assert!(!is_name_valid("hor!se"));
+		assert!(!is_name_valid("hor se"));
 	}
 }

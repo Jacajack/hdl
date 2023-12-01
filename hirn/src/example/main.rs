@@ -4,7 +4,7 @@ use std::sync::Arc;
 use hirn::{
 	codegen::{sv::SVCodegen, Codegen},
 	design::{DesignHandle, Expression, SignalDirection},
-	elab::{ElabAssumptions, ElabToplevelAssumptions, Elaborator},
+	elab::{ElabToplevelAssumptions, Elaborator},
 	HirnError,
 };
 
@@ -63,8 +63,8 @@ fn main() -> Result<(), HirnError> {
 
 	m.scope()
 		.new_module(m_internal.clone(), "cool_module")?
-		.bind("clk", m_clk.into())
-		.bind("p", m_param.into())
+		.bind("clk", m_clk)
+		.bind("p", m_param)
 		.build()?;
 
 	let (mut loop_scope, iter) = m.scope().loop_scope("index", 0.into(), 10.into())?;

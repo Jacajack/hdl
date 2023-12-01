@@ -10,10 +10,16 @@ pub enum CodegenError {
 	FormatError(#[from] fmt::Error),
 
 	#[error(transparent)]
-	EvalError(#[from] EvalError),
+	EvalError(#[from] Box<EvalError>),
 
 	#[error("Invalid module ID")]
 	InvalidModuleId(ModuleId),
+}
+
+impl From<EvalError> for CodegenError {
+	fn from(e: EvalError) -> Self {
+		Self::EvalError(Box::new(e))
+	}
 }
 
 pub trait Codegen {

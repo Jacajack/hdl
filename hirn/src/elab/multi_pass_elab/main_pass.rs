@@ -11,7 +11,7 @@ use petgraph::Directed;
 use std::collections::HashMap;
 use std::sync::Arc;
 
-use crate::design::{DesignHandle, HasSensitivity, ModuleHandle};
+use crate::design::{DesignHandle, ModuleHandle};
 use crate::elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal};
 use crate::{design::ScopeId, elab::ElabError};
 
@@ -160,13 +160,13 @@ impl ElabPass<FullElabCtx, FullElabCacheHandle> for MainPass {
 
 	fn run(&mut self, mut full_ctx: FullElabCtx) -> Result<FullElabCtx, ElabError> {
 		info!("Running signal graph pass...");
-		let mut ctx = MainPassCtx::new(full_ctx.design().clone(), full_ctx.main_pass_config.clone());
+		let mut ctx = MainPassCtx::new(full_ctx.design().clone(), full_ctx.main_pass_config);
 		let module = full_ctx.module_handle();
 
 		let result = ctx.elab_module(module.clone(), full_ctx.assumptions());
 		if let Err(err) = result {
 			error!("Module {:?} contains errors ({:?})", module.id(), err);
-			full_ctx.add_message(err.into());
+			full_ctx.add_message(err);
 		}
 
 		info!("Initial elab phase for {:?} complete", module.id());
