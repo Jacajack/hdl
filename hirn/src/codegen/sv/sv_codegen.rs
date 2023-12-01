@@ -1,5 +1,5 @@
 use crate::codegen::{Codegen, CodegenError};
-use crate::design::{DesignHandle, EvalContext, EvaluatesType, Register, ScopeHandle, SignalClass, NumericConstant};
+use crate::design::{DesignHandle, EvalContext, EvaluatesType, NumericConstant, Register, ScopeHandle, SignalClass};
 use crate::{
 	design::BlockInstance,
 	design::InterfaceSignal,
@@ -40,7 +40,7 @@ fn expr_sub_one(design: DesignHandle, expr: &Expression) -> Expression {
 	let expr_type = expr
 		.eval_type(&EvalContext::without_assumptions(design))
 		.expect("All variables must be in design");
-	
+
 	let c: NumericConstant = if expr_type.is_signed() {
 		1i64.into()
 	}
@@ -119,13 +119,7 @@ impl<'a> SVCodegen<'a> {
 		match sig.sensitivity() {
 			Generic => Ok(format!(
 				"{}",
-				self.format_param_declaration_impl(
-					sig.name(),
-					&sig.class(),
-					&[],
-					&Some(sig.value().clone()),
-					true
-				)?,
+				self.format_param_declaration_impl(sig.name(), &sig.class(), &[], &Some(sig.value().clone()), true)?,
 			)),
 			_ => Ok(format!(
 				"{} = {}",
@@ -378,35 +372,35 @@ impl<'a> SVCodegen<'a> {
 		let mut emitted_any_localparam = false;
 		for sig_id in scope.signals() {
 			if !skip_signals.contains(&sig_id) && self.design.get_signal(sig_id).unwrap().is_generic() {
-   					fn search_scope(design: DesignHandle, scope: ScopeHandle, sig_id: SignalId) -> Option<Expression> {
-   						for asmt in scope.assignments() {
-   							match asmt.lhs.try_drive() {
-   								Some(lhs_slice) => {
-   									if lhs_slice.signal == sig_id {
-   										return Some(asmt.rhs);
-   									}
-   								},
-   								None => {},
-   							}
-   						}
+				fn search_scope(design: DesignHandle, scope: ScopeHandle, sig_id: SignalId) -> Option<Expression> {
+					for asmt in scope.assignments() {
+						match asmt.lhs.try_drive() {
+							Some(lhs_slice) => {
+								if lhs_slice.signal == sig_id {
+									return Some(asmt.rhs);
+								}
+							},
+							None => {},
+						}
+					}
 
-   						for subscope_id in scope.subscopes() {
-   							let subscope = design.get_scope_handle(subscope_id).unwrap();
-   							if let Some(expr) = search_scope(design.clone(), subscope, sig_id) {
-   								return Some(expr);
-   							}
-   						}
+					for subscope_id in scope.subscopes() {
+						let subscope = design.get_scope_handle(subscope_id).unwrap();
+						if let Some(expr) = search_scope(design.clone(), subscope, sig_id) {
+							return Some(expr);
+						}
+					}
 
-   						None
-   					}
+					None
+				}
 
-   					let rhs_expr = search_scope(self.design.clone(), scope.clone(), sig_id);
-   					self.emit_metadata_comment(&self.design.get_signal(sig_id).unwrap())?;
-   					let localparam_str = self.format_localparam_declaration(sig_id, &rhs_expr)?;
-   					emitln!(self, "{};", localparam_str)?;
-   					skip_signals.insert(sig_id);
-   					emitted_any_localparam = true;
-   				}
+				let rhs_expr = search_scope(self.design.clone(), scope.clone(), sig_id);
+				self.emit_metadata_comment(&self.design.get_signal(sig_id).unwrap())?;
+				let localparam_str = self.format_localparam_declaration(sig_id, &rhs_expr)?;
+				emitln!(self, "{};", localparam_str)?;
+				skip_signals.insert(sig_id);
+				emitted_any_localparam = true;
+			}
 		}
 
 		if emitted_any_localparam {

@@ -1,13 +1,14 @@
 mod comment;
+mod design_error;
 mod expression;
 mod functional_blocks;
 mod module;
 mod scope;
 mod signal;
 mod utils;
-mod design_error;
 
 pub use comment::HasComment;
+pub use design_error::*;
 pub use expression::{
 	BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, ConditionalExpressionBranch,
 	EvalAssumptions, EvalContext, EvalError, EvalType, Evaluates, EvaluatesType, Expression, NumericConstant,
@@ -23,7 +24,6 @@ pub use signal::{
 	ClockSensitivityList, EdgeSensitivity, HasSensitivity, HasSignedness, Signal, SignalBuilder, SignalClass,
 	SignalSensitivity, SignalSignedness, SignalSlice, SignalSliceRange,
 };
-pub use design_error::*;
 
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -131,7 +131,7 @@ impl DesignCore {
 		for id in self.get_scope_signals(sig.parent_scope).unwrap_or(&vec![]) {
 			let other = self.get_signal(*id).unwrap();
 			if other.name == sig.name {
-				Err(SignalNameConflictError{
+				Err(SignalNameConflictError {
 					scope: sig.parent_scope,
 					first: other.id,
 					second: sig.id,
@@ -471,8 +471,7 @@ mod test {
 			.sync(clk, true)
 			.build()?;
 
-		m
-			.scope()
+		m.scope()
 			.new_register("useless_reg")?
 			.clk(clk)
 			.en(en)

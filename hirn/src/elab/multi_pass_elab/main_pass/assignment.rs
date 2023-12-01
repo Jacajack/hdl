@@ -118,12 +118,12 @@ impl MainPassCtx {
 
 		// Filter out generics from LHS dependencies
 		lhs_dependencies.retain(|range| {
-				let sig = self
-					.design
-					.get_signal(range.signal())
-					.expect("LHS dependency not in design");
-				!sig.is_generic()
-			});
+			let sig = self
+				.design
+				.get_signal(range.signal())
+				.expect("LHS dependency not in design");
+			!sig.is_generic()
+		});
 
 		// We should not have any LHS dependencies on non-generic signals
 		assert!(
@@ -133,12 +133,12 @@ impl MainPassCtx {
 
 		// Filter out generics from RHS dependencies
 		rhs_dependencies.retain(|range| {
-				let sig = self
-					.design
-					.get_signal(range.signal())
-					.expect("RHS dependency not in design");
-				!sig.is_generic()
-			});
+			let sig = self
+				.design
+				.get_signal(range.signal())
+				.expect("RHS dependency not in design");
+			!sig.is_generic()
+		});
 
 		// debug!("LHS width: {:?}", lhs.width());
 		// debug!("RHS width: {:?}", rhs.width());

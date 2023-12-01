@@ -344,8 +344,8 @@ impl SignalMaskSummary {
 		for i in 0..mask.width() {
 			let bit = mask.get_bit(i);
 			if bit == desired && group_start.is_none() {
-   					group_start = Some(i);
-   				}
+				group_start = Some(i);
+			}
 
 			if bit != desired && group_start.is_some() {
 				ranges.push((group_start.unwrap(), i - 1));

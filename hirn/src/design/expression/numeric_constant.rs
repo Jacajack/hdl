@@ -166,14 +166,14 @@ impl NumericConstant {
 			Ok(BigInt::from_biguint(num_bigint::Sign::Plus, self.value.clone()))
 		}
 		else if self.msb()? {
-  				Ok(BigInt::from_biguint(
-  					num_bigint::Sign::Minus,
-  					neg_biguint(self.value.clone(), self.width),
-  				))
-  			}
-  			else {
-  				Ok(BigInt::from_biguint(num_bigint::Sign::Plus, self.value.clone()))
-  			}
+			Ok(BigInt::from_biguint(
+				num_bigint::Sign::Minus,
+				neg_biguint(self.value.clone(), self.width),
+			))
+		}
+		else {
+			Ok(BigInt::from_biguint(num_bigint::Sign::Plus, self.value.clone()))
+		}
 	}
 
 	fn to_biguint(&self) -> Result<&BigUint, EvalError> {

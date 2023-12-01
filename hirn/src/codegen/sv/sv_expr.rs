@@ -1,12 +1,11 @@
 use std::collections::HashMap;
 
-
 use crate::{
 	codegen::CodegenError,
 	design::{
-		BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, DesignHandle, EvalContext,
-		Evaluates, EvaluatesType, Expression, HasSensitivity, HasSignedness, NumericConstant, SignalClass, SignalId,
-		SignalSensitivity, SignalSignedness, SignalSlice, UnaryExpression, UnaryOp, WidthExpression, EvalAssumptions,
+		BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, DesignHandle, EvalAssumptions,
+		EvalContext, Evaluates, EvaluatesType, Expression, HasSensitivity, HasSignedness, NumericConstant, SignalClass,
+		SignalId, SignalSensitivity, SignalSignedness, SignalSlice, UnaryExpression, UnaryOp, WidthExpression,
 	},
 };
 

@@ -119,7 +119,6 @@ impl ClockSensitivityList {
 		list
 	}
 	pub fn new_empty() -> Self {
-		
 		Self(HashSet::new())
 	}
 	pub fn push(&mut self, edge: EdgeSensitivity) {

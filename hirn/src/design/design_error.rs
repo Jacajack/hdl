@@ -1,6 +1,6 @@
 use thiserror::Error;
 
-use super::{ModuleId, SignalId, EvalType, SignalSignedness, SignalSensitivity, ScopeId, EvalError, functional_blocks};
+use super::{functional_blocks, EvalError, EvalType, ModuleId, ScopeId, SignalId, SignalSensitivity, SignalSignedness};
 
 #[derive(Clone, Debug)]
 pub struct IncomaptibleBindingTypeError {

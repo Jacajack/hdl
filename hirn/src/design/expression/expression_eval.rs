@@ -19,7 +19,8 @@ impl Evaluates for SignalSlice {
 			indices.push(index.eval(ctx)?.try_into_i64().or(Err(EvalError::InvalidIndex))?);
 		}
 
-		ctx.signal(self.signal, &indices).cloned()
+		ctx.signal(self.signal, &indices)
+			.cloned()
 			.ok_or(EvalError::MissingAssumption(self.signal))
 	}
 }

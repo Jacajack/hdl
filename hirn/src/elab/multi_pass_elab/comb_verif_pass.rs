@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use log::{error, info, warn};
 
 use crate::{
-	design::{SignalDirection},
+	design::SignalDirection,
 	elab::{ElabError, ElabMessageKind},
 };
 
