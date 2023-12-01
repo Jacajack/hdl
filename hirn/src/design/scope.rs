@@ -25,13 +25,6 @@ pub struct ConditionalScope {
 	pub else_scope: Option<ScopeId>,
 }
 
-impl ConditionalScope {
-	/// Returns a set of variables on which the condition of this scope depends
-	pub fn condition_dependencies(&self) -> HashSet<SignalId> {
-		self.condition.get_variables()
-	}
-}
-
 /// Scope associated with a loop statement
 #[derive(Clone, Debug)]
 pub struct RangeScope {
@@ -46,16 +39,6 @@ pub struct RangeScope {
 
 	/// Child scope
 	pub scope: ScopeId,
-}
-
-impl RangeScope {
-	/// Returns a set of variables on which the condition of this scope depends
-	pub fn condition_dependencies(&self) -> HashSet<SignalId> {
-		let mut deps = HashSet::new();
-		deps.extend(self.iterator_begin.get_variables().iter());
-		deps.extend(self.iterator_end.get_variables().iter());
-		deps
-	}
 }
 
 /// Assignment of signals
