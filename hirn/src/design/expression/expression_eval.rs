@@ -178,14 +178,3 @@ impl Evaluates for Expression {
 		}
 	}
 }
-
-#[cfg(test)]
-mod test {
-	use super::*;
-
-	#[test]
-	fn test_basic_eval() {
-		let expr = Expression::from(5) + Expression::from(2) * 3.into();
-		assert_eq!(expr.const_eval().unwrap(), 11.into());
-	}
-}

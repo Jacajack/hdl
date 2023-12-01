@@ -6,7 +6,7 @@ use crate::{
 	design::{
 		BinaryExpression, BinaryOp, BuiltinOp, CastExpression, ConditionalExpression, DesignHandle, EvalContext,
 		Evaluates, EvaluatesType, Expression, HasSensitivity, HasSignedness, NumericConstant, SignalClass, SignalId,
-		SignalSensitivity, SignalSignedness, SignalSlice, UnaryExpression, UnaryOp, WidthExpression,
+		SignalSensitivity, SignalSignedness, SignalSlice, UnaryExpression, UnaryOp, WidthExpression, EvalAssumptions,
 	},
 };
 
@@ -434,7 +434,7 @@ impl SVExpressionCodegen {
 
 	pub(super) fn translate_expression_try_eval(&mut self, expr: &Expression) -> Result<String, CodegenError> {
 		let preprocessed = self.preprocess_expression(expr.clone())?;
-		match preprocessed.const_eval() {
+		match preprocessed.eval(&EvalContext::default()) {
 			Ok(value) => self.translate_constant(&value),
 			Err(_) => self.translate_expression_no_preprocess(&preprocessed),
 		}
