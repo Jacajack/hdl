@@ -94,22 +94,6 @@ pub struct DesignCore {
 }
 
 impl DesignCore {
-	/// Creates a new empty design
-	pub fn new() -> Self {
-		Self {
-			weak: Weak::<RefCell<DesignCore>>::new(),
-			modules: Vec::new(),
-			scopes: Vec::new(),
-			signals: Vec::new(),
-			next_module_id: 1,
-			next_scope_id: 1,
-			next_signal_id: 1,
-			scope_signals: HashMap::new(),
-			scope_scopes: HashMap::new(),
-			module_scopes: HashMap::new(),
-		}
-	}
-
 	fn get_handle(&self) -> DesignHandle {
 		self.weak.upgrade().unwrap().into()
 	}
@@ -198,7 +182,7 @@ impl DesignCore {
 	}
 
 	/// Returns a reference to the scope with the given ID
-	fn get_scope(&self, scope: ScopeId) -> Option<&Scope> {
+	fn _get_scope(&self, scope: ScopeId) -> Option<&Scope> {
 		self.scopes.get(scope.id - 1)
 	}
 
@@ -251,6 +235,23 @@ impl DesignCore {
 	}
 }
 
+impl Default for DesignCore {
+	fn default() -> Self {
+		Self {
+			weak: Weak::<RefCell<DesignCore>>::new(),
+			modules: Vec::new(),
+			scopes: Vec::new(),
+			signals: Vec::new(),
+			next_module_id: 1,
+			next_scope_id: 1,
+			next_signal_id: 1,
+			scope_signals: HashMap::new(),
+			scope_scopes: HashMap::new(),
+			module_scopes: HashMap::new(),
+		}
+	}
+}
+
 /// Represents a hardware design
 #[derive(Clone)]
 pub struct DesignHandle {
@@ -268,7 +269,7 @@ impl DesignHandle {
 	/// Creates a new HIRN design
 	pub fn new() -> Self {
 		let d = Self {
-			handle: Rc::new(RefCell::new(DesignCore::new())),
+			handle: Rc::new(RefCell::new(DesignCore::default())),
 		};
 
 		d.handle.borrow_mut().weak = Rc::downgrade(&d.handle);

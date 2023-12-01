@@ -98,8 +98,8 @@ impl ElabAssumptions {
 		}
 	}
 
-	pub fn assume_indexed(&mut self, id: SignalId, indices: &Vec<GenericVar>, val: NumericConstant) {
-		self.assumptions.insert((id, indices.clone()), val);
+	pub fn assume_indexed(&mut self, id: SignalId, indices: &[GenericVar], val: NumericConstant) {
+		self.assumptions.insert((id, indices.into()), val);
 	}
 
 	pub fn assume(&mut self, id: SignalId, val: NumericConstant) {

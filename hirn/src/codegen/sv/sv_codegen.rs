@@ -1,5 +1,5 @@
 use crate::codegen::{Codegen, CodegenError};
-use crate::design::{DesignHandle, EvalContext, EvaluatesType, Register, ScopeHandle, SignalClass};
+use crate::design::{DesignHandle, EvalContext, EvaluatesType, Register, ScopeHandle, SignalClass, NumericConstant};
 use crate::{
 	design::BlockInstance,
 	design::InterfaceSignal,
@@ -40,12 +40,15 @@ fn expr_sub_one(design: DesignHandle, expr: &Expression) -> Expression {
 	let expr_type = expr
 		.eval_type(&EvalContext::without_assumptions(design))
 		.expect("All variables must be in design");
-	if expr_type.is_signed() {
-		expr.clone() - 1i64.into()
+	
+	let c: NumericConstant = if expr_type.is_signed() {
+		1i64.into()
 	}
 	else {
-		expr.clone() - 1u64.into()
-	}
+		1u64.into()
+	};
+
+	expr.clone() - c.into()
 }
 
 impl<'a> SVCodegen<'a> {
@@ -358,7 +361,7 @@ impl<'a> SVCodegen<'a> {
 		debug!("Scope codegen ({:?})", scope_id);
 		let scope = self.design.get_scope_handle(scope_id).unwrap();
 
-		let in_generate = within_generate || (!naked && !within_generate); // FIXME not a big fan of that
+		let in_generate = within_generate || !naked; // FIXME not a big fan of that
 		if !naked {
 			if within_generate {
 				emitln!(self, "if ('1) begin")?;
