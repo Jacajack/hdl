@@ -132,7 +132,6 @@ pub enum AssumptionError {
 	SignednessMismatch,
 }
 
-// TODO shrink this type
 #[derive(Debug, Clone, Error)]
 pub enum EvalError {
 	#[error("Value of signal was not assumed, cannot evaluate")]
@@ -158,9 +157,6 @@ pub enum EvalError {
 
 	#[error("Could not get signal info from design (no design in eval context)")]
 	NoDesign,
-
-	#[error("Incompatible type assignment/binding")]
-	IncompatibleType(EvalType, EvalType),
 
 	#[error("Invalid array index")]
 	InvalidIndex,

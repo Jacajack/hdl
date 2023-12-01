@@ -2,6 +2,8 @@ use std::collections::HashSet;
 
 use log::debug;
 
+use crate::design::IncomaptibleBindingTypeError;
+
 use super::{
 	module::SignalDirection, DesignError, EvalContext, EvaluatesType, HasComment, ModuleHandle, ScopeHandle, SignalId,
 };
@@ -314,12 +316,12 @@ impl ModuleInstance {
 
 		// Interface drives the expression
 		if !rhs_type.can_drive(lhs_type) {
-			return Err(DesignError::IncompatibleBindingType {
+			Err(IncomaptibleBindingTypeError {
 				module: self.module.id(),
 				signal: intern_sig.signal,
 				interface_type: intern_type,
 				binding_type: extern_type,
-			});
+			})?;
 		}
 
 		Ok(())

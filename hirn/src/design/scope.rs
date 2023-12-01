@@ -2,11 +2,13 @@ use std::collections::{HashMap, HashSet};
 
 use log::error;
 
+use crate::design::IncompatibleSensitivityError;
+
 use super::functional_blocks::{BlockInstance, ModuleInstanceBuilder};
 use super::signal::{SignalBuilder, SignalSliceRange};
 use super::{
 	DesignError, DesignHandle, EvalContext, Evaluates, EvaluatesType, HasComment, HasSensitivity, HasSignedness,
-	ModuleId, RegisterBuilder, ScopeId, SignalId, WidthExpression,
+	ModuleId, RegisterBuilder, ScopeId, SignalId, WidthExpression, IncompatibleSignednessError,
 };
 use super::{Expression, ModuleHandle};
 
@@ -356,19 +358,19 @@ impl ScopeHandle {
 		let rhs_type = rhs.eval_type(&EvalContext::without_assumptions(self.design()))?;
 
 		if lhs_type.is_signed() != rhs_type.is_signed() {
-			return Err(DesignError::IncompatibleSignedness {
+			Err(IncompatibleSignednessError {
 				lhs_signedness: lhs_type.signedness(),
 				rhs_signedness: rhs_type.signedness(),
-			});
+			})?;
 		}
 
 		if !rhs_type.sensitivity().can_drive(lhs_type.sensitivity()) {
 			error!("Assigning {:?} = {:?}", lhs, rhs);
 			error!("Assigning {:?} = {:?}", lhs_type, rhs_type);
-			return Err(DesignError::IncompatibleSensitivity {
+			Err(IncompatibleSensitivityError {
 				lhs_sensitivity: lhs_type.sensitivity().clone(),
 				rhs_sensitivity: rhs_type.sensitivity().clone(),
-			});
+			})?;
 		}
 
 		// Save the assignment

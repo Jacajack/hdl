@@ -22,7 +22,13 @@ pub type GenericVar = i64;
 #[derive(Clone, Debug, Error)]
 pub enum ElabError {
 	#[error(transparent)]
-	EvalError(#[from] EvalError),
+	EvalError(#[from] Box<EvalError>),
 	// #[error(transparent)]
 	// ModuleElabFailed(#[from] ElabMessageKind),
+}
+
+impl From<EvalError> for ElabError {
+	fn from(e: EvalError) -> Self {
+		Self::EvalError(Box::new(e))
+	}
 }
