@@ -83,6 +83,14 @@ impl ElabAssumptions {
 	pub fn assume(&mut self, id: SignalId, val: NumericConstant) {
 		self.scalar_assumptions.insert(id, val);
 	}
+
+	pub fn get_scalar_asumptions(&self) -> &HashMap<SignalId, NumericConstant> {
+		&self.scalar_assumptions
+	}
+
+	pub fn get_array_assumptions(&self) -> &HashMap<(SignalId, Vec<GenericVar>), NumericConstant> {
+		&self.assumptions
+	}
 }
 
 impl PartialEq for ElabAssumptions {
