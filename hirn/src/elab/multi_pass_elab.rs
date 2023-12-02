@@ -3,25 +3,25 @@ mod full_elab;
 mod main_pass;
 mod signal_usage_pass;
 
-pub use full_elab::FullElaborator;
+pub use full_elab::{FullElaborator, PartialElabResult, FullElabResult};
 pub use main_pass::{GeneratedSignal, GeneratedSignalId, GeneratedSignalRef, ScopePassId, ScopePassInfo};
 
 use std::sync::Arc;
 
 use crate::design::{DesignHandle, ModuleId};
 
-use super::{ElabAssumptionsBase, ElabError, ElabReport};
+use super::{ElabAssumptionsBase, ElabError, ElabReport, ElabAssumptions};
 
 /// Item in the elaboration queue (module + assumptions)
 /// for (MultiPassElaborator)
 #[derive(Clone, Debug)]
 pub struct ElabQueueItem {
 	module: ModuleId,
-	assumptions: Arc<dyn ElabAssumptionsBase>,
+	assumptions: Arc<ElabAssumptions>,
 }
 
 impl ElabQueueItem {
-	pub fn new(module: ModuleId, assumptions: Arc<dyn ElabAssumptionsBase>) -> Self {
+	pub fn new(module: ModuleId, assumptions: Arc<ElabAssumptions>) -> Self {
 		Self { module, assumptions }
 	}
 }

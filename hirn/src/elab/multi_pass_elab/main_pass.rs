@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::design::{DesignHandle, ModuleHandle};
-use crate::elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal};
+use crate::elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal, ElabAssumptions};
 use crate::{design::ScopeId, elab::ElabError};
 
 use super::{
@@ -55,7 +55,7 @@ pub struct MainPassResult {
 	pass_info: HashMap<ScopePassId, ScopePassInfo>,
 
 	/// Modules queued for elaboration
-	queued_modules: Vec<(ModuleHandle, Arc<dyn ElabAssumptionsBase>)>,
+	queued_modules: Vec<(ModuleHandle, Arc<ElabAssumptions>)>,
 
 	/// Combinational signal dependency graph
 	comb_graph: CombGraph,
@@ -74,7 +74,7 @@ impl MainPassResult {
 		&self.pass_info
 	}
 
-	pub fn queued_modules(&self) -> &[(ModuleHandle, Arc<dyn ElabAssumptionsBase>)] {
+	pub fn queued_modules(&self) -> &[(ModuleHandle, Arc<ElabAssumptions>)] {
 		&self.queued_modules
 	}
 
@@ -114,7 +114,7 @@ struct MainPassCtx {
 	comb_graph: CombGraph,
 
 	/// Modules queued for elaboration
-	queued_modules: Vec<(ModuleHandle, Arc<dyn ElabAssumptionsBase>)>,
+	queued_modules: Vec<(ModuleHandle, Arc<ElabAssumptions>)>,
 }
 
 impl MainPassCtx {
