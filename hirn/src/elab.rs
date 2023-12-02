@@ -9,8 +9,8 @@ pub use elab_signal::SignalMaskSummary;
 pub use elab_signal::{ElabSignal, SignalMask};
 pub use elaborator::Elaborator;
 pub use multi_pass_elab::{
-	FullElaborator, GeneratedSignal, GeneratedSignalId, GeneratedSignalRef, ScopePassId, ScopePassInfo,
-	FullElabResult, PartialElabResult
+	FullElabResult, FullElaborator, GeneratedSignal, GeneratedSignalId, GeneratedSignalRef, PartialElabResult,
+	ScopePassId, ScopePassInfo,
 };
 pub use report::{
 	DefaultSeverityPolicy, ElabMessage, ElabMessageKind, ElabMessageSeverity, ElabReport, SeverityPolicy,

@@ -3,14 +3,14 @@ mod full_elab;
 mod main_pass;
 mod signal_usage_pass;
 
-pub use full_elab::{FullElaborator, PartialElabResult, FullElabResult};
+pub use full_elab::{FullElabResult, FullElaborator, PartialElabResult};
 pub use main_pass::{GeneratedSignal, GeneratedSignalId, GeneratedSignalRef, ScopePassId, ScopePassInfo};
 
 use std::sync::Arc;
 
 use crate::design::{DesignHandle, ModuleId};
 
-use super::{ElabAssumptionsBase, ElabError, ElabReport, ElabAssumptions};
+use super::{ElabAssumptions, ElabAssumptionsBase, ElabError, ElabReport};
 
 /// Item in the elaboration queue (module + assumptions)
 /// for (MultiPassElaborator)

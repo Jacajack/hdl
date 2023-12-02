@@ -4,7 +4,7 @@ use std::sync::Arc;
 use hirn::{
 	codegen::{sv::SVCodegen, Codegen},
 	design::{DesignHandle, Expression, SignalDirection},
-	elab::{Elaborator, ElabAssumptions},
+	elab::{ElabAssumptions, Elaborator},
 	HirnError,
 };
 

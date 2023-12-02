@@ -3,7 +3,7 @@ use crate::core::CompilerDiagnosticBuilder;
 use crate::parser::ast::ModuleImplementation;
 use crate::{core::IdTableKey, ProvidesCompilerDiagnostic};
 use crate::{CompilerDiagnostic, CompilerError};
-use hirn::elab::{ElabMessageKind, ElabMessageSeverity, Elaborator, FullElaborator, ElabAssumptions};
+use hirn::elab::{ElabAssumptions, ElabMessageKind, ElabMessageSeverity, Elaborator, FullElaborator};
 use log::*;
 use std::io::Write;
 use std::{collections::HashMap, sync::Arc};
@@ -140,10 +140,7 @@ impl<'a> SemanticalAnalyzer<'a> {
 		for module in self.modules_implemented.values() {
 			let module_id = self.ctx.modules_declared.get_mut(&module.id).unwrap().handle.id();
 			let mut elab = FullElaborator::new(self.ctx.design.clone());
-			let elab_result = elab.elaborate(
-				module_id,
-				Arc::new(ElabAssumptions::new(Some(self.ctx.design.clone()))),
-			);
+			let elab_result = elab.elaborate(module_id, Arc::new(ElabAssumptions::new(Some(self.ctx.design.clone()))));
 			match elab_result {
 				Ok(elab_res) => {
 					for partial_result in elab_res.partial_results() {
@@ -152,8 +149,11 @@ impl<'a> SemanticalAnalyzer<'a> {
 							assert_eq!(id, msg.module_id());
 							log::debug!("Module id: {:?}", id);
 							log::debug!("Scopes: {:?}", scopes.keys());
-							log::debug!("Elab signal count: {}", partial_result.main_pass_result().elab_signals().len());
-							
+							log::debug!(
+								"Elab signal count: {}",
+								partial_result.main_pass_result().elab_signals().len()
+							);
+
 							match msg.default_severity() {
 								ElabMessageSeverity::Error => self.ctx.diagnostic_buffer.push_error(to_report(
 									&scopes.get(&msg.module_id()).unwrap(),

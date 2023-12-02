@@ -12,7 +12,7 @@ use std::collections::HashMap;
 use std::sync::Arc;
 
 use crate::design::{DesignHandle, ModuleHandle};
-use crate::elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal, ElabAssumptions};
+use crate::elab::{ElabAssumptions, ElabAssumptionsBase, ElabMessageKind, ElabSignal};
 use crate::{design::ScopeId, elab::ElabError};
 
 use super::{

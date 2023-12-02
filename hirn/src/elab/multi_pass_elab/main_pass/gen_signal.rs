@@ -3,9 +3,7 @@ use std::sync::Arc;
 use log::{debug, error};
 
 use crate::{
-	design::{
-		Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalDirection, SignalId, SignalSlice,
-	},
+	design::{Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalDirection, SignalId, SignalSlice},
 	elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
 
