@@ -4,7 +4,7 @@ use log::{debug, error};
 
 use crate::{
 	design::{
-		DesignHandle, Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalDirection, SignalId, SignalSlice,
+		Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalDirection, SignalId, SignalSlice,
 	},
 	elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
@@ -128,26 +128,26 @@ impl GeneratedSignal {
 	}
 }
 
-pub fn format_generated_signal_ref(
-	design: DesignHandle,
-	gen_sig: &GeneratedSignal,
-	gen_ref: &GeneratedSignalRef,
-) -> String {
-	let sig_name = design.get_signal(gen_ref.signal()).unwrap().name().to_string();
-	if let Some(index) = gen_ref.index() {
-		let indices = gen_sig.index_to_indices(index);
-		let indices_str = indices
-			.iter()
-			.map(|index| format!("[{}]", index.to_string()))
-			.collect::<Vec<_>>()
-			.join("");
+// pub fn format_generated_signal_ref(
+// 	design: DesignHandle,
+// 	gen_sig: &GeneratedSignal,
+// 	gen_ref: &GeneratedSignalRef,
+// ) -> String {
+// 	let sig_name = design.get_signal(gen_ref.signal()).unwrap().name().to_string();
+// 	if let Some(index) = gen_ref.index() {
+// 		let indices = gen_sig.index_to_indices(index);
+// 		let indices_str = indices
+// 			.iter()
+// 			.map(|index| format!("[{}]", index.to_string()))
+// 			.collect::<Vec<_>>()
+// 			.join("");
 
-		format!("{}{}", sig_name, indices_str)
-	}
-	else {
-		sig_name
-	}
-}
+// 		format!("{}{}", sig_name, indices_str)
+// 	}
+// 	else {
+// 		sig_name
+// 	}
+// }
 
 impl MainPassCtx {
 	pub fn get_generated_signal(&self, id: &GeneratedSignalId) -> &GeneratedSignal {

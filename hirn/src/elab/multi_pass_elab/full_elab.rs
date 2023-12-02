@@ -7,7 +7,7 @@ use log::info;
 
 use crate::{
 	design::{DesignHandle, EvalError, ModuleHandle, ModuleId},
-	elab::{ElabAssumptionsBase, ElabError, ElabMessage, ElabMessageKind, ElabReport, Elaborator},
+	elab::{ElabAssumptionsBase, ElabError, ElabMessage, ElabMessageKind, ElabReport, Elaborator, ElabAssumptions},
 };
 
 use super::{
@@ -19,7 +19,7 @@ use super::{
 pub(super) struct FullElabCtx {
 	design: DesignHandle,
 	module_id: ModuleId,
-	result: FullElabResult,
+	report: ElabReport,
 	assumptions: Arc<dyn ElabAssumptionsBase>,
 
 	pub(super) main_pass_result: Option<MainPassResult>,
@@ -28,9 +28,7 @@ pub(super) struct FullElabCtx {
 
 impl FullElabCtx {
 	pub(super) fn add_message(&mut self, kind: ElabMessageKind) {
-		self.result
-			.report_mut()
-			.add_message(ElabMessage::new(kind, self.module_id, self.assumptions.clone()));
+		self.report.add_message(ElabMessage::new(kind, self.module_id, self.assumptions.clone()));
 	}
 
 	pub fn module_handle(&self) -> ModuleHandle {
@@ -64,7 +62,7 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 			design,
 			module_id,
 			assumptions,
-			result: FullElabResult::default(),
+			report: ElabReport::default(),
 			main_pass_config: MainPassConfig::default(),
 			main_pass_result: None,
 		}
@@ -87,27 +85,58 @@ impl ElabPassContext<FullElabCacheHandle> for FullElabCtx {
 	}
 
 	fn report(&self) -> &ElabReport {
-		self.result.report()
+		&self.report
 	}
 }
 
-#[derive(Clone, Debug, Default)]
-pub struct FullElabResult {
+pub struct PartialElabResult {
+	main_pass_result: MainPassResult,
 	report: ElabReport,
+	assumptions: Arc<ElabAssumptions>,
+	module_id: ModuleId,
 }
 
-impl FullElabResult {
-	fn combine(mut self, other: FullElabResult) -> Self {
-		self.report.extend(&other.report);
-		self
-	}
-
+impl PartialElabResult {
 	pub fn report(&self) -> &ElabReport {
 		&self.report
 	}
 
-	fn report_mut(&mut self) -> &mut ElabReport {
-		&mut self.report
+	pub fn main_pass_result(&self) -> &MainPassResult {
+		&self.main_pass_result
+	}
+
+	pub fn assumptions(&self) -> Arc<dyn ElabAssumptionsBase> {
+		self.assumptions.clone()
+	}
+
+	pub fn module_id(&self) -> ModuleId {
+		self.module_id
+	}
+}
+
+
+#[derive(Default)]
+pub struct FullElabResult {
+	partial_results: Vec<PartialElabResult>,
+}
+
+impl FullElabResult {
+	fn append(&mut self, other: PartialElabResult) {
+		self.partial_results.push(other);
+	}
+
+	pub fn partial_results(&self) -> &[PartialElabResult] {
+		&self.partial_results
+	}
+
+	pub fn main_result(&self) -> &PartialElabResult {
+		&self.partial_results[0]
+	}
+
+	pub fn get_result(&self, module_id: ModuleId, assumptions: Arc<ElabAssumptions>) -> Option<&PartialElabResult> {
+		self.partial_results.iter().find(|r| 
+			r.module_id == module_id 
+			&& r.assumptions == assumptions)
 	}
 }
 
@@ -129,7 +158,12 @@ impl FullElaborator {
 	fn run_queue(&mut self) -> Result<FullElabResult, ElabError> {
 		let mut result = FullElabResult::default();
 		while let Some(item) = self.queue.pop_front() {
-			result = result.combine(self.elab_module(item.module, item.assumptions)?);
+			if let Some(_partial_result) = result.get_result(item.module, item.assumptions.clone()) {
+				info!("Skipping module {:?} with assumptions {:?} because it was already elaborated", item.module, item.assumptions);
+			}
+			else {
+				result.append(self.elab_module(item.module, item.assumptions)?);
+			}
 		}
 		Ok(result)
 	}
@@ -138,9 +172,9 @@ impl FullElaborator {
 	fn elab_module(
 		&mut self,
 		id: ModuleId,
-		assumptions: Arc<dyn ElabAssumptionsBase>,
-	) -> Result<FullElabResult, ElabError> {
-		let mut ctx = FullElabCtx::new_context(self.design.clone(), id, assumptions, Default::default());
+		assumptions: Arc<ElabAssumptions>,
+	) -> Result<PartialElabResult, ElabError> {
+		let mut ctx = FullElabCtx::new_context(self.design.clone(), id, assumptions.clone(), Default::default());
 
 		let mut main_pass = MainPass {};
 		ctx = main_pass.init(ctx)?;
@@ -155,7 +189,13 @@ impl FullElaborator {
 		ctx = comb_verif_pass.run(ctx)?;
 
 		self.queue.extend(ctx.queued().into_iter());
-		Ok(ctx.result)
+
+		Ok(PartialElabResult {
+			report: ctx.report,
+			main_pass_result: ctx.main_pass_result.unwrap(),
+			module_id: ctx.module_id,
+			assumptions,
+		})
 	}
 }
 
@@ -163,7 +203,7 @@ impl Elaborator<FullElabResult> for FullElaborator {
 	fn elaborate(
 		&mut self,
 		id: ModuleId,
-		assumptions: Arc<dyn super::ElabAssumptionsBase>,
+		assumptions: Arc<ElabAssumptions>,
 	) -> Result<FullElabResult, ElabError> {
 		if assumptions.design().is_none() {
 			return Err(EvalError::NoDesign.into());

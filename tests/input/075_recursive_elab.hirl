@@ -1,0 +1,22 @@
+module inner {
+	uint N;
+}
+
+impl inner {
+	if (N == 1) {
+
+	}
+	else {
+		inner in1 {N: N/2u2};
+		inner in2 {N: N/2u2};
+	}
+}
+
+module outer {
+	
+}
+
+impl outer {
+	inner in1{N: 10};
+}
+

@@ -49,28 +49,6 @@ impl EvalAssumptions for Arc<dyn ElabAssumptionsBase> {
 
 dyn_clone::clone_trait_object!(ElabAssumptionsBase);
 
-/// Elaboration assumptions for top-level module (i.e. no assumptions at all)
-#[derive(Clone, Debug)]
-pub struct ElabToplevelAssumptions {
-	design: DesignHandle,
-}
-
-impl ElabToplevelAssumptions {
-	pub fn new(design: DesignHandle) -> Self {
-		Self { design }
-	}
-}
-
-impl ElabAssumptionsBase for ElabToplevelAssumptions {
-	fn design(&self) -> Option<DesignHandle> {
-		Some(self.design.clone())
-	}
-
-	fn get_indexed(&self, _id: SignalId, _indices: &Vec<GenericVar>) -> Option<&NumericConstant> {
-		None
-	}
-}
-
 #[derive(Clone, Debug)]
 pub struct ElabAssumptions {
 	design: Option<DesignHandle>,
@@ -104,6 +82,24 @@ impl ElabAssumptions {
 
 	pub fn assume(&mut self, id: SignalId, val: NumericConstant) {
 		self.scalar_assumptions.insert(id, val);
+	}
+
+	pub fn get_scalar_asumptions(&self) -> &HashMap<SignalId, NumericConstant> {
+		&self.scalar_assumptions
+	}
+
+	pub fn get_array_assumptions(&self) -> &HashMap<(SignalId, Vec<GenericVar>), NumericConstant> {
+		&self.assumptions
+	}
+}
+
+impl PartialEq for ElabAssumptions {
+	fn eq(&self, other: &Self) -> bool {
+		// FIXME this implementation should ideally take Design ID into account but we have no such thing
+		self.parent.is_none()
+			&& other.parent.is_none()
+			&& self.scalar_assumptions == other.scalar_assumptions
+			&& self.assumptions == other.assumptions
 	}
 }
 

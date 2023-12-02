@@ -4,7 +4,7 @@ use std::sync::Arc;
 use hirn::{
 	codegen::{sv::SVCodegen, Codegen},
 	design::{DesignHandle, Expression, SignalDirection},
-	elab::{ElabToplevelAssumptions, Elaborator},
+	elab::{Elaborator, ElabAssumptions},
 	HirnError,
 };
 
@@ -71,8 +71,8 @@ fn main() -> Result<(), HirnError> {
 	loop_scope.assign(m_bus.into(), iter.into())?;
 
 	let mut elab = hirn::elab::FullElaborator::new(d.clone());
-	let elab_report = elab.elaborate(m.id(), Arc::new(ElabToplevelAssumptions::new(d.clone())))?;
-	println!("{:?}", elab_report);
+	let elab_result = elab.elaborate(m.id(), Arc::new(ElabAssumptions::new(Some(d.clone()))))?;
+	println!("{:?}", elab_result.main_result().report());
 
 	let mut source = String::new();
 	let mut cg = SVCodegen::new(d.clone(), &mut source);
