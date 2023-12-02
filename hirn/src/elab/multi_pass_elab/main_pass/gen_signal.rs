@@ -4,7 +4,7 @@ use log::{debug, error};
 
 use crate::{
 	design::{
-		DesignHandle, Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalDirection, SignalId, SignalSlice,
+		Evaluates, HasSensitivity, ModuleHandle, ScopeHandle, SignalDirection, SignalId, SignalSlice,
 	},
 	elab::{ElabAssumptionsBase, ElabMessageKind, ElabSignal},
 };
