@@ -124,7 +124,7 @@ impl<'a> SVCodegen<'a> {
 			_ => Ok(format!(
 				"{} = {}",
 				self.format_signal_declaration_impl(sig.name(), &sig.class(), &[])?,
-				self.translate_expression(&sig.value().clone(), false)?,
+				self.translate_expression(&sig.value().clone(), true)?,
 			)),
 		}
 	}

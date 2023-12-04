@@ -1,0 +1,8 @@
+module width_sem_test_dut {
+	input async ubus<8> a, b;
+	output async ubus<16> c;
+}
+
+impl width_sem_test_dut {
+	c = join(0u2, (join(0u5, a+b))[0:13]);
+}
