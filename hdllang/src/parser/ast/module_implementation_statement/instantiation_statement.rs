@@ -326,7 +326,8 @@ impl InstantiationStatement {
 				clock_mapping.insert(clk_type.get_clock_name(), new_id);
 				if is_output {
 					let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
-					local_ctx
+					if local_ctx.are_we_in_true_branch(){
+						local_ctx
 						.sensitivity_graph
 						.add_edges(
 							vec![SensitivityGraphEntry::Signal(new_id, stmt.location())],
@@ -334,10 +335,13 @@ impl InstantiationStatement {
 							stmt.location(),
 						)
 						.map_err(|e| e.build())?;
+					}
+					
 				}
 				else {
 					let entries = stmt.get_sensitivity_entry(ctx, local_ctx, scope_id);
-					local_ctx
+					if local_ctx.are_we_in_true_branch(){
+						local_ctx
 						.sensitivity_graph
 						.add_edges(
 							entries,
@@ -345,6 +349,8 @@ impl InstantiationStatement {
 							stmt.location(),
 						)
 						.map_err(|e| e.build())?;
+					}
+					
 				}
 				module_instance
 					.add_clock(stmt.get_id(), new_id)
@@ -403,7 +409,8 @@ impl InstantiationStatement {
 			)?;
 			if is_output {
 				let (id, loc) = stmt.get_internal_id(&local_ctx.scope, scope_id);
-				local_ctx
+				if local_ctx.are_we_in_true_branch(){
+					local_ctx
 					.sensitivity_graph
 					.add_edges(
 						vec![SensitivityGraphEntry::Signal(new_id, stmt.location())],
@@ -411,9 +418,12 @@ impl InstantiationStatement {
 						stmt.location(),
 					)
 					.map_err(|e| e.build())?;
+				}
+				
 			}
 			else {
 				let entries = stmt.get_sensitivity_entry(ctx, local_ctx, scope_id);
+				if local_ctx.are_we_in_true_branch(){
 				local_ctx
 					.sensitivity_graph
 					.add_edges(
@@ -422,6 +432,7 @@ impl InstantiationStatement {
 						stmt.location(),
 					)
 					.map_err(|e| e.build())?;
+				}
 			}
 			module_instance
 				.add_variable(stmt.get_id(), new_id)
@@ -958,7 +969,8 @@ fn create_register(
 		),
 		scope_id,
 	)?;
-	local_ctx
+	if local_ctx.are_we_in_true_branch(){
+		local_ctx
 		.sensitivity_graph
 		.add_edges(
 			en_stmt.unwrap().get_sensitivity_entry(&ctx, local_ctx, scope_id),
@@ -990,8 +1002,11 @@ fn create_register(
 			clk_stmt.unwrap().location(),
 		)
 		.map_err(|e| e.build())?;
+	}
+	
 	let (id, loc) = data_stmt.unwrap().get_internal_id(&local_ctx.scope, scope_id);
-	local_ctx
+	if local_ctx.are_we_in_true_branch(){
+		local_ctx
 		.sensitivity_graph
 		.add_edges(
 			vec![SensitivityGraphEntry::Signal(
@@ -1002,6 +1017,8 @@ fn create_register(
 			data_stmt.unwrap().location(),
 		)
 		.map_err(|e| e.build())?;
+	}
+	
 	let r = RegisterInstance {
 		name: inst_stmt.instance_name,
 		location: inst_stmt.location,
