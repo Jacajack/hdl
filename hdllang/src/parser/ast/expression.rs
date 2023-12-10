@@ -868,6 +868,12 @@ impl Expression {
 						}
 					}
 					if let Some(nc) = ncs.nc_widths.get(&num.location) {
+						let signed = match nc.signed {
+							Some(val) => {
+								val
+							},
+							None => true,
+						};
 						return Ok(hirn::design::Expression::Constant(
 							hirn::design::NumericConstant::from_bigint(
 								nc.value.clone(),
@@ -882,7 +888,7 @@ impl Expression {
 									},
 									None => hirn::design::SignalSignedness::Signed,
 								},
-								nc.width.unwrap_or(64).into(),
+								nc.width.unwrap_or(max(nc.value.bits() + if signed { 1 } else { 0 }, 1) as u32,).into(),
 							)
 							.unwrap(),
 						));
@@ -923,7 +929,7 @@ impl Expression {
 				};
 				let w = match constant.width.is_some() {
 					true => constant.width.unwrap(),
-					_ => 64,
+					_ => max(constant.value.bits() + if signed { 1 } else { 0 }, 1) as u32,
 				};
 				debug!("Width is {:?}", w);
 				Ok(hirn::design::Expression::Constant(
