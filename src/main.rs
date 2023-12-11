@@ -31,9 +31,24 @@ fn main() -> miette::Result<()> {
 	use hdllang::utils::*;
 
 	let matches = command!()
-		.arg(Arg::new("source"))
-		.arg(Arg::new("output").short('o').long("output"))
+		.arg(
+			Arg::new("source")
+			.help("Specify the name of the input file")
+		)
+		.arg(
+			Arg::new("output")
+			.short('o')
+			.long("output")
+			.help("Specify the name of the output file")
+			.num_args(1)
+		)
 		.arg(arg!(-c --clean "Clean build files"))
+		.arg(
+			Arg::new("json-report")
+				.long("json-report")
+				.help("Prints all reports in JSON format")
+				.action(clap::ArgAction::SetTrue)
+		)
 		.arg(
 			arg!(<MODE>)
 				.help("Specify which action should be performed")
@@ -68,6 +83,12 @@ fn main() -> miette::Result<()> {
 		None => "elaborate",
 		Some(x) => x,
 	};
+	let json_report = matches.get_flag("json-report");
+	if json_report {
+		miette::set_hook(Box::new(|_| {
+			Box::new(miette::JSONReportHandler::new())
+		})).unwrap();
+	}
 	match matches.get_one::<bool>("clean") {
 		Some(x) => {
 			if *x {
@@ -120,7 +141,7 @@ fn main() -> miette::Result<()> {
 			compile(code, String::from(file_name), output)?;
 		},
 		"elaborate" => {
-			elaborate(code, String::from(file_name), output)?;
+			elaborate(code, String::from(file_name), output, json_report)?;
 		},
 		"clean" => {
 			println!("Not implemented!");
