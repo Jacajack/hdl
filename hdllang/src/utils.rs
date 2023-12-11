@@ -86,7 +86,7 @@ pub fn parse_file_recover_tables(
 			.to_miette_report()
 			.with_source_code(code.clone());
 		if json_report {
-			println!("{}", err);
+			println!("{:?}", err);
 		}
 		err
 	})?;
@@ -239,7 +239,7 @@ pub fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>
 	)
 	.map_err(|e|{
 		if json_report{
-			println!("{}", e);
+			println!("{:?}", e);
 		}
 		e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))})?;
 	// analyse semantically
@@ -248,7 +248,7 @@ pub fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>
 		.compile_and_elaborate(&mut *output)
 		.map_err(|e|{
 			if json_report{
-				println!("{}", e);
+				println!("{:?}", e);
 			}
 			e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))})?;
 

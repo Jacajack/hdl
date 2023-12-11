@@ -24,7 +24,7 @@ impl DiagnosticBuffer {
 		for diag in self.buffer {
 			if json_report {
 				println!(
-					"{}",
+					"{:?}",
 					miette::Report::new(diag)
 						.with_source_code(miette::NamedSource::new(file_name.clone(), source_code.clone()))
 				);
@@ -45,7 +45,7 @@ impl DiagnosticBuffer {
 			let diag = self.error_buffer[i].clone();
 			if json_report {
 				println!(
-					"{}",
+					"{:?}",
 					miette::Report::new(diag)
 						.with_source_code(miette::NamedSource::new(file_name.clone(), source_code.clone()))
 				);
@@ -59,7 +59,7 @@ impl DiagnosticBuffer {
 			}
 		}
 		if json_report{
-			println!("{}",miette::Report::new(self.error_buffer.last().unwrap().clone())
+			println!("{:?}",miette::Report::new(self.error_buffer.last().unwrap().clone())
 			.with_source_code(miette::NamedSource::new(file_name.clone(), source_code.clone())))
 		}
 		return Err(miette::Report::new(self.error_buffer.last().unwrap().clone())
