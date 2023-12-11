@@ -77,13 +77,18 @@ pub fn parse(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
 pub fn parse_file_recover_tables(
 	code: String,
 	ctx: LogosLexerContext,
+	json_report: bool,
 ) -> miette::Result<(Root, LogosLexerContext, String)> {
 	let mut lexer = LogosLexer::new_with_context(&code, ctx);
 	let parser = parser::IzuluParser::new();
 	let ast = parser.parse(Some(&code), &mut lexer).map_err(|e| {
-		ParserError::new_form_lalrpop_error(e)
+		let err = ParserError::new_form_lalrpop_error(e)
 			.to_miette_report()
-			.with_source_code(code.clone())
+			.with_source_code(code.clone());
+		if json_report {
+			println!("{:?}", err);
+		}
+		err
 	})?;
 	Ok((ast, lexer.get_context(), code))
 }
@@ -164,7 +169,7 @@ pub fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Re
 		let current_directory = Path::new(&file_name).parent().unwrap().to_str().unwrap();
 		debug!("Current directory: {}", current_directory);
 		let code = read_input_from_file(&file_name)?;
-		(root, ctx, source) = parse_file_recover_tables(code, ctx)?;
+		(root, ctx, source) = parse_file_recover_tables(code, ctx, false)?;
 		let name = Path::new(&file_name).to_str().unwrap().to_string();
 		let (paths, ..) = crate::analyzer::combine(
 			&mut ctx.id_table,
@@ -193,7 +198,7 @@ pub fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) 
 		last_err: None,
 	};
 	let mut map: HashMap<String, String> = HashMap::new();
-	(root, ctx, code) = parse_file_recover_tables(code, ctx)?;
+	(root, ctx, code) = parse_file_recover_tables(code, ctx, false)?;
 	let (_, global_ctx, modules) = crate::analyzer::combine(
 		&mut ctx.id_table,
 		&ctx.numeric_constants,
@@ -209,12 +214,12 @@ pub fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) 
 		.compile(&mut *output)
 		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
 
-	analyzer.buffer().print_diagnostics(file_name.clone(), code)?;
+	analyzer.buffer().print_diagnostics(file_name.clone(), code, false)?;
 
 	info!("File {} compiled succesfully", file_name);
 	Ok(())
 }
-pub fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>) -> miette::Result<()> {
+pub fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>, json_report: bool) -> miette::Result<()> {
 	let root: Root;
 	let mut ctx = LogosLexerContext {
 		id_table: IdTable::new(),
@@ -223,7 +228,7 @@ pub fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>
 		last_err: None,
 	};
 	let mut map: HashMap<String, String> = HashMap::new();
-	(root, ctx, code) = parse_file_recover_tables(code, ctx)?;
+	(root, ctx, code) = parse_file_recover_tables(code, ctx, json_report)?;
 	let (_, global_ctx, modules) = crate::analyzer::combine(
 		&mut ctx.id_table,
 		&ctx.numeric_constants,
@@ -232,14 +237,22 @@ pub fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>
 		String::from("."),
 		&mut map,
 	)
-	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
+	.map_err(|e|{
+		if json_report{
+			println!("{:?}", e);
+		}
+		e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))})?;
 	// analyse semantically
 	let mut analyzer = crate::analyzer::SemanticalAnalyzer::new(global_ctx, &modules);
 	analyzer
 		.compile_and_elaborate(&mut *output)
-		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
+		.map_err(|e|{
+			if json_report{
+				println!("{:?}", e);
+			}
+			e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))})?;
 
-	analyzer.buffer().print_diagnostics(file_name.clone(), code)?;
+	analyzer.buffer().print_diagnostics(file_name.clone(), code, json_report)?;
 
 	info!("File {} compiled and elaborated succesfully", file_name);
 	Ok(())
@@ -254,7 +267,7 @@ pub fn analyse(mut code: String, file_name: String, mut output: Box<dyn Write>) 
 		last_err: None,
 	};
 	let mut map: HashMap<String, String> = HashMap::new();
-	(root, ctx, code) = parse_file_recover_tables(code, ctx)?;
+	(root, ctx, code) = parse_file_recover_tables(code, ctx, false)?;
 	let (_, global_ctx, modules) = crate::analyzer::combine(
 		&mut ctx.id_table,
 		&ctx.numeric_constants,
