@@ -17,7 +17,7 @@ impl DiagnosticBuffer {
 		return !self.error_buffer.is_empty();
 	}
 	pub fn print_diagnostics(self, file_name: String, source_code: String, json_report: bool) -> miette::Result<()> {
-		if !self.buffer.is_empty() {
+		if !self.buffer.is_empty() && !json_report{
 			eprintln!("During elaboration the following diagnostics were generated:");
 		}
 
@@ -40,7 +40,9 @@ impl DiagnosticBuffer {
 		if self.error_buffer.is_empty() {
 			return Ok(());
 		}
-		eprintln!("During elaboration the following errors were generated:");
+		if !json_report{
+			eprintln!("During elaboration the following errors were generated:");
+		}
 		for i in 0..self.error_buffer.len() - 1 {
 			let diag = self.error_buffer[i].clone();
 			if json_report {
