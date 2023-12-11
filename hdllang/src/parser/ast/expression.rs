@@ -869,9 +869,7 @@ impl Expression {
 					}
 					if let Some(nc) = ncs.nc_widths.get(&num.location) {
 						let signed = match nc.signed {
-							Some(val) => {
-								val
-							},
+							Some(val) => val,
 							None => true,
 						};
 						return Ok(hirn::design::Expression::Constant(
@@ -888,7 +886,9 @@ impl Expression {
 									},
 									None => hirn::design::SignalSignedness::Signed,
 								},
-								nc.width.unwrap_or(max(nc.value.bits() + if signed { 1 } else { 0 }, 1) as u32,).into(),
+								nc.width
+									.unwrap_or(max(nc.value.bits() + if signed { 1 } else { 0 }, 1) as u32)
+									.into(),
 							)
 							.unwrap(),
 						));

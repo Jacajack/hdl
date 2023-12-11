@@ -219,7 +219,12 @@ pub fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) 
 	info!("File {} compiled succesfully", file_name);
 	Ok(())
 }
-pub fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>, json_report: bool) -> miette::Result<()> {
+pub fn elaborate(
+	mut code: String,
+	file_name: String,
+	mut output: Box<dyn Write>,
+	json_report: bool,
+) -> miette::Result<()> {
 	let root: Root;
 	let mut ctx = LogosLexerContext {
 		id_table: IdTable::new(),
@@ -237,22 +242,24 @@ pub fn elaborate(mut code: String, file_name: String, mut output: Box<dyn Write>
 		String::from("."),
 		&mut map,
 	)
-	.map_err(|e|{
-		if json_report{
+	.map_err(|e| {
+		if json_report {
 			println!("{:?}", e);
 		}
-		e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))})?;
+		e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))
+	})?;
 	// analyse semantically
 	let mut analyzer = crate::analyzer::SemanticalAnalyzer::new(global_ctx, &modules);
-	analyzer
-		.compile_and_elaborate(&mut *output)
-		.map_err(|e|{
-			if json_report{
-				println!("{:?}", e);
-			}
-			e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))})?;
+	analyzer.compile_and_elaborate(&mut *output).map_err(|e| {
+		if json_report {
+			println!("{:?}", e);
+		}
+		e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))
+	})?;
 
-	analyzer.buffer().print_diagnostics(file_name.clone(), code, json_report)?;
+	analyzer
+		.buffer()
+		.print_diagnostics(file_name.clone(), code, json_report)?;
 
 	info!("File {} compiled and elaborated succesfully", file_name);
 	Ok(())
