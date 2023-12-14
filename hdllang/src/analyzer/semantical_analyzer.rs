@@ -398,7 +398,7 @@ fn to_report(
 		},
 		SignalNotDrivenAndUsed { signal, elab } => {
 			let variable_location = scope.get_variable_location(signal.signal());
-			let mask = elab.undriven_summary();
+			let mask = elab.undriven_read_summary();
 			use hirn::elab::SignalMaskSummary::*;
 			match mask {
 				Empty => unreachable!(),
