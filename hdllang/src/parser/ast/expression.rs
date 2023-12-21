@@ -2440,7 +2440,7 @@ impl Expression {
 							global_ctx,
 							scope_id,
 							local_ctx,
-							coupling_type,
+							Signal::new_bus(None, coupling_type.get_signedness(), location),
 							is_lhs,
 							location,
 						)?;
