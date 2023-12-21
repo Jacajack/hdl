@@ -54,7 +54,7 @@ impl axi_dma {
 		DMA_WAIT       = 3u2,
 		DMA_LATCH_RQ   = 1u2;
 
-	sync(clk) ubus<2> dma_state; // FIXME sync(clk) should not be needed
+	ubus<2> dma_state;
 
 	
 
