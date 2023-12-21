@@ -1,0 +1,4 @@
+module X {}
+impl X {
+    bus<10> y3 = rep(1u1, 10u16);  // 1u1 replicated 10 times
+}
