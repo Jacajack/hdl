@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
 	analyzer::{
-		module_implementation_scope::ExpressionEntryId, SemanticError, SignalSensitivity, SignalSignedness, SignalType, LocalAnalyzerContext, GlobalAnalyzerContext,
+		module_implementation_scope::ExpressionEntryId, SemanticError, SignalSensitivity, SignalSignedness, SignalType, LocalAnalyzerContext,
 	},
 	core::CompilerDiagnosticBuilder,
 	lexer::IdTable,
@@ -289,7 +289,11 @@ impl VariableKind {
 					));
 				}
 				let id = context.scope.add_expression(current_scope, *bus.width.clone());
-				let width = bus.width.evaluate(nc_table, current_scope, &context.scope)?;
+				let width =  if context.are_we_in_true_branch() {
+					bus.width.evaluate(nc_table, current_scope, &context.scope)?
+				} else{
+					None
+				};
 
 				let w = match &width {
 					Some(val) => {

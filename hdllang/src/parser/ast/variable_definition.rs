@@ -105,7 +105,11 @@ impl VariableDefinition {
 				));
 			}
 			for array_declarator in &direct_initializer.declarator.array_declarators {
-				let size = array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
+				let size =   if local_ctx.are_we_in_true_branch() {
+					array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?
+				} else{
+					None
+				};
 				let id = local_ctx.scope.add_expression(scope_id, array_declarator.clone());
 				match &size {
 					Some(val) => {

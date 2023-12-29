@@ -2006,7 +2006,7 @@ impl Expression {
 							is_lhs,
 							location,
 						)?;
-						let mut end_type = range.range.rhs.evaluate_type(
+						let end_type = range.range.rhs.evaluate_type(
 							global_ctx,
 							scope_id,
 							local_ctx,
