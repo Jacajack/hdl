@@ -176,7 +176,7 @@ impl PortBindStatement {
 					crate::analyzer::AlreadyCreated::new(),
 					ctx.nc_table,
 					ctx.id_table,
-					&mut local_ctx.scope,
+					local_ctx,
 				)?;
 				let direct_declarator = id_decl.declaration.direct_declarators.first().unwrap();
 				let mut dimensions = Vec::new();

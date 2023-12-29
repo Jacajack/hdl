@@ -1,4 +1,4 @@
-use crate::analyzer::{AlreadyCreated, ModuleDeclared, ModuleImplementationScope, SemanticError};
+use crate::analyzer::{AlreadyCreated, ModuleDeclared, ModuleImplementationScope, SemanticError, LocalAnalyzerContext};
 use crate::core::{CommentTableKey, IdTable, IdTableKey, SourceSpan};
 use crate::parser::ast::ModuleDeclarationStatement;
 use crate::ProvidesCompilerDiagnostic;
@@ -47,7 +47,7 @@ impl ModuleDeclaration {
 			}
 			handle.comment(comment.as_str());
 		}
-		let mut new_scope = ModuleImplementationScope::new();
+		let mut local_ctx = LocalAnalyzerContext::new(self.id, ModuleImplementationScope::new());
 		debug!(
 			"Registering variables for module declaration {:?}:",
 			id_table.get_by_key(&self.id).unwrap()
@@ -58,23 +58,23 @@ impl ModuleDeclaration {
 				nc_table,
 				comment_table,
 				id_table,
-				&mut new_scope,
+				&mut local_ctx,
 				&mut handle,
 			)?;
-			if new_scope.is_generic() {
-				new_scope.transorm_to_generic();
+			if local_ctx.scope.is_generic() {
+				local_ctx.scope.transorm_to_generic();
 			}
 		}
 
-		if new_scope.is_generic() {
+		if local_ctx.scope.is_generic() {
 			info!("Module {:?} is generic", id_table.get_by_key(&self.id).unwrap());
 		}
 
-		let is_generic = new_scope.is_generic();
+		let is_generic = local_ctx.scope.is_generic();
 
 		let new_module = ModuleDeclared {
 			name: self.id,
-			scope: new_scope,
+			context: local_ctx,
 			handle,
 			is_generic,
 			location: self.location,

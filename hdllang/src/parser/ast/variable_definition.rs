@@ -40,7 +40,7 @@ impl VariableDefinition {
 			already_created,
 			ctx.nc_table,
 			ctx.id_table,
-			&mut local_ctx.scope,
+			local_ctx,
 		)?;
 		match &kind {
 			VariableKind::Signal(sig) => {

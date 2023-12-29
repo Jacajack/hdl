@@ -21,7 +21,7 @@ impl ModuleDeclarationVariableBlock {
 		nc_table: &crate::core::NumericConstantTable,
 		id_table: &IdTable,
 		comment_table: &crate::lexer::CommentTable,
-		declaration_scope: &mut ModuleImplementationScope,
+		declaration_scope: &mut Box<LocalAnalyzerContext>,
 		handle: &mut ModuleHandle,
 	) -> miette::Result<()> {
 		already_created = analyze_qualifiers(&self.types, already_created, declaration_scope, 0, id_table)?;

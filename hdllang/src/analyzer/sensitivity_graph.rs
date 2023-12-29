@@ -135,6 +135,7 @@ impl SenstivityGraphIndex {
 		self.index
 	}
 }
+#[derive(Clone)]
 pub struct SensitivityGraph {
 	graph: DiGraph<SensitivityGraphEntry, SenstivityGraphEdge>,
 	graph_entries: BiHashMap<SenstivityGraphIndex, SensitivityGraphEntry>,

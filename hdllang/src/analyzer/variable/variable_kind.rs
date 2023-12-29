@@ -2,7 +2,7 @@ use std::collections::HashMap;
 
 use crate::{
 	analyzer::{
-		module_implementation_scope::ExpressionEntryId, SemanticError, SignalSensitivity, SignalSignedness, SignalType,
+		module_implementation_scope::ExpressionEntryId, SemanticError, SignalSensitivity, SignalSignedness, SignalType, LocalAnalyzerContext, GlobalAnalyzerContext,
 	},
 	core::CompilerDiagnosticBuilder,
 	lexer::IdTable,
@@ -187,7 +187,7 @@ impl VariableKind {
 		mut already_created: AlreadyCreated,
 		nc_table: &crate::core::NumericConstantTable,
 		id_table: &IdTable,
-		scope: &mut ModuleImplementationScope,
+		context: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<Self> {
 		use crate::parser::ast::TypeSpecifier::*;
 		match &type_declarator.specifier {
@@ -195,7 +195,7 @@ impl VariableKind {
 				already_created = crate::analyzer::analyze_qualifiers(
 					&type_declarator.qualifiers,
 					already_created,
-					scope,
+					context,
 					current_scope,
 					id_table,
 				)?;
@@ -222,7 +222,7 @@ impl VariableKind {
 				already_created = super::analyze_qualifiers(
 					&type_declarator.qualifiers,
 					already_created,
-					scope,
+					context,
 					current_scope,
 					id_table,
 				)?;
@@ -242,7 +242,7 @@ impl VariableKind {
 				already_created = super::analyze_qualifiers(
 					&type_declarator.qualifiers,
 					already_created,
-					scope,
+					context,
 					current_scope,
 					id_table,
 				)?;
@@ -276,7 +276,7 @@ impl VariableKind {
 				already_created = super::analyze_qualifiers(
 					&type_declarator.qualifiers,
 					already_created,
-					scope,
+					context,
 					current_scope,
 					id_table,
 				)?;
@@ -288,10 +288,9 @@ impl VariableKind {
 							.build(),
 					));
 				}
-				let id = scope.add_expression(current_scope, *bus.width.clone());
+				let id = context.scope.add_expression(current_scope, *bus.width.clone());
+				let width = bus.width.evaluate(nc_table, current_scope, &context.scope)?;
 
-				let width = bus.width.evaluate(nc_table, current_scope, scope)?;
-				// I do not know why I wanted to do it differently before
 				let w = match &width {
 					Some(val) => {
 						if val.value <= num_bigint::BigInt::from(0) {

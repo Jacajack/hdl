@@ -1,7 +1,6 @@
 use hirn::design::ModuleHandle;
 
 use crate::analyzer::*;
-use crate::core::comment_table;
 use crate::core::NumericConstant;
 use crate::lexer::CommentTableKey;
 use crate::lexer::IdTable;
@@ -26,11 +25,11 @@ impl VariableDeclarationStatement {
 		nc_table: &NumericConstantTable,
 		id_table: &IdTable,
 		comment_table: &crate::lexer::CommentTable,
-		scope: &mut ModuleImplementationScope,
+		context: &mut Box<LocalAnalyzerContext>,
 		handle: &mut ModuleHandle,
 	) -> miette::Result<()> {
 		let mut kind =
-			VariableKind::from_type_declarator(&self.type_declarator, 0, already_created, nc_table, id_table, scope)?;
+			VariableKind::from_type_declarator(&self.type_declarator, 0, already_created, nc_table, id_table, context)?;
 		match &mut kind {
 			VariableKind::Signal(sig) => {
 				if sig.is_auto() {
@@ -69,7 +68,7 @@ impl VariableDeclarationStatement {
 			VariableKind::Generic(gen) => {
 				gen.direction = Direction::Input(self.location);
 				gen.width = Some(BusWidth::Evaluated(NumericConstant::new_from_value(64.into())));
-				scope.mark_as_generic();
+				context.scope.mark_as_generic();
 			},
 			VariableKind::ModuleInstance(_) => unreachable!(),
 		}
@@ -79,8 +78,8 @@ impl VariableDeclarationStatement {
 			let mut spec_kind = kind.clone();
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_declarator.array_declarators {
-				let size = array_declarator.evaluate(nc_table, 0, scope)?;
-				let id = scope.add_expression(0, array_declarator.clone());
+				let size = array_declarator.evaluate(nc_table, 0, &context.scope)?;
+				let id = context.scope.add_expression(0, array_declarator.clone());
 				match &size {
 					Some(val) => {
 						if val.value <= num_bigint::BigInt::from(0) {
@@ -117,7 +116,7 @@ impl VariableDeclarationStatement {
 			});
 		}
 		for var in &variables {
-			scope.declare_variable(var.clone(), nc_table, id_table, comment_table, handle)?;
+			context.scope.declare_variable(var.clone(), nc_table, id_table, comment_table, handle)?;
 		}
 		Ok(())
 	}

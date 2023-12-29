@@ -5,7 +5,6 @@ use hirn::design::{ModuleHandle, ScopeHandle, SignalId};
 use log::*;
 
 use crate::{
-	core::comment_table,
 	lexer::{IdTable, IdTableKey},
 	ProvidesCompilerDiagnostic, SourceSpan,
 };

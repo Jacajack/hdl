@@ -5,6 +5,7 @@ use crate::{core::*, parser::ast::*, SourceSpan};
 use std::collections::HashMap;
 
 use super::module_implementation_scope::ExpressionEntryId;
+#[derive(Clone)]
 pub struct LocalAnalyzerContext {
 	pub scope: ModuleImplementationScope,
 	pub nc_widths: HashMap<SourceSpan, NumericConstant>,

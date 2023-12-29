@@ -89,7 +89,7 @@ impl InstantiationStatement {
 		}
 		let instance_str = ctx.id_table.get_by_key(&self.instance_name).unwrap().clone();
 		let module = ctx.modules_declared.get(&name).unwrap();
-		let mut scope = module.scope.clone();
+		let mut scope = module.context.scope.clone();
 		let mut module_instance = NonRegister::new();
 		let mut clock_mapping: HashMap<InternalVariableId, InternalVariableId> = HashMap::new();
 		if scope.get_interface_len() != self.port_bind.len() {
@@ -598,7 +598,7 @@ impl InstantiationStatement {
 		}
 		let name = self.module_name.get_last_module();
 		let module = ctx.modules_declared.get(&name).unwrap();
-		let scope = &module.scope;
+		let scope = &module.context.scope;
 		let m_handle = module.handle.clone();
 		let module_instance = &local_ctx
 			.scope

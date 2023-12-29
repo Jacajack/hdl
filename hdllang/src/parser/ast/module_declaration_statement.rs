@@ -26,7 +26,7 @@ impl ModuleDeclarationStatement {
 		nc_table: &crate::core::NumericConstantTable,
 		comment_table: &crate::lexer::CommentTable,
 		id_table: &IdTable,
-		scope: &mut ModuleImplementationScope,
+		context: &mut Box<LocalAnalyzerContext>,
 		handle: &mut ModuleHandle,
 	) -> miette::Result<()> {
 		use ModuleDeclarationStatement::*;
@@ -36,11 +36,11 @@ impl ModuleDeclarationStatement {
 				nc_table,
 				id_table,
 				comment_table,
-				scope,
+				context,
 				handle,
 			),
 			VariableBlock(block) => {
-				block.create_variable_declaration(already_created, nc_table, id_table, comment_table, scope, handle)
+				block.create_variable_declaration(already_created, nc_table, id_table, comment_table, context, handle)
 			},
 		}
 	}

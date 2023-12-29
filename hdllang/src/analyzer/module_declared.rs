@@ -2,12 +2,12 @@ use hirn::design::ModuleHandle;
 
 use crate::{lexer::IdTableKey, SourceSpan};
 
-use super::ModuleImplementationScope;
+use super::LocalAnalyzerContext;
 
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ModuleDeclared {
 	pub name: IdTableKey,
-	pub scope: ModuleImplementationScope,
+	pub context: Box<LocalAnalyzerContext>,
 	pub handle: ModuleHandle,
 	pub is_generic: bool,
 	pub location: SourceSpan,

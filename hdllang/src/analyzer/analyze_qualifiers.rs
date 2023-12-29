@@ -7,7 +7,7 @@ use crate::parser::ast::TypeQualifier;
 pub fn analyze_qualifiers(
 	qualifiers: &Vec<TypeQualifier>,
 	mut already_created: AlreadyCreated,
-	scope: &ModuleImplementationScope,
+	scope: &Box<LocalAnalyzerContext>,
 	current_scope: usize,
 	id_table: &IdTable,
 ) -> miette::Result<AlreadyCreated> {

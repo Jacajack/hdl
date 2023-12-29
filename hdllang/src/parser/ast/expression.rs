@@ -259,14 +259,14 @@ impl Expression {
 	pub fn create_edge_sensitivity(
 		&self,
 		current_scope: usize,
-		scope: &ModuleImplementationScope,
+		context: & Box<LocalAnalyzerContext>,
 		id_table: &crate::lexer::IdTable,
 		list_location: SourceSpan,
 	) -> miette::Result<EdgeSensitivity> {
 		use self::Expression::*;
 		match self {
 			Identifier(id) => {
-				let var = match scope.get_variable(current_scope, &id.id) {
+				let var = match context.scope.get_variable(current_scope, &id.id) {
 					None => {
 						return Err(miette::Report::new(
 							SemanticError::VariableNotDeclared
@@ -311,7 +311,7 @@ impl Expression {
 				match unary.code {
 					LogicalNot => unary
 						.expression
-						.create_edge_sensitivity(current_scope, scope, id_table, list_location)
+						.create_edge_sensitivity(current_scope, context, id_table, list_location)
 						.map(|mut edge| {
 							edge.on_rising = !edge.on_rising;
 							edge
@@ -2710,7 +2710,7 @@ impl Expression {
 					AlreadyCreated::new(),
 					global_ctx.nc_table,
 					global_ctx.id_table,
-					&mut local_ctx.scope,
+					local_ctx,
 				)?;
 				match &kind {
 					VariableKind::Signal(sig) => {
