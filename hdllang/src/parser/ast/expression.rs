@@ -1686,7 +1686,7 @@ impl Expression {
 				if val.is_array() {
 					report_array(match_expr.value.get_location())?;
 				}
-				let mut res = Signal::new_empty();
+				let mut res = coupling_type;
 				let mut present_already = HashMap::new();
 				for stmt in &match_expr.statements {
 					match &stmt.antecedent {
@@ -1721,19 +1721,11 @@ impl Expression {
 						},
 						MatchExpressionAntecendent::Default { location: _ } => (),
 					};
-					stmt.expression.evaluate_type(
-						global_ctx,
-						scope_id,
-						local_ctx,
-						coupling_type.clone(),
-						is_lhs,
-						location,
-					)?;
 					res = stmt.expression.evaluate_type(
 						global_ctx,
 						scope_id,
 						local_ctx,
-						coupling_type.clone(),
+						res,
 						is_lhs,
 						match_expr.location,
 					)?;
@@ -1749,7 +1741,7 @@ impl Expression {
 							.build(),
 					));
 				}
-				let mut res = Signal::new_empty();
+				let mut res = coupling_type.clone();
 				for stmt in &cond.statements {
 					match &stmt.antecedent {
 						MatchExpressionAntecendent::Expression {
@@ -1769,19 +1761,11 @@ impl Expression {
 						},
 						MatchExpressionAntecendent::Default { location: _ } => (),
 					};
-					stmt.expression.evaluate_type(
-						global_ctx,
-						scope_id,
-						local_ctx,
-						coupling_type.clone(),
-						is_lhs,
-						location,
-					)?;
 					res = stmt.expression.evaluate_type(
 						global_ctx,
 						scope_id,
 						local_ctx,
-						coupling_type.clone(),
+						res,
 						is_lhs,
 						cond.location,
 					)?;
