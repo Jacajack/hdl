@@ -3,7 +3,6 @@ use hirn::design::ModuleHandle;
 use crate::analyzer::*;
 use crate::core::NumericConstant;
 use crate::lexer::CommentTableKey;
-use crate::lexer::IdTable;
 use crate::parser::ast::SourceLocation;
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 
@@ -17,19 +16,16 @@ pub struct VariableDeclarationStatement {
 	pub location: SourceSpan,
 }
 use crate::analyzer::Variable;
-use crate::lexer::NumericConstantTable;
 impl VariableDeclarationStatement {
 	pub fn create_variable_declaration(
 		&self,
 		already_created: AlreadyCreated,
-		nc_table: &NumericConstantTable,
-		id_table: &IdTable,
-		comment_table: &crate::lexer::CommentTable,
+		global_ctx: &mut GlobalAnalyzerContext,
 		context: &mut Box<LocalAnalyzerContext>,
 		handle: &mut ModuleHandle,
 	) -> miette::Result<()> {
 		let mut kind =
-			VariableKind::from_type_declarator(&self.type_declarator, 0, already_created, nc_table, id_table, context)?;
+			VariableKind::from_type_declarator(&self.type_declarator, 0, already_created, global_ctx, context)?;
 		match &mut kind {
 			VariableKind::Signal(sig) => {
 				if sig.is_auto() {
@@ -78,7 +74,7 @@ impl VariableDeclarationStatement {
 			let mut spec_kind = kind.clone();
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_declarator.array_declarators {
-				let size = array_declarator.evaluate(nc_table, 0, &context.scope)?;
+				let size = array_declarator.evaluate(&global_ctx.nc_table, 0, &context.scope)?;
 				let id = context.scope.add_expression(0, array_declarator.clone());
 				match &size {
 					Some(val) => {
@@ -116,7 +112,7 @@ impl VariableDeclarationStatement {
 			});
 		}
 		for var in &variables {
-			context.scope.declare_variable(var.clone(), nc_table, id_table, comment_table, handle)?;
+			context.scope.declare_variable(var.clone(), global_ctx, handle)?;
 		}
 		Ok(())
 	}

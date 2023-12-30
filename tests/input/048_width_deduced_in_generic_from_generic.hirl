@@ -1,6 +1,6 @@
 module y{
 	int a;
-	input const ubus<(a*4)> d;
+	input const ubus<(a*4s64)> d;
 }
 impl y{}
 

@@ -85,7 +85,7 @@ impl VariableBlock {
 			already_created,
 			local_ctx,
 			scope_id,
-			ctx.id_table,
+			&ctx.id_table,
 		)?;
 		for statement in &self.statements {
 			statement.analyze(already_created.clone(), ctx, local_ctx, scope_id)?;

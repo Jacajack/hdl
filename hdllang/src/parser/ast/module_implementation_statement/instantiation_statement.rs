@@ -103,7 +103,7 @@ impl InstantiationStatement {
 					.help(
 						format!(
 							"Interface of the module xx is {}",
-							scope.display_interface(ctx.id_table)
+							scope.display_interface(&ctx.id_table)
 						)
 						.as_str(),
 					)
@@ -214,7 +214,7 @@ impl InstantiationStatement {
 				IdWithExpression(id_expr) => {
 					debug!("Id with expression");
 					expressions_to_translate.insert(id_expr.id, id_expr.expression.clone());
-					let new_sig = id_expr.expression.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
+					let new_sig = id_expr.expression.evaluate(&ctx.nc_table, scope_id, &local_ctx.scope)?;
 					use VariableKind::*;
 					match &mut interface_variable.var.kind {
 						Generic(gen) => {
@@ -293,12 +293,12 @@ impl InstantiationStatement {
 			interface_variable
 				.var
 				.kind
-				.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table, &ids_map)?;
+				.evaluate_bus_width(&scope, &ctx.id_table, &ctx.nc_table, &ids_map)?;
 			scope.redeclare_variable(interface_variable.clone());
 			interface_variable
 				.var
 				.kind
-				.remap_bus_widths(&scope, &ctx.id_table, ctx.nc_table, &ids_map)?;
+				.remap_bus_widths(&scope, &ctx.id_table, &ctx.nc_table, &ids_map)?;
 			debug!("Interface variable is {:?}", interface_variable.var.kind);
 			let clk_type = interface_variable
 				.var
@@ -372,12 +372,12 @@ impl InstantiationStatement {
 			interface_variable
 				.var
 				.kind
-				.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table, &ids_map)?;
+				.evaluate_bus_width(&scope, &ctx.id_table, &ctx.nc_table, &ids_map)?;
 			scope.redeclare_variable(interface_variable.clone());
 			interface_variable
 				.var
 				.kind
-				.remap_bus_widths(&scope, &ctx.id_table, ctx.nc_table, &ids_map)?;
+				.remap_bus_widths(&scope, &ctx.id_table, &ctx.nc_table, &ids_map)?;
 			// translate clocks
 			let mut interface_signal = interface_variable
 				.var

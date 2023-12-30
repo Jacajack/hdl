@@ -1,4 +1,4 @@
-use super::{ModuleDeclared, SemanticError};
+use super::SemanticError;
 use crate::analyzer::GlobalAnalyzerContext;
 use log::{debug, info};
 use std::collections::HashMap;
@@ -6,9 +6,7 @@ use std::collections::HashMap;
 use crate::{core::*, parser::ast::*, ProvidesCompilerDiagnostic, SourceSpan};
 
 pub fn combine<'a>(
-	id_table: &'a mut IdTable,
-	nc_table: &'a crate::lexer::NumericConstantTable,
-	comment_table: &'a crate::lexer::CommentTable,
+	mut ctx: GlobalAnalyzerContext<'a>,
 	ast: &'a Root,
 	mut path_from_root: String,
 	present_files: &mut HashMap<String, String>,
@@ -23,9 +21,7 @@ pub fn combine<'a>(
 	if path_from_root.as_str() == "" {
 		path_from_root = ".".to_string();
 	}
-	let mut design = hirn::design::DesignHandle::new();
 	let mut packaged_paths: Vec<String> = Vec::new();
-	let mut modules_declared: HashMap<IdTableKey, ModuleDeclared> = HashMap::new();
 	let mut modules_implemented: HashMap<IdTableKey, &ModuleImplementation> = HashMap::new();
 	let mut generic_modules: HashMap<IdTableKey, &ModuleImplementation> = HashMap::new();
 
@@ -33,12 +29,12 @@ pub fn combine<'a>(
 		use crate::parser::ast::TopDefinition::*;
 		match def {
 			ModuleDeclaration(declaration) => {
-				declaration.analyze(&mut design, id_table, nc_table, comment_table, &mut modules_declared)?
+				declaration.analyze(&mut ctx)?
 			},
 			ModuleImplementation(implementation) => {
 				debug!(
 					"Found module impl for {:?}",
-					id_table.get_by_key(&implementation.id).unwrap()
+					ctx.id_table.get_by_key(&implementation.id).unwrap()
 				);
 				if let Some(prev) = modules_implemented.get(&implementation.id) {
 					return Err(miette::Report::new(
@@ -48,7 +44,7 @@ pub fn combine<'a>(
 								implementation.location,
 								format!(
 									"Module {:?} is implemented multiple times",
-									id_table.get_by_key(&implementation.id).unwrap()
+									ctx.id_table.get_by_key(&implementation.id).unwrap()
 								)
 								.as_str(),
 							)
@@ -56,7 +52,7 @@ pub fn combine<'a>(
 								prev.location,
 								format!(
 									"Module {:?} is implemented here",
-									id_table.get_by_key(&prev.id).unwrap()
+									ctx.id_table.get_by_key(&prev.id).unwrap()
 								)
 								.as_str(),
 							)
@@ -67,12 +63,12 @@ pub fn combine<'a>(
 				modules_implemented.insert(implementation.id, &implementation);
 			},
 			PackageDeclaration(package) => {
-				packaged_paths.push(package.analyze(id_table, &path_from_root, present_files)?)
+				packaged_paths.push(package.analyze(&ctx.id_table, &path_from_root, present_files)?)
 			},
 			UseStatement(_) => (),
 		};
 	}
-	for (name, m) in modules_declared.clone() {
+	for (name, m) in ctx.modules_declared.clone() {
 		if m.is_generic {
 			match modules_implemented.get(&name) {
 				None => {
@@ -84,7 +80,7 @@ pub fn combine<'a>(
 							m.location,
 							format!(
 								"Module {:?} is not implemented in the same file as it is declared",
-								id_table.get_by_key(&name).unwrap()
+								ctx.id_table.get_by_key(&name).unwrap()
 							)
 							.as_str(),
 						)
@@ -92,24 +88,14 @@ pub fn combine<'a>(
 					))
 				},
 				Some(implementation) => {
-					generic_modules.insert(name.clone(), *implementation);
+					ctx.generic_modules.insert(name.clone(), *implementation);
 					modules_implemented.remove(&name);
 				},
 			}
 		}
 	}
-	debug!("Modules: {:?}", modules_declared.len());
-	let diagnostic_buffer = crate::core::DiagnosticBuffer::new();
+	debug!("Modules: {:?}", ctx.modules_declared.len());
 	// prepare for next stage of analysis
-	let ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext {
-		id_table,
-		nc_table,
-		comment_table,
-		modules_declared,
-		generic_modules,
-		design,
-		diagnostic_buffer,
-	};
 
 	Ok((packaged_paths, ctx, modules_implemented))
 }

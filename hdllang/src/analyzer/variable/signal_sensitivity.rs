@@ -394,9 +394,9 @@ mod tests {
 	use paste::paste;
 	use std::collections::HashMap;
 	fn ctx<'a>(
-		id_table: &'a mut IdTable,
-		nc_table: &'a NumericConstantTable,
-		comment_table: &'a crate::lexer::CommentTable,
+		id_table: IdTable,
+		nc_table: NumericConstantTable,
+		comment_table:crate::lexer::CommentTable,
 	) -> GlobalAnalyzerContext<'a> {
 		GlobalAnalyzerContext {
 			id_table,
@@ -429,11 +429,11 @@ mod tests {
 	macro_rules! sensitivity_test_ok {
 		($name1:ident, $name2:ident) => {
 			paste! {
-				let mut id_table = IdTable::new();
+				let id_table = IdTable::new();
 				let nc_table = NumericConstantTable::new();
 				let comment_table = crate::lexer::CommentTable::new();
-				assert!([<$name1 _sensitivity>]().can_drive(&[<$name2 _sensitivity>](), span(),&ctx(&mut id_table, &nc_table, &comment_table)).is_ok());
-				assert!([<$name2 _sensitivity>]().can_drive(&[<$name1 _sensitivity>](), span(),&ctx(&mut id_table, &nc_table, &comment_table)).is_err());
+				assert!([<$name1 _sensitivity>]().can_drive(&[<$name2 _sensitivity>](), span(),&ctx(id_table.clone(), nc_table.clone(), comment_table.clone())).is_ok());
+				assert!([<$name2 _sensitivity>]().can_drive(&[<$name1 _sensitivity>](), span(),&ctx(id_table, nc_table, comment_table)).is_err());
 			}
 		};
 	}

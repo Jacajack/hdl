@@ -72,9 +72,7 @@ impl Variable {
 	/// and can insert it into scope automatically
 	pub fn register(
 		&self,
-		nc_table: &crate::lexer::NumericConstantTable,
-		id_table: &id_table::IdTable,
-		comment_table: &crate::lexer::CommentTable,
+		global_ctx: &GlobalAnalyzerContext,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
 		additional_ctx: Option<&AdditionalContext>,
@@ -82,13 +80,13 @@ impl Variable {
 	) -> miette::Result<SignalId> {
 		debug!(
 			"registering variable {}\n {:?}",
-			id_table.get_by_key(&self.name).unwrap(),
+			global_ctx.id_table.get_by_key(&self.name).unwrap(),
 			self
 		);
 		if !self.metadata_comment.is_empty() {
 			let mut comment = String::new();
 			for com in &self.metadata_comment {
-				comment.push_str(comment_table.get_by_key(&com).unwrap());
+				comment.push_str(global_ctx.comment_table.get_by_key(&com).unwrap());
 			}
 			builder = builder.comment(comment.as_str());
 		}
@@ -126,8 +124,7 @@ impl Variable {
 							EvaluatedLocated(_, location) => {
 								let expr_ast = scope.get_expression(*location);
 								expr_ast.expression.codegen(
-									nc_table,
-									id_table,
+									global_ctx,
 									expr_ast.scope_id,
 									scope,
 									additional_ctx,
@@ -137,8 +134,7 @@ impl Variable {
 								log::debug!("Looking for expression at {:?}", location);
 								let expr_ast = scope.get_expression(*location);
 								expr_ast.expression.codegen(
-									nc_table,
-									id_table,
+									global_ctx,
 									expr_ast.scope_id,
 									scope,
 									additional_ctx,
@@ -147,8 +143,7 @@ impl Variable {
 							WidthOf(location) => {
 								let expr_ast = scope.get_expression(*location);
 								let expr = expr_ast.expression.codegen(
-									nc_table,
-									id_table,
+									global_ctx,
 									expr_ast.scope_id,
 									scope,
 									additional_ctx,
@@ -179,13 +174,12 @@ impl Variable {
 							let expr = scope.get_expression(*location);
 							let codegened =
 								expr.expression
-									.codegen(nc_table, id_table, expr.scope_id, scope, additional_ctx)?;
+									.codegen(global_ctx, expr.scope_id, scope, additional_ctx)?;
 							builder = builder.array(codegened).unwrap();
 						},
 						Evaluable(location) => {
 							let expr = scope.get_expression(*location).expression.codegen(
-								nc_table,
-								id_table,
+								global_ctx,
 								scope_id,
 								scope,
 								additional_ctx,
@@ -194,8 +188,7 @@ impl Variable {
 						},
 						WidthOf(location) => {
 							let mut expr = scope.get_expression(*location).expression.codegen(
-								nc_table,
-								id_table,
+								global_ctx,
 								scope_id,
 								scope,
 								additional_ctx,
@@ -218,19 +211,18 @@ impl Variable {
 							let expr_ast = scope.get_expression(*location);
 							expr_ast
 								.expression
-								.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
+								.codegen(global_ctx, expr_ast.scope_id, scope, additional_ctx)?
 						},
 						Evaluable(location) => {
 							let expr_ast = scope.get_expression(*location);
 							expr_ast
 								.expression
-								.codegen(nc_table, id_table, expr_ast.scope_id, scope, additional_ctx)?
+								.codegen(global_ctx, expr_ast.scope_id, scope, additional_ctx)?
 						},
 						WidthOf(location) => {
 							let expr_ast = scope.get_expression(*location);
 							let expr = expr_ast.expression.codegen(
-								nc_table,
-								id_table,
+								global_ctx,
 								expr_ast.scope_id,
 								scope,
 								additional_ctx,

@@ -185,8 +185,7 @@ impl VariableKind {
 		type_declarator: &crate::parser::ast::TypeDeclarator,
 		current_scope: usize,
 		mut already_created: AlreadyCreated,
-		nc_table: &crate::core::NumericConstantTable,
-		id_table: &IdTable,
+		global_ctx: &crate::analyzer::GlobalAnalyzerContext,
 		context: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<Self> {
 		use crate::parser::ast::TypeSpecifier::*;
@@ -197,7 +196,7 @@ impl VariableKind {
 					already_created,
 					context,
 					current_scope,
-					id_table,
+					&global_ctx.id_table,
 				)?;
 				if already_created.signedness != SignalSignedness::NoSignedness {
 					return Ok(VariableKind::Signal(Signal {
@@ -224,7 +223,7 @@ impl VariableKind {
 					already_created,
 					context,
 					current_scope,
-					id_table,
+					&global_ctx.id_table,
 				)?;
 				if already_created.signedness == SignalSignedness::NoSignedness {
 					already_created.signedness = SignalSignedness::Signed(*location);
@@ -244,7 +243,7 @@ impl VariableKind {
 					already_created,
 					context,
 					current_scope,
-					id_table,
+					&global_ctx.id_table,
 				)?;
 				match already_created.signedness {
 					SignalSignedness::NoSignedness => (),
@@ -278,7 +277,7 @@ impl VariableKind {
 					already_created,
 					context,
 					current_scope,
-					id_table,
+					&global_ctx.id_table,
 				)?;
 				if already_created.sensitivity.is_clock() {
 					return Err(miette::Report::new(
@@ -289,8 +288,9 @@ impl VariableKind {
 					));
 				}
 				let id = context.scope.add_expression(current_scope, *bus.width.clone());
+				bus.width.evaluate_type(global_ctx, current_scope, context, Signal::new_empty(), false, bus.width.get_location())?;
 				let width =  if context.are_we_in_true_branch() {
-					bus.width.evaluate(nc_table, current_scope, &context.scope)?
+					bus.width.evaluate(&global_ctx.nc_table, current_scope, &context.scope)?
 				} else{
 					None
 				};

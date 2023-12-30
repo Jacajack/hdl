@@ -20,7 +20,7 @@ impl IfElseStatement {
 		ctx: &mut GlobalAnalyzerContext,
 		local_ctx: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<()> {
-		let condition_type = self.condition.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?;
+		let condition_type = self.condition.evaluate(&ctx.nc_table, scope_id, &mut local_ctx.scope)?;
 		self.condition.evaluate_type(
 			ctx,
 			scope_id,
@@ -65,8 +65,7 @@ impl IfElseStatement {
 		);
 
 		let condition_expr = self.condition.codegen(
-			ctx.nc_table,
-			ctx.id_table,
+			ctx,
 			scope_id,
 			&local_ctx.scope,
 			Some(&additional_ctx),
@@ -87,9 +86,7 @@ impl IfElseStatement {
 						let scope_id = local_ctx.scope_map.get(&block.location).unwrap().to_owned();
 						local_ctx.scope.register_all_variables_in_scope(
 							&local_ctx.depenency_graph,
-							ctx.nc_table,
-							ctx.id_table,
-							ctx.comment_table,
+							ctx,
 							Some(&additional_ctx),
 							scope_id,
 							&mut if_scope,
@@ -107,9 +104,7 @@ impl IfElseStatement {
 						let scope_id = local_ctx.scope_map.get(&block.location).unwrap().to_owned();
 						local_ctx.scope.register_all_variables_in_scope(
 							&local_ctx.depenency_graph,
-							ctx.nc_table,
-							ctx.id_table,
-							ctx.comment_table,
+							ctx,
 							Some(&additional_ctx),
 							scope_id,
 							&mut else_scope,
@@ -123,9 +118,7 @@ impl IfElseStatement {
 						let scope_id = local_ctx.scope_map.get(&conditional.location).unwrap().to_owned();
 						local_ctx.scope.register_all_variables_in_scope(
 							&local_ctx.depenency_graph,
-							ctx.nc_table,
-							ctx.id_table,
-							ctx.comment_table,
+							ctx,
 							Some(&additional_ctx),
 							scope_id,
 							&mut else_scope,
@@ -149,9 +142,7 @@ impl IfElseStatement {
 						let scope_id = local_ctx.scope_map.get(&block.location).unwrap().to_owned();
 						local_ctx.scope.register_all_variables_in_scope(
 							&local_ctx.depenency_graph,
-							ctx.nc_table,
-							ctx.id_table,
-							ctx.comment_table,
+							ctx,
 							Some(&additional_ctx),
 							scope_id,
 							&mut if_scope,

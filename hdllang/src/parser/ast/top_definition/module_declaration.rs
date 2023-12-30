@@ -1,10 +1,8 @@
-use crate::analyzer::{AlreadyCreated, ModuleDeclared, ModuleImplementationScope, SemanticError, LocalAnalyzerContext};
-use crate::core::{CommentTableKey, IdTable, IdTableKey, SourceSpan};
+use crate::analyzer::{AlreadyCreated, ModuleDeclared, ModuleImplementationScope, SemanticError, LocalAnalyzerContext, GlobalAnalyzerContext};
+use crate::core::{CommentTableKey, IdTableKey, SourceSpan};
 use crate::parser::ast::ModuleDeclarationStatement;
 use crate::ProvidesCompilerDiagnostic;
 
-use hirn::design::DesignHandle;
-use std::collections::HashMap;
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
 pub struct ModuleDeclaration {
 	pub metadata: Vec<CommentTableKey>,
@@ -16,19 +14,15 @@ pub struct ModuleDeclaration {
 impl ModuleDeclaration {
 	pub fn analyze(
 		&self,
-		design_handle: &mut DesignHandle,
-		id_table: &IdTable,
-		nc_table: &crate::lexer::NumericConstantTable,
-		comment_table: &crate::lexer::CommentTable,
-		modules_declared: &mut HashMap<IdTableKey, ModuleDeclared>,
+		ctx: &mut GlobalAnalyzerContext,
 	) -> miette::Result<()> {
 		use log::*;
 
 		debug!(
 			"Analyzing module declaration {:?}",
-			id_table.get_by_key(&self.id).unwrap()
+			ctx.id_table.get_by_key(&self.id).unwrap()
 		);
-		if let Some(module) = modules_declared.get(&self.id) {
+		if let Some(module) = ctx.modules_declared.get(&self.id) {
 			return Err(miette::Report::new(
 				SemanticError::MultipleModuleDeclaration
 					.to_diagnostic_builder()
@@ -37,27 +31,25 @@ impl ModuleDeclaration {
 					.build(),
 			));
 		}
-		let mut handle = design_handle
-			.new_module(id_table.get_by_key(&self.id).unwrap())
+		let mut handle = ctx.design
+			.new_module(ctx.id_table.get_by_key(&self.id).unwrap())
 			.unwrap();
 		if !self.metadata.is_empty() {
 			let mut comment = String::new();
 			for com in &self.metadata {
-				comment.push_str(comment_table.get_by_key(&com).unwrap());
+				comment.push_str(ctx.comment_table.get_by_key(&com).unwrap());
 			}
 			handle.comment(comment.as_str());
 		}
 		let mut local_ctx = LocalAnalyzerContext::new(self.id, ModuleImplementationScope::new());
 		debug!(
 			"Registering variables for module declaration {:?}:",
-			id_table.get_by_key(&self.id).unwrap()
+			ctx.id_table.get_by_key(&self.id).unwrap()
 		);
 		for statement in &self.statements {
 			statement.create_variable_declaration(
 				AlreadyCreated::new(),
-				nc_table,
-				comment_table,
-				id_table,
+				ctx,
 				&mut local_ctx,
 				&mut handle,
 			)?;
@@ -67,7 +59,7 @@ impl ModuleDeclaration {
 		}
 
 		if local_ctx.scope.is_generic() {
-			info!("Module {:?} is generic", id_table.get_by_key(&self.id).unwrap());
+			info!("Module {:?} is generic", ctx.id_table.get_by_key(&self.id).unwrap());
 		}
 
 		let is_generic = local_ctx.scope.is_generic();
@@ -80,7 +72,7 @@ impl ModuleDeclaration {
 			location: self.location,
 			instantiates: Vec::new(),
 		};
-		modules_declared.insert(self.id, new_module);
+		ctx.modules_declared.insert(self.id, new_module);
 		Ok(())
 	}
 }

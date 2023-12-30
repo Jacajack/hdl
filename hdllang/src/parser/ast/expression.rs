@@ -653,8 +653,7 @@ impl Expression {
 	// deprecated
 	pub fn get_slice(
 		&self,
-		nc_table: &crate::lexer::NumericConstantTable,
-		id_table: &crate::lexer::IdTable,
+		global_ctx: &GlobalAnalyzerContext,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
 		additional_ctx: Option<&AdditionalContext>,
@@ -670,13 +669,13 @@ impl Expression {
 			},
 			ParenthesizedExpression(expr) => {
 				expr.expression
-					.get_slice(nc_table, id_table, scope_id, scope, additional_ctx)
+					.get_slice(global_ctx, scope_id, scope, additional_ctx)
 			},
 			PostfixWithIndex(ind) => {
-				let index_expr = ind.index.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+				let index_expr = ind.index.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 				let mut slice = ind
 					.expression
-					.get_slice(nc_table, id_table, scope_id, scope, additional_ctx)?;
+					.get_slice(global_ctx, scope_id, scope, additional_ctx)?;
 				slice.indices.push(index_expr);
 				Ok(slice)
 			},
@@ -803,8 +802,7 @@ impl Expression {
 	}
 	pub fn codegen(
 		&self,
-		nc_table: &crate::core::NumericConstantTable,
-		id_table: &crate::lexer::IdTable,
+		global_ctx: &GlobalAnalyzerContext,
 		scope_id: usize,
 		scope: &ModuleImplementationScope,
 		additional_ctx: Option<&AdditionalContext>,
@@ -817,12 +815,11 @@ impl Expression {
 					log::debug!("ncs.nc_widths is {:?}", ncs.ncs_to_be_exted);
 					if let Some(loc) = ncs.ncs_to_be_exted.get(&self.get_location()) {
 						debug!("Found a constant to be extended {:?}", loc);
-						let constant = nc_table.get_by_key(&num.key).unwrap();
+						let constant = global_ctx.nc_table.get_by_key(&num.key).unwrap();
 						let value: BigInt = constant.value.clone();
 						let width_loc = scope.get_expression(*loc);
 						let width = width_loc.expression.codegen(
-							nc_table,
-							id_table,
+							global_ctx,
 							width_loc.scope_id,
 							scope,
 							additional_ctx,
@@ -922,7 +919,7 @@ impl Expression {
 					//	}));
 					//}
 				}
-				let constant = nc_table.get_by_key(&num.key).unwrap();
+				let constant = global_ctx.nc_table.get_by_key(&num.key).unwrap();
 				let signed = match constant.signed {
 					Some(s) => s,
 					None => true,
@@ -952,13 +949,12 @@ impl Expression {
 			},
 			ParenthesizedExpression(expr) => {
 				expr.expression
-					.codegen(nc_table, id_table, scope_id, scope, additional_ctx)
+					.codegen(global_ctx, scope_id, scope, additional_ctx)
 			},
 			MatchExpression(match_expr) => {
 				let def = match_expr.get_default().unwrap();
 				let mut builder = hirn::design::Expression::new_conditional(def.expression.codegen(
-					nc_table,
-					id_table,
+					global_ctx,
 					scope_id,
 					scope,
 					additional_ctx,
@@ -966,7 +962,7 @@ impl Expression {
 				for stmt in &match_expr.statements {
 					let cond = match_expr
 						.value
-						.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+						.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 					match &stmt.antecedent {
 						MatchExpressionAntecendent::Expression {
 							expressions,
@@ -974,15 +970,14 @@ impl Expression {
 						} => {
 							let val = stmt
 								.expression
-								.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+								.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 							for expr in expressions {
 								builder = builder.branch(
 									hirn::design::Expression::Binary(hirn::design::BinaryExpression {
 										lhs: Box::new(cond.clone()),
 										op: hirn::design::BinaryOp::Equal,
 										rhs: Box::new(expr.codegen(
-											nc_table,
-											id_table,
+											global_ctx,
 											scope_id,
 											scope,
 											additional_ctx,
@@ -1000,8 +995,7 @@ impl Expression {
 			ConditionalExpression(cond) => {
 				let def = cond.get_default().unwrap();
 				let mut builder = hirn::design::Expression::new_conditional(def.expression.codegen(
-					nc_table,
-					id_table,
+					global_ctx,
 					scope_id,
 					scope,
 					additional_ctx,
@@ -1014,10 +1008,10 @@ impl Expression {
 						} => {
 							let val = stmt
 								.expression
-								.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+								.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 							for expr in expressions {
 								builder = builder.branch(
-									expr.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?,
+									expr.codegen(global_ctx, scope_id, scope, additional_ctx)?,
 									val.clone(),
 								);
 							}
@@ -1031,31 +1025,31 @@ impl Expression {
 			TernaryExpression(ternary) => {
 				let cond = ternary
 					.condition
-					.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+					.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 				let true_branch = ternary
 					.true_branch
-					.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+					.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 				let false_branch = ternary
 					.false_branch
-					.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+					.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 				let builder = hirn::design::Expression::new_conditional(false_branch);
 				Ok(builder.branch(cond, true_branch).build())
 			},
 			PostfixWithIndex(ind) => {
 				if let Some(ctx) = additional_ctx {
 					let is_array = ctx.array_or_bus.get(&self.get_location()).unwrap().clone();
-					let index = ind.index.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+					let index = ind.index.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 					if is_array {
 						let mut expr = ind
 							.expression
-							.get_slice(nc_table, id_table, scope_id, scope, additional_ctx)?;
+							.get_slice(global_ctx, scope_id, scope, additional_ctx)?;
 						expr.indices.push(index);
 						return Ok(expr.into());
 					}
 					else {
 						let expr = ind
 							.expression
-							.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+							.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 						return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::BitSelect {
 							expr: Box::new(expr),
 							index: Box::new(index),
@@ -1067,15 +1061,15 @@ impl Expression {
 			PostfixWithRange(range) => {
 				let expr = range
 					.expression
-					.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+					.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 				let mut msb = range
 					.range
 					.rhs
-					.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+					.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 				let lsb = range
 					.range
 					.lhs
-					.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+					.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 				use RangeOpcode::*;
 				let signed_one = scope.ext_signedness.get(&self.get_location()).unwrap();
 				let one = match signed_one {
@@ -1094,12 +1088,11 @@ impl Expression {
 				}))
 			},
 			PostfixWithArgs(function) => {
-				let func_name = id_table.get_value(&function.id);
+				let func_name = global_ctx.id_table.get_value(&function.id);
 				match func_name.as_str() {
 					"trunc" => {
 						let expr = function.argument_list.first().unwrap().codegen(
-							nc_table,
-							id_table,
+							global_ctx,
 							scope_id,
 							scope,
 							additional_ctx,
@@ -1111,8 +1104,7 @@ impl Expression {
 								expr: Box::new(expr),
 								msb: Box::new(
 									scope.get_expression(loc).expression.codegen(
-										nc_table,
-										id_table,
+										global_ctx,
 										scope_id,
 										scope,
 										additional_ctx,
@@ -1148,8 +1140,7 @@ impl Expression {
 						)
 						.unwrap(); // FIXME
 						let count = function.argument_list.first().unwrap().codegen(
-							nc_table,
-							id_table,
+							global_ctx,
 							scope_id,
 							scope,
 							additional_ctx,
@@ -1169,8 +1160,7 @@ impl Expression {
 						)
 						.unwrap(); // FIXME
 						let count = function.argument_list.first().unwrap().codegen(
-							nc_table,
-							id_table,
+							global_ctx,
 							scope_id,
 							scope,
 							additional_ctx,
@@ -1182,8 +1172,7 @@ impl Expression {
 					},
 					"zext" | "ext" | "sext" => {
 						let expr = function.argument_list.first().unwrap().codegen(
-							nc_table,
-							id_table,
+							global_ctx,
 							scope_id,
 							scope,
 							additional_ctx,
@@ -1195,8 +1184,7 @@ impl Expression {
 								"zext" => hirn::design::BuiltinOp::ZeroExtend {
 									expr: Box::new(expr),
 									width: Box::new(scope.get_expression(loc).expression.codegen(
-										nc_table,
-										id_table,
+										global_ctx,
 										scope_id,
 										scope,
 										additional_ctx,
@@ -1206,8 +1194,7 @@ impl Expression {
 									true => hirn::design::BuiltinOp::SignExtend {
 										expr: Box::new(expr),
 										width: Box::new(scope.get_expression(loc).expression.codegen(
-											nc_table,
-											id_table,
+											global_ctx,
 											scope_id,
 											scope,
 											additional_ctx,
@@ -1216,8 +1203,7 @@ impl Expression {
 									false => hirn::design::BuiltinOp::ZeroExtend {
 										expr: Box::new(expr),
 										width: Box::new(scope.get_expression(loc).expression.codegen(
-											nc_table,
-											id_table,
+											global_ctx,
 											scope_id,
 											scope,
 											additional_ctx,
@@ -1227,8 +1213,7 @@ impl Expression {
 								"sext" => hirn::design::BuiltinOp::SignExtend {
 									expr: Box::new(expr),
 									width: Box::new(scope.get_expression(loc).expression.codegen(
-										nc_table,
-										id_table,
+										global_ctx,
 										scope_id,
 										scope,
 										additional_ctx,
@@ -1275,21 +1260,19 @@ impl Expression {
 					"join" => {
 						let mut exprs = Vec::new();
 						for expr in &function.argument_list {
-							exprs.push(expr.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?);
+							exprs.push(expr.codegen(global_ctx, scope_id, scope, additional_ctx)?);
 						}
 						Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Join(exprs)))
 					},
 					"rep" => {
 						let expr = function.argument_list.first().unwrap().codegen(
-							nc_table,
-							id_table,
+							global_ctx,
 							scope_id,
 							scope,
 							additional_ctx,
 						)?;
 						let count = function.argument_list.last().unwrap().codegen(
-							nc_table,
-							id_table,
+							global_ctx,
 							scope_id,
 							scope,
 							additional_ctx,
@@ -1301,8 +1284,7 @@ impl Expression {
 					},
 					"fold_or" => {
 						let expr = function.argument_list.first().unwrap().codegen(
-							nc_table,
-							id_table,
+							global_ctx,
 							scope_id,
 							scope,
 							additional_ctx,
@@ -1314,8 +1296,7 @@ impl Expression {
 					},
 					"fold_xor" => {
 						let expr = function.argument_list.first().unwrap().codegen(
-							nc_table,
-							id_table,
+							global_ctx,
 							scope_id,
 							scope,
 							additional_ctx,
@@ -1327,8 +1308,7 @@ impl Expression {
 					},
 					"fold_and" => {
 						let expr = function.argument_list.first().unwrap().codegen(
-							nc_table,
-							id_table,
+							global_ctx,
 							scope_id,
 							scope,
 							additional_ctx,
@@ -1345,7 +1325,7 @@ impl Expression {
 				let var = scope.get_variable(scope_id, &postfix.expression).unwrap();
 				match &var.var.kind {
 					VariableKind::ModuleInstance(instance) => match &instance.kind {
-						ModuleInstanceKind::Register(m) => match id_table.get_value(&postfix.id).as_str() {
+						ModuleInstanceKind::Register(m) => match global_ctx.id_table.get_value(&postfix.id).as_str() {
 							"data" => Ok(scope.get_api_id_by_internal_id(m.data).unwrap().into()),
 							"en" => Ok(scope.get_api_id_by_internal_id(m.enable).unwrap().into()),
 							"next" => Ok(scope.get_api_id_by_internal_id(m.next).unwrap().into()),
@@ -1365,7 +1345,7 @@ impl Expression {
 				use crate::parser::ast::UnaryOpcode::*;
 				let operand = unary
 					.expression
-					.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+					.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 				match unary.code {
 					LogicalNot => Ok(!operand),
 					BitwiseNot => Ok(hirn::design::Expression::Unary(hirn::design::UnaryExpression {
@@ -1379,7 +1359,7 @@ impl Expression {
 			UnaryCastExpression(unary_cast) => {
 				let src = unary_cast
 					.expression
-					.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+					.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 				let cast = additional_ctx.unwrap().casts.get(&self.get_location()).unwrap();
 				use SignalSensitivity::*;
 				let sensitivity = match &cast.dest_sensitivity {
@@ -1426,8 +1406,8 @@ impl Expression {
 			},
 			BinaryExpression(binop) => {
 				use crate::parser::ast::BinaryOpcode::*;
-				let lhs = binop.lhs.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
-				let rhs = binop.rhs.codegen(nc_table, id_table, scope_id, scope, additional_ctx)?;
+				let lhs = binop.lhs.codegen(global_ctx, scope_id, scope, additional_ctx)?;
+				let rhs = binop.rhs.codegen(global_ctx, scope_id, scope, additional_ctx)?;
 				match binop.code {
 					Multiplication => Ok(lhs * rhs),
 					Division => Ok(lhs / rhs),
@@ -1715,7 +1695,7 @@ impl Expression {
 							location: _,
 						} => {
 							for expr in expressions {
-								let value = expr.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?.unwrap();
+								let value = expr.evaluate(&global_ctx.nc_table, scope_id, &local_ctx.scope)?.unwrap();
 								if let Some(prev) = present_already.insert(value.value.clone(), expr.get_location()) {
 									return Err(miette::Report::new(
 										SemanticError::DuplicateMatchValue
@@ -1846,7 +1826,7 @@ impl Expression {
 				debug!("false branch: {:?}", false_branch_type);
 				match (true_branch_type.width(), false_branch_type.width()) {
 					(None, None) => {
-						report_unknown_width(self.get_location())?;
+						//report_unknown_width(self.get_location())?;
 					},
 					(None, Some(_)) => {
 						ternary.true_branch.evaluate_type(
@@ -1866,19 +1846,19 @@ impl Expression {
 					false_branch_type.get_signedness().is_none(),
 				) {
 					(true, true) => {
-						return Err(miette::Report::new(
-							SemanticError::SignednessMismatch // FIXME when fixing error messages
-								.to_diagnostic_builder()
-								.label(
-									ternary.true_branch.get_location(),
-									"Signedness of this expression is unknown",
-								)
-								.label(
-									ternary.false_branch.get_location(),
-									"Signedness of this expression is unknown",
-								)
-								.build(),
-						));
+						//return Err(miette::Report::new(
+						//	SemanticError::SignednessMismatch // FIXME when fixing error messages
+						//		.to_diagnostic_builder()
+						//		.label(
+						//			ternary.true_branch.get_location(),
+						//			"Signedness of this expression is unknown",
+						//		)
+						//		.label(
+						//			ternary.false_branch.get_location(),
+						//			"Signedness of this expression is unknown",
+						//		)
+						//		.build(),
+						//));
 					},
 					(false, true) => unreachable!(),
 					(true, false) => {
@@ -1912,7 +1892,7 @@ impl Expression {
 							.build(),
 					));
 				}
-				let ind = index.index.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
+				let ind = index.index.evaluate(&global_ctx.nc_table, scope_id, &local_ctx.scope)?;
 				if expr.is_array() {
 					if let Some(val) = &ind {
 						if val.value < BigInt::from(0)
@@ -1997,7 +1977,7 @@ impl Expression {
 							range
 								.range
 								.lhs
-								.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
+								.evaluate(&global_ctx.nc_table, scope_id, &local_ctx.scope)?;
 						let mut begin_type = range.range.lhs.evaluate_type(
 							global_ctx,
 							scope_id,
@@ -2051,7 +2031,7 @@ impl Expression {
 						let mut end = range
 							.range
 							.rhs
-							.evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?;
+							.evaluate(&global_ctx.nc_table, scope_id, &local_ctx.scope)?;
 						use crate::parser::ast::RangeOpcode::*;
 						match range.range.code {
 							Colon => (),
@@ -2166,7 +2146,7 @@ impl Expression {
 						match function.argument_list.len() {
 							1 => {
 								let width = match function.argument_list[0].evaluate(
-									global_ctx.nc_table,
+									&global_ctx.nc_table,
 									scope_id,
 									&local_ctx.scope,
 								)? {
@@ -2447,7 +2427,7 @@ impl Expression {
 						let id = local_ctx.scope.add_expression(scope_id, self.clone());
 						let mut width = BusWidth::WidthOf(id);
 						if let Some(count) =
-							function.argument_list[1].evaluate(global_ctx.nc_table, scope_id, &local_ctx.scope)?
+							function.argument_list[1].evaluate(&global_ctx.nc_table, scope_id, &local_ctx.scope)?
 						{
 							if count.value < BigInt::from(1) {
 								return Err(miette::Report::new(
@@ -2615,9 +2595,9 @@ impl Expression {
 				if expr.is_array() {
 					report_array(unary.expression.get_location())?;
 				}
-				if !expr.is_width_specified() {
-					report_unknown_width(unary.expression.get_location())?;
-				}
+				//if !expr.is_width_specified() {
+				//	report_unknown_width(unary.expression.get_location())?;
+				//}
 				use crate::parser::ast::UnaryOpcode::*;
 				match unary.code {
 					BitwiseNot => (),
@@ -2708,8 +2688,7 @@ impl Expression {
 					&cast.type_name.declarator,
 					scope_id,
 					AlreadyCreated::new(),
-					global_ctx.nc_table,
-					global_ctx.id_table,
+					global_ctx,
 					local_ctx,
 				)?;
 				match &kind {

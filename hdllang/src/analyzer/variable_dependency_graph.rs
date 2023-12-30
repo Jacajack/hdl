@@ -2,11 +2,10 @@ use bimap::BiHashMap;
 use hirn::design::ScopeHandle;
 use petgraph::prelude::DiGraph;
 
-use crate::core::comment_table;
 
 use super::{
 	module_implementation_scope::{InternalVariableId, ModuleImplementationScope},
-	AdditionalContext,
+	AdditionalContext, GlobalAnalyzerContext,
 };
 
 #[derive(Debug, Clone, Hash, Copy, PartialEq, Eq, PartialOrd, Ord)]
@@ -86,9 +85,7 @@ impl DependencyGraph {
 	}
 	pub fn register(
 		&self,
-		nc_table: &crate::core::NumericConstantTable,
-		id_table: &crate::core::IdTable,
-		comment_table: &comment_table::CommentTable,
+		ctx: &GlobalAnalyzerContext,
 		additional_ctx: Option<&AdditionalContext>,
 		scope: &mut ModuleImplementationScope,
 		scope_id: usize,
@@ -102,7 +99,7 @@ impl DependencyGraph {
 		if var.var.kind.is_module_instance() || var.is_iterated {
 			return;
 		}
-		log::debug!("Registering variable {}", id_table.get_by_key(&var.var.name).unwrap());
+		log::debug!("Registering variable {}", ctx.id_table.get_by_key(&var.var.name).unwrap());
 		let entry = DependencyGraphEntry::new(id);
 		let index = self.get_index(entry);
 		let mut neigh = self
@@ -119,9 +116,7 @@ impl DependencyGraph {
 			}
 			else {
 				self.register(
-					nc_table,
-					id_table,
-					comment_table,
+					ctx,
 					additional_ctx,
 					scope,
 					scope_id,
@@ -134,13 +129,11 @@ impl DependencyGraph {
 			return;
 		}
 		let var = scope.get_variable_by_id(id).expect("Variable not found");
-		let builder = scope_handle.new_signal(&id_table.get_value(&var.var.name)).unwrap();
+		let builder = scope_handle.new_signal(&ctx.id_table.get_value(&var.var.name)).unwrap();
 		let api_id = var
 			.var
 			.register(
-				nc_table,
-				id_table,
-				comment_table,
+				ctx,
 				scope_id,
 				scope,
 				additional_ctx,

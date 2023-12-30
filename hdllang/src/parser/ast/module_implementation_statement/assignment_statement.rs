@@ -37,7 +37,7 @@ impl AssignmentStatement {
 		if self.lhs.is_generic(ctx, scope_id, local_ctx)? {
 			debug!("Lhs is generic");
 			let id = local_ctx.scope.add_expression(scope_id, self.rhs.clone());
-			match self.rhs.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)? {
+			match self.rhs.evaluate(&ctx.nc_table, scope_id, &local_ctx.scope)? {
 				Some(val) => self
 					.lhs
 					.assign(BusWidth::EvaluatedLocated(val, id), local_ctx, scope_id),
@@ -122,15 +122,13 @@ impl AssignmentStatement {
 			local_ctx.casts.clone(),
 		);
 		let lhs = self.lhs.codegen(
-			ctx.nc_table,
-			ctx.id_table,
+			ctx,
 			scope_id,
 			&local_ctx.scope,
 			Some(&additional_ctx),
 		)?;
 		let rhs = self.rhs.codegen(
-			ctx.nc_table,
-			ctx.id_table,
+			ctx,
 			scope_id,
 			&local_ctx.scope,
 			Some(&additional_ctx),

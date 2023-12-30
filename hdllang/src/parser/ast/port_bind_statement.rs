@@ -174,14 +174,13 @@ impl PortBindStatement {
 					&id_decl.declaration.type_declarator,
 					scope_id,
 					crate::analyzer::AlreadyCreated::new(),
-					ctx.nc_table,
-					ctx.id_table,
+					ctx,
 					local_ctx,
 				)?;
 				let direct_declarator = id_decl.declaration.direct_declarators.first().unwrap();
 				let mut dimensions = Vec::new();
 				for array_declarator in direct_declarator.array_declarators.iter() {
-					let array_size = array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
+					let array_size = array_declarator.evaluate(&ctx.nc_table, scope_id, &local_ctx.scope)?;
 					let id = local_ctx.scope.add_expression(scope_id, array_declarator.clone());
 					match &array_size {
 						Some(val) => {
@@ -240,8 +239,7 @@ impl PortBindStatement {
 			},
 			IdWithExpression(id_with_expression) => {
 				let expression = id_with_expression.expression.codegen(
-					ctx.nc_table,
-					&ctx.id_table,
+					ctx,
 					current_scope,
 					&local_ctx.scope,
 					Some(&additional_ctx),

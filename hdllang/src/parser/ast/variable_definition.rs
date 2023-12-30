@@ -38,8 +38,7 @@ impl VariableDefinition {
 			&self.type_declarator,
 			scope_id,
 			already_created,
-			ctx.nc_table,
-			ctx.id_table,
+			ctx,
 			local_ctx,
 		)?;
 		match &kind {
@@ -106,7 +105,7 @@ impl VariableDefinition {
 			}
 			for array_declarator in &direct_initializer.declarator.array_declarators {
 				let size =   if local_ctx.are_we_in_true_branch() {
-					array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?
+					array_declarator.evaluate(&ctx.nc_table, scope_id, &local_ctx.scope)?
 				} else{
 					None
 				};
@@ -151,7 +150,7 @@ impl VariableDefinition {
 							false,
 							direct_initializer.get_location(),
 						)?;
-						let rhs_val = expr.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
+						let rhs_val = expr.evaluate(&ctx.nc_table, scope_id, &local_ctx.scope)?;
 						if let VariableKind::Generic(GenericVariable { value, .. }) = &mut spec_kind {
 							value.replace(
 								if rhs_val.is_none() {
@@ -386,8 +385,7 @@ impl VariableDefinition {
 						.get_api_id(scope_id, &direct_initializer.declarator.name)
 						.expect("This variable should be declared already");
 					let rhs = expr.codegen(
-						ctx.nc_table,
-						ctx.id_table,
+						ctx,
 						scope_id,
 						&local_ctx.scope,
 						Some(&additional_ctx),
