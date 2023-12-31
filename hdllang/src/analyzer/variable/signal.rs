@@ -131,20 +131,20 @@ impl Signal {
 					SignalType::Wire(*wire)
 				}
 				else {
-					debug!("Bus width is {:?}", bus.width.clone().unwrap().get_value().unwrap());
-					if bus.width.clone().unwrap().get_value().unwrap() != 1.into() {
-						return Err(miette::Report::new(
-							SemanticError::BoundingWireWithBus
-								.to_diagnostic_builder()
-								.label(location, "Cannot assign bus to a wire and vice versa")
-								.label(*wire, "Signal specified as wire here")
-								.label(bus.location, "Signal specified as a bus here")
-								.build(),
-						));
+					if bus.width.clone().unwrap().get_value().is_some(){
+						debug!("Bus width is {:?}", bus.width.clone().unwrap().get_value().unwrap());
+						if bus.width.clone().unwrap().get_value().unwrap() != 1.into() {
+							return Err(miette::Report::new(
+								SemanticError::BoundingWireWithBus
+									.to_diagnostic_builder()
+									.label(location, "Cannot assign bus to a wire and vice versa")
+									.label(*wire, "Signal specified as wire here")
+									.label(bus.location, "Signal specified as a bus here")
+									.build(),
+							));
+						}
 					}
-					else {
-						self.signal_type.clone()
-					}
+					self.signal_type.clone()
 				}
 			},
 			(Bus(_), Auto(_)) => self.signal_type.clone(),

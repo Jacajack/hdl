@@ -36,6 +36,14 @@ pub enum BinaryOpcode {
 }
 
 impl BinaryOpcode {
+	pub fn do_signs_have_to_match(&self) -> bool {
+		use self::BinaryOpcode::*;
+		match *self {
+			Multiplication | BitwiseAnd | BitwiseOr | BitwiseXor | Addition | Subtraction => true,
+			GreaterEqual | LessEqual | Equal | NotEqual | Less | Greater => true,
+			_ => false,
+		}
+	}
 	pub fn do_widths_have_to_match(&self) -> bool {
 		use self::BinaryOpcode::*;
 		match *self {

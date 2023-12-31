@@ -1634,6 +1634,17 @@ impl Expression {
 						},
 					}
 				}
+				if (constant.width.unwrap_or(64) as u64) < constant.value.bits() {
+					return Err(miette::Report::new(
+						SemanticError::WidthMismatch
+							.to_diagnostic_builder()
+							.label(
+								num.location,
+								format!("Width of this expression is {} but should be at least {}",constant.width.unwrap(), constant.value.bits()).as_str(),
+							)
+							.build(),
+					))
+				}
 				Ok(sig)
 			},
 			Identifier(identifier) => {

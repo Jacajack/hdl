@@ -1,0 +1,6 @@
+module A {}
+impl A {
+	ubus<4> a = 123;
+	ubus<7> b = 234;
+	wire x = (a + b)[0];
+}
