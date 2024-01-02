@@ -20,7 +20,6 @@ use log::debug;
 use num_bigint::BigInt;
 
 use crate::{
-	core::id_table::{self},
 	lexer::IdTableKey,
 	SourceSpan,
 };
@@ -330,9 +329,9 @@ impl BusWidth {
 	}
 	pub fn remap(
 		&mut self,
-		nc_table: &crate::core::NumericConstantTable,
-		id_table: &id_table::IdTable,
+		global_ctx: &GlobalAnalyzerContext,
 		scope: &ModuleImplementationScope,
+		additional_ctx: Option<&AdditionalContext>,
 		ids: &HashMap<ExpressionEntryId, ExpressionEntryId>,
 	) -> miette::Result<()> {
 		use BusWidth::*;
@@ -344,7 +343,22 @@ impl BusWidth {
 			Evaluable(location) => {
 				let expr_ast = scope.get_expression(*location);
 				location.clone_from(ids.get(&location).unwrap());
-				let expr = expr_ast.expression.evaluate(nc_table, expr_ast.scope_id, scope)?;
+				let expr = {
+					let val = expr_ast.expression.eval_with_hirn(global_ctx, expr_ast.scope_id, scope, additional_ctx);
+					match val{
+						Ok(expr) => {
+							let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
+							let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
+							Some(crate::core::NumericConstant::from_hirn_numeric_constant(val))
+						},
+						Err(res) => {
+							match res{
+								Res::Err(err) => return Err(err),
+								Res::GenericValue => None,
+							}
+						},
+					}
+				};
 				match expr {
 					Some(expr) => {
 						*self = EvaluatedLocated(expr, *location);

@@ -321,7 +321,7 @@ impl InstantiationStatement {
 			interface_variable
 				.var
 				.kind
-				.remap_bus_widths(&scope, &ctx.id_table, &ctx.nc_table, &ids_map)?;
+				.remap_bus_widths(ctx, &scope, Some(&additional_ctx), &ids_map)?;
 			debug!("Interface variable is {:?}", interface_variable.var.kind);
 			let clk_type = interface_variable
 				.var
@@ -400,7 +400,7 @@ impl InstantiationStatement {
 			interface_variable
 				.var
 				.kind
-				.remap_bus_widths(&scope, &ctx.id_table, &ctx.nc_table, &ids_map)?;
+				.remap_bus_widths(ctx, &scope, Some(&additional_ctx), &ids_map)?;
 			// translate clocks
 			let mut interface_signal = interface_variable
 				.var

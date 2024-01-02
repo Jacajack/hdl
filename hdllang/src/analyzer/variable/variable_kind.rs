@@ -7,7 +7,6 @@ use crate::{
 		module_implementation_scope::ExpressionEntryId, SemanticError, SignalSensitivity, SignalSignedness, SignalType, LocalAnalyzerContext, AdditionalContext, GlobalAnalyzerContext,
 	},
 	core::{CompilerDiagnosticBuilder, NumericConstant},
-	lexer::IdTable,
 	parser::ast::{SourceLocation, Res},
 	ProvidesCompilerDiagnostic,
 };
@@ -67,9 +66,9 @@ impl VariableKind {
 	}
 	pub fn remap_bus_widths(
 		&mut self,
+		global_ctx: &GlobalAnalyzerContext,
 		scope: &ModuleImplementationScope,
-		id_table: &IdTable,
-		nc_table: &crate::lexer::NumericConstantTable,
+		additional_ctx: Option<&AdditionalContext>,
 		ids: &HashMap<ExpressionEntryId, ExpressionEntryId>,
 	) -> miette::Result<()> {
 		use VariableKind::*;
@@ -79,14 +78,14 @@ impl VariableKind {
 				match &mut sig.signal_type {
 					Bus(bus) => match &mut bus.width {
 						Some(b) => {
-							b.remap(nc_table, id_table, scope, ids)?;
+							b.remap(global_ctx, scope, additional_ctx, ids)?;
 						},
 						None => (),
 					},
 					_ => (),
 				}
 				for dim in &mut sig.dimensions {
-					dim.remap(nc_table, id_table, scope, ids)?;
+					dim.remap(global_ctx, scope, additional_ctx, ids)?;
 				}
 			},
 			_ => unreachable!(),
