@@ -16,4 +16,7 @@
 		"Cargo.toml",
 	],
 	"files.insertFinalNewline": true,
+	"cSpell.enableFiletypes": [
+		"!rust"
+	],
 }

@@ -1,4 +1,4 @@
-use hirn::design::ModuleHandle;
+use hirn::design::{ModuleHandle, Evaluates};
 
 use crate::analyzer::*;
 use crate::core::NumericConstant;
@@ -74,11 +74,14 @@ impl VariableDeclarationStatement {
 			let mut spec_kind = kind.clone();
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_declarator.array_declarators {
-				let size = array_declarator.evaluate(&global_ctx.nc_table, 0, &context.scope)?;
+				let size = array_declarator.eval_with_hirn(global_ctx, 0, &context.scope, None);
 				let id = context.scope.add_expression(0, array_declarator.clone());
-				match &size {
-					Some(val) => {
-						if val.value <= num_bigint::BigInt::from(0) {
+				match size {
+					Ok(val) => {
+						let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
+						let hirn_value = val.eval(&ctx).unwrap(); // FIXME: Handle error
+						let value = NumericConstant::from_hirn_numeric_constant(hirn_value);
+						if value.value <= num_bigint::BigInt::from(0) {
 							return Err(miette::Report::new(
 								SemanticError::NegativeBusWidth
 									.to_diagnostic_builder()
@@ -86,9 +89,14 @@ impl VariableDeclarationStatement {
 									.build(),
 							));
 						}
-						dimensions.push(BusWidth::EvaluatedLocated(val.clone(), id));
+						dimensions.push(BusWidth::EvaluatedLocated(value, id));
 					},
-					None => dimensions.push(BusWidth::Evaluable(id)),
+					Err(res) => {
+						match res{
+    					    crate::parser::ast::Res::Err(err) => return Err(err),
+    					    crate::parser::ast::Res::GenericValue => dimensions.push(BusWidth::Evaluable(id)),
+    					}
+					},
 				}
 			}
 			spec_kind = match spec_kind {
