@@ -1,3 +1,4 @@
+use hirn::design::Evaluates;
 use hirn::design::ScopeHandle;
 
 use super::ModuleImplementationStatement;
@@ -10,6 +11,7 @@ use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
 use crate::core::IdTableKey;
 use crate::core::NumericConstant;
 use crate::parser::ast::RangeOpcode;
+use crate::parser::ast::Res;
 use crate::parser::ast::SourceLocation;
 use crate::CompilerError;
 use crate::ProvidesCompilerDiagnostic;
@@ -31,9 +33,29 @@ impl IterationStatement {
 		local_ctx: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<()> {
 		let id = local_ctx.scope.new_scope(Some(scope_id));
+		let additional_ctx = crate::analyzer::AdditionalContext::new(
+			local_ctx.nc_widths.clone(),
+			local_ctx.ncs_to_be_exted.clone(),
+			local_ctx.array_or_bus.clone(),
+			local_ctx.casts.clone(),
+		);
+		let left = self.range.lhs.eval_with_hirn(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx));
+		let right = self.range.rhs.eval_with_hirn(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx));
+		let (lval, rval) = match (left, right) {
+			(Ok(lval), Ok(rval)) => {
+				let eval_ctx = hirn::design::EvalContext::without_assumptions(ctx.design.clone());
+				(Some(NumericConstant::from_hirn_numeric_constant(lval.eval(&eval_ctx).unwrap())), Some(NumericConstant::from_hirn_numeric_constant(rval.eval(&eval_ctx).unwrap())))
+			},
+			(Err(res), _) | (_, Err(res)) => {
+				match res {
+					Res::Err(err) => return Err(err),
+					Res::GenericValue => (None, None),
+				}
+			},
+		};
 		match (
-			self.range.lhs.evaluate(&ctx.nc_table, scope_id, &mut local_ctx.scope)?,
-			self.range.rhs.evaluate(&ctx.nc_table, scope_id, &mut local_ctx.scope)?,
+			lval,
+			rval,
 		) {
 			(Some(lhs), Some(rhs)) => {
 				let mut initial_val = lhs.value;

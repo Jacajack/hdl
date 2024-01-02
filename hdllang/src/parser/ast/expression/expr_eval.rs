@@ -142,8 +142,15 @@ impl Expression{
 					))),
 					Generic(generic) => match &generic.value {
 						Some(val) => match val {
-							BusWidth::Evaluated(nc) => nc.clone(),
-							BusWidth::EvaluatedLocated(nc, _) => nc.clone(),
+							BusWidth::Evaluated(nc) |BusWidth::EvaluatedLocated(nc, _) => {
+								let mut new_nc = nc.clone();
+								match generic.signedness{
+									SignalSignedness::Signed(_) => new_nc.signed = Some(true),
+									SignalSignedness::Unsigned(_) => new_nc.signed = Some(false),
+									SignalSignedness::NoSignedness => (),
+								}
+								new_nc
+							},
 							_ => return Err(Res::GenericValue),
 						},
 						None => {
