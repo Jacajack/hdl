@@ -23,7 +23,6 @@ pub fn combine<'a>(
 	}
 	let mut packaged_paths: Vec<String> = Vec::new();
 	let mut modules_implemented: HashMap<IdTableKey, &ModuleImplementation> = HashMap::new();
-	let mut generic_modules: HashMap<IdTableKey, &ModuleImplementation> = HashMap::new();
 
 	for def in &ast.definitions {
 		use crate::parser::ast::TopDefinition::*;

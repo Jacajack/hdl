@@ -1,12 +1,14 @@
 use std::collections::HashMap;
 
+use hirn::design::Evaluates;
+
 use crate::{
 	analyzer::{
-		module_implementation_scope::ExpressionEntryId, SemanticError, SignalSensitivity, SignalSignedness, SignalType, LocalAnalyzerContext,
+		module_implementation_scope::ExpressionEntryId, SemanticError, SignalSensitivity, SignalSignedness, SignalType, LocalAnalyzerContext, AdditionalContext,
 	},
-	core::CompilerDiagnosticBuilder,
+	core::{CompilerDiagnosticBuilder, NumericConstant},
 	lexer::IdTable,
-	parser::ast::SourceLocation,
+	parser::ast::{SourceLocation, Res},
 	ProvidesCompilerDiagnostic,
 };
 
@@ -290,7 +292,27 @@ impl VariableKind {
 				let id = context.scope.add_expression(current_scope, *bus.width.clone());
 				bus.width.evaluate_type(global_ctx, current_scope, context, Signal::new_empty(), false, bus.width.get_location())?;
 				let width =  if context.are_we_in_true_branch() {
-					bus.width.evaluate(&global_ctx.nc_table, current_scope, &context.scope)?
+					let additional_ctx = AdditionalContext::new(
+						context.nc_widths.clone(),
+						context.ncs_to_be_exted.clone(),
+						context.array_or_bus.clone(),
+						context.casts.clone(),
+					);
+					let w = bus.width.eval_with_hirn(global_ctx, current_scope, &context.scope, Some(&additional_ctx));
+					match w{
+    				    Ok(val) => {
+							log::debug!("Bus width: {:?}", val);
+							let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
+							let val_val = val.eval(&ctx).unwrap();
+							Some(NumericConstant::from_hirn_numeric_constant(val_val))
+						},
+    				    Err(res) => {
+							match res{
+								Res::Err(err) => return Err(err),
+								Res::GenericValue => None,
+							}
+						},
+    				}
 				} else{
 					None
 				};
@@ -298,6 +320,7 @@ impl VariableKind {
 				let w = match &width {
 					Some(val) => {
 						if val.value <= num_bigint::BigInt::from(0) {
+							log::debug!("Negative bus width: {:?}", val);
 							return Err(miette::Report::new(
 								SemanticError::NegativeBusWidth
 									.to_diagnostic_builder()

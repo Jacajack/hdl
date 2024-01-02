@@ -81,7 +81,7 @@ fn main() -> miette::Result<()> {
 		//.group(ArgGroup::new("mode_or_clean").args(["MODE", "clean"]).required(false))
 		.get_matches();
 
-	let mut mode = match matches.get_one::<String>("MODE") {
+	let mode = match matches.get_one::<String>("MODE") {
 		None => "elaborate",
 		Some(x) => x,
 	};

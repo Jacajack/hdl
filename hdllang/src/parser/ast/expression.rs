@@ -13,7 +13,8 @@ mod ternary_expression;
 mod tuple;
 mod unary_cast_expression;
 mod unary_operator_expression;
-
+mod expr_eval;
+pub use expr_eval::Res;
 use crate::analyzer::module_implementation_scope::InternalVariableId;
 use crate::analyzer::{
 	AdditionalContext, AlreadyCreated, BusWidth, EdgeSensitivity, GlobalAnalyzerContext, LocalAnalyzerContext,
@@ -48,6 +49,7 @@ pub use ternary_expression::TernaryExpression;
 pub use tuple::Tuple;
 pub use unary_cast_expression::UnaryCastExpression;
 pub use unary_operator_expression::UnaryOperatorExpression;
+
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Hash)]
 pub enum Expression {
 	Number(Number),
@@ -2491,10 +2493,14 @@ impl Expression {
 						}
 						arg_type.set_width(
 							BusWidth::Evaluated(NumericConstant::new_from_value(1.into())),
-							arg_type.get_signedness(),
+							SignalSignedness::Unsigned(self.get_location()),
 							location,
 						);
-						Ok(arg_type)
+						Ok(Signal::new_bus(
+							Some(BusWidth::Evaluated(NumericConstant::new_from_value(1.into()))),
+							SignalSignedness::Unsigned(self.get_location()),
+							location,
+						))
 					},
 					_ => Err(miette::Report::new(
 						SemanticError::UnknownBuiltInFunction
@@ -3195,7 +3201,21 @@ fn report_not_allowed_expression(span: SourceSpan, expr_name: &str) -> miette::R
 			.build(),
 	))
 }
-
+fn report_not_allowed_expression_eval(span: SourceSpan, expr_name: &str) -> Result<hirn::design::Expression, Res> {
+	Err(Res::Err(miette::Report::new(
+		SemanticError::ExpressionNotAllowedInNonGenericModuleDeclaration
+			.to_diagnostic_builder()
+			.label(
+				span,
+				format!(
+					"This {} expression is not allowed in non-generic module declaration",
+					expr_name
+				)
+				.as_str(),
+			)
+			.build(),
+	)))
+}
 fn report_unknown_width(span: SourceSpan) -> miette::Result<Signal> {
 	Err(miette::Report::new(
 		SemanticError::WidthNotKnown

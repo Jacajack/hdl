@@ -161,7 +161,7 @@ impl NumericConstant {
 		}
 	}
 
-	fn to_bigint(&self) -> Result<BigInt, EvalError> {
+	pub fn to_bigint(&self) -> Result<BigInt, EvalError> {
 		if self.signedness()? == SignalSignedness::Unsigned {
 			Ok(BigInt::from_biguint(num_bigint::Sign::Plus, self.value.clone()))
 		}
@@ -176,7 +176,7 @@ impl NumericConstant {
 		}
 	}
 
-	fn to_biguint(&self) -> Result<&BigUint, EvalError> {
+	pub fn to_biguint(&self) -> Result<&BigUint, EvalError> {
 		match &self.error {
 			Some(e) => Err(e.clone()),
 			None => Ok(&self.value),

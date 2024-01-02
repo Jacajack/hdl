@@ -34,6 +34,18 @@ impl NumericConstant {
 		assert!(num.consistency_check());
 		num
 	}
+	pub fn from_hirn_numeric_constant(nc : hirn::design::NumericConstant) -> Self{
+		let signed = nc.signedness().unwrap().is_signed();
+		let width  = nc.width().unwrap() as u32;
+		let base = None;
+		let value = nc.to_bigint().unwrap();
+		Self{
+			value,
+			width: Some(width),
+			signed: Some(signed),
+			base,
+		}
+	}
 	pub fn new_from_value(value: BigInt) -> Self {
 		let num = Self {
 			value,

@@ -536,10 +536,6 @@ impl ModuleImplementationScope {
 			);
 		}
 	}
-	pub fn register_variable(&mut self, id: InternalVariableId, scope: &mut ScopeHandle) {
-		let var = self.variables.get(&id).unwrap();
-		todo!("Registering variable {:?}", var);
-	}
 	pub fn is_already_registered(&self, id: InternalVariableId) -> bool {
 		self.api_ids.contains_left(&id)
 	}

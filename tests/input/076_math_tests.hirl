@@ -11,36 +11,36 @@ module math_tests {
 impl math_tests {
 	// we need macros for that really...
 	const ubus<(1u1 + 1u1 == 2u2 ? X : Y)> a_1;
-	// const ubus<(1u8 - 2u8 == 511u9 ? X : Y)> a_2; // FIXME
+	const ubus<(1u8 - 2u8 == 511u9 ? X : Y)> a_2;
 	const ubus<(1u8 - 1u8 == 0u9 ? X : Y)> a_3;
 	const ubus<(1u8 * 1u8 == 1u16 ? X : Y)> a_4;
 	const ubus<(1u8 / 1u8 == 1u8 ? X : Y)> a_5;
-	// const ubus<(1u8 % 1u8 == 0u8 ? X : Y)> a_5; // FIXME
-	// const ubus<(zext(1u1) | 3u17 == 3u17 ? X : Y)> a_6; // FIXME
+	const ubus<(1u8 % 1u8 == 0u8 ? X : Y)> a_5b;
+	const ubus<(3u17 | zext(1u1) == 3u17 ? X : Y)> a_6;
 	const ubus<(0b1010 & 0b1100 == 0b1000 ? X : Y)> a_7;
 	const ubus<(0b1010 | 0b1100 == 0b1110 ? X : Y)> a_8;
 	const ubus<(0b1010 ^ 0b1100 == 0b0110 ? X : Y)> a_9;
 	const ubus<(4s8 - 7s8 == -3s9 ? X : Y)> a_10;
-	// const ubus<(4s8 - 128s8 == -124s9 ? X : Y)> a_11; // FIXME
-	// const ubus<(sext(-1s1) | 0u16 == 0xffffs ? X : Y)> a_12; // FIXME
-	// const ubus<(5u3[0u1]== 0b1 ? X : Y)> a_13; // FIXME
-	// const ubus<(5u3[1u1]== 0b0 ? X : Y)> a_14; // FIXME
-	// const ubus<(7u8[1u1+:4s4]== 3u4 ? X : Y)> a_15; // FIXME
-	// const ubus<(rep(0b01, 2u8) == 5u4 ? X : Y)> a_16; // FIXME
-	// const ubus<(join(0b01, 2u8) == 258u10 ? X : Y)> a_17; // FIXME
+	const ubus<(4s8 - 127s8 == -123s9 ? X : Y)> a_11;
+	const ubus<(0s16 | sext(-1s2) == 0xffffs ? X : Y)> a_12;
+	const ubus<(5u3[0u1]== 0b1 ? X : Y)> a_13;
+	const ubus<(5u3[1u1]== 0b0 ? X : Y)> a_14;
+	const ubus<(7u8[1u1+:4u4]== 3u4 ? X : Y)> a_15;
+	const ubus<(rep(0b01, 2u8) == 5u4 ? X : Y)> a_16;
+	const ubus<(join(0b01, 2u8) == 258u10 ? X : Y)> a_17;
 	const ubus<(!0u1 == 1u1 ? X : Y)> a_18; 
 	const ubus<(!1u1 == 0u1 ? X : Y)> a_19; 
-	// const ubus<(fold_or(0b0000) == 0u1 ? X : Y)> a_20; // FIXME 
-	// const ubus<(fold_or(0b0100) == 1u1 ? X : Y)> a_21; // FIXME
-	// const ubus<(fold_xor(0b0100) == 1u1 ? X : Y)> a_22; // FIXME
-	// const ubus<(fold_xor(0b0110) == 0u1 ? X : Y)> a_23; // FIXME
-	// const ubus<(fold_xor(0b1110) == 1u1 ? X : Y)> a_24; // FIXME
-	// const ubus<(fold_xor(0b1110s) == 1u1 ? X : Y)> a_25; // FIXME
-	// const ubus<(fold_and(0b1110s) == 0u1 ? X : Y)> a_26; // FIXME
-	// const ubus<(fold_and(0b1111s) == 1u1 ? X : Y)> a_27; // FIXME
-	// const ubus<(max(5u8, 6u8) == 6u8 ? X : Y)> a_28; // FIXME
-	// const ubus<(min(5u8, 6u8) == 5u8 ? X : Y)> a_29; // FIXME
-	// const ubus<(min(255u8, 6u8) == 6u8 ? X : Y)> a_30; // FIXME
+	const ubus<(fold_or(0b0000) == 0u1 ? X : Y)> a_20;
+	const ubus<(fold_or(0b0100) == 1u1 ? X : Y)> a_21;
+	const ubus<(fold_xor(0b0100) == 1u1 ? X : Y)> a_22;
+	const ubus<(fold_xor(0b0110) == 0u1 ? X : Y)> a_23;
+	const ubus<(fold_xor(0b1110) == 1u1 ? X : Y)> a_24;
+	//const ubus<(fold_xor(0b1110s) == 1u1)> a_25; // FIXME @Jacajack
+	//const ubus<(fold_and(0b1110s) == 0u1 ? X : Y)> a_26; // FIXME
+	//const ubus<(fold_and(0b1111s) == 1u1 ? X : Y)> a_27; // FIXME
+	//const ubus<(max(5u8, 6u8) == 6u8 ? X : Y)> a_28; // FIXME
+	//const ubus<(min(5u8, 6u8) == 5u8 ? X : Y)> a_29; // FIXME
+	//const ubus<(min(255u8, 6u8) == 6u8 ? X : Y)> a_30; // FIXME
 	// const ubus<(min(-128s8, 127s8) == -128s8 ? X : Y)> a_31; // FIXME
 	// const ubus<(max(-128s8, 127s8) == 127s8 ? X : Y)> a_32; // FIXME
 	const ubus<(4u3 != 5u16 ? X : Y)> a_33;
@@ -60,12 +60,12 @@ impl math_tests {
 	const ubus<((true && false) == false ? X : Y)> a_47;
 	const ubus<((false && false) == false ? X : Y)> a_48;
 	const ubus<((false && true) == false ? X : Y)> a_49;
-	// const ubus<(1247u16 % 1u16 == 0u16 ? X : Y)> a_50; // FIXME
-	// const ubus<(1247u16 % 1247u16 == 0u16 ? X : Y)> a_51; // FIXME
-	// const ubus<(-5s16 % -3s16 == -2s16 ? X : Y)> a_52; // FIXME
-	// const ubus<(-5s16 % 3s16 == -2s16 ? X : Y)> a_53; // FIXME
-	// const ubus<(35s16 % 17s16 == 1s16 ? X : Y)> a_54; // FIXME
-	// const ubus<(560s16 % 33s16 == 32s16 ? X : Y)> a_55; // FIXME
+	const ubus<(1247u16 % 1u16 == 0u16 ? X : Y)> a_50;
+	const ubus<(1247u16 % 1247u16 == 0u16 ? X : Y)> a_51;
+	const ubus<(-5s16 % -3s16 == -2s16 ? X : Y)> a_52;
+	const ubus<(-5s16 % 3s16 == -2s16 ? X : Y)> a_53;
+	const ubus<(35s16 % 17s16 == 1s16 ? X : Y)> a_54;
+	const ubus<(560s16 % 33s16 == 32s16 ? X : Y)> a_55;
 	const ubus<(1024s16 / 1s16 == 1024s16 ? X : Y)> a_56; 
 	const ubus<(1024s16 / 2s16 == 512s16 ? X : Y)> a_57; 
 	const ubus<(1024s16 / 1024s16 == 1s16 ? X : Y)> a_58; 
@@ -74,16 +74,16 @@ impl math_tests {
 	const ubus<(255s16 / 2s16 == 127s16 ? X : Y)> a_61;
 	const ubus<((0u1 ? 11u16 : 37u16) == 37u16 ? X : Y)> a_63;
 	const ubus<((1u1 ? 11u16 : 37u16) == 11u16 ? X : Y)> a_64;
-	// const ubus<(~255u8 == 0u8 ? X : Y)> a_65; // FIXME
-	// const ubus<(~0u8 == 255u8 ? X : Y)> a_66; // FIXME
+	const ubus<(~255u8 == 0u8 ? X : Y)> a_65;
+	const ubus<(~0u8 == 255u8 ? X : Y)> a_66;
 	const ubus<(~0s8 == -1s8 ? X : Y)> a_67;
 	const ubus<(~~0s8 == 0s8 ? X : Y)> a_68;
 	const ubus<(~~-1s8 == -1s8 ? X : Y)> a_69;
-	// const ubus<((1u1 << 8u8) == 0u8 ? X : Y)> a_70; // FIXME
+	const ubus<((1u1 << 8u8) == 0u8 ? X : Y)> a_70;
 	const ubus<((1u8 << 7u8) == 128u8 ? X : Y)> a_71;
 	const ubus<((1u8 << 0u8) == 1u8 ? X : Y)> a_72;
 	const ubus<((128u8 << 0u8) == 128u8 ? X : Y)> a_73;
-	// const ubus<((128u8 << 1u8) == 0u8 ? X : Y)> a_74; // FIXME
+	const ubus<((128u8 << 1u8) == 0u8 ? X : Y)> a_74;
 	const ubus<((128u8 >> 1u8) == 64u8 ? X : Y)> a_75;
 	const ubus<((128u8 >> 2u8) == 32u8 ? X : Y)> a_76;
 	const ubus<((128u8 >> 7u8) == 1u8 ? X : Y)> a_77;
@@ -91,7 +91,7 @@ impl math_tests {
 	const ubus<((128u8 >> 255u8) == 0u8 ? X : Y)> a_79;
 	const ubus<((-1s8 << 1u8) == -2s8 ? X : Y)> a_80;
 	const ubus<((-1s8 << 2u8) == -4s8 ? X : Y)> a_81;
-	// const ubus<((-1s8 << 8u8) == 0s8 ? X : Y)> a_82; // FIXME
+	const ubus<((-1s8 << 8u8) == 0s8 ? X : Y)> a_82;
 	const ubus<((0s8 >> 4u8) == 0s8 ? X : Y)> a_83;
 	const ubus<((64s8 >> 1u8) == 32s8 ? X : Y)> a_84;
 	const ubus<((64s8 >> 6u8) == 1s8 ? X : Y)> a_85;
@@ -100,70 +100,70 @@ impl math_tests {
 	const ubus<((-1s8 >> 255u8) == -1s8 ? X : Y)> a_88;
 	const ubus<((-4s8 >> 1u8) == -2s8 ? X : Y)> a_89;
 	const ubus<((-2s8 >> 1u8) == -1s8 ? X : Y)> a_90;
-	// const ubus<((1s8 << 7u8) == -1s8 ? X : Y)> a_91; // FIXME
+	//const ubus<((1s8 << 7u8) == -1s8)> a_91; // FIXME
 	const ubus<(-1s8 == -1s8 ? X : Y)> a_92;
 	const ubus<(--1s8 == 1s8 ? X : Y)> a_93;
 	const ubus<(~-1s8 == 0s8 ? X : Y)> a_94;
 	const ubus<(-~1s8 == 2s8 ? X : Y)> a_95;
-	// const ubus<(-1s8 & 0x7f == 127s8 ? X : Y)> a_96; // FIXME MixedSignedness
+	const ubus<(-1s8 & 0x7fs == 127s8 ? X : Y)> a_96;
 	const ubus<(-1s8 & 0x7fs == 127s8 ? X : Y)> a_97;
 	const ubus<(127s8 | 0x80s == -1s8 ? X : Y)> a_98;
 	const ubus<(~0u8 & 0xff == 255u8 ? X : Y)> a_99;
-	// const ubus<(~0u8 == 255u8 ? X : Y)> a_100; // FIXME
+	const ubus<(~0u8 == 255u8 ? X : Y)> a_100;
 
 
-	// FIXME
-	// const ubus<((
-	// 	cond {
-	// 		0u1 => 0u647,
-	// 		1u1 => 134u647,
-	// 		0u1 => 11u647,
-	// 		default => 37u647,
-	// 	} == 134u647
-	// ) ? X : Y)> b_000;
 
-	// FIXME
-	// const ubus<((
-	// 	cond {
-	// 		0u1 => 0u647,
-	// 		0u1 => 134u647,
-	// 		0u1 => 11u647,
-	// 		default => 37u647,
-	// 	} == 37u647
-	// ) ? X : Y)> b_001;
+	const ubus<((
+		cond {
+			0u1 => 0u647,
+			1u1 => 134u647,
+			0u1 => 11u647,
+			default => 37u647,
+		} == 134u647
+	) ? X : Y)> b_000;
 
-	// FIXME
-	// const ubus<((
-	// 	match (1s4) {
-	// 		-1s4 => -1s4,
-	// 		0s4 => 0s4,
-	// 		1s4 => 1s4,
-	// 		2s4 => 2s4,
-	// 		default => 3s4,
-	// 	} == 1s4
-	// ) ? X : Y)> b_002;
 
-	// FIXME
-	// const ubus<((
-	// 	match (-1s4) {
-	// 		-1s4 => -1s4,
-	// 		0s4 => 0s4,
-	// 		1s4 => 1s4,
-	// 		2s4 => 2s4,
-	// 		default => 3s4,
-	// 	} == -1s4
-	// ) ? X : Y)> b_003;
+	const ubus<((
+		cond {
+			0u1 => 0u647,
+			0u1 => 134u647,
+			0u1 => 11u647,
+			default => 37u647,
+		} == 37u647
+	) ? X : Y)> b_001;
 
-	// FIXME
-	// const ubus<((
-	// 	match (5s4) {
-	// 		-1s4 => -1s4,
-	// 		0s4 => 0s4,
-	// 		1s4 => 1s4,
-	// 		2s4 => 2s4,
-	// 		default => 3s4,
-	// 	} == 3s4
-	// ) ? X : Y)> b_004;
+
+	const ubus<((
+		match (1s4) {
+			-1s4 => -1s4,
+			0s4 => 0s4,
+			1s4 => 1s4,
+			2s4 => 2s4,
+			default => 3s4,
+		} == 1s4
+	) ? X : Y)> b_002;
+
+
+	const ubus<((
+		match (-1s4) {
+			-1s4 => -1s4,
+			0s4 => 0s4,
+			1s4 => 1s4,
+			2s4 => 2s4,
+			default => 3s4,
+		} == -1s4
+	) ? X : Y)> b_003;
+
+
+	const ubus<((
+		match (5s4) {
+			-1s4 => -1s4,
+			0s4 => 0s4,
+			1s4 => 1s4,
+			2s4 => 2s4,
+			default => 3s4,
+		} == 3s4
+	) ? X : Y)> b_004;
 
 	// Just a random thought - what is: -1s1 / -1s1?
 	// it's the same ugly case as -(-1s1) but with division now
