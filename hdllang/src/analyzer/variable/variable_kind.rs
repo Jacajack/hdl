@@ -4,7 +4,7 @@ use hirn::design::Evaluates;
 
 use crate::{
 	analyzer::{
-		module_implementation_scope::ExpressionEntryId, SemanticError, SignalSensitivity, SignalSignedness, SignalType, LocalAnalyzerContext, AdditionalContext,
+		module_implementation_scope::ExpressionEntryId, SemanticError, SignalSensitivity, SignalSignedness, SignalType, LocalAnalyzerContext, AdditionalContext, GlobalAnalyzerContext,
 	},
 	core::{CompilerDiagnosticBuilder, NumericConstant},
 	lexer::IdTable,
@@ -40,10 +40,9 @@ impl VariableKind {
 	}
 	pub fn evaluate_bus_width(
 		&mut self,
+		global_ctx: &GlobalAnalyzerContext,
 		scope: &ModuleImplementationScope,
-		id_table: &IdTable,
-		nc_table: &crate::lexer::NumericConstantTable,
-		ids: &HashMap<ExpressionEntryId, ExpressionEntryId>,
+		additional_ctx: Option<&AdditionalContext>,
 	) -> miette::Result<()> {
 		use VariableKind::*;
 		match self {
@@ -52,14 +51,14 @@ impl VariableKind {
 				match &mut sig.signal_type {
 					Bus(bus) => match &mut bus.width {
 						Some(b) => {
-							b.eval(nc_table, id_table, scope, ids)?;
+							b.eval(global_ctx, scope, additional_ctx)?;
 						},
 						None => (),
 					},
 					_ => (),
 				}
 				for dim in &mut sig.dimensions {
-					dim.eval(nc_table, id_table, scope, ids)?;
+					dim.eval(global_ctx, scope, additional_ctx)?;
 				}
 			},
 			_ => unreachable!(),

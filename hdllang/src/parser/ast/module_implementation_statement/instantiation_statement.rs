@@ -38,6 +38,12 @@ impl InstantiationStatement {
 	) -> miette::Result<()> {
 		use log::*;
 		let name = self.module_name.get_last_module();
+		let additional_ctx = AdditionalContext::new(
+			local_ctx.nc_widths.clone(),
+			local_ctx.ncs_to_be_exted.clone(),
+			local_ctx.array_or_bus.clone(),
+			local_ctx.casts.clone(),
+		);
 		match local_ctx.scope.is_declared(scope_id, &self.instance_name) {
 			Some(location) => {
 				return Err(miette::Report::new(
@@ -217,12 +223,7 @@ impl InstantiationStatement {
 				IdWithExpression(id_expr) => {
 					debug!("Id with expression");
 					expressions_to_translate.insert(id_expr.id, id_expr.expression.clone());
-					let additional_ctx = AdditionalContext::new(
-						local_ctx.nc_widths.clone(),
-						local_ctx.ncs_to_be_exted.clone(),
-						local_ctx.array_or_bus.clone(),
-						local_ctx.casts.clone(),
-					);
+					
 					let eval= id_expr.expression.eval_with_hirn(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx));
 					let new_sig = match eval{
 						Ok(expr) => {
@@ -315,7 +316,7 @@ impl InstantiationStatement {
 			interface_variable
 				.var
 				.kind
-				.evaluate_bus_width(&scope, &ctx.id_table, &ctx.nc_table, &ids_map)?;
+				.evaluate_bus_width(ctx, &scope, Some(&additional_ctx))?;
 			scope.redeclare_variable(interface_variable.clone());
 			interface_variable
 				.var
@@ -394,7 +395,7 @@ impl InstantiationStatement {
 			interface_variable
 				.var
 				.kind
-				.evaluate_bus_width(&scope, &ctx.id_table, &ctx.nc_table, &ids_map)?;
+				.evaluate_bus_width(ctx, &scope, Some(&additional_ctx))?; // FIXME
 			scope.redeclare_variable(interface_variable.clone());
 			interface_variable
 				.var

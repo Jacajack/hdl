@@ -29,7 +29,7 @@ use crate::parser::ast::{
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 pub use binary_expression::BinaryExpression;
 pub use conditional_expression::ConditionalExpression;
-use hirn::design::SignalSlice;
+use hirn::design::{SignalSlice, Evaluates};
 pub use identifier::Identifier;
 use log::debug;
 pub use match_expression::MatchExpression;
@@ -1970,11 +1970,13 @@ impl Expression {
 				use SignalType::*;
 				match &expr.signal_type {
 					Bus(bus) => {
-						let begin: Option<NumericConstant> =
-							range
-								.range
-								.lhs
-								.evaluate(&global_ctx.nc_table, scope_id, &local_ctx.scope)?;
+						let additional_ctx = AdditionalContext::new(
+							local_ctx.nc_widths.clone(),
+							local_ctx.ncs_to_be_exted.clone(),
+							local_ctx.array_or_bus.clone(),
+							local_ctx.casts.clone(),
+						);
+						
 						let mut begin_type = range.range.lhs.evaluate_type(
 							global_ctx,
 							scope_id,
@@ -2025,10 +2027,46 @@ impl Expression {
 						else {
 							local_ctx.scope.ext_signedness.insert(self.get_location(), true);
 						}
-						let mut end = range
+						let begin: Option<NumericConstant> = if local_ctx.are_we_in_true_branch() {
+							let val = range
 							.range
-							.rhs
-							.evaluate(&global_ctx.nc_table, scope_id, &local_ctx.scope)?;
+							.lhs.eval_with_hirn(global_ctx, scope_id, &local_ctx.scope, Some(&additional_ctx));
+							match val{
+								Ok(expr) => {
+									let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
+									let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
+									Some(NumericConstant::from_hirn_numeric_constant(val))
+								},
+								Err(res) => {
+									match res{
+										Res::Err(err) => return Err(err),
+										Res::GenericValue => None,
+									}
+								},
+							}
+						} else{
+							None
+						};
+						let mut end = if local_ctx.are_we_in_true_branch() {
+							let val = range
+							.range
+							.rhs.eval_with_hirn(global_ctx, scope_id, &local_ctx.scope, Some(&additional_ctx));
+							match val{
+								Ok(expr) => {
+									let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
+									let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
+									Some(NumericConstant::from_hirn_numeric_constant(val))
+								},
+								Err(res) => {
+									match res{
+										Res::Err(err) => return Err(err),
+										Res::GenericValue => None,
+									}
+								},
+							}
+						} else{
+							None
+						};
 						use crate::parser::ast::RangeOpcode::*;
 						match range.range.code {
 							Colon => (),

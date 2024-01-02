@@ -5,7 +5,7 @@ mod signal_sensitivity;
 mod signal_signedness;
 mod variable_kind;
 
-use crate::{analyzer::module_implementation_scope::ExpressionEntryId, core::CommentTableKey};
+use crate::{analyzer::module_implementation_scope::ExpressionEntryId, core::CommentTableKey, parser::ast::Res};
 use core::panic;
 pub use direction::*;
 pub use module_instance::*;
@@ -15,7 +15,7 @@ pub use signal_signedness::*;
 use std::{collections::HashMap, hash::Hash};
 pub use variable_kind::*;
 
-use hirn::design::{Expression, NumericConstant, SignalBuilder, SignalId};
+use hirn::design::{Expression, NumericConstant, SignalBuilder, SignalId, Evaluates};
 use log::debug;
 use num_bigint::BigInt;
 
@@ -291,10 +291,9 @@ impl BusWidth {
 	}
 	pub fn eval(
 		&mut self,
-		nc_table: &crate::core::NumericConstantTable,
-		id_table: &id_table::IdTable,
+		global_ctx: &GlobalAnalyzerContext,
 		scope: &ModuleImplementationScope,
-		ids: &HashMap<ExpressionEntryId, ExpressionEntryId>,
+		additional_ctx: Option<&AdditionalContext>,
 	) -> miette::Result<()> {
 		use BusWidth::*;
 		match self {
@@ -302,7 +301,22 @@ impl BusWidth {
 			EvaluatedLocated(..) => (),
 			Evaluable(location) => {
 				let expr_ast = scope.get_expression(*location);
-				let expr = expr_ast.expression.evaluate(nc_table, expr_ast.scope_id, scope)?;
+				let expr = {
+					let val = expr_ast.expression.eval_with_hirn(global_ctx, expr_ast.scope_id, scope, additional_ctx);
+					match val{
+						Ok(expr) => {
+							let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
+							let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
+							Some(crate::core::NumericConstant::from_hirn_numeric_constant(val))
+						},
+						Err(res) => {
+							match res{
+								Res::Err(err) => return Err(err),
+								Res::GenericValue => None,
+							}
+						},
+					}
+				};
 				match expr {
 					Some(expr) => {
 						*self = EvaluatedLocated(expr, *location);
