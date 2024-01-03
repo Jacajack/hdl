@@ -110,8 +110,10 @@ impl math_tests {
 	const ubus<(127s8 | 0x80s == -1s8 ? X : Y)> a_98;
 	const ubus<(~0u8 & 0xff == 255u8 ? X : Y)> a_99;
 	const ubus<(~0u8 == 255u8 ? X : Y)> a_100;
-
-
+	// FIXME CODEGEN const ubus<(zeros(12) == 0u12 ? X : Y)> a_101;
+	// FIXME CODEGEN const ubus<(ones(12) == 0xfff ? X : Y)> a_102;
+	// FIXME CODEGEN const ubus<(rep(1u1,10) == 0b1111111111u ? X : Y)> a103;
+	// FIXME CODEGEN const ubus<(join(1u1, 1u1) == 0b11u ? X : Y)> a104;
 
 	const ubus<((
 		cond {
