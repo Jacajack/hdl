@@ -2,7 +2,9 @@ use super::{
 	eval::EvalAssumptions, BinaryExpression, BuiltinOp, CastExpression, ConditionalExpression, EvalError, EvalType,
 	EvaluatesType, NumericConstant, UnaryExpression,
 };
-use crate::design::{BinaryOp, Expression, HasSensitivity, SignalId, SignalSensitivity, SignalSignedness, SignalSlice, UnaryOp};
+use crate::design::{
+	BinaryOp, Expression, HasSensitivity, SignalId, SignalSensitivity, SignalSignedness, SignalSlice, UnaryOp,
+};
 
 impl EvaluatesType for NumericConstant {
 	fn eval_type(&self, _ctx: &dyn EvalAssumptions) -> Result<EvalType, EvalError> {
@@ -122,12 +124,14 @@ impl EvaluatesType for UnaryExpression {
 		};
 
 		let signedness = match self.op {
-			LogicalNot | ReductionAnd | ReductionOr | ReductionXor 
-				=> SignalSignedness::Unsigned,
+			LogicalNot | ReductionAnd | ReductionOr | ReductionXor => SignalSignedness::Unsigned,
 			_ => op_type.signedness,
 		};
 
-		Ok(EvalType {signedness, sensitivity})
+		Ok(EvalType {
+			signedness,
+			sensitivity,
+		})
 	}
 }
 
