@@ -1,4 +1,4 @@
-use hirn::design::{ModuleHandle, Evaluates};
+use hirn::design::{Evaluates, ModuleHandle};
 
 use crate::analyzer::*;
 use crate::core::NumericConstant;
@@ -91,11 +91,9 @@ impl VariableDeclarationStatement {
 						}
 						dimensions.push(BusWidth::EvaluatedLocated(value, id));
 					},
-					Err(res) => {
-						match res{
-    					    crate::parser::ast::Res::Err(err) => return Err(err),
-    					    crate::parser::ast::Res::GenericValue => dimensions.push(BusWidth::Evaluable(id)),
-    					}
+					Err(res) => match res {
+						crate::parser::ast::Res::Err(err) => return Err(err),
+						crate::parser::ast::Res::GenericValue => dimensions.push(BusWidth::Evaluable(id)),
 					},
 				}
 			}

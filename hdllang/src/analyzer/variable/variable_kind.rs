@@ -4,10 +4,11 @@ use hirn::design::Evaluates;
 
 use crate::{
 	analyzer::{
-		module_implementation_scope::ExpressionEntryId, SemanticError, SignalSensitivity, SignalSignedness, SignalType, LocalAnalyzerContext, AdditionalContext, GlobalAnalyzerContext,
+		module_implementation_scope::ExpressionEntryId, AdditionalContext, GlobalAnalyzerContext, LocalAnalyzerContext,
+		SemanticError, SignalSensitivity, SignalSignedness, SignalType,
 	},
 	core::{CompilerDiagnosticBuilder, NumericConstant},
-	parser::ast::{SourceLocation, Res},
+	parser::ast::{Res, SourceLocation},
 	ProvidesCompilerDiagnostic,
 };
 
@@ -288,30 +289,38 @@ impl VariableKind {
 					));
 				}
 				let id = context.scope.add_expression(current_scope, *bus.width.clone());
-				bus.width.evaluate_type(global_ctx, current_scope, context, Signal::new_empty(), false, bus.width.get_location())?;
-				let width =  if context.are_we_in_true_branch() {
+				bus.width.evaluate_type(
+					global_ctx,
+					current_scope,
+					context,
+					Signal::new_empty(),
+					false,
+					bus.width.get_location(),
+				)?;
+				let width = if context.are_we_in_true_branch() {
 					let additional_ctx = AdditionalContext::new(
 						context.nc_widths.clone(),
 						context.ncs_to_be_exted.clone(),
 						context.array_or_bus.clone(),
 						context.casts.clone(),
 					);
-					let w = bus.width.eval_with_hirn(global_ctx, current_scope, &context.scope, Some(&additional_ctx));
-					match w{
-    				    Ok(val) => {
+					let w = bus
+						.width
+						.eval_with_hirn(global_ctx, current_scope, &context.scope, Some(&additional_ctx));
+					match w {
+						Ok(val) => {
 							log::debug!("Bus width: {:?}", val);
 							let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
 							let val_val = val.eval(&ctx).unwrap();
 							Some(NumericConstant::from_hirn_numeric_constant(val_val))
 						},
-    				    Err(res) => {
-							match res{
-								Res::Err(err) => return Err(err),
-								Res::GenericValue => None,
-							}
+						Err(res) => match res {
+							Res::Err(err) => return Err(err),
+							Res::GenericValue => None,
 						},
-    				}
-				} else{
+					}
+				}
+				else {
 					None
 				};
 

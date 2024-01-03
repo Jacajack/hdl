@@ -220,8 +220,8 @@ impl InstantiationStatement {
 				IdWithExpression(id_expr) => {
 					debug!("Id with expression");
 					expressions_to_translate.insert(id_expr.id, id_expr.expression.clone());
-					
-					let new_sig= id_expr.expression.eval(ctx, scope_id, local_ctx)?;
+
+					let new_sig = id_expr.expression.eval(ctx, scope_id, local_ctx)?;
 					use VariableKind::*;
 					match &mut interface_variable.var.kind {
 						Generic(gen) => {

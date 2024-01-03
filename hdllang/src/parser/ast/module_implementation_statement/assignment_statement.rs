@@ -46,19 +46,22 @@ impl AssignmentStatement {
 				local_ctx.array_or_bus.clone(),
 				local_ctx.casts.clone(),
 			);
-			match self.rhs.eval_with_hirn(ctx, scope_id, &local_ctx.scope ,Some(&additional_ctx)) {
+			match self
+				.rhs
+				.eval_with_hirn(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx))
+			{
 				Ok(expr) => {
 					let ctx = hirn::design::EvalContext::without_assumptions(ctx.design.clone());
 					let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
-					self
-					.lhs
-					.assign(BusWidth::EvaluatedLocated(NumericConstant::from_hirn_numeric_constant(val), id), local_ctx, scope_id)
+					self.lhs.assign(
+						BusWidth::EvaluatedLocated(NumericConstant::from_hirn_numeric_constant(val), id),
+						local_ctx,
+						scope_id,
+					)
 				},
-				Err(res) => {
-					match res{
-        				Res::Err(err) => return Err(err),
-        				Res::GenericValue => self.lhs.assign(BusWidth::Evaluable(id), local_ctx, scope_id),
-    				}
+				Err(res) => match res {
+					Res::Err(err) => return Err(err),
+					Res::GenericValue => self.lhs.assign(BusWidth::Evaluable(id), local_ctx, scope_id),
 				},
 			}
 			.map_err(|e| e.label(self.location, "This self is invalid").build())?;
@@ -139,18 +142,12 @@ impl AssignmentStatement {
 			local_ctx.array_or_bus.clone(),
 			local_ctx.casts.clone(),
 		);
-		let lhs = self.lhs.codegen(
-			ctx,
-			scope_id,
-			&local_ctx.scope,
-			Some(&additional_ctx),
-		)?;
-		let rhs = self.rhs.codegen(
-			ctx,
-			scope_id,
-			&local_ctx.scope,
-			Some(&additional_ctx),
-		)?;
+		let lhs = self
+			.lhs
+			.codegen(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx))?;
+		let rhs = self
+			.rhs
+			.codegen(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx))?;
 		debug!("Codegen for assignment");
 		debug!("Lhs is {:?}", lhs);
 		debug!("Rhs is {:?}", rhs);

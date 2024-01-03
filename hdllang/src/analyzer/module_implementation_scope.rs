@@ -526,14 +526,7 @@ impl ModuleImplementationScope {
 		log::debug!("Registering all variables in scope {:?}", scope_id);
 		let variables = self.get_all_variables_declared_in_scope(scope_id);
 		for var in variables {
-			depedency_graph.register(
-				ctx,
-				additional_ctx,
-				self,
-				scope_id,
-				scope_handle,
-				var,
-			);
+			depedency_graph.register(ctx, additional_ctx, self, scope_id, scope_handle, var);
 		}
 	}
 	pub fn is_already_registered(&self, id: InternalVariableId) -> bool {

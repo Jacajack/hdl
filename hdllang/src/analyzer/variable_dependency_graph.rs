@@ -2,7 +2,6 @@ use bimap::BiHashMap;
 use hirn::design::ScopeHandle;
 use petgraph::prelude::DiGraph;
 
-
 use super::{
 	module_implementation_scope::{InternalVariableId, ModuleImplementationScope},
 	AdditionalContext, GlobalAnalyzerContext,
@@ -99,7 +98,10 @@ impl DependencyGraph {
 		if var.var.kind.is_module_instance() || var.is_iterated {
 			return;
 		}
-		log::debug!("Registering variable {}", ctx.id_table.get_by_key(&var.var.name).unwrap());
+		log::debug!(
+			"Registering variable {}",
+			ctx.id_table.get_by_key(&var.var.name).unwrap()
+		);
 		let entry = DependencyGraphEntry::new(id);
 		let index = self.get_index(entry);
 		let mut neigh = self
@@ -115,14 +117,7 @@ impl DependencyGraph {
 				continue;
 			}
 			else {
-				self.register(
-					ctx,
-					additional_ctx,
-					scope,
-					scope_id,
-					scope_handle,
-					dep.id(),
-				);
+				self.register(ctx, additional_ctx, scope, scope_id, scope_handle, dep.id());
 			}
 		}
 		if scope.is_already_registered(id) {
@@ -130,16 +125,7 @@ impl DependencyGraph {
 		}
 		let var = scope.get_variable_by_id(id).expect("Variable not found");
 		let builder = scope_handle.new_signal(&ctx.id_table.get_value(&var.var.name)).unwrap();
-		let api_id = var
-			.var
-			.register(
-				ctx,
-				scope_id,
-				scope,
-				additional_ctx,
-				builder,
-			)
-			.unwrap();
+		let api_id = var.var.register(ctx, scope_id, scope, additional_ctx, builder).unwrap();
 		scope.insert_api_id(id, api_id);
 		//scope.register_variable(id);
 	}

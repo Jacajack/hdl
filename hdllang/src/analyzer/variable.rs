@@ -15,14 +15,11 @@ pub use signal_signedness::*;
 use std::{collections::HashMap, hash::Hash};
 pub use variable_kind::*;
 
-use hirn::design::{Expression, NumericConstant, SignalBuilder, SignalId, Evaluates};
+use hirn::design::{Evaluates, Expression, NumericConstant, SignalBuilder, SignalId};
 use log::debug;
 use num_bigint::BigInt;
 
-use crate::{
-	lexer::IdTableKey,
-	SourceSpan,
-};
+use crate::{lexer::IdTableKey, SourceSpan};
 
 use super::{module_implementation_scope::InternalVariableId, *};
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -122,22 +119,16 @@ impl Variable {
 							},
 							EvaluatedLocated(_, location) => {
 								let expr_ast = scope.get_expression(*location);
-								expr_ast.expression.codegen(
-									global_ctx,
-									expr_ast.scope_id,
-									scope,
-									additional_ctx,
-								)?
+								expr_ast
+									.expression
+									.codegen(global_ctx, expr_ast.scope_id, scope, additional_ctx)?
 							},
 							Evaluable(location) => {
 								log::debug!("Looking for expression at {:?}", location);
 								let expr_ast = scope.get_expression(*location);
-								expr_ast.expression.codegen(
-									global_ctx,
-									expr_ast.scope_id,
-									scope,
-									additional_ctx,
-								)?
+								expr_ast
+									.expression
+									.codegen(global_ctx, expr_ast.scope_id, scope, additional_ctx)?
 							},
 							WidthOf(location) => {
 								let expr_ast = scope.get_expression(*location);
@@ -220,12 +211,10 @@ impl Variable {
 						},
 						WidthOf(location) => {
 							let expr_ast = scope.get_expression(*location);
-							let expr = expr_ast.expression.codegen(
-								global_ctx,
-								expr_ast.scope_id,
-								scope,
-								additional_ctx,
-							)?;
+							let expr =
+								expr_ast
+									.expression
+									.codegen(global_ctx, expr_ast.scope_id, scope, additional_ctx)?;
 							hirn::design::Expression::Builtin(hirn::design::BuiltinOp::Width(Box::new(expr)))
 						},
 					},
@@ -301,18 +290,18 @@ impl BusWidth {
 			Evaluable(location) => {
 				let expr_ast = scope.get_expression(*location);
 				let expr = {
-					let val = expr_ast.expression.eval_with_hirn(global_ctx, expr_ast.scope_id, scope, additional_ctx);
-					match val{
+					let val = expr_ast
+						.expression
+						.eval_with_hirn(global_ctx, expr_ast.scope_id, scope, additional_ctx);
+					match val {
 						Ok(expr) => {
 							let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
 							let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
 							Some(crate::core::NumericConstant::from_hirn_numeric_constant(val))
 						},
-						Err(res) => {
-							match res{
-								Res::Err(err) => return Err(err),
-								Res::GenericValue => None,
-							}
+						Err(res) => match res {
+							Res::Err(err) => return Err(err),
+							Res::GenericValue => None,
 						},
 					}
 				};
@@ -344,18 +333,18 @@ impl BusWidth {
 				let expr_ast = scope.get_expression(*location);
 				location.clone_from(ids.get(&location).unwrap());
 				let expr = {
-					let val = expr_ast.expression.eval_with_hirn(global_ctx, expr_ast.scope_id, scope, additional_ctx);
-					match val{
+					let val = expr_ast
+						.expression
+						.eval_with_hirn(global_ctx, expr_ast.scope_id, scope, additional_ctx);
+					match val {
 						Ok(expr) => {
 							let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
 							let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
 							Some(crate::core::NumericConstant::from_hirn_numeric_constant(val))
 						},
-						Err(res) => {
-							match res{
-								Res::Err(err) => return Err(err),
-								Res::GenericValue => None,
-							}
+						Err(res) => match res {
+							Res::Err(err) => return Err(err),
+							Res::GenericValue => None,
 						},
 					}
 				};

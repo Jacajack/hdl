@@ -40,22 +40,17 @@ fn compile(mut code: String, file_name: String, output: &mut dyn Write, elab: bo
 	};
 	let mut map: HashMap<String, String> = HashMap::new();
 	(root, ctx, code) = parse_file_recover_tables(code, ctx)?;
-	let global_ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext{
-	    id_table: ctx.id_table,
-	    nc_table: ctx.numeric_constants,
-	    comment_table: ctx.comment_table,
-	    modules_declared: HashMap::new(),
-	    generic_modules: HashMap::new(),
-	    design: hirn::design::DesignHandle::new(),
-	    diagnostic_buffer: crate::hdllang::core::DiagnosticBuffer::new(),
+	let global_ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext {
+		id_table: ctx.id_table,
+		nc_table: ctx.numeric_constants,
+		comment_table: ctx.comment_table,
+		modules_declared: HashMap::new(),
+		generic_modules: HashMap::new(),
+		design: hirn::design::DesignHandle::new(),
+		diagnostic_buffer: crate::hdllang::core::DiagnosticBuffer::new(),
 	};
-	let (_, global_ctx, modules) = crate::hdllang::analyzer::combine(
-		global_ctx,
-		&root,
-		String::from("."),
-		&mut map,
-	)
-	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
+	let (_, global_ctx, modules) = crate::hdllang::analyzer::combine(global_ctx, &root, String::from("."), &mut map)
+		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
 	let mut analyzer = hdllang::analyzer::SemanticalAnalyzer::new(global_ctx, &modules);
 
 	if elab {

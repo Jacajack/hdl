@@ -2,7 +2,7 @@ mod pretty_printable;
 
 use std::vec;
 
-use hirn::design::{ScopeHandle, Evaluates};
+use hirn::design::{Evaluates, ScopeHandle};
 use log::debug;
 
 use crate::analyzer::module_implementation_scope::InternalVariableId;
@@ -11,7 +11,7 @@ use crate::analyzer::{
 	SensitivityGraphEntry, Signal, Variable,
 };
 use crate::core::NumericConstant;
-use crate::parser::ast::{Expression, SourceLocation, VariableDeclaration, Res};
+use crate::parser::ast::{Expression, Res, SourceLocation, VariableDeclaration};
 use crate::ProvidesCompilerDiagnostic;
 use crate::{lexer::IdTableKey, SourceSpan};
 
@@ -188,22 +188,22 @@ impl PortBindStatement {
 				);
 				for array_declarator in direct_declarator.array_declarators.iter() {
 					let id = local_ctx.scope.add_expression(scope_id, array_declarator.clone());
-					let array_size =  if local_ctx.are_we_in_true_branch() {
-						let val = array_declarator.eval_with_hirn(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx));
-						match val{
+					let array_size = if local_ctx.are_we_in_true_branch() {
+						let val =
+							array_declarator.eval_with_hirn(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx));
+						match val {
 							Ok(expr) => {
 								let ctx = hirn::design::EvalContext::without_assumptions(ctx.design.clone());
 								let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
 								Some(NumericConstant::from_hirn_numeric_constant(val))
 							},
-							Err(res) => {
-								match res{
-									Res::Err(err) => return Err(err),
-									Res::GenericValue => None,
-								}
+							Err(res) => match res {
+								Res::Err(err) => return Err(err),
+								Res::GenericValue => None,
 							},
 						}
-					} else{
+					}
+					else {
 						None
 					};
 					match &array_size {

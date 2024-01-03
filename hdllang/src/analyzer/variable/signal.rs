@@ -131,7 +131,7 @@ impl Signal {
 					SignalType::Wire(*wire)
 				}
 				else {
-					if bus.width.clone().unwrap().get_value().is_some(){
+					if bus.width.clone().unwrap().get_value().is_some() {
 						debug!("Bus width is {:?}", bus.width.clone().unwrap().get_value().unwrap());
 						if bus.width.clone().unwrap().get_value().unwrap() != 1.into() {
 							return Err(miette::Report::new(

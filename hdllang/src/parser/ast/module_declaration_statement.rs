@@ -28,15 +28,10 @@ impl ModuleDeclarationStatement {
 	) -> miette::Result<()> {
 		use ModuleDeclarationStatement::*;
 		match self {
-			VariableDeclarationStatement(declaration) => declaration.create_variable_declaration(
-				already_created,
-				global_ctx,
-				context,
-				handle,
-			),
-			VariableBlock(block) => {
-				block.create_variable_declaration(already_created, global_ctx, context, handle)
+			VariableDeclarationStatement(declaration) => {
+				declaration.create_variable_declaration(already_created, global_ctx, context, handle)
 			},
+			VariableBlock(block) => block.create_variable_declaration(already_created, global_ctx, context, handle),
 		}
 	}
 }

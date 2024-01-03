@@ -27,9 +27,7 @@ pub fn combine<'a>(
 	for def in &ast.definitions {
 		use crate::parser::ast::TopDefinition::*;
 		match def {
-			ModuleDeclaration(declaration) => {
-				declaration.analyze(&mut ctx)?
-			},
+			ModuleDeclaration(declaration) => declaration.analyze(&mut ctx)?,
 			ModuleImplementation(implementation) => {
 				debug!(
 					"Found module impl for {:?}",

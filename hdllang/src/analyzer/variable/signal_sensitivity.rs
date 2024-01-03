@@ -396,7 +396,7 @@ mod tests {
 	fn ctx<'a>(
 		id_table: IdTable,
 		nc_table: NumericConstantTable,
-		comment_table:crate::lexer::CommentTable,
+		comment_table: crate::lexer::CommentTable,
 	) -> GlobalAnalyzerContext<'a> {
 		GlobalAnalyzerContext {
 			id_table,

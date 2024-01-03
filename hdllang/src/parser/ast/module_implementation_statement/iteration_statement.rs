@@ -33,10 +33,7 @@ impl IterationStatement {
 		let id = local_ctx.scope.new_scope(Some(scope_id));
 		let left = self.range.lhs.eval(ctx, scope_id, local_ctx)?;
 		let right = self.range.rhs.eval(ctx, scope_id, local_ctx)?;
-		match (
-			left,
-			right,
-		) {
+		match (left, right) {
 			(Some(lhs), Some(rhs)) => {
 				let mut initial_val = lhs.value;
 				let mut end_val = rhs.value;
@@ -126,18 +123,14 @@ impl IterationStatement {
 			local_ctx.array_or_bus.clone(),
 			local_ctx.casts.clone(),
 		);
-		let lhs = self.range.lhs.codegen(
-			ctx,
-			scope_id,
-			&local_ctx.scope,
-			Some(&additional_ctx),
-		)?;
-		let mut rhs = self.range.rhs.codegen(
-			ctx,
-			scope_id,
-			&local_ctx.scope,
-			Some(&additional_ctx),
-		)?;
+		let lhs = self
+			.range
+			.lhs
+			.codegen(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx))?;
+		let mut rhs = self
+			.range
+			.rhs
+			.codegen(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx))?;
 		use RangeOpcode::*;
 		match &self.range.code {
 			Colon => (),

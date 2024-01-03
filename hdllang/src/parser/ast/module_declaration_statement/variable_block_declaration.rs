@@ -23,12 +23,7 @@ impl ModuleDeclarationVariableBlock {
 	) -> miette::Result<()> {
 		already_created = analyze_qualifiers(&self.types, already_created, declaration_scope, 0, &global_ctx.id_table)?;
 		for statement in &self.statements {
-			statement.create_variable_declaration(
-				already_created.clone(),
-				global_ctx,
-				declaration_scope,
-				handle,
-			)?;
+			statement.create_variable_declaration(already_created.clone(), global_ctx, declaration_scope, handle)?;
 		}
 		Ok(())
 	}

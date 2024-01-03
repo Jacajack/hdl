@@ -1,4 +1,7 @@
-use crate::analyzer::{AlreadyCreated, ModuleDeclared, ModuleImplementationScope, SemanticError, LocalAnalyzerContext, GlobalAnalyzerContext};
+use crate::analyzer::{
+	AlreadyCreated, GlobalAnalyzerContext, LocalAnalyzerContext, ModuleDeclared, ModuleImplementationScope,
+	SemanticError,
+};
 use crate::core::{CommentTableKey, IdTableKey, SourceSpan};
 use crate::parser::ast::ModuleDeclarationStatement;
 use crate::ProvidesCompilerDiagnostic;
@@ -12,10 +15,7 @@ pub struct ModuleDeclaration {
 }
 
 impl ModuleDeclaration {
-	pub fn analyze(
-		&self,
-		ctx: &mut GlobalAnalyzerContext,
-	) -> miette::Result<()> {
+	pub fn analyze(&self, ctx: &mut GlobalAnalyzerContext) -> miette::Result<()> {
 		use log::*;
 
 		debug!(
@@ -31,7 +31,8 @@ impl ModuleDeclaration {
 					.build(),
 			));
 		}
-		let mut handle = ctx.design
+		let mut handle = ctx
+			.design
 			.new_module(ctx.id_table.get_by_key(&self.id).unwrap())
 			.unwrap();
 		if !self.metadata.is_empty() {
@@ -47,12 +48,7 @@ impl ModuleDeclaration {
 			ctx.id_table.get_by_key(&self.id).unwrap()
 		);
 		for statement in &self.statements {
-			statement.create_variable_declaration(
-				AlreadyCreated::new(),
-				ctx,
-				&mut local_ctx,
-				&mut handle,
-			)?;
+			statement.create_variable_declaration(AlreadyCreated::new(), ctx, &mut local_ctx, &mut handle)?;
 			if local_ctx.scope.is_generic() {
 				local_ctx.scope.transorm_to_generic();
 			}

@@ -65,12 +65,9 @@ impl IfElseStatement {
 			local_ctx.casts.clone(),
 		);
 
-		let condition_expr = self.condition.codegen(
-			ctx,
-			scope_id,
-			&local_ctx.scope,
-			Some(&additional_ctx),
-		)?;
+		let condition_expr = self
+			.condition
+			.codegen(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx))?;
 		log::debug!("Condition is {:?}", condition_expr);
 		match self.else_statement {
 			Some(ref else_stmt) => {

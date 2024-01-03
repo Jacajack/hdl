@@ -3,21 +3,29 @@ use std::cmp::max;
 use hirn::design::Evaluates;
 use num_bigint::BigInt;
 
-use crate::{analyzer::{GlobalAnalyzerContext, ModuleImplementationScope, AdditionalContext, SignalSignedness, SignalSensitivity, BusWidth, SemanticError, LocalAnalyzerContext}, parser::ast::{SourceLocation, RangeOpcode, MatchExpressionAntecendent}, ProvidesCompilerDiagnostic, core::NumericConstant, SourceSpan};
-use log::*;
 use super::Expression;
+use crate::{
+	analyzer::{
+		AdditionalContext, BusWidth, GlobalAnalyzerContext, LocalAnalyzerContext, ModuleImplementationScope,
+		SemanticError, SignalSensitivity, SignalSignedness,
+	},
+	core::NumericConstant,
+	parser::ast::{MatchExpressionAntecendent, RangeOpcode, SourceLocation},
+	ProvidesCompilerDiagnostic, SourceSpan,
+};
+use log::*;
 #[derive(Debug)]
-pub enum Res{
+pub enum Res {
 	Err(miette::Report),
 	GenericValue,
 }
-impl Expression{
+impl Expression {
 	pub fn eval(
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
 		scope_id: usize,
 		ctx: &Box<LocalAnalyzerContext>,
-	)->miette::Result<Option<NumericConstant>>{
+	) -> miette::Result<Option<NumericConstant>> {
 		let additional_ctx = AdditionalContext::new(
 			ctx.nc_widths.clone(),
 			ctx.ncs_to_be_exted.clone(),
@@ -25,20 +33,17 @@ impl Expression{
 			ctx.casts.clone(),
 		);
 		let expr = self.eval_with_hirn(global_ctx, scope_id, &ctx.scope, Some(&additional_ctx));
-		match expr{
-		    Ok(expression) => {
+		match expr {
+			Ok(expression) => {
 				let eval_ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
 				let res = expression.eval(&eval_ctx).unwrap(); // FIXME
 				Ok(Some(NumericConstant::from_hirn_numeric_constant(res)))
 			},
-		    Err(res) => {
-				match res{
-					Res::Err(report) => Err(report),
-					Res::GenericValue => Ok(None),
-				}
+			Err(res) => match res {
+				Res::Err(report) => Err(report),
+				Res::GenericValue => Ok(None),
 			},
 		}
-		
 	}
 	pub fn eval_with_hirn(
 		&self,
@@ -158,35 +163,35 @@ impl Expression{
 			Identifier(id) => {
 				let var = scope.get_variable(scope_id, &id.id).unwrap();
 				use crate::analyzer::VariableKind::*;
-				let nc = match &var.var.kind {
-					Signal(_) => 
-					 return Err(Res::Err(miette::Report::new(
-						SemanticError::NonGenericTypeVariableInExpression
-							.to_diagnostic_builder()
-							.label(
-								id.location,
-								"This variable is used in expression but its value its not known at compile time",
-							)
-							.build(),
-					))),
-					Generic(generic) => match &generic.value {
-						Some(val) => match val {
-							BusWidth::Evaluated(nc) |BusWidth::EvaluatedLocated(nc, _) => {
-								let mut new_nc = nc.clone();
-								match generic.signedness{
-									SignalSignedness::Signed(_) => new_nc.signed = Some(true),
-									SignalSignedness::Unsigned(_) => new_nc.signed = Some(false),
-									SignalSignedness::NoSignedness => (),
-								}
-								new_nc
+				let nc =
+					match &var.var.kind {
+						Signal(_) => return Err(Res::Err(miette::Report::new(
+							SemanticError::NonGenericTypeVariableInExpression
+								.to_diagnostic_builder()
+								.label(
+									id.location,
+									"This variable is used in expression but its value its not known at compile time",
+								)
+								.build(),
+						))),
+						Generic(generic) => match &generic.value {
+							Some(val) => match val {
+								BusWidth::Evaluated(nc) | BusWidth::EvaluatedLocated(nc, _) => {
+									let mut new_nc = nc.clone();
+									match generic.signedness {
+										SignalSignedness::Signed(_) => new_nc.signed = Some(true),
+										SignalSignedness::Unsigned(_) => new_nc.signed = Some(false),
+										SignalSignedness::NoSignedness => (),
+									}
+									new_nc
+								},
+								_ => return Err(Res::GenericValue),
 							},
-							_ => return Err(Res::GenericValue),
-						},
-						None => {
-							if let crate::analyzer::Direction::Input(_) = &generic.direction {
-								return Err(Res::GenericValue);
-							}
-							return Err(Res::Err(miette::Report::new(
+							None => {
+								if let crate::analyzer::Direction::Input(_) = &generic.direction {
+									return Err(Res::GenericValue);
+								}
+								return Err(Res::Err(miette::Report::new(
 							SemanticError::NonGenericTypeVariableInExpression
 								.to_diagnostic_builder()
 								.label(
@@ -195,10 +200,10 @@ impl Expression{
 								)
 								.build(),
 							)));
+							},
 						},
-					},
-					ModuleInstance(_) => unreachable!(),
-				};
+						ModuleInstance(_) => unreachable!(),
+					};
 				let signed = match nc.signed {
 					Some(val) => val,
 					None => true,
@@ -319,7 +324,8 @@ impl Expression{
 					if is_array {
 						let mut expr = ind
 							.expression
-							.get_slice(global_ctx, scope_id, scope, additional_ctx).unwrap();
+							.get_slice(global_ctx, scope_id, scope, additional_ctx)
+							.unwrap();
 						expr.indices.push(index);
 						return Ok(expr.into());
 					}
@@ -598,9 +604,7 @@ impl Expression{
 					_ => unreachable!(),
 				}
 			},
-			PostfixWithId(_) => {
-				report_not_allowed_expression_eval(self.get_location(), "PostfixWithId")
-			},
+			PostfixWithId(_) => report_not_allowed_expression_eval(self.get_location(), "PostfixWithId"),
 			UnaryOperatorExpression(unary) => {
 				use crate::parser::ast::UnaryOpcode::*;
 				let operand = unary
