@@ -382,7 +382,9 @@ impl SVExpressionCodegen {
 			},
 
 			Replicate { expr, count } => {
+				self.push_width_casts(true);
 				let expr_str = self.translate_expression_no_preprocess(expr)?;
+				self.pop_width_casts();
 				self.push_width_casts(false);
 				let count_str = self.translate_expression_try_eval(count)?;
 				self.pop_width_casts();
@@ -390,6 +392,7 @@ impl SVExpressionCodegen {
 			},
 
 			Join(exprs) => {
+				self.push_width_casts(true);
 				let mut str = "{ ".into();
 				for (index, expr) in exprs.iter().enumerate() {
 					str = format!(
@@ -399,6 +402,7 @@ impl SVExpressionCodegen {
 						if index == exprs.len() - 1 { "" } else { ", " }
 					);
 				}
+				self.pop_width_casts();
 				format!("{} }}", str)
 			},
 		})
