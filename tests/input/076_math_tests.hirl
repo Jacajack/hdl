@@ -16,18 +16,18 @@ impl math_tests {
 	const ubus<(1u8 * 1u8 == 1u16 ? X : Y)> a_4;
 	const ubus<(1u8 / 1u8 == 1u8 ? X : Y)> a_5;
 	const ubus<(1u8 % 1u8 == 0u8 ? X : Y)> a_5b;
-	//const ubus<(3u17 | zext(1u1) == 3u17 ? X : Y)> a_6; // FIXME CODEGEN @Jacajack
+	const ubus<(3u17 | zext(1u1) == 3u17 ? X : Y)> a_6;
 	const ubus<(0b1010 & 0b1100 == 0b1000 ? X : Y)> a_7;
 	const ubus<(0b1010 | 0b1100 == 0b1110 ? X : Y)> a_8;
 	const ubus<(0b1010 ^ 0b1100 == 0b0110 ? X : Y)> a_9;
 	const ubus<(4s8 - 7s8 == -3s9 ? X : Y)> a_10;
 	const ubus<(4s8 - 127s8 == -123s9 ? X : Y)> a_11;
-	//const ubus<(0s16 | sext(-1s2) == 0xffffs ? X : Y)> a_12; // FIXME CODEGEN @Jacajack
+	const ubus<(0s16 | sext(-1s2) == 0xffffs ? X : Y)> a_12;
 	const ubus<(5u3[0u1]== 0b1 ? X : Y)> a_13;
 	const ubus<(5u3[1u1]== 0b0 ? X : Y)> a_14;
 	const ubus<(7u8[1u1+:4u4]== 3u4 ? X : Y)> a_15;
-	//const ubus<(rep(0b01, 2u8) == 5u4 ? X : Y)> a_16;  // FIXME CODEGEN @Jacajack
-	//const ubus<(join(0b01, 2u8) == 258u10 ? X : Y)> a_17; // FIXME CODEGEN @Jacajack
+	const ubus<(rep(0b01, 2u8) == 5u4 ? X : Y)> a_16; 
+	const ubus<(join(0b01, 2u8) == 258u10 ? X : Y)> a_17;
 	const ubus<(!0u1 == 1u1 ? X : Y)> a_18; 
 	const ubus<(!1u1 == 0u1 ? X : Y)> a_19; 
 	const ubus<(fold_or(0b0000) == 0u1 ? X : Y)> a_20;
@@ -35,9 +35,9 @@ impl math_tests {
 	const ubus<(fold_xor(0b0100) == 1u1 ? X : Y)> a_22;
 	const ubus<(fold_xor(0b0110) == 0u1 ? X : Y)> a_23;
 	const ubus<(fold_xor(0b1110) == 1u1 ? X : Y)> a_24;
-	//const ubus<(fold_xor(0b1110s) == 1u1)> a_25; // FIXME @Jacajack
-	//const ubus<(fold_and(0b1110s) == 0u1 ? X : Y)> a_26; // FIXME
-	//const ubus<(fold_and(0b1111s) == 1u1 ? X : Y)> a_27; // FIXME
+	const ubus<(fold_xor(0b1110s) == 1u1)> a_25;
+	const ubus<(fold_and(0b1110s) == 0u1 ? X : Y)> a_26;
+	const ubus<(fold_and(0b1111s) == 1u1 ? X : Y)> a_27;
 	//const ubus<(max(5u8, 6u8) == 6u8 ? X : Y)> a_28; // FIXME
 	//const ubus<(min(5u8, 6u8) == 5u8 ? X : Y)> a_29; // FIXME
 	//const ubus<(min(255u8, 6u8) == 6u8 ? X : Y)> a_30; // FIXME
@@ -100,7 +100,7 @@ impl math_tests {
 	const ubus<((-1s8 >> 255u8) == -1s8 ? X : Y)> a_88;
 	const ubus<((-4s8 >> 1u8) == -2s8 ? X : Y)> a_89;
 	const ubus<((-2s8 >> 1u8) == -1s8 ? X : Y)> a_90;
-	//const ubus<((1s8 << 7u8) == -1s8)> a_91; // FIXME
+	//const ubus<((1s8 << 7u8) == -1s8)> a_91;
 	const ubus<(-1s8 == -1s8 ? X : Y)> a_92;
 	const ubus<(--1s8 == 1s8 ? X : Y)> a_93;
 	const ubus<(~-1s8 == 0s8 ? X : Y)> a_94;
@@ -110,10 +110,10 @@ impl math_tests {
 	const ubus<(127s8 | 0x80s == -1s8 ? X : Y)> a_98;
 	const ubus<(~0u8 & 0xff == 255u8 ? X : Y)> a_99;
 	const ubus<(~0u8 == 255u8 ? X : Y)> a_100;
-	// FIXME CODEGEN const ubus<(zeros(12) == 0u12 ? X : Y)> a_101;
-	// FIXME CODEGEN const ubus<(ones(12) == 0xfff ? X : Y)> a_102;
-	// FIXME CODEGEN const ubus<(rep(1u1,10) == 0b1111111111u ? X : Y)> a103;
-	// FIXME CODEGEN const ubus<(join(1u1, 1u1) == 0b11u ? X : Y)> a104;
+	const ubus<(zeros(12) == 0u12 ? X : Y)> a_101;
+	const ubus<(ones(12) == 0xfff ? X : Y)> a_102;
+	const ubus<(rep(1u1,10) == 0b1111111111u ? X : Y)> a103;
+	const ubus<(join(1u1, 1u1) == 0b11u ? X : Y)> a104;
 
 	const ubus<((
 		cond {
