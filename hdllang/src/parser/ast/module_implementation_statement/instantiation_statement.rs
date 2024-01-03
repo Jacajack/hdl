@@ -35,6 +35,12 @@ impl InstantiationStatement {
 	) -> miette::Result<()> {
 		use log::*;
 		let name = self.module_name.get_last_module();
+		let additional_ctx = AdditionalContext::new(
+			local_ctx.nc_widths.clone(),
+			local_ctx.ncs_to_be_exted.clone(),
+			local_ctx.array_or_bus.clone(),
+			local_ctx.casts.clone(),
+		);
 		match local_ctx.scope.is_declared(scope_id, &self.instance_name) {
 			Some(location) => {
 				return Err(miette::Report::new(
@@ -89,7 +95,7 @@ impl InstantiationStatement {
 		}
 		let instance_str = ctx.id_table.get_by_key(&self.instance_name).unwrap().clone();
 		let module = ctx.modules_declared.get(&name).unwrap();
-		let mut scope = module.scope.clone();
+		let mut scope = module.context.scope.clone();
 		let mut module_instance = NonRegister::new();
 		let mut clock_mapping: HashMap<InternalVariableId, InternalVariableId> = HashMap::new();
 		if scope.get_interface_len() != self.port_bind.len() {
@@ -103,7 +109,7 @@ impl InstantiationStatement {
 					.help(
 						format!(
 							"Interface of the module xx is {}",
-							scope.display_interface(ctx.id_table)
+							scope.display_interface(&ctx.id_table)
 						)
 						.as_str(),
 					)
@@ -214,7 +220,8 @@ impl InstantiationStatement {
 				IdWithExpression(id_expr) => {
 					debug!("Id with expression");
 					expressions_to_translate.insert(id_expr.id, id_expr.expression.clone());
-					let new_sig = id_expr.expression.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
+					
+					let new_sig= id_expr.expression.eval(ctx, scope_id, local_ctx)?;
 					use VariableKind::*;
 					match &mut interface_variable.var.kind {
 						Generic(gen) => {
@@ -293,12 +300,12 @@ impl InstantiationStatement {
 			interface_variable
 				.var
 				.kind
-				.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table, &ids_map)?;
+				.evaluate_bus_width(ctx, &scope, Some(&additional_ctx))?;
 			scope.redeclare_variable(interface_variable.clone());
 			interface_variable
 				.var
 				.kind
-				.remap_bus_widths(&scope, &ctx.id_table, ctx.nc_table, &ids_map)?;
+				.remap_bus_widths(ctx, &scope, Some(&additional_ctx), &ids_map)?;
 			debug!("Interface variable is {:?}", interface_variable.var.kind);
 			let clk_type = interface_variable
 				.var
@@ -372,12 +379,12 @@ impl InstantiationStatement {
 			interface_variable
 				.var
 				.kind
-				.evaluate_bus_width(&scope, &ctx.id_table, ctx.nc_table, &ids_map)?;
+				.evaluate_bus_width(ctx, &scope, Some(&additional_ctx))?; // FIXME
 			scope.redeclare_variable(interface_variable.clone());
 			interface_variable
 				.var
 				.kind
-				.remap_bus_widths(&scope, &ctx.id_table, ctx.nc_table, &ids_map)?;
+				.remap_bus_widths(ctx, &scope, Some(&additional_ctx), &ids_map)?;
 			// translate clocks
 			let mut interface_signal = interface_variable
 				.var
@@ -494,12 +501,6 @@ impl InstantiationStatement {
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
 		use log::*;
-		let additional_ctx = AdditionalContext::new(
-			local_ctx.nc_widths.clone(),
-			local_ctx.ncs_to_be_exted.clone(),
-			local_ctx.array_or_bus.clone(),
-			local_ctx.casts.clone(),
-		);
 
 		if ctx.id_table.get_value(&self.module_name.get_last_module()).as_str() == "reg" {
 			let r = local_ctx.scope.get_variable(scope_id, &self.instance_name).unwrap();
@@ -598,7 +599,7 @@ impl InstantiationStatement {
 		}
 		let name = self.module_name.get_last_module();
 		let module = ctx.modules_declared.get(&name).unwrap();
-		let scope = &module.scope;
+		let scope = &module.context.scope;
 		let m_handle = module.handle.clone();
 		let module_instance = &local_ctx
 			.scope

@@ -1,0 +1,4 @@
+module X{}
+impl X{
+	const ubus<(1u1 ? 1u1 : 0u64)> a_9;
+}

@@ -1,0 +1,27 @@
+module whatever {
+	int NUM_INPUTS;
+}
+
+impl whatever {
+	// Assert NUM_INPUTS is positive
+	const ubus<(NUM_INPUTS > 0 ? true : false)> assert_num_inputs_positive = 1;
+
+	if (NUM_INPUTS == 1) {
+		const ubus<1> x[1];
+	}
+	else if (NUM_INPUTS == 2) {
+		const ubus<1> x[2];
+	}
+	else {
+		const ubus<1> x[NUM_INPUTS / 2];
+	}
+}
+
+
+module helper {}
+
+impl helper {
+	whatever b {
+		NUM_INPUTS: 1,
+	}
+}

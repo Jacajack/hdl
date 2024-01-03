@@ -1,4 +1,5 @@
 extern crate hdllang;
+use hdllang::analyzer::GlobalAnalyzerContext;
 use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
 use hdllang::lexer::{IdTable, Lexer, LogosLexer, LogosLexerContext};
 use hdllang::parser;
@@ -39,10 +40,17 @@ fn compile(mut code: String, file_name: String, output: &mut dyn Write, elab: bo
 	};
 	let mut map: HashMap<String, String> = HashMap::new();
 	(root, ctx, code) = parse_file_recover_tables(code, ctx)?;
-	let (_, global_ctx, modules) = hdllang::analyzer::combine(
-		&mut ctx.id_table,
-		&ctx.numeric_constants,
-		&ctx.comment_table,
+	let global_ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext{
+	    id_table: ctx.id_table,
+	    nc_table: ctx.numeric_constants,
+	    comment_table: ctx.comment_table,
+	    modules_declared: HashMap::new(),
+	    generic_modules: HashMap::new(),
+	    design: hirn::design::DesignHandle::new(),
+	    diagnostic_buffer: crate::hdllang::core::DiagnosticBuffer::new(),
+	};
+	let (_, global_ctx, modules) = crate::hdllang::analyzer::combine(
+		global_ctx,
 		&root,
 		String::from("."),
 		&mut map,

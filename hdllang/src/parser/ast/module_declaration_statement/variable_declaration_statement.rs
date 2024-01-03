@@ -1,10 +1,8 @@
-use hirn::design::ModuleHandle;
+use hirn::design::{ModuleHandle, Evaluates};
 
 use crate::analyzer::*;
-use crate::core::comment_table;
 use crate::core::NumericConstant;
 use crate::lexer::CommentTableKey;
-use crate::lexer::IdTable;
 use crate::parser::ast::SourceLocation;
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 
@@ -18,19 +16,16 @@ pub struct VariableDeclarationStatement {
 	pub location: SourceSpan,
 }
 use crate::analyzer::Variable;
-use crate::lexer::NumericConstantTable;
 impl VariableDeclarationStatement {
 	pub fn create_variable_declaration(
 		&self,
 		already_created: AlreadyCreated,
-		nc_table: &NumericConstantTable,
-		id_table: &IdTable,
-		comment_table: &crate::lexer::CommentTable,
-		scope: &mut ModuleImplementationScope,
+		global_ctx: &mut GlobalAnalyzerContext,
+		context: &mut Box<LocalAnalyzerContext>,
 		handle: &mut ModuleHandle,
 	) -> miette::Result<()> {
 		let mut kind =
-			VariableKind::from_type_declarator(&self.type_declarator, 0, already_created, nc_table, id_table, scope)?;
+			VariableKind::from_type_declarator(&self.type_declarator, 0, already_created, global_ctx, context)?;
 		match &mut kind {
 			VariableKind::Signal(sig) => {
 				if sig.is_auto() {
@@ -69,7 +64,7 @@ impl VariableDeclarationStatement {
 			VariableKind::Generic(gen) => {
 				gen.direction = Direction::Input(self.location);
 				gen.width = Some(BusWidth::Evaluated(NumericConstant::new_from_value(64.into())));
-				scope.mark_as_generic();
+				context.scope.mark_as_generic();
 			},
 			VariableKind::ModuleInstance(_) => unreachable!(),
 		}
@@ -79,11 +74,14 @@ impl VariableDeclarationStatement {
 			let mut spec_kind = kind.clone();
 			let mut dimensions = Vec::new();
 			for array_declarator in &direct_declarator.array_declarators {
-				let size = array_declarator.evaluate(nc_table, 0, scope)?;
-				let id = scope.add_expression(0, array_declarator.clone());
-				match &size {
-					Some(val) => {
-						if val.value <= num_bigint::BigInt::from(0) {
+				let size = array_declarator.eval_with_hirn(global_ctx, 0, &context.scope, None);
+				let id = context.scope.add_expression(0, array_declarator.clone());
+				match size {
+					Ok(val) => {
+						let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
+						let hirn_value = val.eval(&ctx).unwrap(); // FIXME: Handle error
+						let value = NumericConstant::from_hirn_numeric_constant(hirn_value);
+						if value.value <= num_bigint::BigInt::from(0) {
 							return Err(miette::Report::new(
 								SemanticError::NegativeBusWidth
 									.to_diagnostic_builder()
@@ -91,9 +89,14 @@ impl VariableDeclarationStatement {
 									.build(),
 							));
 						}
-						dimensions.push(BusWidth::EvaluatedLocated(val.clone(), id));
+						dimensions.push(BusWidth::EvaluatedLocated(value, id));
 					},
-					None => dimensions.push(BusWidth::Evaluable(id)),
+					Err(res) => {
+						match res{
+    					    crate::parser::ast::Res::Err(err) => return Err(err),
+    					    crate::parser::ast::Res::GenericValue => dimensions.push(BusWidth::Evaluable(id)),
+    					}
+					},
 				}
 			}
 			spec_kind = match spec_kind {
@@ -117,7 +120,7 @@ impl VariableDeclarationStatement {
 			});
 		}
 		for var in &variables {
-			scope.declare_variable(var.clone(), nc_table, id_table, comment_table, handle)?;
+			context.scope.declare_variable(var.clone(), global_ctx, handle)?;
 		}
 		Ok(())
 	}

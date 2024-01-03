@@ -5,7 +5,6 @@ use hirn::design::{ModuleHandle, ScopeHandle, SignalId};
 use log::*;
 
 use crate::{
-	core::comment_table,
 	lexer::{IdTable, IdTableKey},
 	ProvidesCompilerDiagnostic, SourceSpan,
 };
@@ -335,9 +334,7 @@ impl ModuleImplementationScope {
 	pub fn declare_variable(
 		&mut self,
 		mut var: Variable,
-		nc_table: &crate::lexer::NumericConstantTable,
-		id_table: &IdTable,
-		comment_table: &crate::lexer::CommentTable,
+		global_ctx: &GlobalAnalyzerContext,
 		handle: &mut ModuleHandle,
 	) -> miette::Result<()> {
 		match self.is_declared(0, &var.name) {
@@ -360,15 +357,13 @@ impl ModuleImplementationScope {
 		self.api_ids.insert(
 			id,
 			var.register(
-				nc_table,
-				id_table,
-				comment_table,
+				global_ctx,
 				0,
 				&self,
 				None,
 				handle
 					.scope()
-					.new_signal(id_table.get_by_key(&name).unwrap().as_str())
+					.new_signal(global_ctx.id_table.get_by_key(&name).unwrap().as_str())
 					.unwrap(),
 			)?,
 		);
@@ -523,9 +518,7 @@ impl ModuleImplementationScope {
 	pub fn register_all_variables_in_scope(
 		&mut self,
 		depedency_graph: &DependencyGraph,
-		nc_table: &crate::core::NumericConstantTable,
-		id_table: &crate::core::IdTable,
-		comment_table: &crate::lexer::CommentTable,
+		ctx: &GlobalAnalyzerContext,
 		additional_ctx: Option<&AdditionalContext>,
 		scope_id: usize,
 		scope_handle: &mut ScopeHandle,
@@ -534,9 +527,7 @@ impl ModuleImplementationScope {
 		let variables = self.get_all_variables_declared_in_scope(scope_id);
 		for var in variables {
 			depedency_graph.register(
-				nc_table,
-				id_table,
-				comment_table,
+				ctx,
 				additional_ctx,
 				self,
 				scope_id,
@@ -544,10 +535,6 @@ impl ModuleImplementationScope {
 				var,
 			);
 		}
-	}
-	pub fn register_variable(&mut self, id: InternalVariableId, scope: &mut ScopeHandle) {
-		let var = self.variables.get(&id).unwrap();
-		todo!("Registering variable {:?}", var);
 	}
 	pub fn is_already_registered(&self, id: InternalVariableId) -> bool {
 		self.api_ids.contains_left(&id)

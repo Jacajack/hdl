@@ -7,7 +7,6 @@ pub use variable_block_declaration::*;
 pub use variable_declaration_statement::*;
 
 use crate::analyzer::*;
-use crate::lexer::IdTable;
 use crate::parser::ast::SourceLocation;
 use crate::SourceSpan;
 
@@ -23,24 +22,20 @@ impl ModuleDeclarationStatement {
 	pub fn create_variable_declaration(
 		&self,
 		already_created: AlreadyCreated,
-		nc_table: &crate::core::NumericConstantTable,
-		comment_table: &crate::lexer::CommentTable,
-		id_table: &IdTable,
-		scope: &mut ModuleImplementationScope,
+		global_ctx: &mut GlobalAnalyzerContext,
+		context: &mut Box<LocalAnalyzerContext>,
 		handle: &mut ModuleHandle,
 	) -> miette::Result<()> {
 		use ModuleDeclarationStatement::*;
 		match self {
 			VariableDeclarationStatement(declaration) => declaration.create_variable_declaration(
 				already_created,
-				nc_table,
-				id_table,
-				comment_table,
-				scope,
+				global_ctx,
+				context,
 				handle,
 			),
 			VariableBlock(block) => {
-				block.create_variable_declaration(already_created, nc_table, id_table, comment_table, scope, handle)
+				block.create_variable_declaration(already_created, global_ctx, context, handle)
 			},
 		}
 	}

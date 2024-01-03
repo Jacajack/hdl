@@ -1,3 +1,4 @@
+use crate::analyzer::GlobalAnalyzerContext;
 use crate::compiler_diagnostic::ProvidesCompilerDiagnostic;
 use crate::lexer::{IdTable, Lexer, LogosLexer, LogosLexerContext};
 use crate::parser;
@@ -171,12 +172,19 @@ pub fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Re
 		let code = read_input_from_file(&file_name)?;
 		(root, ctx, source) = parse_file_recover_tables(code, ctx, false)?;
 		let name = Path::new(&file_name).to_str().unwrap().to_string();
-		let (paths, ..) = crate::analyzer::combine(
-			&mut ctx.id_table,
-			&ctx.numeric_constants,
-			&ctx.comment_table,
+		let global_ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext{
+			id_table: ctx.id_table,
+			nc_table: ctx.numeric_constants,
+			comment_table: ctx.comment_table,
+			modules_declared: HashMap::new(),
+			generic_modules: HashMap::new(),
+			design: hirn::design::DesignHandle::new(),
+			diagnostic_buffer: crate::core::DiagnosticBuffer::new(),
+		};
+		let (paths, _, _) = crate::analyzer::combine(
+			global_ctx,
 			&root,
-			String::from(current_directory),
+			String::from("."),
 			&mut map,
 		)
 		.map_err(|e| e.with_source_code(miette::NamedSource::new(name, source)))?;
@@ -199,10 +207,17 @@ pub fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) 
 	};
 	let mut map: HashMap<String, String> = HashMap::new();
 	(root, ctx, code) = parse_file_recover_tables(code, ctx, false)?;
+	let global_ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext{
+	    id_table: ctx.id_table,
+	    nc_table: ctx.numeric_constants,
+	    comment_table: ctx.comment_table,
+	    modules_declared: HashMap::new(),
+	    generic_modules: HashMap::new(),
+	    design: hirn::design::DesignHandle::new(),
+	    diagnostic_buffer: crate::core::DiagnosticBuffer::new(),
+	};
 	let (_, global_ctx, modules) = crate::analyzer::combine(
-		&mut ctx.id_table,
-		&ctx.numeric_constants,
-		&ctx.comment_table,
+		global_ctx,
 		&root,
 		String::from("."),
 		&mut map,
@@ -234,10 +249,17 @@ pub fn elaborate(
 	};
 	let mut map: HashMap<String, String> = HashMap::new();
 	(root, ctx, code) = parse_file_recover_tables(code, ctx, json_report)?;
+	let global_ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext{
+	    id_table: ctx.id_table,
+	    nc_table: ctx.numeric_constants,
+	    comment_table: ctx.comment_table,
+	    modules_declared: HashMap::new(),
+	    generic_modules: HashMap::new(),
+	    design: hirn::design::DesignHandle::new(),
+	    diagnostic_buffer: crate::core::DiagnosticBuffer::new(),
+	};
 	let (_, global_ctx, modules) = crate::analyzer::combine(
-		&mut ctx.id_table,
-		&ctx.numeric_constants,
-		&ctx.comment_table,
+		global_ctx,
 		&root,
 		String::from("."),
 		&mut map,
@@ -275,10 +297,17 @@ pub fn analyse(mut code: String, file_name: String, mut output: Box<dyn Write>) 
 	};
 	let mut map: HashMap<String, String> = HashMap::new();
 	(root, ctx, code) = parse_file_recover_tables(code, ctx, false)?;
+	let global_ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext{
+	    id_table: ctx.id_table,
+	    nc_table: ctx.numeric_constants,
+	    comment_table: ctx.comment_table,
+	    modules_declared: HashMap::new(),
+	    generic_modules: HashMap::new(),
+	    design: hirn::design::DesignHandle::new(),
+	    diagnostic_buffer: crate::core::DiagnosticBuffer::new(),
+	};
 	let (_, global_ctx, modules) = crate::analyzer::combine(
-		&mut ctx.id_table,
-		&ctx.numeric_constants,
-		&ctx.comment_table,
+		global_ctx,
 		&root,
 		String::from("."),
 		&mut map,

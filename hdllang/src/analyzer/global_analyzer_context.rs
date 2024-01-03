@@ -5,9 +5,9 @@ use std::collections::HashMap;
 
 /// Global shared context for semantic analysis
 pub struct GlobalAnalyzerContext<'a> {
-	pub id_table: &'a mut IdTable,
-	pub nc_table: &'a NumericConstantTable,
-	pub comment_table: &'a crate::lexer::CommentTable,
+	pub id_table: IdTable,
+	pub nc_table: NumericConstantTable,
+	pub comment_table: crate::lexer::CommentTable,
 	/// represents all declared modules
 	pub modules_declared: HashMap<IdTableKey, ModuleDeclared>,
 	/// represents all implemented generic modules

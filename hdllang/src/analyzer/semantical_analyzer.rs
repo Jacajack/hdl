@@ -36,8 +36,8 @@ impl<'a> SemanticalAnalyzer<'a> {
 		self.passes.push(first_pass);
 		self.passes.push(second_pass);
 		for module in self.modules_implemented.values() {
-			let scope = match self.ctx.modules_declared.get(&module.id) {
-				Some(m) => m.scope.clone(),
+			let mut local_ctx = match self.ctx.modules_declared.get(&module.id) {
+				Some(m) => m.context.clone(),
 				None => {
 					return Err(miette::Report::new(
 						SemanticError::ModuleNotDeclared
@@ -54,7 +54,6 @@ impl<'a> SemanticalAnalyzer<'a> {
 					))
 				},
 			};
-			let mut local_ctx = LocalAnalyzerContext::new(module.id, scope);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
@@ -70,8 +69,8 @@ impl<'a> SemanticalAnalyzer<'a> {
 
 		let generic_modules = self.ctx.generic_modules.clone();
 		for module in generic_modules.values() {
-			let scope = match self.ctx.modules_declared.get(&module.id) {
-				Some(m) => m.scope.clone(),
+			let mut local_ctx = match self.ctx.modules_declared.get(&module.id) {
+				Some(m) => m.context.clone(),
 				None => {
 					return Err(miette::Report::new(
 						SemanticError::ModuleNotDeclared
@@ -88,7 +87,6 @@ impl<'a> SemanticalAnalyzer<'a> {
 					))
 				},
 			};
-			let mut local_ctx = LocalAnalyzerContext::new(module.id, scope);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
@@ -105,8 +103,8 @@ impl<'a> SemanticalAnalyzer<'a> {
 		}
 
 		for module in self.modules_implemented.values() {
-			let scope = match self.ctx.modules_declared.get(&module.id) {
-				Some(m) => m.scope.clone(),
+			let mut local_ctx = match self.ctx.modules_declared.get(&module.id) {
+				Some(m) => m.context.clone(),
 				None => {
 					return Err(miette::Report::new(
 						SemanticError::ModuleNotDeclared
@@ -123,7 +121,6 @@ impl<'a> SemanticalAnalyzer<'a> {
 					))
 				},
 			};
-			let mut local_ctx = LocalAnalyzerContext::new(module.id, scope);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
@@ -216,8 +213,8 @@ impl<'a> SemanticalAnalyzer<'a> {
 		self.passes.push(codegen_pass);
 		let generic_modules = self.ctx.generic_modules.clone();
 		for module in generic_modules.values() {
-			let scope = match self.ctx.modules_declared.get(&module.id) {
-				Some(m) => m.scope.clone(),
+			let mut local_ctx = match self.ctx.modules_declared.get(&module.id) {
+				Some(m) => m.context.clone(),
 				None => {
 					return Err(miette::Report::new(
 						SemanticError::ModuleNotDeclared
@@ -234,7 +231,6 @@ impl<'a> SemanticalAnalyzer<'a> {
 					))
 				},
 			};
-			let mut local_ctx = LocalAnalyzerContext::new(module.id, scope);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}
@@ -255,8 +251,8 @@ impl<'a> SemanticalAnalyzer<'a> {
 		}
 
 		for module in self.modules_implemented.values() {
-			let scope = match self.ctx.modules_declared.get(&module.id) {
-				Some(m) => m.scope.clone(),
+			let mut local_ctx = match self.ctx.modules_declared.get(&module.id) {
+				Some(m) => m.context.clone(),
 				None => {
 					return Err(miette::Report::new(
 						SemanticError::ModuleNotDeclared
@@ -273,7 +269,6 @@ impl<'a> SemanticalAnalyzer<'a> {
 					))
 				},
 			};
-			let mut local_ctx = LocalAnalyzerContext::new(module.id, scope);
 			for pass in &self.passes {
 				pass(&mut self.ctx, &mut local_ctx, *module)?;
 			}

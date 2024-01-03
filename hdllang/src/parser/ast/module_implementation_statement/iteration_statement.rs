@@ -31,9 +31,11 @@ impl IterationStatement {
 		local_ctx: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<()> {
 		let id = local_ctx.scope.new_scope(Some(scope_id));
+		let left = self.range.lhs.eval(ctx, scope_id, local_ctx)?;
+		let right = self.range.rhs.eval(ctx, scope_id, local_ctx)?;
 		match (
-			self.range.lhs.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?,
-			self.range.rhs.evaluate(ctx.nc_table, scope_id, &mut local_ctx.scope)?,
+			left,
+			right,
 		) {
 			(Some(lhs), Some(rhs)) => {
 				let mut initial_val = lhs.value;
@@ -125,15 +127,13 @@ impl IterationStatement {
 			local_ctx.casts.clone(),
 		);
 		let lhs = self.range.lhs.codegen(
-			ctx.nc_table,
-			ctx.id_table,
+			ctx,
 			scope_id,
 			&local_ctx.scope,
 			Some(&additional_ctx),
 		)?;
 		let mut rhs = self.range.rhs.codegen(
-			ctx.nc_table,
-			ctx.id_table,
+			ctx,
 			scope_id,
 			&local_ctx.scope,
 			Some(&additional_ctx),
@@ -176,9 +176,7 @@ impl IterationStatement {
 				let scope_id = local_ctx.scope_map.get(&block.location).unwrap().to_owned();
 				local_ctx.scope.register_all_variables_in_scope(
 					&local_ctx.depenency_graph,
-					ctx.nc_table,
-					ctx.id_table,
-					ctx.comment_table,
+					ctx,
 					Some(&additional_ctx),
 					scope_id,
 					&mut for_scope,

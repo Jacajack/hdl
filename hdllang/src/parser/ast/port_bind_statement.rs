@@ -2,7 +2,7 @@ mod pretty_printable;
 
 use std::vec;
 
-use hirn::design::ScopeHandle;
+use hirn::design::{ScopeHandle, Evaluates};
 use log::debug;
 
 use crate::analyzer::module_implementation_scope::InternalVariableId;
@@ -10,7 +10,8 @@ use crate::analyzer::{
 	AdditionalContext, BusWidth, GlobalAnalyzerContext, LocalAnalyzerContext, ModuleImplementationScope, SemanticError,
 	SensitivityGraphEntry, Signal, Variable,
 };
-use crate::parser::ast::{Expression, SourceLocation, VariableDeclaration};
+use crate::core::NumericConstant;
+use crate::parser::ast::{Expression, SourceLocation, VariableDeclaration, Res};
 use crate::ProvidesCompilerDiagnostic;
 use crate::{lexer::IdTableKey, SourceSpan};
 
@@ -174,15 +175,37 @@ impl PortBindStatement {
 					&id_decl.declaration.type_declarator,
 					scope_id,
 					crate::analyzer::AlreadyCreated::new(),
-					ctx.nc_table,
-					ctx.id_table,
-					&mut local_ctx.scope,
+					ctx,
+					local_ctx,
 				)?;
 				let direct_declarator = id_decl.declaration.direct_declarators.first().unwrap();
 				let mut dimensions = Vec::new();
+				let additional_ctx = crate::analyzer::AdditionalContext::new(
+					local_ctx.nc_widths.clone(),
+					local_ctx.ncs_to_be_exted.clone(),
+					local_ctx.array_or_bus.clone(),
+					local_ctx.casts.clone(),
+				);
 				for array_declarator in direct_declarator.array_declarators.iter() {
-					let array_size = array_declarator.evaluate(ctx.nc_table, scope_id, &local_ctx.scope)?;
 					let id = local_ctx.scope.add_expression(scope_id, array_declarator.clone());
+					let array_size =  if local_ctx.are_we_in_true_branch() {
+						let val = array_declarator.eval_with_hirn(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx));
+						match val{
+							Ok(expr) => {
+								let ctx = hirn::design::EvalContext::without_assumptions(ctx.design.clone());
+								let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
+								Some(NumericConstant::from_hirn_numeric_constant(val))
+							},
+							Err(res) => {
+								match res{
+									Res::Err(err) => return Err(err),
+									Res::GenericValue => None,
+								}
+							},
+						}
+					} else{
+						None
+					};
 					match &array_size {
 						Some(val) => {
 							if val.value <= num_bigint::BigInt::from(0) {
@@ -222,7 +245,7 @@ impl PortBindStatement {
 		&self,
 		ctx: &GlobalAnalyzerContext,
 		local_ctx: &mut Box<LocalAnalyzerContext>,
-		api_scope: &mut ScopeHandle,
+		_: &mut ScopeHandle,
 		current_scope: usize,
 	) -> miette::Result<hirn::design::Expression> {
 		let additional_ctx = AdditionalContext::new(
@@ -240,8 +263,7 @@ impl PortBindStatement {
 			},
 			IdWithExpression(id_with_expression) => {
 				let expression = id_with_expression.expression.codegen(
-					ctx.nc_table,
-					&ctx.id_table,
+					ctx,
 					current_scope,
 					&local_ctx.scope,
 					Some(&additional_ctx),

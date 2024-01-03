@@ -1,12 +1,13 @@
 use std::collections::HashMap;
 
+use hirn::design::Evaluates;
+
 use crate::{
 	analyzer::{
-		module_implementation_scope::ExpressionEntryId, SemanticError, SignalSensitivity, SignalSignedness, SignalType,
+		module_implementation_scope::ExpressionEntryId, SemanticError, SignalSensitivity, SignalSignedness, SignalType, LocalAnalyzerContext, AdditionalContext, GlobalAnalyzerContext,
 	},
-	core::CompilerDiagnosticBuilder,
-	lexer::IdTable,
-	parser::ast::SourceLocation,
+	core::{CompilerDiagnosticBuilder, NumericConstant},
+	parser::ast::{SourceLocation, Res},
 	ProvidesCompilerDiagnostic,
 };
 
@@ -38,10 +39,9 @@ impl VariableKind {
 	}
 	pub fn evaluate_bus_width(
 		&mut self,
+		global_ctx: &GlobalAnalyzerContext,
 		scope: &ModuleImplementationScope,
-		id_table: &IdTable,
-		nc_table: &crate::lexer::NumericConstantTable,
-		ids: &HashMap<ExpressionEntryId, ExpressionEntryId>,
+		additional_ctx: Option<&AdditionalContext>,
 	) -> miette::Result<()> {
 		use VariableKind::*;
 		match self {
@@ -50,14 +50,14 @@ impl VariableKind {
 				match &mut sig.signal_type {
 					Bus(bus) => match &mut bus.width {
 						Some(b) => {
-							b.eval(nc_table, id_table, scope, ids)?;
+							b.eval(global_ctx, scope, additional_ctx)?;
 						},
 						None => (),
 					},
 					_ => (),
 				}
 				for dim in &mut sig.dimensions {
-					dim.eval(nc_table, id_table, scope, ids)?;
+					dim.eval(global_ctx, scope, additional_ctx)?;
 				}
 			},
 			_ => unreachable!(),
@@ -66,9 +66,9 @@ impl VariableKind {
 	}
 	pub fn remap_bus_widths(
 		&mut self,
+		global_ctx: &GlobalAnalyzerContext,
 		scope: &ModuleImplementationScope,
-		id_table: &IdTable,
-		nc_table: &crate::lexer::NumericConstantTable,
+		additional_ctx: Option<&AdditionalContext>,
 		ids: &HashMap<ExpressionEntryId, ExpressionEntryId>,
 	) -> miette::Result<()> {
 		use VariableKind::*;
@@ -78,14 +78,14 @@ impl VariableKind {
 				match &mut sig.signal_type {
 					Bus(bus) => match &mut bus.width {
 						Some(b) => {
-							b.remap(nc_table, id_table, scope, ids)?;
+							b.remap(global_ctx, scope, additional_ctx, ids)?;
 						},
 						None => (),
 					},
 					_ => (),
 				}
 				for dim in &mut sig.dimensions {
-					dim.remap(nc_table, id_table, scope, ids)?;
+					dim.remap(global_ctx, scope, additional_ctx, ids)?;
 				}
 			},
 			_ => unreachable!(),
@@ -185,9 +185,8 @@ impl VariableKind {
 		type_declarator: &crate::parser::ast::TypeDeclarator,
 		current_scope: usize,
 		mut already_created: AlreadyCreated,
-		nc_table: &crate::core::NumericConstantTable,
-		id_table: &IdTable,
-		scope: &mut ModuleImplementationScope,
+		global_ctx: &crate::analyzer::GlobalAnalyzerContext,
+		context: &mut Box<LocalAnalyzerContext>,
 	) -> miette::Result<Self> {
 		use crate::parser::ast::TypeSpecifier::*;
 		match &type_declarator.specifier {
@@ -195,9 +194,9 @@ impl VariableKind {
 				already_created = crate::analyzer::analyze_qualifiers(
 					&type_declarator.qualifiers,
 					already_created,
-					scope,
+					context,
 					current_scope,
-					id_table,
+					&global_ctx.id_table,
 				)?;
 				if already_created.signedness != SignalSignedness::NoSignedness {
 					return Ok(VariableKind::Signal(Signal {
@@ -222,9 +221,9 @@ impl VariableKind {
 				already_created = super::analyze_qualifiers(
 					&type_declarator.qualifiers,
 					already_created,
-					scope,
+					context,
 					current_scope,
-					id_table,
+					&global_ctx.id_table,
 				)?;
 				if already_created.signedness == SignalSignedness::NoSignedness {
 					already_created.signedness = SignalSignedness::Signed(*location);
@@ -242,9 +241,9 @@ impl VariableKind {
 				already_created = super::analyze_qualifiers(
 					&type_declarator.qualifiers,
 					already_created,
-					scope,
+					context,
 					current_scope,
-					id_table,
+					&global_ctx.id_table,
 				)?;
 				match already_created.signedness {
 					SignalSignedness::NoSignedness => (),
@@ -276,9 +275,9 @@ impl VariableKind {
 				already_created = super::analyze_qualifiers(
 					&type_declarator.qualifiers,
 					already_created,
-					scope,
+					context,
 					current_scope,
-					id_table,
+					&global_ctx.id_table,
 				)?;
 				if already_created.sensitivity.is_clock() {
 					return Err(miette::Report::new(
@@ -288,13 +287,38 @@ impl VariableKind {
 							.build(),
 					));
 				}
-				let id = scope.add_expression(current_scope, *bus.width.clone());
+				let id = context.scope.add_expression(current_scope, *bus.width.clone());
+				bus.width.evaluate_type(global_ctx, current_scope, context, Signal::new_empty(), false, bus.width.get_location())?;
+				let width =  if context.are_we_in_true_branch() {
+					let additional_ctx = AdditionalContext::new(
+						context.nc_widths.clone(),
+						context.ncs_to_be_exted.clone(),
+						context.array_or_bus.clone(),
+						context.casts.clone(),
+					);
+					let w = bus.width.eval_with_hirn(global_ctx, current_scope, &context.scope, Some(&additional_ctx));
+					match w{
+    				    Ok(val) => {
+							log::debug!("Bus width: {:?}", val);
+							let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
+							let val_val = val.eval(&ctx).unwrap();
+							Some(NumericConstant::from_hirn_numeric_constant(val_val))
+						},
+    				    Err(res) => {
+							match res{
+								Res::Err(err) => return Err(err),
+								Res::GenericValue => None,
+							}
+						},
+    				}
+				} else{
+					None
+				};
 
-				let width = bus.width.evaluate(nc_table, current_scope, scope)?;
-				// I do not know why I wanted to do it differently before
 				let w = match &width {
 					Some(val) => {
 						if val.value <= num_bigint::BigInt::from(0) {
+							log::debug!("Negative bus width: {:?}", val);
 							return Err(miette::Report::new(
 								SemanticError::NegativeBusWidth
 									.to_diagnostic_builder()

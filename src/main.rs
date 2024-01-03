@@ -1,7 +1,7 @@
 extern crate hdllang;
 extern crate sha256;
 
-use clap::{arg, command, Arg, ArgGroup};
+use clap::{arg, command, Arg};
 use hdllang::CompilerError;
 use hdllang::ProvidesCompilerDiagnostic;
 use std::fs;
@@ -31,15 +31,20 @@ fn main() -> miette::Result<()> {
 	use hdllang::utils::*;
 
 	let matches = command!()
-		.arg(Arg::new("source").help("Specify the name of the input file"))
+		.arg(
+			Arg::new("source")
+			.help("Specify the name of the input file")
+			.num_args(1)
+			.required(true))
 		.arg(
 			Arg::new("output")
 				.short('o')
 				.long("output")
 				.help("Specify the name of the output file")
-				.num_args(1),
+				.num_args(1)
+				.required(true),
 		)
-		.arg(arg!(-c --clean "Clean build files"))
+		//.arg(arg!(-c --clean "Clean build files"))
 		.arg(
 			Arg::new("json-report")
 				.long("json-report")
@@ -68,15 +73,15 @@ fn main() -> miette::Result<()> {
 				.short('m')
 				.long("mode"),
 		)
-		.group(
-			ArgGroup::new("clean_or_source")
-				.args(["source", "clean"])
-				.required(true),
-		)
-		.group(ArgGroup::new("mode_or_clean").args(["MODE", "clean"]).required(false))
+		//.group(
+		//	ArgGroup::new("clean_or_source")
+		//		.args(["source", "clean"])
+		//		.required(true),
+		//)
+		//.group(ArgGroup::new("mode_or_clean").args(["MODE", "clean"]).required(false))
 		.get_matches();
 
-	let mut mode = match matches.get_one::<String>("MODE") {
+	let mode = match matches.get_one::<String>("MODE") {
 		None => "elaborate",
 		Some(x) => x,
 	};
@@ -84,14 +89,14 @@ fn main() -> miette::Result<()> {
 	if json_report {
 		miette::set_hook(Box::new(|_| Box::new(miette::JSONReportHandler::new()))).unwrap();
 	}
-	match matches.get_one::<bool>("clean") {
-		Some(x) => {
-			if *x {
-				mode = "clean";
-			}
-		},
-		None => (),
-	};
+	//match matches.get_one::<bool>("clean") {
+	//	Some(x) => {
+	//		if *x {
+	//			mode = "clean";
+	//		}
+	//	},
+	//	None => (),
+	//};
 	let file_name = match matches.get_one::<String>("source") {
 		Some(x) => x,
 		None => "",

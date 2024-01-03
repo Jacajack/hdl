@@ -83,9 +83,9 @@ impl VariableBlock {
 		already_created = crate::analyzer::analyze_qualifiers(
 			&self.types,
 			already_created,
-			&local_ctx.scope,
+			local_ctx,
 			scope_id,
-			ctx.id_table,
+			&ctx.id_table,
 		)?;
 		for statement in &self.statements {
 			statement.analyze(already_created.clone(), ctx, local_ctx, scope_id)?;
