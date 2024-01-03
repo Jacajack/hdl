@@ -245,7 +245,7 @@ impl PortBindStatement {
 		&self,
 		ctx: &GlobalAnalyzerContext,
 		local_ctx: &mut Box<LocalAnalyzerContext>,
-		api_scope: &mut ScopeHandle,
+		_: &mut ScopeHandle,
 		current_scope: usize,
 	) -> miette::Result<hirn::design::Expression> {
 		let additional_ctx = AdditionalContext::new(

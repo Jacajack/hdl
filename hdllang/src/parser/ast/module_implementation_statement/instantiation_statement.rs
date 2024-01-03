@@ -1,13 +1,10 @@
 use std::collections::HashMap;
 
-use hirn::design::Evaluates;
 use hirn::design::ScopeHandle;
 
 use super::ImportPath;
 use super::PortBindStatement;
 use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext};
-use crate::core::NumericConstant;
-use crate::parser::ast::Res;
 use crate::parser::ast::SourceLocation;
 use crate::SourceSpan;
 use crate::{
@@ -224,20 +221,7 @@ impl InstantiationStatement {
 					debug!("Id with expression");
 					expressions_to_translate.insert(id_expr.id, id_expr.expression.clone());
 					
-					let eval= id_expr.expression.eval_with_hirn(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx));
-					let new_sig = match eval{
-						Ok(expr) => {
-							let ctx = hirn::design::EvalContext::without_assumptions(ctx.design.clone());
-							let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
-							Some(NumericConstant::from_hirn_numeric_constant(val))
-						},
-						Err(res) => {
-							match res{
-								Res::Err(err) => return Err(err),
-								Res::GenericValue => None,
-							}
-						},
-					};
+					let new_sig= id_expr.expression.eval(ctx, scope_id, local_ctx)?;
 					use VariableKind::*;
 					match &mut interface_variable.var.kind {
 						Generic(gen) => {
@@ -517,12 +501,6 @@ impl InstantiationStatement {
 		api_scope: &mut ScopeHandle,
 	) -> miette::Result<()> {
 		use log::*;
-		let additional_ctx = AdditionalContext::new(
-			local_ctx.nc_widths.clone(),
-			local_ctx.ncs_to_be_exted.clone(),
-			local_ctx.array_or_bus.clone(),
-			local_ctx.casts.clone(),
-		);
 
 		if ctx.id_table.get_value(&self.module_name.get_last_module()).as_str() == "reg" {
 			let r = local_ctx.scope.get_variable(scope_id, &self.instance_name).unwrap();

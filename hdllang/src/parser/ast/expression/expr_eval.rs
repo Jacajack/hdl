@@ -1,8 +1,9 @@
 use std::cmp::max;
 
+use hirn::design::Evaluates;
 use num_bigint::BigInt;
 
-use crate::{analyzer::{GlobalAnalyzerContext, ModuleImplementationScope, AdditionalContext, SignalSignedness, SignalSensitivity, BusWidth, SemanticError}, parser::ast::{SourceLocation, RangeOpcode, MatchExpressionAntecendent, expression::report_not_allowed_expression_eval}, ProvidesCompilerDiagnostic};
+use crate::{analyzer::{GlobalAnalyzerContext, ModuleImplementationScope, AdditionalContext, SignalSignedness, SignalSensitivity, BusWidth, SemanticError, LocalAnalyzerContext}, parser::ast::{SourceLocation, RangeOpcode, MatchExpressionAntecendent}, ProvidesCompilerDiagnostic, core::NumericConstant, SourceSpan};
 use log::*;
 use super::Expression;
 #[derive(Debug)]
@@ -11,6 +12,34 @@ pub enum Res{
 	GenericValue,
 }
 impl Expression{
+	pub fn eval(
+		&self,
+		global_ctx: &GlobalAnalyzerContext,
+		scope_id: usize,
+		ctx: &Box<LocalAnalyzerContext>,
+	)->miette::Result<Option<NumericConstant>>{
+		let additional_ctx = AdditionalContext::new(
+			ctx.nc_widths.clone(),
+			ctx.ncs_to_be_exted.clone(),
+			ctx.array_or_bus.clone(),
+			ctx.casts.clone(),
+		);
+		let expr = self.eval_with_hirn(global_ctx, scope_id, &ctx.scope, Some(&additional_ctx));
+		match expr{
+		    Ok(expression) => {
+				let eval_ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
+				let res = expression.eval(&eval_ctx).unwrap(); // FIXME
+				Ok(Some(NumericConstant::from_hirn_numeric_constant(res)))
+			},
+		    Err(res) => {
+				match res{
+					Res::Err(report) => Err(report),
+					Res::GenericValue => Ok(None),
+				}
+			},
+		}
+		
+	}
 	pub fn eval_with_hirn(
 		&self,
 		global_ctx: &GlobalAnalyzerContext,
@@ -569,7 +598,7 @@ impl Expression{
 					_ => unreachable!(),
 				}
 			},
-			PostfixWithId(postfix) => {
+			PostfixWithId(_) => {
 				report_not_allowed_expression_eval(self.get_location(), "PostfixWithId")
 			},
 			UnaryOperatorExpression(unary) => {
@@ -694,4 +723,19 @@ impl Expression{
 			},
 		}
 	}
+}
+fn report_not_allowed_expression_eval(span: SourceSpan, expr_name: &str) -> Result<hirn::design::Expression, Res> {
+	Err(Res::Err(miette::Report::new(
+		SemanticError::ExpressionNotAllowedInNonGenericModuleDeclaration
+			.to_diagnostic_builder()
+			.label(
+				span,
+				format!(
+					"This {} expression is not allowed in non-generic module declaration",
+					expr_name
+				)
+				.as_str(),
+			)
+			.build(),
+	)))
 }

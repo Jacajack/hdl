@@ -181,7 +181,7 @@ pub fn combine(root_file_name: String, mut output: Box<dyn Write>) -> miette::Re
 			design: hirn::design::DesignHandle::new(),
 			diagnostic_buffer: crate::core::DiagnosticBuffer::new(),
 		};
-		let (paths, _, modules) = crate::analyzer::combine(
+		let (paths, _, _) = crate::analyzer::combine(
 			global_ctx,
 			&root,
 			String::from("."),

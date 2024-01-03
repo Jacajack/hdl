@@ -1,8 +1,7 @@
-use hirn::design::{ScopeHandle, Evaluates};
+use hirn::design::ScopeHandle;
 
 use crate::analyzer::{GlobalAnalyzerContext, LocalAnalyzerContext, Signal};
-use crate::core::NumericConstant;
-use crate::parser::ast::{ModuleImplementationStatement, Res};
+use crate::parser::ast::ModuleImplementationStatement;
 use crate::parser::ast::{Expression, SourceLocation};
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 
@@ -29,29 +28,11 @@ impl IfElseStatement {
 			false,
 			self.condition.get_location(),
 		)?;
-		let additional_ctx = crate::analyzer::AdditionalContext::new(
-			local_ctx.nc_widths.clone(),
-			local_ctx.ncs_to_be_exted.clone(),
-			local_ctx.array_or_bus.clone(),
-			local_ctx.casts.clone(),
-		);
-		let condition_type = self.condition.eval_with_hirn(ctx, scope_id, &mut local_ctx.scope, Some(&additional_ctx));
-		let value = match condition_type{
-			Ok(expr) => {
-				let ctx = hirn::design::EvalContext::without_assumptions(ctx.design.clone());
-				let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
-				Some(NumericConstant::from_hirn_numeric_constant(val))
-			},
-			Err(res) => {
-				match res{
-					Res::Err(err) => return Err(err),
-					Res::GenericValue => None,
-				}
-			},
-		};
+
+		let condition_type = self.condition.eval(ctx, scope_id, local_ctx)?;
 		let if_scope = local_ctx.scope.new_scope(Some(scope_id));
-		log::debug!("Condition is {:?}", value);
-		let cond = value.map_or_else(|| false, |val| val.value != 0.into());
+		log::debug!("Condition is {:?}", condition_type);
+		let cond = condition_type.map_or_else(|| false, |val| val.value != 0.into());
 		local_ctx.add_branch(cond);
 		self.if_statement.first_pass(ctx, local_ctx, if_scope)?;
 		local_ctx.pop_branch();
