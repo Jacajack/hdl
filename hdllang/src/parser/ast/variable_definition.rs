@@ -151,10 +151,7 @@ impl VariableDefinition {
 						if let VariableKind::Generic(GenericVariable { value, .. }) = &mut spec_kind {
 							let id = local_ctx.scope.add_expression(scope_id, expr.clone());
 							match rhs_val {
-								Some(val) => value.replace(BusWidth::EvaluatedLocated(
-										val,
-										id,
-									)),
+								Some(val) => value.replace(BusWidth::EvaluatedLocated(val, id)),
 								None => value.replace(BusWidth::Evaluable(id)),
 							};
 						}

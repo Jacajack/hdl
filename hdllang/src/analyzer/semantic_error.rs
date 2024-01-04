@@ -304,7 +304,7 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
 			GenericArray => CompilerDiagnosticBuilder::from_error(&self).build(),
 			CriticalElaborationError => CompilerDiagnosticBuilder::from_error(&self).build(),
-    		EvaluationError(err) => CompilerDiagnosticBuilder::from_error(err).build(),
+			EvaluationError(err) => CompilerDiagnosticBuilder::from_error(err).build(),
 		}
 	}
 }

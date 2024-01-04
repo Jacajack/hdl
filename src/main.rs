@@ -138,10 +138,10 @@ fn main() -> miette::Result<()> {
 			deserialize(code, output)?;
 		},
 		"compile" => {
-			elaborate(code, String::from(file_name), &mut output, false, json_report, )?;
+			elaborate(code, String::from(file_name), &mut output, false, json_report)?;
 		},
 		"elaborate" => {
-			elaborate(code, String::from(file_name), &mut output, true, json_report, )?;
+			elaborate(code, String::from(file_name), &mut output, true, json_report)?;
 		},
 		"clean" => {
 			println!("Not implemented!");

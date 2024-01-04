@@ -36,7 +36,7 @@ impl Expression {
 		match expr {
 			Ok(expression) => {
 				let eval_ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
-				let res = expression.eval(&eval_ctx).map_err(|err|{
+				let res = expression.eval(&eval_ctx).map_err(|err| {
 					log::debug!("Error is {:?}", err);
 					miette::Report::new(
 						SemanticError::EvaluationError(err)
@@ -157,27 +157,25 @@ impl Expression {
 					_ => max(constant.value.bits() + if signed { 1 } else { 0 }, 1) as u32,
 				};
 				debug!("Width is {:?}", w);
-				let r = 	hirn::design::NumericConstant::from_bigint(
-						constant.value.clone(),
-						if signed {
-							hirn::design::SignalSignedness::Signed
-						}
-						else {
-							hirn::design::SignalSignedness::Unsigned
-						},
-						w.into(),
-					).map_err(|err|{
-						log::debug!("Error is {:?}", err);
-						Res::Err(miette::Report::new(
-							SemanticError::EvaluationError(err)
-								.to_diagnostic_builder()
-								.label(
-									num.location,
-									"Error while evaluating numeric constant",
-								)
-								.build(),
-						))
-					})?;
+				let r = hirn::design::NumericConstant::from_bigint(
+					constant.value.clone(),
+					if signed {
+						hirn::design::SignalSignedness::Signed
+					}
+					else {
+						hirn::design::SignalSignedness::Unsigned
+					},
+					w.into(),
+				)
+				.map_err(|err| {
+					log::debug!("Error is {:?}", err);
+					Res::Err(miette::Report::new(
+						SemanticError::EvaluationError(err)
+							.to_diagnostic_builder()
+							.label(num.location, "Error while evaluating numeric constant")
+							.build(),
+					))
+				})?;
 				Ok(hirn::design::Expression::Constant(r))
 			},
 			Identifier(id) => {
@@ -637,10 +635,10 @@ impl Expression {
 						operand: Box::new(operand),
 					})),
 					Minus => {
-						if scope.ext_signedness.contains_key(&self.get_location()){
+						if scope.ext_signedness.contains_key(&self.get_location()) {
 							Ok(operand)
 						}
-						else{
+						else {
 							Ok(-operand)
 						}
 					},

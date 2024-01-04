@@ -1073,15 +1073,16 @@ impl Expression {
 										}
 										else {
 											hirn::design::NumericConstant::new_unsigned(BigInt::from(1))
-										}
-									)),
+										},
+									),
+								),
 								lsb: Box::new(hirn::design::Expression::Constant(
 									if is_signed {
 										hirn::design::NumericConstant::new_signed(BigInt::from(0))
 									}
 									else {
 										hirn::design::NumericConstant::new_unsigned(BigInt::from(0))
-									}
+									},
 								)),
 							};
 							return Ok(hirn::design::Expression::Builtin(op));
@@ -1319,10 +1320,10 @@ impl Expression {
 						operand: Box::new(operand),
 					})),
 					Minus => {
-						if scope.ext_signedness.contains_key(&self.get_location()){
+						if scope.ext_signedness.contains_key(&self.get_location()) {
 							Ok(operand)
 						}
-						else{
+						else {
 							Ok(-operand)
 						}
 					},
@@ -1507,10 +1508,10 @@ impl Expression {
 		coupling_type: Signal,
 		is_lhs: bool,
 		location: SourceSpan,
-	) -> bool{
+	) -> bool {
 		use Expression::*;
-		match self{
-			Number(number) =>{
+		match self {
+			Number(number) => {
 				let mut constant = match local_ctx.nc_widths.get(&self.get_location()) {
 					Some(nc) => {
 						if local_ctx.ncs_to_be_exted.contains_key(&self.get_location()) {
@@ -1525,9 +1526,12 @@ impl Expression {
 				constant.value = -constant.value;
 				local_ctx.nc_widths.insert(self.get_location(), constant);
 				true
-			}
-			ParenthesizedExpression(expr) => expr.expression.propagate_minus(global_ctx, scope_id, local_ctx, coupling_type, is_lhs, location),
-			_ => false
+			},
+			ParenthesizedExpression(expr) => {
+				expr.expression
+					.propagate_minus(global_ctx, scope_id, local_ctx, coupling_type, is_lhs, location)
+			},
+			_ => false,
 		}
 	}
 	pub fn evaluate_type(
@@ -2023,21 +2027,13 @@ impl Expression {
 							local_ctx.scope.ext_signedness.insert(self.get_location(), true);
 						}
 						let begin: Option<NumericConstant> = if local_ctx.are_we_in_true_branch() {
-							range.range.lhs.eval(
-								global_ctx,
-								scope_id,
-								local_ctx,
-							)?
+							range.range.lhs.eval(global_ctx, scope_id, local_ctx)?
 						}
 						else {
 							None
 						};
 						let mut end = if local_ctx.are_we_in_true_branch() {
-							range.range.rhs.eval(
-								global_ctx,
-								scope_id,
-								local_ctx,
-							)?
+							range.range.rhs.eval(global_ctx, scope_id, local_ctx)?
 						}
 						else {
 							None
@@ -2265,24 +2261,30 @@ impl Expression {
 						};
 						let is_width_signed = match coupling_type.width().unwrap().get_location() {
 							Some(loc) => {
-								let expr = 
-								local_ctx.scope.get_expression(loc).clone();
-								!expr.expression.evaluate_type(
-								global_ctx,
-								scope_id,
-								local_ctx,
-								Signal::new_empty(),
-								is_lhs,
-								location,
-							)?.get_signedness().is_unsigned()
-						},
+								let expr = local_ctx.scope.get_expression(loc).clone();
+								!expr
+									.expression
+									.evaluate_type(
+										global_ctx,
+										scope_id,
+										local_ctx,
+										Signal::new_empty(),
+										is_lhs,
+										location,
+									)?
+									.get_signedness()
+									.is_unsigned()
+							},
 							None => true,
 						};
 						local_ctx
 							.scope
 							.widths
 							.insert(function.location, coupling_type.width().unwrap());
-						local_ctx.scope.ext_signedness.insert(self.get_location(), is_width_signed);
+						local_ctx
+							.scope
+							.ext_signedness
+							.insert(self.get_location(), is_width_signed);
 						expr.set_width(coupling_type.width().unwrap(), expr.get_signedness(), location);
 						Ok(expr)
 					},
@@ -2612,8 +2614,15 @@ impl Expression {
 				}
 			},
 			UnaryOperatorExpression(unary) => {
-				if unary.code.is_minus() && !local_ctx.scope.ext_signedness.contains_key(&self.get_location()){
-					if unary.expression.propagate_minus(global_ctx, scope_id, local_ctx, coupling_type.clone(), is_lhs, location){
+				if unary.code.is_minus() && !local_ctx.scope.ext_signedness.contains_key(&self.get_location()) {
+					if unary.expression.propagate_minus(
+						global_ctx,
+						scope_id,
+						local_ctx,
+						coupling_type.clone(),
+						is_lhs,
+						location,
+					) {
 						local_ctx.scope.ext_signedness.insert(self.get_location(), true);
 					}
 				}

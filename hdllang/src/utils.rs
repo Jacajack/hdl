@@ -258,7 +258,7 @@ pub fn elaborate(
 		})?;
 	// analyse semantically
 	let mut analyzer = crate::analyzer::SemanticalAnalyzer::new(global_ctx, &modules);
-	if elab{
+	if elab {
 		analyzer.compile_and_elaborate(&mut *output).map_err(|e| {
 			if json_report {
 				println!("{:?}", e);
@@ -266,7 +266,7 @@ pub fn elaborate(
 			e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))
 		})?;
 	}
-	else{
+	else {
 		analyzer.compile(&mut *output).map_err(|e| {
 			if json_report {
 				println!("{:?}", e);

@@ -38,17 +38,10 @@ impl AssignmentStatement {
 			debug!("Lhs is generic");
 			let id = local_ctx.scope.add_expression(scope_id, self.rhs.clone());
 
-			match self
-				.rhs
-				.eval(ctx, scope_id, local_ctx)?
-			{
-				Some(expr) => {
-					self.lhs.assign(
-						BusWidth::EvaluatedLocated(expr, id),
-						local_ctx,
-						scope_id,
-					)
-				},
+			match self.rhs.eval(ctx, scope_id, local_ctx)? {
+				Some(expr) => self
+					.lhs
+					.assign(BusWidth::EvaluatedLocated(expr, id), local_ctx, scope_id),
 				None => self.lhs.assign(BusWidth::Evaluable(id), local_ctx, scope_id),
 			}
 			.map_err(|e| e.label(self.location, "This self is invalid").build())?;

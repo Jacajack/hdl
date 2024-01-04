@@ -857,7 +857,11 @@ fn create_register(
 					)?;
 				},
 				IdWithDeclaration(decl) => {
-					let mut sig = local_ctx.scope.get_variable(scope_id, &decl.declaration.direct_declarators.first().unwrap().name).unwrap().clone();
+					let mut sig = local_ctx
+						.scope
+						.get_variable(scope_id, &decl.declaration.direct_declarators.first().unwrap().name)
+						.unwrap()
+						.clone();
 					sig.var.kind = VariableKind::Signal(data_type.clone());
 					local_ctx.scope.redeclare_variable(sig);
 				},
@@ -882,7 +886,11 @@ fn create_register(
 					)?;
 				},
 				IdWithDeclaration(decl) => {
-					let mut sig = local_ctx.scope.get_variable(scope_id, &decl.declaration.direct_declarators.first().unwrap().name).unwrap().clone();
+					let mut sig = local_ctx
+						.scope
+						.get_variable(scope_id, &decl.declaration.direct_declarators.first().unwrap().name)
+						.unwrap()
+						.clone();
 					sig.var.kind = VariableKind::Signal(data_type.clone());
 					local_ctx.scope.redeclare_variable(sig);
 				},

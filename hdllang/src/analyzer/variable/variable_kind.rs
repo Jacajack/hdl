@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-
 use crate::{
 	analyzer::{
 		module_implementation_scope::ExpressionEntryId, AdditionalContext, GlobalAnalyzerContext, LocalAnalyzerContext,
@@ -297,9 +296,7 @@ impl VariableKind {
 					bus.width.get_location(),
 				)?;
 				let width = if context.are_we_in_true_branch() {
-					bus
-						.width
-						.eval(global_ctx, current_scope, context)?
+					bus.width.eval(global_ctx, current_scope, context)?
 				}
 				else {
 					None
