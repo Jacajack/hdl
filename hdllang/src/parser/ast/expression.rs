@@ -844,7 +844,14 @@ impl Expression {
 								},
 								max(value.bits() + if signed { 1 } else { 0 }, 1),
 							)
-							.unwrap(),
+							.map_err(|err| {
+								miette::Report::new(
+									SemanticError::EvaluationError(err)
+										.to_diagnostic_builder()
+										.label(self.get_location(), "Error while creating this constant")
+										.build(),
+								)
+							})?,
 						);
 						if signed {
 							return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::SignExtend {
@@ -882,37 +889,16 @@ impl Expression {
 									.unwrap_or(max(nc.value.bits() + if signed { 1 } else { 0 }, 1) as u32)
 									.into(),
 							)
-							.unwrap(),
+							.map_err(|err| {
+								miette::Report::new(
+									SemanticError::EvaluationError(err)
+										.to_diagnostic_builder()
+										.label(self.get_location(), "Error while creating this constant")
+										.build(),
+								)
+							})?,
 						));
 					}
-					//if let Some(loc) = ncs.ncs_to_be_exted.get(&self.get_location()){
-					//	debug!("Found a constant to be extended {:?}", loc);
-					//	let constant = nc_table.get_by_key(&num.key).unwrap();
-					//	let value:BigInt = constant.value.clone();
-					//	let width_loc = scope.evaluated_expressions.get(loc).unwrap().clone();
-					//	let width = width_loc.expression.codegen(nc_table, id_table, width_loc.scope_id, scope, additional_ctx)?;
-					//	let signed = match constant.signed {
-					//		Some(s) => s,
-					//		None => true,
-					//	};
-					//	let constant = hirn::design::Expression::Constant(
-					//		hirn::design::NumericConstant::from_bigint(
-					//			constant.value.clone(),
-					//			if signed {
-					//				hirn::design::SignalSignedness::Signed
-					//			}
-					//			else {
-					//				hirn::design::SignalSignedness::Unsigned
-					//			},
-					//			(value.bits() + BigInt::from(1)).to_u64().unwrap()
-					//		)
-					//		.unwrap(),
-					//	);
-					//	return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::SignExtend {
-					//		expr: Box::new(constant),
-					//		width: Box::new(width),
-					//	}));
-					//}
 				}
 				let constant = global_ctx.nc_table.get_by_key(&num.key).unwrap();
 				let signed = match constant.signed {
@@ -935,7 +921,14 @@ impl Expression {
 						},
 						w.into(),
 					)
-					.unwrap(),
+					.map_err(|err| {
+						miette::Report::new(
+							SemanticError::EvaluationError(err)
+								.to_diagnostic_builder()
+								.label(self.get_location(), "Error while creating this constant")
+								.build(),
+						)
+					})?,
 				))
 			},
 			Identifier(id) => {
