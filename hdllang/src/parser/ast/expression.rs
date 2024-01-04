@@ -1091,7 +1091,6 @@ impl Expression {
 									}
 								)),
 							};
-							println!("op is {:?}", op);
 							return Ok(hirn::design::Expression::Builtin(op));
 						}
 						if let Some(val) = &width.get_value() {
@@ -1326,7 +1325,14 @@ impl Expression {
 						op: hirn::design::UnaryOp::BitwiseNot,
 						operand: Box::new(operand),
 					})),
-					Minus => Ok(-operand),
+					Minus => {
+						if scope.ext_signedness.contains_key(&self.get_location()){
+							Ok(operand)
+						}
+						else{
+							Ok(-operand)
+						}
+					},
 					Plus => Ok(operand),
 				}
 			},
@@ -1498,6 +1504,37 @@ impl Expression {
 				}
 			},
 			_ => Ok(false),
+		}
+	}
+	pub fn propagate_minus(
+		&self,
+		global_ctx: &GlobalAnalyzerContext,
+		scope_id: usize,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
+		coupling_type: Signal,
+		is_lhs: bool,
+		location: SourceSpan,
+	) -> bool{
+		use Expression::*;
+		match self{
+			Number(number) =>{
+				let mut constant = match local_ctx.nc_widths.get(&self.get_location()) {
+					Some(nc) => {
+						if local_ctx.ncs_to_be_exted.contains_key(&self.get_location()) {
+							global_ctx.nc_table.get_by_key(&number.key).unwrap().clone()
+						}
+						else {
+							nc.clone()
+						}
+					},
+					None => global_ctx.nc_table.get_by_key(&number.key).unwrap().clone(),
+				};
+				constant.value = -constant.value;
+				local_ctx.nc_widths.insert(self.get_location(), constant);
+				true
+			}
+			ParenthesizedExpression(expr) => expr.expression.propagate_minus(global_ctx, scope_id, local_ctx, coupling_type, is_lhs, location),
+			_ => false
 		}
 	}
 	pub fn evaluate_type(
@@ -2582,6 +2619,11 @@ impl Expression {
 				}
 			},
 			UnaryOperatorExpression(unary) => {
+				if unary.code.is_minus() && !local_ctx.scope.ext_signedness.contains_key(&self.get_location()){
+					if unary.expression.propagate_minus(global_ctx, scope_id, local_ctx, coupling_type.clone(), is_lhs, location){
+						local_ctx.scope.ext_signedness.insert(self.get_location(), true);
+					}
+				}
 				let expr =
 					unary
 						.expression

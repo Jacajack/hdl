@@ -13,6 +13,16 @@ pub enum UnaryOpcode {
 	Minus,      // -
 	Plus,       // +
 }
+
+impl UnaryOpcode {
+	pub fn is_minus(&self) -> bool {
+		use self::UnaryOpcode::*;
+		match *self {
+			Minus => true,
+			_ => false,
+		}
+	}
+}
 #[derive(serde::Serialize, serde::Deserialize, Clone, PartialEq, Eq, Hash)]
 pub enum BinaryOpcode {
 	Multiplication,

@@ -636,7 +636,14 @@ impl Expression {
 						op: hirn::design::UnaryOp::BitwiseNot,
 						operand: Box::new(operand),
 					})),
-					Minus => Ok(-operand),
+					Minus => {
+						if scope.ext_signedness.contains_key(&self.get_location()){
+							Ok(operand)
+						}
+						else{
+							Ok(-operand)
+						}
+					},
 					Plus => Ok(operand),
 				}
 			},
