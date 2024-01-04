@@ -1063,6 +1063,7 @@ impl Expression {
 							additional_ctx,
 						)?;
 						let width = scope.widths.get(&function.location).unwrap().clone(); //FIXME
+						let is_signed = scope.ext_signedness.get(&function.location).unwrap().clone();
 						log::debug!("Width is {:?}", width);
 						if let Some(loc) = width.get_location() {
 							let op = hirn::design::BuiltinOp::BusSelect {
@@ -1073,14 +1074,24 @@ impl Expression {
 										scope_id,
 										scope,
 										additional_ctx,
-									)? - hirn::design::Expression::Constant(hirn::design::NumericConstant::new_signed(
-										BigInt::from(1),
+									)? - hirn::design::Expression::Constant(
+										if is_signed {
+											hirn::design::NumericConstant::new_signed(BigInt::from(1))
+										}
+										else {
+											hirn::design::NumericConstant::new_unsigned(BigInt::from(1))
+										}
 									)),
-								),
 								lsb: Box::new(hirn::design::Expression::Constant(
-									hirn::design::NumericConstant::new_signed(BigInt::from(0)),
+									if is_signed {
+										hirn::design::NumericConstant::new_signed(BigInt::from(0))
+									}
+									else {
+										hirn::design::NumericConstant::new_unsigned(BigInt::from(0))
+									}
 								)),
 							};
+							println!("op is {:?}", op);
 							return Ok(hirn::design::Expression::Builtin(op));
 						}
 						if let Some(val) = &width.get_value() {
@@ -2222,10 +2233,26 @@ impl Expression {
 								)?;
 							},
 						};
+						let is_width_signed = match coupling_type.width().unwrap().get_location() {
+							Some(loc) => {
+								let expr = 
+								local_ctx.scope.get_expression(loc).clone();
+								!expr.expression.evaluate_type(
+								global_ctx,
+								scope_id,
+								local_ctx,
+								Signal::new_empty(),
+								is_lhs,
+								location,
+							)?.get_signedness().is_unsigned()
+						},
+							None => true,
+						};
 						local_ctx
 							.scope
 							.widths
 							.insert(function.location, coupling_type.width().unwrap());
+						local_ctx.scope.ext_signedness.insert(self.get_location(), is_width_signed);
 						expr.set_width(coupling_type.width().unwrap(), expr.get_signedness(), location);
 						Ok(expr)
 					},
