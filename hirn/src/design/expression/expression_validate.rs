@@ -193,11 +193,7 @@ impl BuiltinOp {
 				let lsb_type = lsb.eval_type(ctx)?;
 				let msb_type = msb.eval_type(ctx)?;
 
-				if !lsb_type.is_generic() {
-					return Err(ExpressionError::InvalidBitIndex.into());
-				}
-
-				if !msb_type.is_generic() {
+				if !lsb_type.is_generic() || !msb_type.is_generic() || lsb_type.is_signed() != msb_type.is_signed() {
 					return Err(ExpressionError::InvalidBitIndex.into());
 				}
 
