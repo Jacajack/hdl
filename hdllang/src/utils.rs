@@ -124,7 +124,7 @@ pub fn deserialize(code: String, mut output: Box<dyn Write>) -> miette::Result<(
 	deserialized.ast_root.pretty_print(&mut printer)?;
 	Ok(())
 }
-pub fn pretty_print(code: String, mut output: Box<dyn Write>) -> miette::Result<()> {
+pub fn pretty_print(code: String, output: &mut dyn Write) -> miette::Result<()> {
 	let mut lexer = LogosLexer::new(&code);
 	let ast = parser::IzuluParser::new().parse(Some(&code), &mut lexer).map_err(|e| {
 		ParserError::new_form_lalrpop_error(e)
@@ -135,7 +135,7 @@ pub fn pretty_print(code: String, mut output: Box<dyn Write>) -> miette::Result<
 		lexer.id_table(),
 		lexer.comment_table(),
 		lexer.numeric_constant_table(),
-		&mut output,
+		output,
 	);
 	ast.pretty_print(&mut printer)?;
 	Ok(())
@@ -227,7 +227,8 @@ pub fn compile(mut code: String, file_name: String, mut output: Box<dyn Write>) 
 pub fn elaborate(
 	mut code: String,
 	file_name: String,
-	mut output: Box<dyn Write>,
+	output: &mut dyn Write,
+	elab: bool,
 	json_report: bool,
 ) -> miette::Result<()> {
 	let root: Root;
@@ -257,12 +258,22 @@ pub fn elaborate(
 		})?;
 	// analyse semantically
 	let mut analyzer = crate::analyzer::SemanticalAnalyzer::new(global_ctx, &modules);
-	analyzer.compile_and_elaborate(&mut *output).map_err(|e| {
-		if json_report {
-			println!("{:?}", e);
-		}
-		e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))
-	})?;
+	if elab{
+		analyzer.compile_and_elaborate(&mut *output).map_err(|e| {
+			if json_report {
+				println!("{:?}", e);
+			}
+			e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))
+		})?;
+	}
+	else{
+		analyzer.compile(&mut *output).map_err(|e| {
+			if json_report {
+				println!("{:?}", e);
+			}
+			e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone()))
+		})?;
+	}
 
 	analyzer
 		.buffer()
