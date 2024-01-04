@@ -452,9 +452,11 @@ fn to_report(
 			.build()
 		},
 		Notice(msg) => report.label(module_location, msg.as_str()).build(),
-		_ => report
+		_ => {
+			println!("Unhandled elab message: {:?}", elab_report_kind);
+			report
 			.label(module_location, "Other elaboration warning/error occured")
-			.build(),
+			.build()},
 	}
 }
 

@@ -1,0 +1,8 @@
+module onehot {
+
+}
+
+impl onehot {
+  const ubus<20> t = 0;
+  const ubus<12u> x = trunc(t);
+}

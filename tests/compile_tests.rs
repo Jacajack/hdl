@@ -1,86 +1,18 @@
 extern crate hdllang;
-use hdllang::analyzer::GlobalAnalyzerContext;
-use hdllang::compiler_diagnostic::ProvidesCompilerDiagnostic;
-use hdllang::lexer::{IdTable, Lexer, LogosLexer, LogosLexerContext};
-use hdllang::parser;
-use hdllang::parser::ast::Root;
-use hdllang::parser::pretty_printer::PrettyPrintable;
-use hdllang::parser::ParserError;
 use rstest::*;
-use std::collections::HashMap;
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use subprocess::{ExitStatus, Popen, PopenConfig};
 use tempfile::NamedTempFile;
 
 // Copied from main.rs
-fn parse_file_recover_tables(
-	code: String,
-	ctx: LogosLexerContext,
-) -> miette::Result<(Root, LogosLexerContext, String)> {
-	let mut lexer = LogosLexer::new_with_context(&code, ctx);
-	let parser = parser::IzuluParser::new();
-	let ast = parser.parse(Some(&code), &mut lexer).map_err(|e| {
-		ParserError::new_form_lalrpop_error(e)
-			.to_miette_report()
-			.with_source_code(code.clone())
-	})?;
-	Ok((ast, lexer.get_context(), code))
-}
-
-// Copied from main.rs
 // It would be nice if we had this living in hdllang crate.
-fn compile(mut code: String, file_name: String, output: &mut dyn Write, elab: bool) -> miette::Result<()> {
-	let root: Root;
-	let mut ctx = LogosLexerContext {
-		id_table: IdTable::new(),
-		comment_table: hdllang::lexer::CommentTable::new(),
-		numeric_constants: hdllang::lexer::NumericConstantTable::new(),
-		last_err: None,
-	};
-	let mut map: HashMap<String, String> = HashMap::new();
-	(root, ctx, code) = parse_file_recover_tables(code, ctx)?;
-	let global_ctx: GlobalAnalyzerContext<'_> = GlobalAnalyzerContext {
-		id_table: ctx.id_table,
-		nc_table: ctx.numeric_constants,
-		comment_table: ctx.comment_table,
-		modules_declared: HashMap::new(),
-		generic_modules: HashMap::new(),
-		design: hirn::design::DesignHandle::new(),
-		diagnostic_buffer: crate::hdllang::core::DiagnosticBuffer::new(),
-	};
-	let (_, global_ctx, modules) = crate::hdllang::analyzer::combine(global_ctx, &root, String::from("."), &mut map)
-		.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
-	let mut analyzer = hdllang::analyzer::SemanticalAnalyzer::new(global_ctx, &modules);
-
-	if elab {
-		analyzer.compile_and_elaborate(output)
-	}
-	else {
-		analyzer.compile(output)
-	}
-	.map_err(|e| e.with_source_code(miette::NamedSource::new(file_name.clone(), code.clone())))?;
-
-	analyzer.buffer().print_diagnostics(file_name, code, false)?;
-
-	Ok(())
+fn compile(code: String, file_name: String, output: &mut dyn Write, elab: bool) -> miette::Result<()> {
+	hdllang::utils::elaborate(code, file_name, output, elab, false)
 }
 
 fn pretty_print(code: String, output: &mut dyn Write) -> miette::Result<()> {
-	let mut lexer = LogosLexer::new(&code);
-	let ast = parser::IzuluParser::new().parse(Some(&code), &mut lexer).map_err(|e| {
-		ParserError::new_form_lalrpop_error(e)
-			.to_miette_report()
-			.with_source_code(code.clone())
-	})?;
-	let mut printer = parser::pretty_printer::PrettyPrinterContext::new(
-		lexer.id_table(),
-		lexer.comment_table(),
-		lexer.numeric_constant_table(),
-		output,
-	);
-	ast.pretty_print(&mut printer)?;
-	Ok(())
+	hdllang::utils::pretty_print(code, output)
 }
 
 fn run_hdlc(input_path: &Path, elab: bool) -> miette::Result<NamedTempFile> {

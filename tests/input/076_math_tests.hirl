@@ -100,7 +100,7 @@ impl math_tests {
 	const ubus<((-1s8 >> 255u8) == -1s8 ? X : Y)> a_88;
 	const ubus<((-4s8 >> 1u8) == -2s8 ? X : Y)> a_89;
 	const ubus<((-2s8 >> 1u8) == -1s8 ? X : Y)> a_90;
-	//const ubus<((1s8 << 7u8) == -1s8)> a_91;
+	const ubus<((1s8 << 7u8) == -128s8)> a_91;
 	const ubus<(-1s8 == -1s8 ? X : Y)> a_92;
 	const ubus<(--1s8 == 1s8 ? X : Y)> a_93;
 	const ubus<(~-1s8 == 0s8 ? X : Y)> a_94;
@@ -114,7 +114,7 @@ impl math_tests {
 	const ubus<(ones(12) == 0xfff ? X : Y)> a_102;
 	const ubus<(rep(1u1,10) == 0b1111111111u ? X : Y)> a103;
 	const ubus<(join(1u1, 1u1) == 0b11u ? X : Y)> a104;
-
+	const sbus<(---128s8 == -128s8 ? true : false)> a105;
 	const ubus<((
 		cond {
 			0u1 => 0u647,

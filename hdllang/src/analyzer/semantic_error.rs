@@ -140,6 +140,8 @@ pub enum SemanticError {
 	CriticalElaborationError,
 	#[error(transparent)]
 	InstanceError(InstanceError),
+	#[error(transparent)]
+	EvaluationError(#[from] hirn::design::EvalError),
 }
 
 impl ProvidesCompilerDiagnostic for SemanticError {
@@ -302,6 +304,7 @@ impl ProvidesCompilerDiagnostic for SemanticError {
 				.build(),
 			GenericArray => CompilerDiagnosticBuilder::from_error(&self).build(),
 			CriticalElaborationError => CompilerDiagnosticBuilder::from_error(&self).build(),
+    		EvaluationError(err) => CompilerDiagnosticBuilder::from_error(err).build(),
 		}
 	}
 }

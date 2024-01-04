@@ -101,7 +101,7 @@ fn main() -> miette::Result<()> {
 		Some(x) => x,
 		None => "",
 	};
-	let output: Box<dyn Write> = match matches.get_one::<String>("output") {
+	let mut output: Box<dyn Write> = match matches.get_one::<String>("output") {
 		None => Box::new(std::io::stdout()),
 		Some(path) => match fs::File::create(path) {
 			Ok(file) => Box::new(file),
@@ -129,7 +129,7 @@ fn main() -> miette::Result<()> {
 			analyse(code, String::from(file_name), output)?;
 		},
 		"pretty-print" => {
-			pretty_print(code, output)?;
+			pretty_print(code, &mut output)?;
 		},
 		"serialize" | "serialise" => {
 			serialize(code, output)?;
@@ -138,10 +138,10 @@ fn main() -> miette::Result<()> {
 			deserialize(code, output)?;
 		},
 		"compile" => {
-			compile(code, String::from(file_name), output)?;
+			elaborate(code, String::from(file_name), &mut output, false, json_report, )?;
 		},
 		"elaborate" => {
-			elaborate(code, String::from(file_name), output, json_report)?;
+			elaborate(code, String::from(file_name), &mut output, true, json_report, )?;
 		},
 		"clean" => {
 			println!("Not implemented!");

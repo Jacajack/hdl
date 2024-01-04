@@ -29,7 +29,7 @@ use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 pub use binary_expression::BinaryExpression;
 pub use conditional_expression::ConditionalExpression;
 pub use expr_eval::Res;
-use hirn::design::{Evaluates, SignalSlice};
+use hirn::design::SignalSlice;
 pub use identifier::Identifier;
 use log::debug;
 pub use match_expression::MatchExpression;
@@ -844,7 +844,14 @@ impl Expression {
 								},
 								max(value.bits() + if signed { 1 } else { 0 }, 1),
 							)
-							.unwrap(),
+							.map_err(|err| {
+								miette::Report::new(
+									SemanticError::EvaluationError(err)
+										.to_diagnostic_builder()
+										.label(self.get_location(), "Error while creating this constant")
+										.build(),
+								)
+							})?,
 						);
 						if signed {
 							return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::SignExtend {
@@ -882,37 +889,16 @@ impl Expression {
 									.unwrap_or(max(nc.value.bits() + if signed { 1 } else { 0 }, 1) as u32)
 									.into(),
 							)
-							.unwrap(),
+							.map_err(|err| {
+								miette::Report::new(
+									SemanticError::EvaluationError(err)
+										.to_diagnostic_builder()
+										.label(self.get_location(), "Error while creating this constant")
+										.build(),
+								)
+							})?,
 						));
 					}
-					//if let Some(loc) = ncs.ncs_to_be_exted.get(&self.get_location()){
-					//	debug!("Found a constant to be extended {:?}", loc);
-					//	let constant = nc_table.get_by_key(&num.key).unwrap();
-					//	let value:BigInt = constant.value.clone();
-					//	let width_loc = scope.evaluated_expressions.get(loc).unwrap().clone();
-					//	let width = width_loc.expression.codegen(nc_table, id_table, width_loc.scope_id, scope, additional_ctx)?;
-					//	let signed = match constant.signed {
-					//		Some(s) => s,
-					//		None => true,
-					//	};
-					//	let constant = hirn::design::Expression::Constant(
-					//		hirn::design::NumericConstant::from_bigint(
-					//			constant.value.clone(),
-					//			if signed {
-					//				hirn::design::SignalSignedness::Signed
-					//			}
-					//			else {
-					//				hirn::design::SignalSignedness::Unsigned
-					//			},
-					//			(value.bits() + BigInt::from(1)).to_u64().unwrap()
-					//		)
-					//		.unwrap(),
-					//	);
-					//	return Ok(hirn::design::Expression::Builtin(hirn::design::BuiltinOp::SignExtend {
-					//		expr: Box::new(constant),
-					//		width: Box::new(width),
-					//	}));
-					//}
 				}
 				let constant = global_ctx.nc_table.get_by_key(&num.key).unwrap();
 				let signed = match constant.signed {
@@ -935,7 +921,14 @@ impl Expression {
 						},
 						w.into(),
 					)
-					.unwrap(),
+					.map_err(|err| {
+						miette::Report::new(
+							SemanticError::EvaluationError(err)
+								.to_diagnostic_builder()
+								.label(self.get_location(), "Error while creating this constant")
+								.build(),
+						)
+					})?,
 				))
 			},
 			Identifier(id) => {
@@ -1063,6 +1056,7 @@ impl Expression {
 							additional_ctx,
 						)?;
 						let width = scope.widths.get(&function.location).unwrap().clone(); //FIXME
+						let is_signed = scope.ext_signedness.get(&function.location).unwrap().clone();
 						log::debug!("Width is {:?}", width);
 						if let Some(loc) = width.get_location() {
 							let op = hirn::design::BuiltinOp::BusSelect {
@@ -1073,12 +1067,21 @@ impl Expression {
 										scope_id,
 										scope,
 										additional_ctx,
-									)? - hirn::design::Expression::Constant(hirn::design::NumericConstant::new_signed(
-										BigInt::from(1),
+									)? - hirn::design::Expression::Constant(
+										if is_signed {
+											hirn::design::NumericConstant::new_signed(BigInt::from(1))
+										}
+										else {
+											hirn::design::NumericConstant::new_unsigned(BigInt::from(1))
+										}
 									)),
-								),
 								lsb: Box::new(hirn::design::Expression::Constant(
-									hirn::design::NumericConstant::new_signed(BigInt::from(0)),
+									if is_signed {
+										hirn::design::NumericConstant::new_signed(BigInt::from(0))
+									}
+									else {
+										hirn::design::NumericConstant::new_unsigned(BigInt::from(0))
+									}
 								)),
 							};
 							return Ok(hirn::design::Expression::Builtin(op));
@@ -1315,7 +1318,14 @@ impl Expression {
 						op: hirn::design::UnaryOp::BitwiseNot,
 						operand: Box::new(operand),
 					})),
-					Minus => Ok(-operand),
+					Minus => {
+						if scope.ext_signedness.contains_key(&self.get_location()){
+							Ok(operand)
+						}
+						else{
+							Ok(-operand)
+						}
+					},
 					Plus => Ok(operand),
 				}
 			},
@@ -1487,6 +1497,37 @@ impl Expression {
 				}
 			},
 			_ => Ok(false),
+		}
+	}
+	pub fn propagate_minus(
+		&self,
+		global_ctx: &GlobalAnalyzerContext,
+		scope_id: usize,
+		local_ctx: &mut Box<LocalAnalyzerContext>,
+		coupling_type: Signal,
+		is_lhs: bool,
+		location: SourceSpan,
+	) -> bool{
+		use Expression::*;
+		match self{
+			Number(number) =>{
+				let mut constant = match local_ctx.nc_widths.get(&self.get_location()) {
+					Some(nc) => {
+						if local_ctx.ncs_to_be_exted.contains_key(&self.get_location()) {
+							global_ctx.nc_table.get_by_key(&number.key).unwrap().clone()
+						}
+						else {
+							nc.clone()
+						}
+					},
+					None => global_ctx.nc_table.get_by_key(&number.key).unwrap().clone(),
+				};
+				constant.value = -constant.value;
+				local_ctx.nc_widths.insert(self.get_location(), constant);
+				true
+			}
+			ParenthesizedExpression(expr) => expr.expression.propagate_minus(global_ctx, scope_id, local_ctx, coupling_type, is_lhs, location),
+			_ => false
 		}
 	}
 	pub fn evaluate_type(
@@ -1931,13 +1972,6 @@ impl Expression {
 				use SignalType::*;
 				match &expr.signal_type {
 					Bus(bus) => {
-						let additional_ctx = AdditionalContext::new(
-							local_ctx.nc_widths.clone(),
-							local_ctx.ncs_to_be_exted.clone(),
-							local_ctx.array_or_bus.clone(),
-							local_ctx.casts.clone(),
-						);
-
 						let mut begin_type = range.range.lhs.evaluate_type(
 							global_ctx,
 							scope_id,
@@ -1989,45 +2023,21 @@ impl Expression {
 							local_ctx.scope.ext_signedness.insert(self.get_location(), true);
 						}
 						let begin: Option<NumericConstant> = if local_ctx.are_we_in_true_branch() {
-							let val = range.range.lhs.eval_with_hirn(
+							range.range.lhs.eval(
 								global_ctx,
 								scope_id,
-								&local_ctx.scope,
-								Some(&additional_ctx),
-							);
-							match val {
-								Ok(expr) => {
-									let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
-									let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
-									Some(NumericConstant::from_hirn_numeric_constant(val))
-								},
-								Err(res) => match res {
-									Res::Err(err) => return Err(err),
-									Res::GenericValue => None,
-								},
-							}
+								local_ctx,
+							)?
 						}
 						else {
 							None
 						};
 						let mut end = if local_ctx.are_we_in_true_branch() {
-							let val = range.range.rhs.eval_with_hirn(
+							range.range.rhs.eval(
 								global_ctx,
 								scope_id,
-								&local_ctx.scope,
-								Some(&additional_ctx),
-							);
-							match val {
-								Ok(expr) => {
-									let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
-									let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
-									Some(NumericConstant::from_hirn_numeric_constant(val))
-								},
-								Err(res) => match res {
-									Res::Err(err) => return Err(err),
-									Res::GenericValue => None,
-								},
-							}
+								local_ctx,
+							)?
 						}
 						else {
 							None
@@ -2253,10 +2263,26 @@ impl Expression {
 								)?;
 							},
 						};
+						let is_width_signed = match coupling_type.width().unwrap().get_location() {
+							Some(loc) => {
+								let expr = 
+								local_ctx.scope.get_expression(loc).clone();
+								!expr.expression.evaluate_type(
+								global_ctx,
+								scope_id,
+								local_ctx,
+								Signal::new_empty(),
+								is_lhs,
+								location,
+							)?.get_signedness().is_unsigned()
+						},
+							None => true,
+						};
 						local_ctx
 							.scope
 							.widths
 							.insert(function.location, coupling_type.width().unwrap());
+						local_ctx.scope.ext_signedness.insert(self.get_location(), is_width_signed);
 						expr.set_width(coupling_type.width().unwrap(), expr.get_signedness(), location);
 						Ok(expr)
 					},
@@ -2586,6 +2612,11 @@ impl Expression {
 				}
 			},
 			UnaryOperatorExpression(unary) => {
+				if unary.code.is_minus() && !local_ctx.scope.ext_signedness.contains_key(&self.get_location()){
+					if unary.expression.propagate_minus(global_ctx, scope_id, local_ctx, coupling_type.clone(), is_lhs, location){
+						local_ctx.scope.ext_signedness.insert(self.get_location(), true);
+					}
+				}
 				let expr =
 					unary
 						.expression

@@ -36,7 +36,18 @@ impl Expression {
 		match expr {
 			Ok(expression) => {
 				let eval_ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
-				let res = expression.eval(&eval_ctx).unwrap(); // FIXME
+				let res = expression.eval(&eval_ctx).map_err(|err|{
+					log::debug!("Error is {:?}", err);
+					miette::Report::new(
+						SemanticError::EvaluationError(err)
+							.to_diagnostic_builder()
+							.label(
+								self.get_location(),
+								"Error occured while evaluating value of this expression",
+							)
+							.build(),
+					)
+				})?;
 				Ok(Some(NumericConstant::from_hirn_numeric_constant(res)))
 			},
 			Err(res) => match res {
@@ -146,8 +157,7 @@ impl Expression {
 					_ => max(constant.value.bits() + if signed { 1 } else { 0 }, 1) as u32,
 				};
 				debug!("Width is {:?}", w);
-				Ok(hirn::design::Expression::Constant(
-					hirn::design::NumericConstant::from_bigint(
+				let r = 	hirn::design::NumericConstant::from_bigint(
 						constant.value.clone(),
 						if signed {
 							hirn::design::SignalSignedness::Signed
@@ -156,9 +166,19 @@ impl Expression {
 							hirn::design::SignalSignedness::Unsigned
 						},
 						w.into(),
-					)
-					.unwrap(),
-				))
+					).map_err(|err|{
+						log::debug!("Error is {:?}", err);
+						Res::Err(miette::Report::new(
+							SemanticError::EvaluationError(err)
+								.to_diagnostic_builder()
+								.label(
+									num.location,
+									"Error while evaluating numeric constant",
+								)
+								.build(),
+						))
+					})?;
+				Ok(hirn::design::Expression::Constant(r))
 			},
 			Identifier(id) => {
 				let var = scope.get_variable(scope_id, &id.id).unwrap();
@@ -616,7 +636,14 @@ impl Expression {
 						op: hirn::design::UnaryOp::BitwiseNot,
 						operand: Box::new(operand),
 					})),
-					Minus => Ok(-operand),
+					Minus => {
+						if scope.ext_signedness.contains_key(&self.get_location()){
+							Ok(operand)
+						}
+						else{
+							Ok(-operand)
+						}
+					},
 					Plus => Ok(operand),
 				}
 			},

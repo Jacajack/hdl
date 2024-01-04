@@ -1,14 +1,13 @@
 use std::collections::HashMap;
 
-use hirn::design::Evaluates;
 
 use crate::{
 	analyzer::{
 		module_implementation_scope::ExpressionEntryId, AdditionalContext, GlobalAnalyzerContext, LocalAnalyzerContext,
 		SemanticError, SignalSensitivity, SignalSignedness, SignalType,
 	},
-	core::{CompilerDiagnosticBuilder, NumericConstant},
-	parser::ast::{Res, SourceLocation},
+	core::CompilerDiagnosticBuilder,
+	parser::ast::SourceLocation,
 	ProvidesCompilerDiagnostic,
 };
 
@@ -298,27 +297,9 @@ impl VariableKind {
 					bus.width.get_location(),
 				)?;
 				let width = if context.are_we_in_true_branch() {
-					let additional_ctx = AdditionalContext::new(
-						context.nc_widths.clone(),
-						context.ncs_to_be_exted.clone(),
-						context.array_or_bus.clone(),
-						context.casts.clone(),
-					);
-					let w = bus
+					bus
 						.width
-						.eval_with_hirn(global_ctx, current_scope, &context.scope, Some(&additional_ctx));
-					match w {
-						Ok(val) => {
-							log::debug!("Bus width: {:?}", val);
-							let ctx = hirn::design::EvalContext::without_assumptions(global_ctx.design.clone());
-							let val_val = val.eval(&ctx).unwrap();
-							Some(NumericConstant::from_hirn_numeric_constant(val_val))
-						},
-						Err(res) => match res {
-							Res::Err(err) => return Err(err),
-							Res::GenericValue => None,
-						},
-					}
+						.eval(global_ctx, current_scope, context)?
 				}
 				else {
 					None

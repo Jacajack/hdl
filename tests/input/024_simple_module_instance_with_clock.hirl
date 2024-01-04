@@ -1,9 +1,9 @@
 module counterr{
-	input clock dupa;
+	input clock discovery;
 	input async wire nreset;
-	input comb(dupa) wire enable;
-	input unsigned comb(dupa) bus<16> next;
-	output unsigned sync(dupa) bus<16> data;
+	input comb(discovery) wire enable;
+	input unsigned comb(discovery) bus<16> next;
+	output unsigned sync(discovery) bus<16> data;
 }
 impl counterr{
 	data = 0; // idk why this is empty
@@ -19,7 +19,7 @@ module simple_counter{
 impl simple_counter{
 	bus<16> counter_next = trunc(data + 1u1);
 	counterr counter{
-		dupa:clk,
+		discovery:clk,
 		nreset,
 		enable,
 		next: counter_next,

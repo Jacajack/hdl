@@ -93,8 +93,6 @@ impl ModuleImplementationScope {
 			)
 			.as_str();
 		}
-		s += format!("dupa").as_str();
-
 		s
 	}
 	pub fn get_interface_len(&self) -> usize {
