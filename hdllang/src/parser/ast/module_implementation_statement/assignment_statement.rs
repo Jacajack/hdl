@@ -1,4 +1,3 @@
-use hirn::design::Evaluates;
 use hirn::design::ScopeHandle;
 
 use super::AssignmentOpcode;
@@ -10,8 +9,6 @@ use crate::analyzer::LocalAnalyzerContext;
 use crate::analyzer::RegisterInstance;
 use crate::analyzer::SemanticError;
 use crate::analyzer::Signal;
-use crate::core::NumericConstant;
-use crate::parser::ast::Res;
 use crate::parser::ast::SourceLocation;
 use crate::CompilerError;
 use crate::ProvidesCompilerDiagnostic;
@@ -40,29 +37,19 @@ impl AssignmentStatement {
 		if self.lhs.is_generic(ctx, scope_id, local_ctx)? {
 			debug!("Lhs is generic");
 			let id = local_ctx.scope.add_expression(scope_id, self.rhs.clone());
-			let additional_ctx = AdditionalContext::new(
-				local_ctx.nc_widths.clone(),
-				local_ctx.ncs_to_be_exted.clone(),
-				local_ctx.array_or_bus.clone(),
-				local_ctx.casts.clone(),
-			);
+
 			match self
 				.rhs
-				.eval_with_hirn(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx))
+				.eval(ctx, scope_id, local_ctx)?
 			{
-				Ok(expr) => {
-					let ctx = hirn::design::EvalContext::without_assumptions(ctx.design.clone());
-					let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
+				Some(expr) => {
 					self.lhs.assign(
-						BusWidth::EvaluatedLocated(NumericConstant::from_hirn_numeric_constant(val), id),
+						BusWidth::EvaluatedLocated(expr, id),
 						local_ctx,
 						scope_id,
 					)
 				},
-				Err(res) => match res {
-					Res::Err(err) => return Err(err),
-					Res::GenericValue => self.lhs.assign(BusWidth::Evaluable(id), local_ctx, scope_id),
-				},
+				None => self.lhs.assign(BusWidth::Evaluable(id), local_ctx, scope_id),
 			}
 			.map_err(|e| e.label(self.location, "This self is invalid").build())?;
 			//return Ok(());

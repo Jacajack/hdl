@@ -1,14 +1,13 @@
 mod pretty_printable;
 
-use hirn::design::{Evaluates, ScopeHandle};
+use hirn::design::ScopeHandle;
 
 use crate::analyzer::{
 	AdditionalContext, AlreadyCreated, BusWidth, GenericVariable, GlobalAnalyzerContext, LocalAnalyzerContext,
 	SemanticError, Variable, VariableKind,
 };
-use crate::core::NumericConstant;
 use crate::lexer::CommentTableKey;
-use crate::parser::ast::{DirectInitializer, Res, SourceLocation, TypeDeclarator};
+use crate::parser::ast::{DirectInitializer, SourceLocation, TypeDeclarator};
 use crate::{ProvidesCompilerDiagnostic, SourceSpan};
 
 #[derive(serde::Serialize, serde::Deserialize, Debug, Clone, Eq, PartialEq, Hash)]
@@ -99,26 +98,10 @@ impl VariableDefinition {
 						.build(),
 				));
 			}
-			let additional_ctx = crate::analyzer::AdditionalContext::new(
-				local_ctx.nc_widths.clone(),
-				local_ctx.ncs_to_be_exted.clone(),
-				local_ctx.array_or_bus.clone(),
-				local_ctx.casts.clone(),
-			);
+
 			for array_declarator in &direct_initializer.declarator.array_declarators {
 				let size = if local_ctx.are_we_in_true_branch() {
-					let val = array_declarator.eval_with_hirn(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx));
-					match val {
-						Ok(expr) => {
-							let ctx = hirn::design::EvalContext::without_assumptions(ctx.design.clone());
-							let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
-							Some(NumericConstant::from_hirn_numeric_constant(val))
-						},
-						Err(res) => match res {
-							Res::Err(err) => return Err(err),
-							Res::GenericValue => None,
-						},
-					}
+					array_declarator.eval(ctx, scope_id, local_ctx)?
 				}
 				else {
 					None
@@ -164,31 +147,16 @@ impl VariableDefinition {
 							false,
 							direct_initializer.get_location(),
 						)?;
-						let additional_ctx = crate::analyzer::AdditionalContext::new(
-							local_ctx.nc_widths.clone(),
-							local_ctx.ncs_to_be_exted.clone(),
-							local_ctx.array_or_bus.clone(),
-							local_ctx.casts.clone(),
-						);
-						let rhs_val = expr.eval_with_hirn(ctx, scope_id, &local_ctx.scope, Some(&additional_ctx));
+						let rhs_val = expr.eval(ctx, scope_id, local_ctx)?;
 						if let VariableKind::Generic(GenericVariable { value, .. }) = &mut spec_kind {
 							let id = local_ctx.scope.add_expression(scope_id, expr.clone());
 							match rhs_val {
-								Ok(expr) => {
-									let ctx = hirn::design::EvalContext::without_assumptions(ctx.design.clone());
-									let val = expr.eval(&ctx).unwrap(); // FIXME handle errors
-									value.replace(BusWidth::EvaluatedLocated(
-										NumericConstant::from_hirn_numeric_constant(val),
+								Some(val) => value.replace(BusWidth::EvaluatedLocated(
+										val,
 										id,
-									));
-								},
-								Err(res) => {
-									match res {
-										Res::Err(err) => return Err(err),
-										Res::GenericValue => value.replace(BusWidth::Evaluable(id)),
-									};
-								},
-							}
+									)),
+								None => value.replace(BusWidth::Evaluable(id)),
+							};
 						}
 						else {
 							unreachable!()
