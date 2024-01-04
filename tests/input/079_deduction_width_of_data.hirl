@@ -1,0 +1,31 @@
+/// This is a super cool module
+module X {
+	/// System clock input
+	input clock clk;
+}
+
+impl X {
+	/// Internal clock
+	wire clk2 = clk;
+	
+
+	/// Dummy register
+	reg r {
+		clk: clk,
+		en: true,
+		nreset: true,
+		next: 0u16,
+		data: auto asddata
+	}
+	auto n = 0u16;
+	sync(clk) ubus<16> out;
+	/// Even dummier register
+	reg rr {
+		clk: clk,
+		en: true,
+		nreset: true,
+		next: auto ddd,
+		data: out,
+	}
+	ddd = n;
+}

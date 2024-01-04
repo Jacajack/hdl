@@ -856,7 +856,11 @@ fn create_register(
 						next_stmt.unwrap().location(),
 					)?;
 				},
-				IdWithDeclaration(_) => todo!(),
+				IdWithDeclaration(decl) => {
+					let mut sig = local_ctx.scope.get_variable(scope_id, &decl.declaration.direct_declarators.first().unwrap().name).unwrap().clone();
+					sig.var.kind = VariableKind::Signal(data_type.clone());
+					local_ctx.scope.redeclare_variable(sig);
+				},
 			};
 		},
 		(false, true) => {
@@ -877,7 +881,11 @@ fn create_register(
 						data_stmt.unwrap().location(),
 					)?;
 				},
-				IdWithDeclaration(_) => todo!(),
+				IdWithDeclaration(decl) => {
+					let mut sig = local_ctx.scope.get_variable(scope_id, &decl.declaration.direct_declarators.first().unwrap().name).unwrap().clone();
+					sig.var.kind = VariableKind::Signal(data_type.clone());
+					local_ctx.scope.redeclare_variable(sig);
+				},
 			};
 		},
 		(false, false) => {
