@@ -1,1 +1,2 @@
 .github export-ignore
+*.hirl linguist-language=systemverilog
