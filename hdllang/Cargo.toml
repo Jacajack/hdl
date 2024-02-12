@@ -10,7 +10,7 @@ lalrpop = "0.20.0"
 
 [dependencies]
 "miette" = ">=5.5"
-"logos" = "0.13.0"
+"logos" = "0.14.0"
 "thiserror" = "1.0"
 "bimap" = {version = "0.6.2", features = ["serde"]}
 "num-bigint" = {version = "0.4.3", features = ["serde"]}
