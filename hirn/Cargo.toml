@@ -15,7 +15,7 @@ petgraph = "0.6.4"
 dyn-clone = "1.0.14"
 
 [dev-dependencies]
-rstest = "0.19.0"
+rstest = "0.22.0"
 
 [[bin]]
 name = "hirn_example"
