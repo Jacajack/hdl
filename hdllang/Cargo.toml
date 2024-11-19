@@ -14,7 +14,7 @@ lalrpop = "0.22.0"
 "thiserror" = "2.0"
 "bimap" = {version = "0.6.2", features = ["serde"]}
 "num-bigint" = {version = "0.4.3", features = ["serde"]}
-"derive_more" = "0.99.17"
+"derive_more" = "1.0.0"
 lalrpop-util = {version = "0.20.0",  features = ["lexer"]}
 "regex" = "1"
 log = "0.4.17"
